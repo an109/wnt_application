@@ -1,0 +1,75 @@
+import 'package:flutter/material.dart';
+import '../../../../common_widgets/logo.dart';
+import '../screen_sections/exclusive_offers/offers_carousel.dart';
+import '../screen_sections/faq/FAQ_section.dart';
+import '../screen_sections/popular_destination/popular_destination.dart';
+import '../../../airport/presentation/screen/search_card.dart';
+import '../screen_sections/top_banner/top_banner.dart';
+import '../screen_sections/trending_routes/trending_routes.dart';
+import '../screen_sections/why_choose_us/why_choose_us.dart';
+import '../../../../common_widgets/custom_bottom_nav.dart';
+import '../../../../common_widgets/custom_drawer.dart';
+
+class HomeScreen extends StatefulWidget {
+  const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  int currentIndex = 0;
+  double bannerHeight = 200;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      drawer: const CustomDrawer(),
+      appBar: AppBar(
+        // title: const Text("WanderNova"),
+        title: const WanderNovaLogo(scaleFactor: 0.6),
+        backgroundColor: Colors.white,
+        actions: [
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Image.asset("assets/images/wander_nova_logo.jpg", height: 35),
+          )
+        ],
+      ),
+      body: CustomScrollView(
+        slivers: [
+          // Banner and Search Card section
+          SliverToBoxAdapter(
+            child: Column(
+              children: [
+                // Banner only (reduced height)
+                SizedBox(
+                  height: bannerHeight,
+                  child: const TopBanner(),
+                ),
+
+                // Search Card below banner with negative top margin
+                Transform.translate(
+                  offset: const Offset(0, -120), // Move up to overlap
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16),
+                    child: SearchCard(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SliverToBoxAdapter(child: OffersCarousel()),
+          const SliverToBoxAdapter(child: PopularDestinations()),
+          const SliverToBoxAdapter(child: TrendingPackages()),
+          const SliverToBoxAdapter(child: FAQSection()),
+          const SliverToBoxAdapter(child: WhyChooseUs()),
+        ],
+      ),
+      bottomNavigationBar: CustomBottomNav(
+        currentIndex: currentIndex,
+        onTap: (i) => setState(() => currentIndex = i),
+      ),
+    );
+  }
+}
