@@ -7,7 +7,7 @@ import '../../domain/entities/airport_entities.dart';
 import '../bloc/airport_bloc.dart';
 import '../bloc/airport_event.dart';
 import '../bloc/airport_state.dart';
-import '../../../flight/presentation/flight_search_screen.dart';
+import '../../../flight_search/presentation/screen/flight_search_screen.dart';
 
 class SearchCard extends StatefulWidget {
   const SearchCard({super.key});
@@ -17,7 +17,7 @@ class SearchCard extends StatefulWidget {
 }
 
 class _SearchCardState extends State<SearchCard> {
-  bool isRoundTrip = true;
+  bool isRoundTrip = false;
 
   // Store selected airports
   AirportEntity? fromAirport;
@@ -30,10 +30,71 @@ class _SearchCardState extends State<SearchCard> {
   int infants = 0;
 
   String travelClass = "Economy";
+  bool _isLoadingAirports = true;
 
-  // Country filter
-  String selectedCountry = "US";
-  // final List<String> countries = ["US", "IN", "AE", "GB", "AU"];
+  void _performSearch() async {
+    print(' All validations passed - starting search');
+
+    try {
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ProfessionalLoadingScreen(
+            searchParams: {
+              'fromAirport': fromAirport,
+              'toAirport': toAirport,
+              'departureDate': departureDate,
+              'returnDate': returnDate,
+              'adults': adults,
+              'children': children,
+              'infants': infants,
+              'class': travelClass,
+              'isRoundTrip': isRoundTrip,
+            },
+
+            onLoadingComplete: () async {
+              print('🚀 Loading complete - opening flight screen');
+
+              // FIRST close loading screen
+              Navigator.of(context).pop();
+
+              // IMPORTANT
+              await Future.delayed(const Duration(milliseconds: 300));
+
+              if (!mounted) return;
+
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => FlightSearchScreen(
+                    from: fromAirport!.cityName,
+                    to: toAirport!.cityName,
+                    fromCode: fromAirport!.airportCode,
+                    toCode: toAirport!.airportCode,
+                    fromAirport: fromAirport!.airportName,
+                    toAirport: toAirport!.airportName,
+                    date: departureDate,
+                    travellers: adults + children + infants,
+                    adults: adults,
+                    children: children,
+                    infants: infants,
+                    travelClass: travelClass,
+                    isRoundTrip: isRoundTrip,
+                    returnDate: returnDate,
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      );
+    } catch (e) {
+      print('❌ Search navigation error: $e');
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: ${e.toString()}')),
+      );
+    }
+  }
 
   @override
   void initState() {
@@ -42,8 +103,8 @@ class _SearchCardState extends State<SearchCard> {
 
     // Load airports for default country
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      print(' [SearchCard] Loading airports for country: $selectedCountry');
-      context.read<AirportBloc>().add(LoadAirports(country: selectedCountry));
+      print(' [SearchCard] >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>');
+      context.read<AirportBloc>().add(LoadAirports());
     });
   }
 
@@ -305,174 +366,6 @@ class _SearchCardState extends State<SearchCard> {
       ],
     );
   }
-  //
-  // void _openTravellerSheet() {
-  //   print(' [SearchCard] Opening traveller sheet');
-  //
-  //   showModalBottomSheet(
-  //     context: context,
-  //     shape: const RoundedRectangleBorder(
-  //       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-  //     ),
-  //     builder: (context) {
-  //       return StatefulBuilder(
-  //         builder: (context, setModalState) {
-  //           return Padding(
-  //             padding: const EdgeInsets.all(16),
-  //             child: Column(
-  //               mainAxisSize: MainAxisSize.min,
-  //               children: [
-  //                 /// ADULTS
-  //                 _counterRow(
-  //                   title: "Adults (12+ yrs)",
-  //                   value: adults,
-  //                   onIncrement: () {
-  //                     print('➕ [TravellerSheet] Adults incremented: ${adults + 1}');
-  //                     setModalState(() => adults++);
-  //                   },
-  //                   onDecrement: () {
-  //                     if (adults > 1) {
-  //                       print('➖ [TravellerSheet] Adults decremented: ${adults - 1}');
-  //                       setModalState(() => adults--);
-  //                     }
-  //                   },
-  //                 ),
-  //
-  //                 /// CHILDREN
-  //                 _counterRow(
-  //                   title: "Children (2-12 yrs)",
-  //                   value: children,
-  //                   onIncrement: () {
-  //                     print('➕ [TravellerSheet] Children incremented: ${children + 1}');
-  //                     setModalState(() => children++);
-  //                   },
-  //                   onDecrement: () {
-  //                     if (children > 0) {
-  //                       print('➖ [TravellerSheet] Children decremented: ${children - 1}');
-  //                       setModalState(() => children--);
-  //                     }
-  //                   },
-  //                 ),
-  //
-  //                 /// INFANTS
-  //                 _counterRow(
-  //                   title: "Infants (0-2 yrs)",
-  //                   value: infants,
-  //                   onIncrement: () {
-  //                     print('➕ [TravellerSheet] Infants incremented: ${infants + 1}');
-  //                     setModalState(() => infants++);
-  //                   },
-  //                   onDecrement: () {
-  //                     if (infants > 0) {
-  //                       print('➖ [TravellerSheet] Infants decremented: ${infants - 1}');
-  //                       setModalState(() => infants--);
-  //                     }
-  //                   },
-  //                 ),
-  //
-  //                 const SizedBox(height: 12),
-  //
-  //                 /// CLASS SELECTION
-  //                 Align(
-  //                   alignment: Alignment.centerLeft,
-  //                   child: Text(
-  //                     "Travel Class",
-  //                     style: TextStyle(fontWeight: FontWeight.bold),
-  //                   ),
-  //                 ),
-  //
-  //                 Wrap(
-  //                   spacing: 10,
-  //                   children: ["Economy", "Premium Economy", "Business", "First"]
-  //                       .map((cls) => ChoiceChip(
-  //                     label: Text(cls),
-  //                     selected: travelClass == cls,
-  //                     onSelected: (_) {
-  //                       print('🎫 [TravellerSheet] Class changed to: $cls');
-  //                       setModalState(() {
-  //                         travelClass = cls;
-  //                       });
-  //                     },
-  //                   ))
-  //                       .toList(),
-  //                 ),
-  //
-  //                 const SizedBox(height: 20),
-  //
-  //                 /// APPLY BUTTON
-  //                 SizedBox(
-  //                   width: double.infinity,
-  //                   child: ElevatedButton(
-  //                     onPressed: () {
-  //                       print(' [TravellerSheet] Apply pressed');
-  //                       setState(() {});
-  //                       Navigator.pop(context);
-  //                     },
-  //                     style: ElevatedButton.styleFrom(
-  //                       backgroundColor: const Color(0xFFFF3B30),
-  //                     ),
-  //                     child: Text(
-  //                       "APPLY",
-  //                       style: TextStyle(
-  //                         color: Colors.white,
-  //                         fontSize: 16,
-  //                         fontWeight: FontWeight.bold,
-  //                       ),
-  //                     ),
-  //                   ),
-  //                 )
-  //               ],
-  //             ),
-  //           );
-  //         },
-  //       );
-  //     },
-  //   );
-  // }
-  //
-  // Widget _counterRow({
-  //   required String title,
-  //   required int value,
-  //   required VoidCallback onIncrement,
-  //   required VoidCallback onDecrement,
-  // }) {
-  //   return Padding(
-  //     padding: const EdgeInsets.symmetric(vertical: 8),
-  //     child: Row(
-  //       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-  //       children: [
-  //         Text(title),
-  //         Row(
-  //           children: [
-  //             IconButton(
-  //               onPressed: onDecrement,
-  //               icon: const Icon(Icons.remove_circle_outline),
-  //             ),
-  //             Text(
-  //               value.toString(),
-  //               style: const TextStyle(fontWeight: FontWeight.bold),
-  //             ),
-  //             IconButton(
-  //               onPressed: onIncrement,
-  //               icon: const Icon(Icons.add_circle_outline),
-  //             ),
-  //           ],
-  //         )
-  //       ],
-  //     ),
-  //   );
-  // }
-
-  void _changeCountry(String newCountry) {
-    print(' [SearchCard] Changing country from $selectedCountry to $newCountry');
-    setState(() {
-      selectedCountry = newCountry;
-      fromAirport = null;
-      toAirport = null;
-    });
-    // Reload airports for new country
-    context.read<AirportBloc>().add(LoadAirports(country: newCountry));
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -482,13 +375,8 @@ class _SearchCardState extends State<SearchCard> {
       listener: (context, state) {
         if (state is AirportError) {
           print(' [SearchCard] Airport loading error: ${state.message}');
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Failed to load airports: ${state.message}'),
-              backgroundColor: Colors.red,
-            ),
-          );
         } else if (state is AirportLoaded) {
+          setState(() => _isLoadingAirports = false);
           print(' [SearchCard] Airports loaded: ${state.airports.length} airports');
         }
       },
@@ -549,37 +437,6 @@ class _SearchCardState extends State<SearchCard> {
 
               const SizedBox(height: 16),
 
-              /// Country Filter Dropdown
-              // Row(
-              //   children: [
-              //     const Text("Country: ", style: TextStyle(fontWeight: FontWeight.bold)),
-              //     Expanded(
-              //       child: DropdownButton<String>(
-              //         value: selectedCountry,
-              //         isExpanded: true,
-              //         items: countries.map((country) {
-              //           return DropdownMenuItem(
-              //             value: country,
-              //             child: Text(_getCountryName(country)),
-              //           );
-              //         }).toList(),
-              //         onChanged: (value) {
-              //           if (value != null) {
-              //             _changeCountry(value);
-              //           }
-              //         },
-              //       ),
-              //     ),
-              //     if (isLoading)
-              //       const SizedBox(
-              //         width: 20,
-              //         height: 20,
-              //         child: CircularProgressIndicator(strokeWidth: 2),
-              //       ),
-              //   ],
-              // ),
-
-              // const SizedBox(height: 12),
 
               /// FROM - TO with Dynamic Airports
               Container(
@@ -596,15 +453,36 @@ class _SearchCardState extends State<SearchCard> {
                         // FROM field with dynamic airports
                         CustomAutocompleteGeneric<AirportEntity>(
                           options: airports,
-                          label: "From (Airport)",
+                          label: "From",
                           displayStringForOption: (airport) =>
-                          "${airport.airportName} (${airport.airportCode})",
+                          "${airport.cityName} (${airport.airportCode})",
+                          searchStringForOption: (airport) =>
+                          "${airport.airportName} ${airport.airportCode} ${airport.cityName}",
                           initialText: fromAirport != null
-                              ? "${fromAirport!.airportName} (${fromAirport!.airportCode})"
+                              ? "${fromAirport!.cityName} (${fromAirport!.airportCode})"
                               : null,
-                          debounceDuration: const Duration(milliseconds: 300),
+                          debounceDuration: const Duration(milliseconds: 500), // Longer for API
+                          onSearchChanged: (query) {  // 🔴 ADD THIS BLOCK
+                            print('🔍🔍🔍 SEARCHING FOR: "$query"');
+                            if (query.trim().isNotEmpty) {
+                              // Call API with search query
+                              context.read<AirportBloc>().add(LoadAirports(searchQuery: query));
+                            } else {
+                              // Load default airports when empty
+                              context.read<AirportBloc>().add(LoadAirports());
+                            }
+                          },
                           onSelected: (airport) {
-                            print(' [SearchCard] FROM selected: ${airport.airportName} (${airport.airportCode})');
+                            if (toAirport != null && toAirport!.airportCode == airport.airportCode) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Origin and destination cannot be the same airport'),
+                                  backgroundColor: Colors.red,
+                                  duration: Duration(seconds: 2),
+                                ),
+                              );
+                              return;
+                            }
                             setState(() {
                               fromAirport = airport;
                             });
@@ -619,15 +497,34 @@ class _SearchCardState extends State<SearchCard> {
                         // TO field with dynamic airports
                         CustomAutocompleteGeneric<AirportEntity>(
                           options: airports,
-                          label: "To (Airport)",
+                          label: "To",
                           displayStringForOption: (airport) =>
-                          "${airport!.airportName} (${airport.airportCode})",
+                          "${airport.cityName} (${airport.airportCode})",
+                          searchStringForOption: (airport) =>
+                          "${airport.airportName} ${airport.airportCode} ${airport.cityName}",
                           initialText: toAirport != null
-                              ? "${toAirport!.airportName} (${toAirport!.airportCode})"
+                              ? "${toAirport!.cityName} (${toAirport!.airportCode})"
                               : null,
-                          debounceDuration: const Duration(milliseconds: 300),
+                          debounceDuration: const Duration(milliseconds: 500),
+                          onSearchChanged: (query) {  // 🔴 ADD THIS
+                            print('🔍🔍🔍 SEARCHING FOR: "$query"');
+                            if (query.trim().isNotEmpty) {
+                              context.read<AirportBloc>().add(LoadAirports(searchQuery: query));
+                            } else {
+                              context.read<AirportBloc>().add(LoadAirports());
+                            }
+                          },
                           onSelected: (airport) {
-                            print(' [SearchCard] TO selected: ${airport.airportName} (${airport.airportCode})');
+                            if (fromAirport != null && fromAirport!.airportCode == airport.airportCode) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Origin and destination cannot be the same airport'),
+                                  backgroundColor: Colors.red,
+                                  duration: Duration(seconds: 2),
+                                ),
+                              );
+                              return;
+                            }
                             setState(() {
                               toAirport = airport;
                             });
@@ -662,89 +559,6 @@ class _SearchCardState extends State<SearchCard> {
                   ],
                 ),
               ),
-
-              // Container(
-              //   padding: const EdgeInsets.all(12),
-              //   decoration: BoxDecoration(
-              //     border: Border.all(color: Colors.grey.shade300),
-              //     borderRadius: BorderRadius.circular(14),
-              //   ),
-              //   child: Stack(
-              //     alignment: Alignment.center,
-              //     children: [
-              //       Column(
-              //         children: [
-              //           // FROM field - with bottom border only
-              //           Container(
-              //             decoration: const BoxDecoration(
-              //               border: Border(
-              //                 bottom: BorderSide(color: Colors.grey, width: 1),
-              //               ),
-              //             ),
-              //             child: CustomAutocompleteGeneric<AirportEntity>(
-              //               options: airports,
-              //               label: "From (Airport)",
-              //               displayStringForOption: (airport) =>
-              //               "${airport.airportName} (${airport.airportCode})",
-              //               initialText: fromAirport != null
-              //                   ? "${fromAirport!.airportName} (${fromAirport!.airportCode})"
-              //                   : null,
-              //               debounceDuration: const Duration(milliseconds: 300),
-              //               onSelected: (airport) {
-              //                 print(' [SearchCard] FROM selected: ${airport.airportName} (${airport.airportCode})');
-              //                 setState(() {
-              //                   fromAirport = airport;
-              //                 });
-              //               },
-              //             ),
-              //           ),
-              //
-              //           // TO field - no top border, just normal
-              //           CustomAutocompleteGeneric<AirportEntity>(
-              //             options: airports,
-              //             label: "To (Airport)",
-              //             displayStringForOption: (airport) =>
-              //             "${airport!.airportName} (${airport.airportCode})",
-              //             initialText: toAirport != null
-              //                 ? "${toAirport!.airportName} (${toAirport!.airportCode})"
-              //                 : null,
-              //             debounceDuration: const Duration(milliseconds: 300),
-              //             onSelected: (airport) {
-              //               print(' [SearchCard] TO selected: ${airport.airportName} (${airport.airportCode})');
-              //               setState(() {
-              //                 toAirport = airport;
-              //               });
-              //             },
-              //           ),
-              //         ],
-              //       ),
-              //
-              //       /// Swap Button
-              //       GestureDetector(
-              //         onTap: () {
-              //           print(' [SearchCard] Swapping airports');
-              //           setState(() {
-              //             final temp = fromAirport;
-              //             fromAirport = toAirport;
-              //             toAirport = temp;
-              //           });
-              //         },
-              //         child: Container(
-              //           padding: const EdgeInsets.all(2),
-              //           decoration: const BoxDecoration(
-              //             color: Colors.white,
-              //             shape: BoxShape.circle,
-              //           ),
-              //           child: const CircleAvatar(
-              //             radius: 18,
-              //             backgroundColor: Colors.blue,
-              //             child: Icon(Icons.swap_vert, color: Colors.white, size: 20),
-              //           ),
-              //         ),
-              //       ),
-              //     ],
-              //   ),
-              // ),
 
               const SizedBox(height: 12),
 
@@ -805,61 +619,8 @@ class _SearchCardState extends State<SearchCard> {
                 child: SizedBox(
                   height: 45,
                   child: ElevatedButton.icon(
-                    onPressed: airports.isEmpty || fromAirport == null || toAirport == null || departureDate == null
-                        ? null
-                        : () async {
-                      print(' [SearchCard] Search button tapped');
-                      print(' [SearchCard] Search params:');
-                      print('   From: ${fromAirport!.airportName} (${fromAirport!.airportCode})');
-                      print('   To: ${toAirport!.airportName} (${toAirport!.airportCode})');
-                      print('   Departure: ${DateFormat('dd MMM yyyy').format(departureDate!)}');
-                      print('   Return: ${isRoundTrip && returnDate != null ? DateFormat('dd MMM yyyy').format(returnDate!) : "N/A"}');
-                      print('   Travellers: $adults adults, $children children, $infants infants');
-                      print('   Class: $travelClass');
-
-                      await Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => ProfessionalLoadingScreen(
-                            searchParams: {
-                              'fromAirport': fromAirport,
-                              'toAirport': toAirport,
-                              'departureDate': departureDate,
-                              'returnDate': returnDate,
-                              'adults': adults,
-                              'children': children,
-                              'infants': infants,
-                              'class': travelClass,
-                              'isRoundTrip': isRoundTrip,
-                            },
-                            onLoadingComplete: () {
-                              print(' [SearchCard] Loading complete');
-                              Navigator.pop(context);
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => FlightSearchScreen(
-                                    from: fromAirport!.cityName,
-                                    to: toAirport!.cityName,
-                                    fromCode: fromAirport!.airportCode,
-                                    toCode: toAirport!.airportCode,
-                                    fromAirport: fromAirport!.airportName,
-                                    toAirport: toAirport!.airportName,
-                                    date: departureDate,
-                                    travellers: adults + children + infants,
-                                    adults: adults,
-                                    children: children,
-                                    infants: infants,
-                                    travelClass: travelClass,
-                                    isRoundTrip: isRoundTrip,
-                                    returnDate: returnDate,
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                      );
+                    onPressed: () {
+                      _performSearch();
                     },
                     icon: const Icon(Icons.search, size: 18, color: Colors.white),
                     label: const Text(
@@ -950,17 +711,6 @@ class _SearchCardState extends State<SearchCard> {
           }
         }
       });
-    }
-  }
-
-  String _getCountryName(String code) {
-    switch (code) {
-      case "US": return "United States";
-      case "IN": return "India";
-      case "AE": return "United Arab Emirates";
-      case "GB": return "United Kingdom";
-      case "AU": return "Australia";
-      default: return code;
     }
   }
 }

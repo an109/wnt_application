@@ -1,0 +1,42 @@
+{
+  "project_info": {
+    "project_number": "99880015098",
+    "project_id": "wandernova-493912"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:99880015098:android:0000000000000000",
+        "android_client_info": {
+          "package_name": "com.example.wander_nova"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "99880015098-o585d840371c4j01vc2alcrqa74mevdh.apps.googleusercontent.com",
+          "client_type": 3
+        },
+        {
+          "client_id": "99880015098-3bothf029lmtpts3u0ijcr115e1ss6r5.apps.googleusercontent.com",
+          "client_type": 1
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBUgMjct6QR1cmkO_4eYu2WQGTZGCIz8ng"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "99880015098-o585d840371c4j01vc2alcrqa74mevdh.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

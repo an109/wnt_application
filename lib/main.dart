@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wander_nova/splash/splash_screen.dart';
 import 'package:wander_nova/views/airport/presentation/bloc/airport_bloc.dart';
+import 'package:wander_nova/views/auth/presentation/bloc/auth_bloc.dart';
+import 'package:wander_nova/views/flight_search/presentation/bloc/flight_search_bloc.dart';
 
 import 'injection_container.dart' as di;
 
@@ -19,9 +21,9 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiBlocProvider(
       providers: [
-        BlocProvider(
-          create: (_) => di.sl<AirportBloc>(),
-        ),
+        BlocProvider(create: (_) => di.sl<AirportBloc>(),),
+        BlocProvider(create: (_) => di.sl<AuthBloc>(),),
+        BlocProvider(create: (_) => di.sl<FlightSearchBloc>(),),
         // Add more BlocProviders here
       ],
 

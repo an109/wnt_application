@@ -7,7 +7,12 @@ class GetAirportsUsecase {
 
   GetAirportsUsecase(this.repository);
 
-  Future<DataState<List<AirportEntity>>> call({String? country}) async {
-    return await repository.getAirports(country: country);
+  Future<DataState<List<AirportEntity>>> call({String? country,
+    String? searchQuery,
+  }) async {
+    return await repository.getAirports(
+        country: country,
+        searchQuery: searchQuery,
+    );
   }
 }

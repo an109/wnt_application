@@ -1,60 +1,3 @@
-// import 'package:dio/dio.dart';
-// import 'package:flutter_bloc/flutter_bloc.dart';
-// import '../../../../core/error/data_state.dart';
-// import '../../domain/usecases/get_airport_usecase.dart';
-// import 'airport_event.dart';
-// import 'airport_state.dart';
-//
-// class AirportBloc extends Bloc<AirportEvent, AirportState> {
-//   final GetAirportsUsecase getAirportsUsecase;
-//
-//   AirportBloc(this.getAirportsUsecase) : super(AirportInitial()) {
-//     on<LoadAirports>(_onLoadAirports);
-//   }
-//
-//   Future<void> _onLoadAirports(
-//       LoadAirports event,
-//       Emitter<AirportState> emit,
-//       ) async {
-//     emit(AirportLoading());
-//
-//     final result = await getAirportsUsecase(country: event.country);
-//
-//     if (result is DataSuccess) {
-//       emit(AirportLoaded(result.data!));
-//     } else if (result is DataFailed) {
-//       String errorMessage = 'An error occurred';
-//       if (result.error != null) {
-//         // Handle different DioException types
-//         switch (result.error!.type) {
-//           case DioExceptionType.connectionTimeout:
-//           case DioExceptionType.receiveTimeout:
-//             errorMessage = 'Connection timeout. Please check your internet.';
-//             break;
-//           case DioExceptionType.badResponse:
-//             final statusCode = result.error!.response?.statusCode;
-//             if (statusCode == 401) {
-//               errorMessage = 'Unauthorized. Please login again.';
-//             } else if (statusCode == 404) {
-//               errorMessage = 'Airports not found.';
-//             } else if (statusCode != null && statusCode >= 500) {
-//               errorMessage = 'Server error. Please try again later.';
-//             } else {
-//               errorMessage = result.error!.message ?? 'Request failed';
-//             }
-//             break;
-//           case DioExceptionType.cancel:
-//             errorMessage = 'Request cancelled';
-//             break;
-//           default:
-//             errorMessage = result.error!.message ?? 'Unknown error';
-//         }
-//       }
-//       emit(AirportError(errorMessage));
-//     }
-//   }
-// }
-
 import 'package:dio/dio.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/error/data_state.dart';
@@ -73,14 +16,19 @@ class AirportBloc extends Bloc<AirportEvent, AirportState> {
   Future<void> _onLoadAirports(
     LoadAirports event,
     Emitter<AirportState> emit,
-  ) async {
+  )
+  async {
     print('[AirportBloc] LoadAirports event triggered');
     print('[AirportBloc] Country: ${event.country}');
 
     emit(AirportLoading());
     print('[AirportBloc] State changed to AirportLoading');
 
-    final result = await getAirportsUsecase(country: event.country);
+    // final result = await getAirportsUsecase(country: event.country);
+    final result = await getAirportsUsecase(
+      country: event.country,
+      searchQuery: event.searchQuery,  // Pass search query
+    );
 
     print('[AirportBloc] API response received');
 

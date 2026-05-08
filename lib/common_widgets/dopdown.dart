@@ -6,10 +6,12 @@ class CustomAutocompleteGeneric<T extends Object> extends StatefulWidget {
   final List<T> options;
   final String label;
   final void Function(T) onSelected;
-  final String Function(T) displayStringForOption;
+  final String Function(T) displayStringForOption;  // For displaying after selection
+  final String Function(T) searchStringForOption;
   final String? initialText;
   final FocusNode? focusNode;
   final Duration debounceDuration; // New parameter for debounce control
+  final void Function(String)? onSearchChanged;
 
   const CustomAutocompleteGeneric({
     super.key,
@@ -17,9 +19,11 @@ class CustomAutocompleteGeneric<T extends Object> extends StatefulWidget {
     required this.label,
     required this.onSelected,
     required this.displayStringForOption,
+    required this.searchStringForOption,
     this.initialText,
     this.focusNode,
     this.debounceDuration = const Duration(milliseconds: 300), //  Default 300ms
+    this.onSearchChanged,
   });
 
   @override
@@ -49,36 +53,66 @@ class _CustomAutocompleteGenericState<T extends Object>
     _controller.addListener(_onTextChanged);
   }
 
+  @override
+  void didUpdateWidget(covariant CustomAutocompleteGeneric<T> oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.options != widget.options) {
+      _filterOptions(_controller.text);
+    }
+  }
+
   //  Debounced text change handler
   void _onTextChanged() {
     print('[Autocomplete] Text changed: "${_controller.text}" - ${widget.label}');
 
-    // Cancel previous timer
     _debounceTimer?.cancel();
-
-    // Start new debounce timer
     _debounceTimer = Timer(widget.debounceDuration, () {
-      print('️ [Autocomplete] Debounce triggered: "${_controller.text}" - ${widget.label}');
-      _filterOptions(_controller.text);
+      final searchText = _controller.text;
+      print('Debounce triggered: "$searchText" - ${widget.label}');
+
+      // 🔴 ADD THIS - Call the search callback
+      if (widget.onSearchChanged != null) {
+        widget.onSearchChanged!(searchText);
+      }
+
+      _filterOptions(searchText);
     });
   }
-
   //  Filter options based on input
+  // void _filterOptions(String input) {
+  //   final lowercaseInput = input.toLowerCase().trim();
+  //
+  //   if (lowercaseInput.isEmpty && _focusNode.hasFocus) {
+  //     print('[Autocomplete] Showing all options: ${widget.options.length} - ${widget.label}');
+  //     setState(() {
+  //       _filteredOptions = widget.options;
+  //     });
+  //   } else {
+  //     final filtered = widget.options.where((option) {
+  //       final display = widget.displayStringForOption(option).toLowerCase();
+  //       return display.contains(lowercaseInput);
+  //     }).toList();
+  //
+  //     print('[Autocomplete] Filtered to ${filtered.length} results: "$lowercaseInput" - ${widget.label}');
+  //
+  //     setState(() {
+  //       _filteredOptions = filtered;
+  //     });
+  //   }
+  // }
   void _filterOptions(String input) {
     final lowercaseInput = input.toLowerCase().trim();
 
     if (lowercaseInput.isEmpty && _focusNode.hasFocus) {
-      print('[Autocomplete] Showing all options: ${widget.options.length} - ${widget.label}');
       setState(() {
         _filteredOptions = widget.options;
       });
     } else {
       final filtered = widget.options.where((option) {
-        final display = widget.displayStringForOption(option).toLowerCase();
-        return display.contains(lowercaseInput);
+        // SEARCH using searchStringForOption
+        final searchText = widget.searchStringForOption(option).toLowerCase();
+        return searchText.contains(lowercaseInput);
       }).toList();
-
-      print('[Autocomplete] Filtered to ${filtered.length} results: "$lowercaseInput" - ${widget.label}');
 
       setState(() {
         _filteredOptions = filtered;

@@ -1,5 +1,4 @@
 import 'package:equatable/equatable.dart';
-import 'segment_entity.dart';
 
 class FlightSearchRequestEntity extends Equatable {
   final String endUserIp;
@@ -7,13 +6,13 @@ class FlightSearchRequestEntity extends Equatable {
   final int childCount;
   final int infantCount;
   final int journeyType;
-  final List<SegmentEntity> segments;
+  final List<FlightSegmentEntity> segments;
 
   const FlightSearchRequestEntity({
     required this.endUserIp,
     required this.adultCount,
-    this.childCount = 0,
-    this.infantCount = 0,
+    required this.childCount,
+    required this.infantCount,
     required this.journeyType,
     required this.segments,
   });
@@ -26,5 +25,30 @@ class FlightSearchRequestEntity extends Equatable {
     infantCount,
     journeyType,
     segments,
+  ];
+}
+
+class FlightSegmentEntity extends Equatable {
+  final String origin;
+  final String destination;
+  final int flightCabinClass;
+  final String preferredDepartureTime;
+  final String preferredArrivalTime;
+
+  const FlightSegmentEntity({
+    required this.origin,
+    required this.destination,
+    required this.flightCabinClass,
+    required this.preferredDepartureTime,
+    required this.preferredArrivalTime,
+  });
+
+  @override
+  List<Object?> get props => [
+    origin,
+    destination,
+    flightCabinClass,
+    preferredDepartureTime,
+    preferredArrivalTime,
   ];
 }
