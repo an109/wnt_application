@@ -245,9 +245,12 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
             return _buildEmptyState();
           },
         ),
-        bottomNavigationBar: CustomBottomNav(
-          currentIndex: currentIndex,
-          onTap: (i) => setState(() => currentIndex = i),
+        // bottomNavigationBar: CustomBottomNav(
+        //   currentIndex: currentIndex,
+        //   onTap: (i) => setState(() => currentIndex = i),
+        // ),
+        bottomNavigationBar: const CustomBottomNav(
+          currentIndex: 1,
         ),
       ),
     );

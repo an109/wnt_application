@@ -164,7 +164,7 @@ class _ProfessionalLoadingScreenState extends State<ProfessionalLoadingScreen> {
       ),
       bottomNavigationBar: CustomBottomNav(
         currentIndex: currentIndex,
-        onTap: (i) => setState(() => currentIndex = i),
+        // onTap: (i) => setState(() => currentIndex = i),
       ),
     );
   }

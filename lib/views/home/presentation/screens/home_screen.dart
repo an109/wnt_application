@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import '../../../../common_widgets/logo.dart';
+import '../../../Hotel/screen/hotel_screen.dart';
+import '../../../Hotel/section/exclusive_deals/travel_stories.dart';
 import '../screen_sections/exclusive_offers/offers_carousel.dart';
 import '../screen_sections/faq/FAQ_section.dart';
 import '../screen_sections/popular_destination/popular_destination.dart';
 import '../../../airport/presentation/screen/search_card.dart';
-import '../screen_sections/top_banner/top_banner.dart';
 import '../screen_sections/trending_routes/trending_routes.dart';
 import '../screen_sections/why_choose_us/why_choose_us.dart';
 import '../../../../common_widgets/custom_bottom_nav.dart';
@@ -26,7 +28,6 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       drawer: const CustomDrawer(),
       appBar: AppBar(
-        // title: const Text("WanderNova"),
         title: const WanderNovaLogo(scaleFactor: 0.6),
         backgroundColor: Colors.white,
         actions: [
@@ -36,39 +37,135 @@ class _HomeScreenState extends State<HomeScreen> {
           )
         ],
       ),
+      // body: CustomScrollView(
+      //   slivers: [
+      //     // Banner and Search Card section
+      //     SliverToBoxAdapter(
+      //       child: Column(
+      //         children: [
+      //           // Banner only (reduced height)
+      //           SizedBox(
+      //             height: bannerHeight,
+      //             child: const TopBanner(),
+      //           ),
+      //
+      //           // Search Card below banner with negative top margin
+      //           Transform.translate(
+      //             offset: const Offset(0, -120),
+      //             child: const Padding(
+      //               padding: EdgeInsets.symmetric(horizontal: 16),
+      //               child: SearchCard(),
+      //             ),
+      //           ),
+      //         ],
+      //       ),
+      //     ),
+      //     const SliverToBoxAdapter(child: OffersCarousel()),
+      //     const SliverToBoxAdapter(child: PopularDestinations()),
+      //     const SliverToBoxAdapter(child: TrendingPackages()),
+      //     const SliverToBoxAdapter(child: FAQSection()),
+      //     const SliverToBoxAdapter(child: WhyChooseUs()),
+      //   ],
+      // ),
       body: CustomScrollView(
+        physics: const BouncingScrollPhysics(),
         slivers: [
-          // Banner and Search Card section
+
+          /// TOP IMAGE + SEARCH CARD
           SliverToBoxAdapter(
-            child: Column(
+            child: Stack(
+              clipBehavior: Clip.none,
               children: [
-                // Banner only (reduced height)
+
+                /// BACKGROUND IMAGE
                 SizedBox(
-                  height: bannerHeight,
-                  child: const TopBanner(),
+                  height: context.hp(65),
+                  width: double.infinity,
+                  child: Image.network(
+                    "https://images.unsplash.com/photo-1436491865332-7a61a109cc05?q=80&w=1200&auto=format&fit=crop",
+                    fit: BoxFit.cover,
+                  ),
                 ),
 
-                // Search Card below banner with negative top margin
-                Transform.translate(
-                  offset: const Offset(0, -120), // Move up to overlap
-                  child: const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 16),
+                /// DARK OVERLAY
+                IgnorePointer(
+                  ignoring: true,
+                  child: Container(
+                    height: 350,
+                    color: Colors.black.withOpacity(0.30),
+                  ),
+                ),
+
+                /// TITLE
+                Positioned(
+                  top: 50,
+                  left: 20,
+                  child: Row(
+                    children: const [
+                      Icon(
+                        Icons.flight_takeoff,
+                        color: Colors.white,
+                        size: 32,
+                      ),
+
+                      SizedBox(width: 10),
+
+                      Text(
+                        "Book Flights",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                /// SEARCH CARD
+                // Positioned(
+                //   left: 16,
+                //   right: 16,
+                //   bottom: -70,
+                //   child: Material(
+                //     color: Colors.transparent,
+                //     child: SearchCard(),
+                //   ),
+                // ),
+                Positioned(
+                  left: context.wp(4),
+                  right: context.wp(4),
+                  // bottom: 0,
+                  bottom: -context.hp(4),
+                  child: Material(
+                    color: Colors.transparent,
                     child: SearchCard(),
                   ),
                 ),
               ],
             ),
           ),
+
+          /// SPACE BELOW OVERLAPPING CARD
+          const SliverToBoxAdapter(
+            child: SizedBox(height: 90),
+          ),
+
           const SliverToBoxAdapter(child: OffersCarousel()),
           const SliverToBoxAdapter(child: PopularDestinations()),
           const SliverToBoxAdapter(child: TrendingPackages()),
           const SliverToBoxAdapter(child: FAQSection()),
+          const SliverToBoxAdapter(child: TravelStoriesSection()),
           const SliverToBoxAdapter(child: WhyChooseUs()),
+
+          const SliverToBoxAdapter(
+            child: SizedBox(height: 40),
+          ),
         ],
       ),
-      bottomNavigationBar: CustomBottomNav(
-        currentIndex: currentIndex,
-        onTap: (i) => setState(() => currentIndex = i),
+
+      bottomNavigationBar: const CustomBottomNav(
+        currentIndex: 0,
       ),
     );
   }
