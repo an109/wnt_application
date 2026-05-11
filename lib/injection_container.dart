@@ -12,11 +12,26 @@ import 'package:wander_nova/views/auth/domain/repository/auth_repository.dart';
 import 'package:wander_nova/views/auth/domain/usecase/google_auth_usecase.dart';
 import 'package:wander_nova/views/auth/presentation/bloc/auth_bloc.dart';
 import 'package:wander_nova/views/auth/presentation/sdk/google_sign_in_service.dart';
+import 'package:wander_nova/views/fare_quote/data/data_source/fare_quote_api_service.dart';
+import 'package:wander_nova/views/fare_quote/data/repository/fare_quote_repository_impl.dart';
+import 'package:wander_nova/views/fare_quote/domain/repository/fare_quote_repository.dart';
+import 'package:wander_nova/views/fare_quote/domain/usecase/fare_quote_usecase.dart';
+import 'package:wander_nova/views/fare_quote/presentation/bloc/fare_quote_bloc.dart';
+import 'package:wander_nova/views/fare_rule/data/data_sorce/fare_rule_api_service.dart';
+import 'package:wander_nova/views/fare_rule/data/repository/fare_rule_repository_impl.dart';
+import 'package:wander_nova/views/fare_rule/domain/repository/fare_rule_repository.dart';
+import 'package:wander_nova/views/fare_rule/domain/usecase/fare_rule_usecase.dart';
+import 'package:wander_nova/views/fare_rule/presentation/bloc/fare_rule_bloc.dart';
 import 'package:wander_nova/views/flight_search/data/data_source/flight_api_service.dart';
 import 'package:wander_nova/views/flight_search/data/repository/flight_repository_impl.dart';
 import 'package:wander_nova/views/flight_search/domain/repository/flight_repository.dart';
 import 'package:wander_nova/views/flight_search/domain/usecase/flight_search_usecase.dart';
 import 'package:wander_nova/views/flight_search/presentation/bloc/flight_search_bloc.dart';
+import 'package:wander_nova/views/flight_ssr/data/data_source/ssr_api_service.dart';
+import 'package:wander_nova/views/flight_ssr/data/repository/ssr_repository_impl.dart';
+import 'package:wander_nova/views/flight_ssr/domain/repository/ssr_repository.dart';
+import 'package:wander_nova/views/flight_ssr/domain/usecase/get_ssr_usecase.dart';
+import 'package:wander_nova/views/flight_ssr/presentation/bloc/ssr_bloc.dart';
 import 'core/network/dio_client.dart';
 import 'core/utils/storage/shared_preference.dart';
 import 'core/constants/urls.dart';
@@ -34,11 +49,7 @@ Future<void> initializeDependencies() async {
 
   // 2. Register DioClient
   sl.registerSingleton<DioClient>(DioClient(Urls.baseUrl));
-
-  sl.registerLazySingleton<Dio>(
-        () => sl<DioClient>().instance,
-  );
-
+  sl.registerLazySingleton<Dio>(() => sl<DioClient>().instance,);
 
 
   //   Register GoogleSignInService
@@ -52,54 +63,62 @@ Future<void> initializeDependencies() async {
 
   // Data Layer
   sl.registerLazySingleton<AirportApiService>(
-        () => AirportApiServiceImpl(sl<DioClient>().instance),
-  );
+        () => AirportApiServiceImpl(sl<DioClient>().instance),);
   sl.registerLazySingleton<AuthApiService>(
-        () => AuthApiServiceImpl(sl<Dio>()),
-  );
+        () => AuthApiServiceImpl(sl<Dio>()),);
   sl.registerLazySingleton<FlightApiService>(
-        () => FlightApiService(sl<DioClient>()),
-  );
-
+        () => FlightApiService(sl<DioClient>()),);
+  sl.registerFactory<FareRuleApiService>(
+        () => FareRuleApiServiceImpl(sl<DioClient>().instance),);
+  sl.registerFactory<FareQuoteApiService>(
+        () => FareQuoteApiServiceImpl(sl<DioClient>().instance),);
+  sl.registerFactory<SsrApiService>(
+          () => SsrApiServiceImpl(sl<DioClient>().instance));
 
 
   // Repository
   sl.registerLazySingleton<AirportRepository>(
-        () => AirportRepositoryImpl(sl()),
-  );
+        () => AirportRepositoryImpl(sl()),);
   sl.registerLazySingleton<AuthRepository>(
-        () => AuthRepositoryImpl(sl<AuthApiService>()),
-  );
-
+        () => AuthRepositoryImpl(sl<AuthApiService>()),);
   sl.registerLazySingleton<FlightRepository>(
-        () => FlightRepositoryImpl(sl<FlightApiService>()),
-  );
-
+        () => FlightRepositoryImpl(sl<FlightApiService>()),);
+  sl.registerFactory<FareRuleRepository>(
+        () => FareRuleRepositoryImpl(sl<FareRuleApiService>()),);
+  sl.registerFactory<FareQuoteRepository>(
+        () => FareQuoteRepositoryImpl(sl<FareQuoteApiService>()));
+  sl.registerFactory<SsrRepository>(
+          () => SsrRepositoryImpl(sl<SsrApiService>()));
 
 
 
   // Domain Layer - UseCases
   sl.registerLazySingleton<GetAirportsUsecase>(
-        () => GetAirportsUsecase(sl()),
-  );
+        () => GetAirportsUsecase(sl()),);
   sl.registerLazySingleton<GoogleLoginUseCase>(
-        () => GoogleLoginUseCase(sl<AuthRepository>()),
-  );
+        () => GoogleLoginUseCase(sl<AuthRepository>()),);
   sl.registerLazySingleton<SearchFlightsUseCase>(
-        () => SearchFlightsUseCase(sl<FlightRepository>()),
-  );
+        () => SearchFlightsUseCase(sl<FlightRepository>()),);
+  sl.registerLazySingleton<GetFareRulesUsecase>(
+          () => GetFareRulesUsecase(sl<FareRuleRepository>()));
+  sl.registerLazySingleton<FareQuoteUsecase>(
+        () => FareQuoteUsecase(sl<FareQuoteRepository>()),);
+  sl.registerLazySingleton<GetSsrUsecase>(
+          () => GetSsrUsecase(sl<SsrRepository>()));
 
 
 
   // Presentation Layer - Bloc
-  sl.registerFactory<AirportBloc>(() => AirportBloc(sl()),
-  );
+  sl.registerFactory<AirportBloc>(() => AirportBloc(sl()),);
   sl.registerFactory<AuthBloc>(
-        () => AuthBloc(googleLoginUseCase: sl<GoogleLoginUseCase>()),
-  );
-
+        () => AuthBloc(googleLoginUseCase: sl<GoogleLoginUseCase>()),);
   sl.registerFactory<FlightSearchBloc>(
-        () => FlightSearchBloc(sl<SearchFlightsUseCase>()),
-  );
+        () => FlightSearchBloc(sl<SearchFlightsUseCase>()),);
+  sl.registerFactory<FareRuleBloc>(
+        () => FareRuleBloc(getFareRulesUsecase: sl<GetFareRulesUsecase>()),);
+  sl.registerFactory<FareQuoteBloc>(
+        () => FareQuoteBloc(fareQuoteUsecase: sl<FareQuoteUsecase>()),);
+  sl.registerFactory<SsrBloc>(
+          () => SsrBloc(getSsrUsecase: sl<GetSsrUsecase>()));
 
 }

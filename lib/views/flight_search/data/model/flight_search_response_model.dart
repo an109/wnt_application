@@ -17,13 +17,19 @@ class FlightSearchResponseModel {
     final response = json['Response'] as Map<String, dynamic>;
     final results = response['Results'] as List<dynamic>? ?? [];
 
+    final responseTraceId = response['TraceId'] as String?;
+    print('🔍 Response TraceId: $responseTraceId');
+
     List<FlightModel> flights = [];
 
     for (var result in results) {
       if (result is List && result.isNotEmpty) {
         for (var flightData in result) {
           if (flightData is Map<String, dynamic>) {
-            flights.add(FlightModel.fromJson(flightData));
+            flights.add(FlightModel.fromJson(
+                flightData,
+              responseTraceId: responseTraceId,
+            ));
           }
         }
       }
@@ -31,7 +37,7 @@ class FlightSearchResponseModel {
 
     return FlightSearchResponseModel(
       flights: flights,
-      traceId: response['TraceId'] as String?,
+      traceId: responseTraceId,
       origin: response['Origin'] as String?,
       destination: response['Destination'] as String?,
     );

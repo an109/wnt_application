@@ -17,6 +17,7 @@ class FlightModel extends FlightEntity {
     double? totalFare,
     String? currency,
     int? seatsAvailable,
+    String? traceId,
   }) : super(
     resultIndex: resultIndex,
     airlineCode: airlineCode,
@@ -33,9 +34,10 @@ class FlightModel extends FlightEntity {
     totalFare: totalFare,
     currency: currency,
     seatsAvailable: seatsAvailable,
+    traceId: traceId,
   );
 
-  factory FlightModel.fromJson(Map<String, dynamic> json) {
+  factory FlightModel.fromJson(Map<String, dynamic> json, {String? responseTraceId}) {
     final fare = json['Fare'] as Map<String, dynamic>?;
 
     final segments = json['Segments'] as List<dynamic>?;
@@ -56,6 +58,7 @@ class FlightModel extends FlightEntity {
 
     return FlightModel(
       resultIndex: json['ResultIndex'] as String?,
+      traceId: responseTraceId,
       airlineCode:
       firstSegment?['Airline']?['AirlineCode'] as String?,
       airlineName:
@@ -79,6 +82,10 @@ class FlightModel extends FlightEntity {
   }
 
   Map<String, dynamic> toJson() {
+    print('========== FLIGHT DATA ==========');
+    print('TraceId: $traceId');
+    print('ResultIndex: $resultIndex');
+    print('==================================');
     return {
       'ResultIndex': resultIndex,
       'Fare': {

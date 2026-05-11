@@ -37,36 +37,6 @@ class _HomeScreenState extends State<HomeScreen> {
           )
         ],
       ),
-      // body: CustomScrollView(
-      //   slivers: [
-      //     // Banner and Search Card section
-      //     SliverToBoxAdapter(
-      //       child: Column(
-      //         children: [
-      //           // Banner only (reduced height)
-      //           SizedBox(
-      //             height: bannerHeight,
-      //             child: const TopBanner(),
-      //           ),
-      //
-      //           // Search Card below banner with negative top margin
-      //           Transform.translate(
-      //             offset: const Offset(0, -120),
-      //             child: const Padding(
-      //               padding: EdgeInsets.symmetric(horizontal: 16),
-      //               child: SearchCard(),
-      //             ),
-      //           ),
-      //         ],
-      //       ),
-      //     ),
-      //     const SliverToBoxAdapter(child: OffersCarousel()),
-      //     const SliverToBoxAdapter(child: PopularDestinations()),
-      //     const SliverToBoxAdapter(child: TrendingPackages()),
-      //     const SliverToBoxAdapter(child: FAQSection()),
-      //     const SliverToBoxAdapter(child: WhyChooseUs()),
-      //   ],
-      // ),
       body: CustomScrollView(
         physics: const BouncingScrollPhysics(),
         slivers: [

@@ -9,5 +9,14 @@ class Urls {
   // Flight Search endpoints
   static const String flightSearch = '$basesUrl/tbo/Search/';
 
+  // FareRule endpoint
+  static const String fareRule = '$basesUrl/tbo/FareRule/';
+
+  // FareQuote endpoint
+  static const String fareQuote = '$basesUrl/tbo/FareQuote/';
+
   static const String googleAuth = '/auth/google/';
+
+  // SSR Endpoint
+  static const String ssr = '$basesUrl/tbo/SSR/';
 }

@@ -3,7 +3,6 @@ import 'package:wander_nova/UI_helper/responsive_layout.dart';
 
 import '../../../common_widgets/custom_bottom_nav.dart';
 import '../../../common_widgets/logo.dart';
-import '../../home/presentation/screens/home_screen.dart';
 import '../Filter_drawer/filter_drawer.dart';
 
 
@@ -77,19 +76,6 @@ class HotelListingScreen extends StatelessWidget {
           return HotelCard(hotel: hotels[index]);
         },
       ),
-      // bottomNavigationBar: CustomBottomNav(
-      //   currentIndex: 1,
-      //   onTap: (i) {
-      //     if (i == 0) {
-      //       Navigator.pushReplacement(
-      //         context,
-      //         MaterialPageRoute(
-      //           builder: (_) => const HomeScreen(),
-      //         ),
-      //       );
-      //     }
-      //   },
-      // ),
       bottomNavigationBar: const CustomBottomNav(
         currentIndex: 1,
       ),

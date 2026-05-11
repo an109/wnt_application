@@ -16,6 +16,7 @@ class FlightEntity extends Equatable {
   final double? totalFare;
   final String? currency;
   final int? seatsAvailable;
+  final String? traceId;
 
   const FlightEntity({
     this.resultIndex,
@@ -33,6 +34,7 @@ class FlightEntity extends Equatable {
     this.totalFare,
     this.currency,
     this.seatsAvailable,
+    this.traceId,
   });
 
   @override
@@ -52,5 +54,6 @@ class FlightEntity extends Equatable {
     totalFare,
     currency,
     seatsAvailable,
+    traceId,
   ];
 }

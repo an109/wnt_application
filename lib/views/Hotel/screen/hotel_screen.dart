@@ -89,8 +89,7 @@ class HotelBookingScreen extends StatelessWidget {
                 Positioned(
                   left: context.wp(4),
                   right: context.wp(4),
-                  // bottom: 0,
-                  bottom: -context.hp(4),
+                  bottom: -context.hp(-2),
                   child: Material(
                     color: Colors.transparent,
                     child: HotelSearchCard(),
@@ -102,7 +101,7 @@ class HotelBookingScreen extends StatelessWidget {
 
           /// SPACE BELOW OVERLAPPING CARD
           SliverToBoxAdapter(
-            child: SizedBox(height: context.hp(8)),
+            child: SizedBox(height: context.hp(4)),
           ),
 
           /// EXCLUSIVE DEALS SECTION

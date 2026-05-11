@@ -11,6 +11,7 @@ import '../../domain/entities/flight_search_request_entity.dart';
 import '../bloc/flight_search_bloc.dart';
 import '../bloc/flight_search_event.dart';
 import '../bloc/flight_search_state.dart';
+import 'detail_popup.dart';
 import 'filter_drawer.dart';
 
 class FlightSearchScreen extends StatefulWidget {
@@ -245,12 +246,8 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
             return _buildEmptyState();
           },
         ),
-        // bottomNavigationBar: CustomBottomNav(
-        //   currentIndex: currentIndex,
-        //   onTap: (i) => setState(() => currentIndex = i),
-        // ),
         bottomNavigationBar: const CustomBottomNav(
-          currentIndex: 1,
+          currentIndex: 0,
         ),
       ),
     );
@@ -690,7 +687,32 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
                         ),
                         SizedBox(height: context.gapSmall),
                         OutlinedButton(
-                          onPressed: () {},
+                          onPressed: () {
+                            print('>>>>>>>>>> TraceId being passed: ${flight.traceId}');
+                            print('>>>>>>>>>> ResultIndex being passed: ${flight.resultIndex}');
+                            FlightDetailsPopup.show(
+                              context,
+
+                              airlineName: flight.airlineName ?? "Unknown",
+                              airlineCode: flight.airlineCode ?? "--",
+                              flightNumber: flight.flightNumber ?? "--",
+
+                              fromCode: flight.origin ?? "--",
+                              toCode: flight.destination ?? "--",
+
+                              departureTime: _formatTime(flight.departureTime),
+                              arrivalTime: _formatTime(flight.arrivalTime),
+                              traceId: flight.traceId,
+                              resultIndex: flight.resultIndex,
+
+                              duration: "${flight.duration ?? '--'} min",
+
+
+                              price: _formatPrice(
+                                (flight.totalFare ?? 0).toInt(),
+                              ),
+                            );
+                          },
                           style: OutlinedButton.styleFrom(
                             foregroundColor: const Color(0xFFFF3B30),
                             side: const BorderSide(color: Color(0xFFFF3B30)),
@@ -709,7 +731,7 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
                               fontSize: 12,
                             ),
                           ),
-                        ),
+                        )
                       ],
                     ),
                   ],

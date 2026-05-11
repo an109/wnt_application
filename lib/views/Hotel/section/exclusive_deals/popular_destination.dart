@@ -85,7 +85,7 @@ class _HotelPopularDestinationsSectionState
             ),
           ),
 
-          SizedBox(height: context.hp(5)),
+          SizedBox(height: context.hp(2)),
 
           /// EMPTY STATE
           Container(
@@ -103,12 +103,6 @@ class _HotelPopularDestinationsSectionState
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-
-                Icon(
-                  Icons.location_city_outlined,
-                  size: context.iconLarge * 1.5,
-                  color: Colors.grey.shade400,
-                ),
 
                 SizedBox(height: context.gapMedium),
 
@@ -133,25 +127,6 @@ class _HotelPopularDestinationsSectionState
                 ),
 
                 SizedBox(height: context.gapLarge),
-
-                Container(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: context.gapMedium,
-                    vertical: context.gapSmall,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xffD62828).withOpacity(0.08),
-                    borderRadius: BorderRadius.circular(30),
-                  ),
-                  child: Text(
-                    _getTag(),
-                    style: TextStyle(
-                      color: const Color(0xffD62828),
-                      fontWeight: FontWeight.w700,
-                      fontSize: context.bodySmall,
-                    ),
-                  ),
-                ),
               ],
             ),
           ),

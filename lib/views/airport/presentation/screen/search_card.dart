@@ -462,8 +462,8 @@ class _SearchCardState extends State<SearchCard> {
                               ? "${fromAirport!.cityName} (${fromAirport!.airportCode})"
                               : null,
                           debounceDuration: const Duration(milliseconds: 500), // Longer for API
-                          onSearchChanged: (query) {  // 🔴 ADD THIS BLOCK
-                            print('🔍🔍🔍 SEARCHING FOR: "$query"');
+                          onSearchChanged: (query) {  //  ADD THIS BLOCK
+                            print('>>>>>>> SEARCHING FOR: "$query"');
                             if (query.trim().isNotEmpty) {
                               // Call API with search query
                               context.read<AirportBloc>().add(LoadAirports(searchQuery: query));
@@ -506,8 +506,8 @@ class _SearchCardState extends State<SearchCard> {
                               ? "${toAirport!.cityName} (${toAirport!.airportCode})"
                               : null,
                           debounceDuration: const Duration(milliseconds: 500),
-                          onSearchChanged: (query) {  // 🔴 ADD THIS
-                            print('🔍🔍🔍 SEARCHING FOR: "$query"');
+                          onSearchChanged: (query) {  //  ADD THIS
+                            print('>>>>>>>> SEARCHING FOR: "$query"');
                             if (query.trim().isNotEmpty) {
                               context.read<AirportBloc>().add(LoadAirports(searchQuery: query));
                             } else {
