@@ -4,7 +4,6 @@ import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import '../../../common_widgets/custom_bottom_nav.dart';
 import '../../../common_widgets/custom_drawer.dart';
 import '../../../common_widgets/logo.dart';
-import '../../home/presentation/screens/home_screen.dart';
 import '../section/exclusive_deals/company_info.dart';
 import '../section/exclusive_deals/excllusive_deal_section.dart';
 import '../section/exclusive_deals/hotel_info.dart';

@@ -39,14 +39,14 @@ class SegmentSeat {
 }
 
 class RowSeats {
-  final List<SeatGroup>? seats;
+  final List<SeatModel>? seats;  // Directly List<SeatModel>
 
   RowSeats({this.seats});
 
   factory RowSeats.fromJson(Map<String, dynamic> json) {
     return RowSeats(
       seats: (json['Seats'] as List?)?.map((item) =>
-          SeatGroup.fromJson(item)
+          SeatModel.fromJson(item)
       ).toList(),
     );
   }

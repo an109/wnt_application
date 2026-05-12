@@ -46,7 +46,7 @@ class _SSRMainScreenState extends State<SSRMainScreen> {
   final List<String> titles = [
     "Baggage",
     "Meals",
-    "Seats",
+    "Choose Your Seat",
     "Services",
   ];
 

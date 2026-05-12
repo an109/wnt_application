@@ -117,52 +117,70 @@ class SsrEntity extends Equatable {
 
   List<SeatOptionEntity>? get seatOptions {
     final raw = seatDynamic;
-    if (raw == null) return null;
+    print('=== seatOptions called ===');
+    if (raw == null || raw.isEmpty) {
+      print('raw is null or empty');
+      return null;
+    }
 
     final seats = <SeatOptionEntity>[];
 
     for (final segment in raw) {
       final segmentSeat = segment.segmentSeat;
-      if (segmentSeat == null) continue;
+      if (segmentSeat == null || segmentSeat.isEmpty) continue;
 
       for (final rowGroup in segmentSeat) {
         final rowSeats = rowGroup.rowSeats;
-        if (rowSeats == null) continue;
+        if (rowSeats == null || rowSeats.isEmpty) continue;
 
-        for (final seatGroup in rowSeats) {
-          final seatList = seatGroup.seats;  // This is List<SeatGroup>
-          if (seatList == null) continue;
+        for (final seatRow in rowSeats) {
+          final seatModels = seatRow.seats; // Now this is directly List<SeatModel>
+          if (seatModels == null || seatModels.isEmpty) {
+            print('No seat models found in this row');
+            continue;
+          }
 
-          // 🔥 ADD THIS EXTRA LOOP - seatList contains SeatGroup, not SeatModel
-          for (final innerSeatGroup in seatList) {
-            final actualSeats = innerSeatGroup.seats;  // This is List<SeatModel>
-            if (actualSeats == null) continue;
+          for (final seatModel in seatModels) {
+            print('Found seat: row=${seatModel.rowNo}, seat=${seatModel.seatNo}, avail=${seatModel.availablityType}');
 
-            for (final model in actualSeats) {
-              seats.add(SeatOptionEntity(
-                airlineCode: model.airlineCode ?? '',
-                flightNumber: model.flightNumber ?? '',
-                craftType: model.craftType ?? '',
-                origin: model.origin ?? '',
-                destination: model.destination ?? '',
-                availablityType: model.availablityType,
-                description: model.description,
-                code: model.code ?? '',
-                rowNo: model.rowNo ?? '',
-                seatNo: model.seatNo ?? '',
-                seatType: model.seatType,
-                seatWayType: model.seatWayType,
-                compartment: model.compartment,
-                deck: model.deck,
-                currency: model.currency ?? 'USD',
-                price: model.price ?? 0.0,
-              ));
+            // Skip invalid seats
+            if (seatModel.rowNo == null || seatModel.rowNo == "0") {
+              print('Skipping - invalid row');
+              continue;
             }
+            if (seatModel.seatNo == null || seatModel.seatNo!.isEmpty) {
+              print('Skipping - invalid seatNo');
+              continue;
+            }
+            if (seatModel.code == null || seatModel.code == "NoSeat") {
+              print('Skipping - NoSeat');
+              continue;
+            }
+
+            seats.add(SeatOptionEntity(
+              airlineCode: seatModel.airlineCode ?? '',
+              flightNumber: seatModel.flightNumber ?? '',
+              craftType: seatModel.craftType ?? '',
+              origin: seatModel.origin ?? '',
+              destination: seatModel.destination ?? '',
+              availablityType: seatModel.availablityType ?? 0,
+              description: seatModel.description ?? 0,
+              code: seatModel.code ?? '',
+              rowNo: seatModel.rowNo ?? '',
+              seatNo: seatModel.seatNo ?? '',
+              seatType: seatModel.seatType ?? 0,
+              seatWayType: seatModel.seatWayType ?? 0,
+              compartment: seatModel.compartment ?? 0,
+              deck: seatModel.deck ?? 0,
+              currency: seatModel.currency ?? 'USD',
+              price: seatModel.price ?? 0.0,
+            ));
           }
         }
       }
     }
 
+    print('Total seats found: ${seats.length}');
     return seats.isNotEmpty ? seats : null;
   }
 

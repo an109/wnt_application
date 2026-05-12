@@ -1,6 +1,16 @@
 import 'package:dio/dio.dart';
 import 'package:get_it/get_it.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:wander_nova/views/Hotel_Details/data/data_source/hotel_details_api_service.dart';
+import 'package:wander_nova/views/Hotel_Details/data/repository/hotel_details_repository_impl.dart';
+import 'package:wander_nova/views/Hotel_Details/domain/repository/hotel_details_entity.dart';
+import 'package:wander_nova/views/Hotel_Details/domain/usecase/get_hotel_details_usecase.dart';
+import 'package:wander_nova/views/Hotel_Details/presentation/bloc/hotel_details_bloc.dart';
+import 'package:wander_nova/views/Hotel_api/data/data_source/hotel_api_service.dart';
+import 'package:wander_nova/views/Hotel_api/data/repository/hotel_repository_impl.dart';
+import 'package:wander_nova/views/Hotel_api/domain/repository/hotel_repository.dart';
+import 'package:wander_nova/views/Hotel_api/domain/usecase/get_hotels_by_city_usecase.dart';
+import 'package:wander_nova/views/Hotel_api/presentation/bloc/hotel_bloc.dart';
 import 'package:wander_nova/views/airport/data/data_source/airport_api_service.dart';
 import 'package:wander_nova/views/airport/data/repository/airport_repositories_impl.dart';
 import 'package:wander_nova/views/airport/domain/repository/airport_repositories.dart';
@@ -12,6 +22,11 @@ import 'package:wander_nova/views/auth/domain/repository/auth_repository.dart';
 import 'package:wander_nova/views/auth/domain/usecase/google_auth_usecase.dart';
 import 'package:wander_nova/views/auth/presentation/bloc/auth_bloc.dart';
 import 'package:wander_nova/views/auth/presentation/sdk/google_sign_in_service.dart';
+import 'package:wander_nova/views/countries/data/data_source/country_api_service.dart';
+import 'package:wander_nova/views/countries/data/repository/country_repository_impl.dart';
+import 'package:wander_nova/views/countries/domain/repository/country_repository.dart';
+import 'package:wander_nova/views/countries/domain/usecase/get_countries_usecase.dart';
+import 'package:wander_nova/views/countries/presentation/bloc/country_bloc.dart';
 import 'package:wander_nova/views/fare_quote/data/data_source/fare_quote_api_service.dart';
 import 'package:wander_nova/views/fare_quote/data/repository/fare_quote_repository_impl.dart';
 import 'package:wander_nova/views/fare_quote/domain/repository/fare_quote_repository.dart';
@@ -22,6 +37,11 @@ import 'package:wander_nova/views/fare_rule/data/repository/fare_rule_repository
 import 'package:wander_nova/views/fare_rule/domain/repository/fare_rule_repository.dart';
 import 'package:wander_nova/views/fare_rule/domain/usecase/fare_rule_usecase.dart';
 import 'package:wander_nova/views/fare_rule/presentation/bloc/fare_rule_bloc.dart';
+import 'package:wander_nova/views/flight_destination/data/data_source/destination_api_service.dart';
+import 'package:wander_nova/views/flight_destination/data/repository/destination_repository_impl.dart';
+import 'package:wander_nova/views/flight_destination/domain/repository/destination_repository.dart';
+import 'package:wander_nova/views/flight_destination/domain/usecase/search_destination_usecase.dart';
+import 'package:wander_nova/views/flight_destination/presentation/bloc/destination_bloc.dart';
 import 'package:wander_nova/views/flight_search/data/data_source/flight_api_service.dart';
 import 'package:wander_nova/views/flight_search/data/repository/flight_repository_impl.dart';
 import 'package:wander_nova/views/flight_search/domain/repository/flight_repository.dart';
@@ -74,6 +94,17 @@ Future<void> initializeDependencies() async {
         () => FareQuoteApiServiceImpl(sl<DioClient>().instance),);
   sl.registerFactory<SsrApiService>(
           () => SsrApiServiceImpl(sl<DioClient>().instance));
+  sl.registerFactory<CountryApiService>(
+        () => CountryApiServiceImpl(sl<DioClient>().instance));
+  sl.registerLazySingleton<DestinationApiService>(
+        () => DestinationApiServiceImpl(sl<DioClient>().instance),
+  );
+  sl.registerLazySingleton<HotelApiService>(
+        () => HotelApiServiceImpl(sl<DioClient>().instance),
+  );
+  sl.registerLazySingleton<HotelDetailsApiService>(
+        () => HotelDetailsApiServiceImpl(sl<DioClient>().instance),
+  );
 
 
   // Repository
@@ -89,6 +120,16 @@ Future<void> initializeDependencies() async {
         () => FareQuoteRepositoryImpl(sl<FareQuoteApiService>()));
   sl.registerFactory<SsrRepository>(
           () => SsrRepositoryImpl(sl<SsrApiService>()));
+  sl.registerFactory<CountryRepository>(
+        () => CountryRepositoryImpl(sl<CountryApiService>()),);
+  sl.registerLazySingleton<DestinationRepository>(
+        () => DestinationRepositoryImpl(sl<DestinationApiService>()));
+  sl.registerLazySingleton<HotelRepository>(
+        () => HotelRepositoryImpl(sl<HotelApiService>()),
+  );
+  sl.registerLazySingleton<HotelDetailsRepository>(
+        () => HotelDetailsRepositoryImpl(sl<HotelDetailsApiService>()),
+  );
 
 
 
@@ -105,6 +146,13 @@ Future<void> initializeDependencies() async {
         () => FareQuoteUsecase(sl<FareQuoteRepository>()),);
   sl.registerLazySingleton<GetSsrUsecase>(
           () => GetSsrUsecase(sl<SsrRepository>()));
+  sl.registerLazySingleton<GetCountriesUseCase>(() => GetCountriesUseCase(sl()));
+  sl.registerLazySingleton<SearchDestinationsUseCase>(
+        () => SearchDestinationsUseCase(sl()),);
+  sl.registerLazySingleton<GetHotelsByCityUseCase>(() => GetHotelsByCityUseCase(sl()));
+  sl.registerLazySingleton<GetHotelDetailsUsecase>(() => GetHotelDetailsUsecase(sl()));
+
+
 
 
 
@@ -120,5 +168,13 @@ Future<void> initializeDependencies() async {
         () => FareQuoteBloc(fareQuoteUsecase: sl<FareQuoteUsecase>()),);
   sl.registerFactory<SsrBloc>(
           () => SsrBloc(getSsrUsecase: sl<GetSsrUsecase>()));
+  sl.registerFactory<CountryBloc>(() => CountryBloc(sl()));
+  sl.registerFactory<DestinationBloc>(
+        () => DestinationBloc(searchDestinationsUseCase: sl()),
+  );
+  sl.registerFactory<HotelBloc>(() => HotelBloc(getHotelsByCityUseCase: sl()));
+  sl.registerFactory<HotelDetailsBloc>(() => HotelDetailsBloc(getHotelDetailsUsecase: sl()));
+
+
 
 }

@@ -4,8 +4,6 @@ class Urls {
 
   static const String airports = '$basesUrl/flights/airports';
 
-  // static const String airports = 'flights/airports';
-
   // Flight Search endpoints
   static const String flightSearch = '$basesUrl/tbo/Search/';
 
@@ -19,4 +17,10 @@ class Urls {
 
   // SSR Endpoint
   static const String ssr = '$basesUrl/tbo/SSR/';
+
+   // Hotel endpoints
+  static const String hotelsByCity = '$basesUrl/tbo-hotel/hotels-by-city/';
+
+  // Hotel API endpoints
+  static const String hotelDetails = 'http://api.tbotechnology.in/TBOHolidays_HotelAPI/Hoteldetails';
 }

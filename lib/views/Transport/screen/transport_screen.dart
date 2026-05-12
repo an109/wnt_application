@@ -29,6 +29,7 @@ class _TransportBookingScreenState
   bool isOneWay = true;
 
   DateTime selectedDate = DateTime(2026, 5, 11);
+  // DateTime selectedDate = DateTime.now();
 
   TimeOfDay selectedTime =
   const TimeOfDay(hour: 9, minute: 0);

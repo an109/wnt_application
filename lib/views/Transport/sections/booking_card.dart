@@ -151,7 +151,7 @@ class TransportBookingCard extends StatelessWidget {
                       await showDatePicker(
                         context: context,
                         initialDate: selectedDate,
-                        firstDate: DateTime.now(),
+                        firstDate: selectedDate.isBefore(DateTime.now()) ? selectedDate : DateTime.now(),
                         lastDate: DateTime(2035),
                       );
 

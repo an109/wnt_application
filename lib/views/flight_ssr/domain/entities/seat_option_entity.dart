@@ -72,38 +72,71 @@ class SeatOptionEntity extends Equatable {
   }
 
   bool get isFree => price <= 0;
-  bool get isAvailable => availablityType == 1;
-  bool get isWindow => seatType == 1;
-  bool get isAisle => seatType == 2;
-  bool get isMiddle => seatType == 3;
+  // bool get isAvailable => availablityType == 1;
+
+
+  bool get isAvailable {
+    // AvailablityType: 1 = Available, 3 = Available (premium), 5 = Booked, 0 = Unavailable
+    return availablityType == 1 || availablityType == 3;
+  }
+
+  bool get isBooked {
+    return availablityType == 5 || availablityType == 0;
+  }
+
+  String get availabilityStatus {
+    if (isAvailable) {
+      if (availablityType == 3) return 'Available (Premium)';
+      return 'Available';
+    }
+    return 'Booked';
+  }
 
   String get seatTypeLabel {
     if (isWindow) return 'Window';
     if (isAisle) return 'Aisle';
     if (isMiddle) return 'Middle';
+
+    // Additional seat types from your API
+    if (seatType == 5) return 'Window (Preferential)';
+    if (seatType == 11) return 'Aisle (Preferential)';
+    if (seatType == 17) return 'Middle (Preferential)';
+    if (seatType == 28) return 'Bassinet Seat';
+    if (seatType == 46) return 'Bassinet + Preferential';
+
     return 'Standard';
   }
 
   Color get seatColor {
-    if (!isAvailable) return Colors.grey.shade300;
+    if (!isAvailable) return Colors.grey.shade400;
     if (isSelected) return Colors.blue;
     if (isFree) return Colors.green.shade600;
-    return Colors.grey.shade600;
+    // Different color for premium available seats (type 3)
+    if (availablityType == 3) return Colors.purple.shade600;
+    return Colors.orange.shade600;
   }
 
   Color get seatBgColor {
-    if (!isAvailable) return Colors.grey.shade100;
+    if (!isAvailable) return Colors.grey.shade200;
     if (isSelected) return Colors.blue.shade50;
     if (isFree) return Colors.green.shade50;
-    return Colors.white;
+    // Different background for premium available seats (type 3)
+    if (availablityType == 3) return Colors.purple.shade50;
+    return Colors.orange.shade50;
   }
 
   IconData get seatIcon {
     if (!isAvailable) return Icons.block;
     if (isWindow) return Icons.window;
     if (isAisle) return Icons.arrow_right_alt;
+    if (seatType == 28) return Icons.baby_changing_station; // Bassinet
+    if (availablityType == 3) return Icons.star; // Premium seat
     return Icons.chair;
   }
+  bool get isWindow => seatType == 1;
+  bool get isAisle => seatType == 2;
+  bool get isMiddle => seatType == 3;
+
 
   @override
   List<Object?> get props => [
