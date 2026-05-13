@@ -34,7 +34,7 @@ class HotelDetailsApiServiceImpl implements HotelDetailsApiService {
       print('GuestNationality: ${guestNationality ?? "IN"}');
 
       final requestBody = {
-        'HotelCodes': hotelCode,
+        'Hotelcodes': hotelCode,
         'Language': language ?? 'en',
         'CheckIn': checkIn,
         'CheckOut': checkOut,

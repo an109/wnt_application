@@ -1,6 +1,11 @@
 import 'package:dio/dio.dart';
 import 'package:get_it/get_it.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:wander_nova/views/Hotel_Booking/data/data_source/hotel_booking_api_service.dart';
+import 'package:wander_nova/views/Hotel_Booking/data/repository/hotel_booking_repository_impl.dart';
+import 'package:wander_nova/views/Hotel_Booking/domain/repository/hotel_booking_repository.dart';
+import 'package:wander_nova/views/Hotel_Booking/domain/usecase/get_hotel_booking_details_usecase.dart';
+import 'package:wander_nova/views/Hotel_Booking/presentation/bloc/hotel_booking_bloc.dart';
 import 'package:wander_nova/views/Hotel_Details/data/data_source/hotel_details_api_service.dart';
 import 'package:wander_nova/views/Hotel_Details/data/repository/hotel_details_repository_impl.dart';
 import 'package:wander_nova/views/Hotel_Details/domain/repository/hotel_details_entity.dart';
@@ -11,6 +16,11 @@ import 'package:wander_nova/views/Hotel_api/data/repository/hotel_repository_imp
 import 'package:wander_nova/views/Hotel_api/domain/repository/hotel_repository.dart';
 import 'package:wander_nova/views/Hotel_api/domain/usecase/get_hotels_by_city_usecase.dart';
 import 'package:wander_nova/views/Hotel_api/presentation/bloc/hotel_bloc.dart';
+import 'package:wander_nova/views/T_exclusiveDeal/data/data_source/exclusive_deals_api_service.dart';
+import 'package:wander_nova/views/T_exclusiveDeal/data/repository/exclusive_deals_repository_impl.dart';
+import 'package:wander_nova/views/T_exclusiveDeal/domain/repository/exclusive_deals_repository.dart';
+import 'package:wander_nova/views/T_exclusiveDeal/domain/usecase/get_exclusive_deals_usecase.dart';
+import 'package:wander_nova/views/T_exclusiveDeal/presentation/bloc/exclusive_deals_bloc.dart';
 import 'package:wander_nova/views/airport/data/data_source/airport_api_service.dart';
 import 'package:wander_nova/views/airport/data/repository/airport_repositories_impl.dart';
 import 'package:wander_nova/views/airport/domain/repository/airport_repositories.dart';
@@ -105,6 +115,13 @@ Future<void> initializeDependencies() async {
   sl.registerLazySingleton<HotelDetailsApiService>(
         () => HotelDetailsApiServiceImpl(sl<DioClient>().instance),
   );
+  sl.registerFactory<HotelBookingApiService>(
+        () => HotelBookingApiServiceImpl(sl<DioClient>().instance),
+  );
+  sl.registerLazySingleton<ExclusiveDealsApiService>(
+        () => ExclusiveDealsApiServiceImpl(sl<DioClient>().instance),
+  );
+
 
 
   // Repository
@@ -130,6 +147,15 @@ Future<void> initializeDependencies() async {
   sl.registerLazySingleton<HotelDetailsRepository>(
         () => HotelDetailsRepositoryImpl(sl<HotelDetailsApiService>()),
   );
+  sl.registerLazySingleton<HotelBookingRepository>(
+        () => HotelBookingRepositoryImpl(sl<HotelBookingApiService>()),
+  );
+
+  sl.registerLazySingleton<ExclusiveDealsRepository>(
+        () => ExclusiveDealsRepositoryImpl(sl<ExclusiveDealsApiService>()),
+  );
+
+
 
 
 
@@ -151,6 +177,10 @@ Future<void> initializeDependencies() async {
         () => SearchDestinationsUseCase(sl()),);
   sl.registerLazySingleton<GetHotelsByCityUseCase>(() => GetHotelsByCityUseCase(sl()));
   sl.registerLazySingleton<GetHotelDetailsUsecase>(() => GetHotelDetailsUsecase(sl()));
+  sl.registerLazySingleton<GetHotelBookingDetailsUseCase>(() => GetHotelBookingDetailsUseCase(sl<HotelBookingRepository>()),);
+  sl.registerLazySingleton<GetExclusiveDealsUseCase>(() => GetExclusiveDealsUseCase(sl()));
+
+
 
 
 
@@ -174,7 +204,9 @@ Future<void> initializeDependencies() async {
   );
   sl.registerFactory<HotelBloc>(() => HotelBloc(getHotelsByCityUseCase: sl()));
   sl.registerFactory<HotelDetailsBloc>(() => HotelDetailsBloc(getHotelDetailsUsecase: sl()));
-
+  sl.registerFactory<HotelBookingBloc>(() => HotelBookingBloc(
+      getHotelBookingDetailsUseCase: sl<GetHotelBookingDetailsUseCase>()));
+  sl.registerFactory<ExclusiveDealsBloc>(() => ExclusiveDealsBloc(getExclusiveDealsUseCase: sl()));
 
 
 }

@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 
-import 'custom_bottom_nav.dart';
-import 'logo.dart';
 
 class ProfessionalLoadingScreen extends StatefulWidget {
   final VoidCallback onLoadingComplete;
@@ -75,16 +73,7 @@ class _ProfessionalLoadingScreenState extends State<ProfessionalLoadingScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const WanderNovaLogo(scaleFactor: 0.6),
-        backgroundColor: Colors.white,
-        actions: [
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Image.asset("assets/images/wander_nova_logo.jpg", height: 35),
-          )
-        ],
-      ),
+
       backgroundColor: Colors.white,
       body: Column(
         children: [
@@ -162,10 +151,7 @@ class _ProfessionalLoadingScreenState extends State<ProfessionalLoadingScreen> {
 
         ],
       ),
-      bottomNavigationBar: CustomBottomNav(
-        currentIndex: currentIndex,
-        // onTap: (i) => setState(() => currentIndex = i),
-      ),
+
     );
   }
 }

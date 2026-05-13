@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import 'package:wander_nova/views/Hotel_Details/domain/entities/rooms_entity.dart';
 
 class HotelDetailsEntity extends Equatable {
   final String hotelCode;
@@ -23,6 +24,7 @@ class HotelDetailsEntity extends Equatable {
   final String checkInTime;
   final String checkOutTime;
   final HotelFeesEntity? hotelFees;
+  final List<RoomEntity> searchRooms;
 
   const HotelDetailsEntity({
     required this.hotelCode,
@@ -47,6 +49,7 @@ class HotelDetailsEntity extends Equatable {
     required this.checkInTime,
     required this.checkOutTime,
     this.hotelFees,
+    required this.searchRooms,
   });
 
   @override
@@ -73,6 +76,7 @@ class HotelDetailsEntity extends Equatable {
     checkInTime,
     checkOutTime,
     hotelFees,
+    searchRooms
   ];
 }
 

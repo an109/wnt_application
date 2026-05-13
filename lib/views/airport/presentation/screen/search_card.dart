@@ -32,70 +32,102 @@ class _SearchCardState extends State<SearchCard> {
   String travelClass = "Economy";
   bool _isLoadingAirports = true;
 
+  // void _performSearch() async {
+  //   print(' All validations passed - starting search');
+  //
+  //   try {
+  //     await Navigator.push(
+  //       context,
+  //       MaterialPageRoute(
+  //         builder: (_) => ProfessionalLoadingScreen(
+  //           searchParams: {
+  //             'fromAirport': fromAirport,
+  //             'toAirport': toAirport,
+  //             'departureDate': departureDate,
+  //             'returnDate': returnDate,
+  //             'adults': adults,
+  //             'children': children,
+  //             'infants': infants,
+  //             'class': travelClass,
+  //             'isRoundTrip': isRoundTrip,
+  //           },
+  //
+  //           onLoadingComplete: () async {
+  //             print(' Loading complete - opening flight screen');
+  //
+  //             // FIRST close loading screen
+  //             Navigator.of(context).pop();
+  //
+  //             // IMPORTANT
+  //             await Future.delayed(const Duration(milliseconds: 300));
+  //
+  //             if (!mounted) return;
+  //
+  //             Navigator.of(context).push(
+  //               MaterialPageRoute(
+  //                 builder: (_) => FlightSearchScreen(
+  //                   from: fromAirport!.cityName,
+  //                   to: toAirport!.cityName,
+  //                   fromCode: fromAirport!.airportCode,
+  //                   toCode: toAirport!.airportCode,
+  //                   fromAirport: fromAirport!.airportName,
+  //                   toAirport: toAirport!.airportName,
+  //                   date: departureDate,
+  //                   travellers: adults + children + infants,
+  //                   adults: adults,
+  //                   children: children,
+  //                   infants: infants,
+  //                   travelClass: travelClass,
+  //                   isRoundTrip: isRoundTrip,
+  //                   returnDate: returnDate,
+  //                 ),
+  //               ),
+  //             );
+  //           },
+  //         ),
+  //       ),
+  //     );
+  //   } catch (e) {
+  //     print('❌ Search navigation error: $e');
+  //
+  //     ScaffoldMessenger.of(context).showSnackBar(
+  //       SnackBar(content: Text('Error: ${e.toString()}')),
+  //     );
+  //   }
+  // }
+
   void _performSearch() async {
-    print(' All validations passed - starting search');
+    print('All validations passed - opening flight screen');
 
     try {
-      await Navigator.push(
-        context,
+      Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (_) => ProfessionalLoadingScreen(
-            searchParams: {
-              'fromAirport': fromAirport,
-              'toAirport': toAirport,
-              'departureDate': departureDate,
-              'returnDate': returnDate,
-              'adults': adults,
-              'children': children,
-              'infants': infants,
-              'class': travelClass,
-              'isRoundTrip': isRoundTrip,
-            },
-
-            onLoadingComplete: () async {
-              print('🚀 Loading complete - opening flight screen');
-
-              // FIRST close loading screen
-              Navigator.of(context).pop();
-
-              // IMPORTANT
-              await Future.delayed(const Duration(milliseconds: 300));
-
-              if (!mounted) return;
-
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => FlightSearchScreen(
-                    from: fromAirport!.cityName,
-                    to: toAirport!.cityName,
-                    fromCode: fromAirport!.airportCode,
-                    toCode: toAirport!.airportCode,
-                    fromAirport: fromAirport!.airportName,
-                    toAirport: toAirport!.airportName,
-                    date: departureDate,
-                    travellers: adults + children + infants,
-                    adults: adults,
-                    children: children,
-                    infants: infants,
-                    travelClass: travelClass,
-                    isRoundTrip: isRoundTrip,
-                    returnDate: returnDate,
-                  ),
-                ),
-              );
-            },
+          builder: (_) => FlightSearchScreen(
+            from: fromAirport!.cityName,
+            to: toAirport!.cityName,
+            fromCode: fromAirport!.airportCode,
+            toCode: toAirport!.airportCode,
+            fromAirport: fromAirport!.airportName,
+            toAirport: toAirport!.airportName,
+            date: departureDate,
+            travellers: adults + children + infants,
+            adults: adults,
+            children: children,
+            infants: infants,
+            travelClass: travelClass,
+            isRoundTrip: isRoundTrip,
+            returnDate: returnDate,
           ),
         ),
       );
     } catch (e) {
-      print('❌ Search navigation error: $e');
+      print(' Search navigation error: $e');
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error: ${e.toString()}')),
       );
     }
   }
-
   @override
   void initState() {
     super.initState();

@@ -7,13 +7,13 @@ import '../../../common_widgets/custom_drawer.dart';
 import '../../../common_widgets/logo.dart';
 
 import '../../Hotel/section/exclusive_deals/company_info.dart';
-import '../../Hotel/section/exclusive_deals/excllusive_deal_section.dart';
 import '../../Hotel/section/exclusive_deals/travel_stories.dart';
 import '../../home/presentation/screen_sections/faq/FAQ_section.dart';
 import '../../home/presentation/screen_sections/popular_destination/popular_destination.dart';
 import '../../home/presentation/screen_sections/trending_routes/trending_routes.dart';
 import '../../home/presentation/screen_sections/why_choose_us/why_choose_us.dart';
 import '../sections/booking_card.dart';
+import '../sections/T_exclusiveDeals.dart';
 
 class TransportBookingScreen extends StatefulWidget {
   const TransportBookingScreen({super.key});
@@ -162,7 +162,7 @@ class _TransportBookingScreenState
           ),
 
           const SliverToBoxAdapter(
-            child: HotelExclusiveDealsSection(),
+            child: TransportExclusiveDealsSection(),
           ),
 
           const SliverToBoxAdapter(

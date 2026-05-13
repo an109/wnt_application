@@ -1,4 +1,3 @@
-// lib/features/hotel_details/data/models/hotel_details_model.dart
 import '../../domain/entities/hotel_details_entity.dart';
 
 class HotelDetailsModel extends HotelDetailsEntity {
@@ -25,6 +24,7 @@ class HotelDetailsModel extends HotelDetailsEntity {
     required super.checkInTime,
     required super.checkOutTime,
     super.hotelFees,
+    required super.searchRooms,
   });
 
   factory HotelDetailsModel.fromJson(Map<String, dynamic> json) {
@@ -57,6 +57,7 @@ class HotelDetailsModel extends HotelDetailsEntity {
       hotelFees: json['HotelFees'] != null
           ? HotelFeesModel.fromJson(json['HotelFees'])
           : null,
+      searchRooms: const [],
     );
   }
 

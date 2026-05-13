@@ -5,6 +5,7 @@ import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import 'package:wander_nova/core/resources/app_colours.dart';
 import 'package:wander_nova/injection_container.dart' as di;
 
+import '../../UI_helper/navigation_queue.dart';
 import '../auth/presentation/bloc/auth_bloc.dart';
 import '../auth/presentation/bloc/auth_event.dart';
 import '../auth/presentation/bloc/auth_state.dart';
@@ -110,15 +111,21 @@ class _LoginSignupScreenState extends State<LoginSignupScreen> {
               );
 
               // Navigate based on user type
-              Future.delayed(const Duration(milliseconds: 500), () {
-                if (!mounted) return;
-                final userType = state.user.userType;
+              // Future.delayed(const Duration(milliseconds: 500), () {
+              //   if (!mounted) return;
+              //   final userType = state.user.userType;
+              //
+              //   Navigator.pushReplacement(
+              //     context,
+              //     MaterialPageRoute(builder: (context) => const HomeScreen()),
+              //   );
+              // });
 
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (context) => const HomeScreen()),
-                );
-              });
+
+              Navigator.of(context).pop();
+
+              // Then execute any pending navigation from queue
+              NavigationQueueService().executePendingNavigation(context);
             } else if (state is AuthError) {
               print('LoginScreen: Auth error: ${state.message}');
               ScaffoldMessenger.of(context).showSnackBar(

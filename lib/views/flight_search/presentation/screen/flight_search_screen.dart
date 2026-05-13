@@ -4,6 +4,7 @@ import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import '../../../../../core/error/data_state.dart';
 import '../../../../../injection_container.dart';
 import '../../../../common_widgets/custom_bottom_nav.dart';
+import '../../../../common_widgets/loadingScreen.dart';
 import '../../../../common_widgets/logo.dart';
 import '../../../../core/constants/urls.dart';
 import '../../domain/entities/flight_entity.dart';
@@ -207,7 +208,7 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
           ],
         );
 
-        print('📤 API PAYLOAD');
+        print(' API PAYLOAD');
         print(request.toString());
 
         bloc.add(SearchFlightsEvent(request));
@@ -230,8 +231,24 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
         backgroundColor: Colors.grey.shade50,
         body: BlocBuilder<FlightSearchBloc, FlightSearchState>(
           builder: (context, state) {
+            // if (state is FlightSearchLoading) {
+            //   return const Center(child: CircularProgressIndicator());
+            // }
             if (state is FlightSearchLoading) {
-              return const Center(child: CircularProgressIndicator());
+              return ProfessionalLoadingScreen(
+                searchParams: {
+                  'fromAirport': widget.fromAirport,
+                  'toAirport': widget.toAirport,
+                  'departureDate': widget.date,
+                  'returnDate': widget.returnDate,
+                  'adults': widget.adults,
+                  'children': widget.children,
+                  'infants': widget.infants,
+                  'class': widget.travelClass,
+                  'isRoundTrip': widget.isRoundTrip,
+                },
+                onLoadingComplete: () {},
+              );
             }
 
             if (state is FlightSearchError) {

@@ -4,6 +4,9 @@ import 'package:wander_nova/UI_helper/responsive_layout.dart';
 
 import '../../../common_widgets/custom_bottom_nav.dart';
 import '../../../common_widgets/logo.dart';
+import '../../../injection_container.dart';
+import '../../Hotel_Details/presentation/bloc/hotel_details_bloc.dart';
+import '../../Hotel_Details/presentation/screens/main_hotel_detail_screen.dart';
 import '../../Hotel_api/domain/entities/hotel_ui_entity.dart';
 import '../../Hotel_api/presentation/bloc/hotel_bloc.dart';
 import '../../Hotel_api/presentation/bloc/hotel_event.dart';
@@ -47,6 +50,39 @@ class _HotelListingScreenState extends State<HotelListingScreen> {
     super.initState();
     _scrollController.addListener(_onScroll);
     _loadInitialHotels();
+  }
+
+  // Add this method to _HotelListingScreenState class
+  void _navigateToHotelDetails(HotelUiModel hotel) {
+    print('HotelListingScreen: Navigating to details for ${hotel.hotelName}');
+    print('HotelListingScreen: Hotel Code: ${hotel.hotelCode}');
+    print('HotelListingScreen: CheckIn: ${widget.checkIn}, CheckOut: ${widget.checkOut}');
+
+    // Safely extract guest data from paxRooms
+    int adults = 1;
+    int children = 0;
+
+    if (widget.paxRooms != null && widget.paxRooms!.isNotEmpty) {
+      final firstRoom = widget.paxRooms!.first;
+      adults = (firstRoom['Adults'] as int?) ?? 1;
+      children = (firstRoom['Children'] as int?) ?? 0;
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => BlocProvider(
+          create: (_) => sl<HotelDetailsBloc>(),
+          child: HotelDetailsScreen(
+            hotelCode: hotel.hotelCode,
+            checkIn: widget.checkIn,
+            checkOut: widget.checkOut,
+            adults: adults,
+            children: children,
+          ),
+        ),
+      ),
+    );
   }
 
   void _loadInitialHotels() {
@@ -294,7 +330,10 @@ class _HotelListingScreenState extends State<HotelListingScreen> {
               ),
             );
           }
-          return HotelCard(hotel: _displayedHotels[index]);
+          return HotelCard(
+            hotel: _displayedHotels[index],
+            onSelectRoom: () => _navigateToHotelDetails(_displayedHotels[index]),
+          );
         },
       ),
     );
@@ -395,10 +434,12 @@ class _HotelListingScreenState extends State<HotelListingScreen> {
 
 class HotelCard extends StatelessWidget {
   final HotelUiModel hotel;
+  final VoidCallback? onSelectRoom;
 
   const HotelCard({
     super.key,
     required this.hotel,
+    this.onSelectRoom,
   });
 
   @override
@@ -554,8 +595,6 @@ class HotelCard extends StatelessWidget {
                   ],
                 ),
 
-                // SizedBox(height: context.gapSmall),
-
                 if (hotel.mealType.isNotEmpty && hotel.mealType != 'Room_Only')
                   Container(
                     padding: EdgeInsets.symmetric(
@@ -576,19 +615,6 @@ class HotelCard extends StatelessWidget {
                     ),
                   ),
 
-                // SizedBox(height: context.gapMedium),
-
-                // Text(
-                //   hotel.description,
-                //   maxLines: 3,
-                //   overflow: TextOverflow.ellipsis,
-                //   style: TextStyle(
-                //     height: 1.4,
-                //     fontSize: context.bodyMedium,
-                //     color: Colors.grey.shade800,
-                //   ),
-                // ),
-
                 SizedBox(height: context.gapLarge),
 
                 context.isTablet || context.isDesktop
@@ -597,7 +623,12 @@ class HotelCard extends StatelessWidget {
                   children: [
                     Expanded(child: _PriceSection(hotel: hotel)),
                     SizedBox(width: context.gapLarge),
-                    Expanded(child: _ButtonsSection(hotel: hotel)),
+                    Expanded(
+                      child: _ButtonsSection(
+                        hotel: hotel,
+                        onSelectRoom: onSelectRoom,
+                      ),
+                    ),
                   ],
                 )
                     : Column(
@@ -605,7 +636,10 @@ class HotelCard extends StatelessWidget {
                   children: [
                     _PriceSection(hotel: hotel),
                     SizedBox(height: context.gapMedium),
-                    _ButtonsSection(hotel: hotel),
+                    _ButtonsSection(
+                      hotel: hotel,
+                      onSelectRoom: onSelectRoom,
+                    ),
                   ],
                 ),
               ],
@@ -619,8 +653,12 @@ class HotelCard extends StatelessWidget {
 
 class _ButtonsSection extends StatelessWidget {
   final HotelUiModel hotel;
+  final VoidCallback? onSelectRoom;
 
-  const _ButtonsSection({required this.hotel});
+  const _ButtonsSection({
+    required this.hotel,
+    this.onSelectRoom,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -636,8 +674,8 @@ class _ButtonsSection extends StatelessWidget {
                 borderRadius: BorderRadius.circular(context.borderRadius),
               ),
             ),
-            onPressed: () {
-              // Navigate to room selection
+            onPressed: onSelectRoom ?? () {
+              print('HotelCard: Select Room pressed for ${hotel.hotelCode}');
             },
             child: Text(
               'Select Room',

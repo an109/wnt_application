@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:wander_nova/splash/splash_screen.dart';
+import 'package:wander_nova/views/splash/splash_screen.dart';
+import 'package:wander_nova/views/Hotel_Booking/presentation/bloc/hotel_booking_bloc.dart';
 import 'package:wander_nova/views/Hotel_Details/presentation/bloc/hotel_details_bloc.dart';
 import 'package:wander_nova/views/Hotel_api/presentation/bloc/hotel_bloc.dart';
 import 'package:wander_nova/views/airport/presentation/bloc/airport_bloc.dart';
@@ -38,6 +39,7 @@ class MyApp extends StatelessWidget {
         BlocProvider(create: (_) => di.sl<DestinationBloc>()),
         BlocProvider(create: (_) => di.sl<HotelBloc>()),
         BlocProvider(create: (_) => di.sl<HotelDetailsBloc>()),
+        BlocProvider(create: (_) => di.sl<HotelBookingBloc>()),
       ],
 
       child: MaterialApp(
