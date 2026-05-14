@@ -1,0 +1,93 @@
+import '../../domain/entities/T_locationEntity.dart';
+
+class T_locationModel extends T_locationEntity {
+  const T_locationModel({
+    required String id,
+    required String source,
+    required String type,
+    required String label,
+    required String displayName,
+    required String name,
+    required String description,
+    required String formattedAddress,
+    required String fullAddress,
+    required String address,
+    required String city,
+    required String country,
+    required String iataCode,
+    required String icaoCode,
+    required String placeId,
+    required double? lat,
+    required double? lng,
+    required String timezone,
+    required Map<String, dynamic>? raw,
+  }) : super(
+    id: id,
+    source: source,
+    type: type,
+    label: label,
+    displayName: displayName,
+    name: name,
+    description: description,
+    formattedAddress: formattedAddress,
+    fullAddress: fullAddress,
+    address: address,
+    city: city,
+    country: country,
+    iataCode: iataCode,
+    icaoCode: icaoCode,
+    placeId: placeId,
+    lat: lat,
+    lng: lng,
+    timezone: timezone,
+    raw: raw,
+  );
+
+  factory T_locationModel.fromJson(Map<String, dynamic> json) {
+    return T_locationModel(
+      id: json['id'] ?? '',
+      source: json['source'] ?? '',
+      type: json['type'] ?? '',
+      label: json['label'] ?? '',
+      displayName: json['display_name'] ?? '',
+      name: json['name'] ?? '',
+      description: json['description'] ?? '',
+      formattedAddress: json['formatted_address'] ?? '',
+      fullAddress: json['full_address'] ?? '',
+      address: json['address'] ?? '',
+      city: json['city'] ?? '',
+      country: json['country'] ?? '',
+      iataCode: json['iata_code'] ?? '',
+      icaoCode: json['icao_code'] ?? '',
+      placeId: json['place_id'] ?? '',
+      lat: json['lat'] != null ? double.tryParse(json['lat'].toString()) : null,
+      lng: json['lng'] != null ? double.tryParse(json['lng'].toString()) : null,
+      timezone: json['timezone'] ?? '',
+      raw: json['raw'] != null ? Map<String, dynamic>.from(json['raw']) : null,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'source': source,
+      'type': type,
+      'label': label,
+      'display_name': displayName,
+      'name': name,
+      'description': description,
+      'formatted_address': formattedAddress,
+      'full_address': fullAddress,
+      'address': address,
+      'city': city,
+      'country': country,
+      'iata_code': iataCode,
+      'icao_code': icaoCode,
+      'place_id': placeId,
+      'lat': lat,
+      'lng': lng,
+      'timezone': timezone,
+      'raw': raw,
+    };
+  }
+}

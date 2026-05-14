@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 
 import '../../../common_widgets/custom_bottom_nav.dart';
 import '../../../common_widgets/custom_drawer.dart';
 import '../../../common_widgets/logo.dart';
+import '../../../injection_container.dart';
+import '../../ExclusiveDeals/presentation/bloc/exclusive_deals_bloc.dart';
+import '../../ExclusiveDeals/presentation/screen/T_exclusiveDeals.dart';
 import '../section/exclusive_deals/company_info.dart';
-import '../section/exclusive_deals/excllusive_deal_section.dart';
 import '../section/exclusive_deals/hotel_info.dart';
 import '../section/exclusive_deals/hotel_search_card.dart';
 import '../section/exclusive_deals/popular_destination.dart';
@@ -104,10 +107,12 @@ class HotelBookingScreen extends StatelessWidget {
           ),
 
           /// EXCLUSIVE DEALS SECTION
-          const SliverToBoxAdapter(
-            child: HotelExclusiveDealsSection(),
+          SliverToBoxAdapter(
+            child: BlocProvider<ExclusiveDealsBloc>(
+              create: (context) => sl<ExclusiveDealsBloc>(),
+              child: const TransportExclusiveDealsSection(),
+            ),
           ),
-
           const SliverToBoxAdapter(
             child: HotelPopularDestinationsSection(),
           ),

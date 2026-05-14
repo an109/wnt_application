@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import '../../../../common_widgets/logo.dart';
-import '../../../Hotel/screen/hotel_screen.dart';
+import '../../../../injection_container.dart';
+import '../../../ExclusiveDeals/presentation/bloc/exclusive_deals_bloc.dart';
+import '../../../ExclusiveDeals/presentation/screen/T_exclusiveDeals.dart';
 import '../../../Hotel/section/exclusive_deals/travel_stories.dart';
-import '../screen_sections/exclusive_offers/offers_carousel.dart';
 import '../screen_sections/faq/FAQ_section.dart';
 import '../screen_sections/popular_destination/popular_destination.dart';
 import '../../../airport/presentation/screen/search_card.dart';
@@ -91,17 +93,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     ],
                   ),
                 ),
-
-                /// SEARCH CARD
-                // Positioned(
-                //   left: 16,
-                //   right: 16,
-                //   bottom: -70,
-                //   child: Material(
-                //     color: Colors.transparent,
-                //     child: SearchCard(),
-                //   ),
-                // ),
                 Positioned(
                   left: context.wp(4),
                   right: context.wp(4),
@@ -121,7 +112,12 @@ class _HomeScreenState extends State<HomeScreen> {
             child: SizedBox(height: 90),
           ),
 
-          const SliverToBoxAdapter(child: OffersCarousel()),
+          SliverToBoxAdapter(
+            child: BlocProvider<ExclusiveDealsBloc>(
+              create: (context) => sl<ExclusiveDealsBloc>(),
+              child: const TransportExclusiveDealsSection(),
+            ),
+          ),
           const SliverToBoxAdapter(child: PopularDestinations()),
           const SliverToBoxAdapter(child: TrendingPackages()),
           const SliverToBoxAdapter(child: FAQSection()),

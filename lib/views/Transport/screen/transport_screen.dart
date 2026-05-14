@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import 'package:wander_nova/views/Transport/sections/why_book.dart';
 
@@ -6,14 +7,16 @@ import '../../../common_widgets/custom_bottom_nav.dart';
 import '../../../common_widgets/custom_drawer.dart';
 import '../../../common_widgets/logo.dart';
 
+import '../../../injection_container.dart';
+import '../../ExclusiveDeals/presentation/bloc/exclusive_deals_bloc.dart';
+import '../../ExclusiveDeals/presentation/screen/T_exclusiveDeals.dart';
 import '../../Hotel/section/exclusive_deals/company_info.dart';
 import '../../Hotel/section/exclusive_deals/travel_stories.dart';
 import '../../home/presentation/screen_sections/faq/FAQ_section.dart';
 import '../../home/presentation/screen_sections/popular_destination/popular_destination.dart';
 import '../../home/presentation/screen_sections/trending_routes/trending_routes.dart';
 import '../../home/presentation/screen_sections/why_choose_us/why_choose_us.dart';
-import '../sections/booking_card.dart';
-import '../sections/T_exclusiveDeals.dart';
+import '../../T_location/presentation/screen/booking_card.dart';
 
 class TransportBookingScreen extends StatefulWidget {
   const TransportBookingScreen({super.key});
@@ -161,8 +164,11 @@ class _TransportBookingScreenState
             child: WhyBookTransportSection(),
           ),
 
-          const SliverToBoxAdapter(
-            child: TransportExclusiveDealsSection(),
+          SliverToBoxAdapter(
+            child: BlocProvider<ExclusiveDealsBloc>(
+              create: (context) => sl<ExclusiveDealsBloc>(),
+              child: const TransportExclusiveDealsSection(),
+            ),
           ),
 
           const SliverToBoxAdapter(
