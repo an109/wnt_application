@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wander_nova/views/ExclusiveDeals/presentation/bloc/exclusive_deals_bloc.dart';
 import 'package:wander_nova/views/TPoll_Search/presentation/bloc/TPoll_SearchBloc.dart';
+import 'package:wander_nova/views/TResevation/presentation/bloc/TReservation_bloc.dart';
+import 'package:wander_nova/views/TResult/presentation/bloc/TResult_bloc.dart';
 import 'package:wander_nova/views/T_Search/presentation/bloc/T_SearchBloc.dart';
 import 'package:wander_nova/views/T_location/presentation/bloc/T_locationBloc.dart';
 import 'package:wander_nova/views/splash/splash_screen.dart';
@@ -48,6 +50,8 @@ class MyApp extends StatelessWidget {
         BlocProvider(create: (_) => di.sl<T_locationBloc>()),
         BlocProvider(create: (_) => di.sl<TransportSearchBloc>()),
         BlocProvider(create: (_) => di.sl<TpollSearchBloc>()),
+        BlocProvider(create: (_) => di.sl<TransportResultBloc>()),
+        BlocProvider(create: (_) => di.sl<TransportReservationBloc>()),
       ],
 
       child: MaterialApp(

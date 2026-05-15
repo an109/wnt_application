@@ -29,10 +29,13 @@
 // }
 
 import 'package:flutter/material.dart';
+import 'package:wander_nova/core/resources/app_colours.dart';
 
+import '../views/Holidays/presentation/screen/holidays_screen.dart';
 import '../views/Hotel/screen/hotel_screen.dart';
 import '../views/Transport/screen/transport_screen.dart';
 import '../views/home/presentation/screens/home_screen.dart';
+import '../views/visa/presentation/screen/visa_screen.dart';
 
 class CustomBottomNav extends StatelessWidget {
   final int currentIndex;
@@ -49,7 +52,7 @@ class CustomBottomNav extends StatelessWidget {
 
       type: BottomNavigationBarType.fixed,
 
-      selectedItemColor: Colors.blue,
+      selectedItemColor: AppColors.primary,
 
       unselectedItemColor: Colors.grey,
 
@@ -71,6 +74,26 @@ class CustomBottomNav extends StatelessWidget {
             MaterialPageRoute(
               builder: (_) =>
               const HotelBookingScreen(),
+            ),
+          );
+        }
+        // VISA
+        else if (index == 2) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (_) =>
+              const VisaScreen(),
+            ),
+          );
+        }
+        // HOLIDAY
+        else if (index == 3) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (_) =>
+              const HolidaysScreen(),
             ),
           );
         }

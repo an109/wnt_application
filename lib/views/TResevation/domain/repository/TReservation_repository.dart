@@ -1,0 +1,40 @@
+import '../../../../core/error/data_state.dart';
+import '../entities/TReservation-entity.dart';
+
+abstract class TransportReservationRepository {
+  Future<DataState<TransportReservationEntity>> createReservation({
+    required String searchId,
+    required String resultId,
+    required String firstName,
+    required String email,
+    required String phoneNumber,
+    required CustomerInfoEntity customerInfo,
+    required List<PassengerEntity> passengers,
+    required int numPassengers,
+    required String currency,
+    required String selectedCurrency,
+    required String displayCurrency,
+    required double displayTotalPrice,
+    required double displayBasePrice,
+    required double displayRideBasePrice,
+    required double displayDiscountAmount,
+    required List<String> optionalAmenities,
+    required String tripStartAddress,
+    required String tripEndAddress,
+    required String tripPickupDatetime,
+    required String tripType,
+    required String vehicleName,
+    required String providerName,
+    required String paidVia,
+    required String paymentGateway,
+    required String paymentReferenceId,
+    required String razorpayOrderId,
+    required String razorpayPaymentId,
+    String? specialInstructions,
+    String? notes,
+    String? flightNumber,
+    String? airline,
+    String? couponCode,
+    List<ExtraPaxInfoEntity>? extraPaxInfo,
+  });
+}

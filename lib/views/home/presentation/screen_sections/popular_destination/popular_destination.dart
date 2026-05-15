@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import 'destination_card.dart';
 
 class PopularDestinations extends StatefulWidget {
@@ -278,14 +279,14 @@ class _PopularDestinationsState extends State<PopularDestinations> {
       children: [
         // Header Section with Title and View All
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          padding: EdgeInsets.symmetric(horizontal: context.wp(4), vertical: context.hp(1)),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Column(
+              Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
+                  const Text(
                     'Popular Destinations',
                     style: TextStyle(
                       fontSize: 20,
@@ -293,11 +294,11 @@ class _PopularDestinationsState extends State<PopularDestinations> {
                       color: Colors.black87,
                     ),
                   ),
-                  SizedBox(height: 4),
+                  SizedBox(height: context.gapSmall / 2),
                   Text(
                     'Handpicked destinations just for you',
                     style: TextStyle(
-                      fontSize: 12,
+                      fontSize: context.bodySmall,
                       color: Colors.grey,
                     ),
                   ),
@@ -310,17 +311,17 @@ class _PopularDestinationsState extends State<PopularDestinations> {
                 style: TextButton.styleFrom(
                   foregroundColor: Colors.blue,
                 ),
-                child: const Row(
+                child: Row(
                   children: [
                     Text(
                       'View All',
                       style: TextStyle(
-                        fontSize: 14,
+                        fontSize: context.bodySmall,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    SizedBox(width: 4),
-                    Icon(Icons.arrow_forward, size: 16),
+                    SizedBox(width: context.gapSmall / 2),
+                    Icon(Icons.arrow_forward, size: context.iconSmall),
                   ],
                 ),
               ),
@@ -330,16 +331,16 @@ class _PopularDestinationsState extends State<PopularDestinations> {
 
         // Filter Tabs (All, Domestic, International)
         Container(
-          height: 45,
-          margin: const EdgeInsets.only(bottom: 12),
+          height: context.hp(6),
+          margin: EdgeInsets.only(bottom: context.hp(1.5)),
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
+            padding: EdgeInsets.symmetric(horizontal: context.wp(3)),
             itemCount: _filterOptions.length,
             itemBuilder: (context, index) {
               final isSelected = _selectedFilterIndex == index;
               return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
+                padding: EdgeInsets.symmetric(horizontal: context.wp(1)),
                 child: FilterChip(
                   label: Text(_filterOptions[index]),
                   selected: isSelected,
@@ -376,8 +377,8 @@ class _PopularDestinationsState extends State<PopularDestinations> {
         // Show message if no destinations found
         if (_filteredDestinations.isEmpty)
           Container(
-            height: 400,
-            margin: const EdgeInsets.all(16),
+            height: context.hp(50),
+            margin: EdgeInsets.all(context.wp(4)),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(12),
               color: Colors.grey[100],
@@ -388,14 +389,14 @@ class _PopularDestinationsState extends State<PopularDestinations> {
                 children: [
                   Icon(
                     Icons.location_off,
-                    size: 64,
+                    size: context.iconLarge * 2,
                     color: Colors.grey[400],
                   ),
                   const SizedBox(height: 16),
                   Text(
                     'No destinations found',
                     style: TextStyle(
-                      fontSize: 16,
+                      fontSize: context.titleSmall,
                       fontWeight: FontWeight.w600,
                       color: Colors.grey[600],
                     ),
@@ -404,7 +405,7 @@ class _PopularDestinationsState extends State<PopularDestinations> {
                   Text(
                     'Try changing the filter',
                     style: TextStyle(
-                      fontSize: 14,
+                      fontSize: context.bodyMedium,
                       color: Colors.grey[500],
                     ),
                   ),
@@ -417,7 +418,7 @@ class _PopularDestinationsState extends State<PopularDestinations> {
             children: [
               // Destination Card Carousel
               SizedBox(
-                height: 420,
+                height: context.cardHeight,
                 child: PageView.builder(
                   controller: _pageController,
                   onPageChanged: (index) {
@@ -428,7 +429,7 @@ class _PopularDestinationsState extends State<PopularDestinations> {
                   itemCount: _filteredDestinations.length,
                   itemBuilder: (context, index) {
                     return Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      padding: EdgeInsets.symmetric(horizontal: context.wp(2)),
                       child: DestinationCard(
                         destination: _filteredDestinations[index],
                         onViewDetail: () {
@@ -443,15 +444,15 @@ class _PopularDestinationsState extends State<PopularDestinations> {
               // Page Indicator Dots
               if (_filteredDestinations.length > 1)
                 Container(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  padding: EdgeInsets.symmetric(vertical: context.hp(1.5)),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       for (int i = 0; i < _filteredDestinations.length; i++)
                         Container(
-                          width: 8,
-                          height: 8,
-                          margin: const EdgeInsets.symmetric(horizontal: 4),
+                          width: context.isMobile ? 8 : 10,
+                          height: context.isMobile ? 8 : 10,
+                          margin: EdgeInsets.symmetric(horizontal: context.wp(1)),
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             color: _currentPage == i
@@ -463,53 +464,6 @@ class _PopularDestinationsState extends State<PopularDestinations> {
                   ),
                 ),
 
-              // Stats Bar showing number of destinations
-              // Container(
-              //   margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              //   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              //   decoration: BoxDecoration(
-              //     color: Colors.grey[100],
-              //     borderRadius: BorderRadius.circular(12),
-              //   ),
-              //   child: Row(
-              //     mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              //     children: [
-              //       Text(
-              //         '${_filteredDestinations.length} destinations found',
-              //         style: TextStyle(
-              //           fontSize: 12,
-              //           color: Colors.grey[600],
-              //         ),
-              //       ),
-              //       if (_selectedFilterIndex != 0)
-              //         TextButton(
-              //           onPressed: () {
-              //             setState(() {
-              //               _selectedFilterIndex = 0;
-              //               _currentPage = 0;
-              //               _pageController.animateToPage(
-              //                 0,
-              //                 duration: const Duration(milliseconds: 300),
-              //                 curve: Curves.easeInOut,
-              //               );
-              //             });
-              //           },
-              //           style: TextButton.styleFrom(
-              //             padding: EdgeInsets.zero,
-              //             minimumSize: const Size(0, 0),
-              //           ),
-              //           child: Text(
-              //             'Clear Filter',
-              //             style: TextStyle(
-              //               fontSize: 12,
-              //               color: Colors.blue,
-              //               fontWeight: FontWeight.w600,
-              //             ),
-              //           ),
-              //         ),
-              //     ],
-              //   ),
-              // ),
             ],
           ),
 

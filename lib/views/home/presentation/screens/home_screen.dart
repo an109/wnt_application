@@ -23,35 +23,36 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int currentIndex = 0;
-  double bannerHeight = 200;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       drawer: const CustomDrawer(),
       appBar: AppBar(
-        title: const WanderNovaLogo(scaleFactor: 0.6),
+        title: WanderNovaLogo(
+          scaleFactor: context.isMobile ? 0.6 : (context.isTablet ? 0.8 : 1.0),
+        ),
         backgroundColor: Colors.white,
         actions: [
           Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Image.asset("assets/images/wander_nova_logo.jpg", height: 35),
+            padding: EdgeInsets.all(context.wp(2)),
+            child: Image.asset(
+              "assets/images/wander_nova_logo.jpg",
+              height: context.hp(4.5),
+            ),
           )
         ],
       ),
       body: CustomScrollView(
-        physics: const BouncingScrollPhysics(),
+        physics: context.scrollPhysics,
         slivers: [
-
-          /// TOP IMAGE + SEARCH CARD
           SliverToBoxAdapter(
             child: Stack(
               clipBehavior: Clip.none,
               children: [
-
-                /// BACKGROUND IMAGE
+                // BACKGROUND IMAGE
                 SizedBox(
-                  height: context.hp(65),
+                  height: context.isMobile ? context.hp(65) : context.hp(70),
                   width: double.infinity,
                   child: Image.network(
                     "https://images.unsplash.com/photo-1436491865332-7a61a109cc05?q=80&w=1200&auto=format&fit=crop",
@@ -59,44 +60,42 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
 
-                /// DARK OVERLAY
+                // DARK OVERLAY
                 IgnorePointer(
                   ignoring: true,
                   child: Container(
-                    height: 350,
+                    height: context.isMobile ? context.hp(65) : context.hp(70),
                     color: Colors.black.withOpacity(0.30),
                   ),
                 ),
 
-                /// TITLE
+                // TITLE
                 Positioned(
-                  top: 50,
-                  left: 20,
+                  top: context.hp(5),
+                  left: context.wp(5),
                   child: Row(
-                    children: const [
+                    children: [
                       Icon(
                         Icons.flight_takeoff,
                         color: Colors.white,
-                        size: 32,
+                        size: context.isMobile ? 32 : 40,
                       ),
-
-                      SizedBox(width: 10),
-
+                      SizedBox(width: context.wp(2.5)),
                       Text(
                         "Book Flights",
                         style: TextStyle(
                           color: Colors.white,
-                          fontSize: 28,
+                          fontSize: context.isMobile ? 28 : 36,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                     ],
                   ),
                 ),
+
                 Positioned(
                   left: context.wp(4),
                   right: context.wp(4),
-                  // bottom: 0,
                   bottom: -context.hp(4),
                   child: Material(
                     color: Colors.transparent,
@@ -107,7 +106,6 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
 
-          /// SPACE BELOW OVERLAPPING CARD
           const SliverToBoxAdapter(
             child: SizedBox(height: 90),
           ),
@@ -118,18 +116,18 @@ class _HomeScreenState extends State<HomeScreen> {
               child: const TransportExclusiveDealsSection(),
             ),
           ),
+
           const SliverToBoxAdapter(child: PopularDestinations()),
           const SliverToBoxAdapter(child: TrendingPackages()),
           const SliverToBoxAdapter(child: FAQSection()),
           const SliverToBoxAdapter(child: TravelStoriesSection()),
           const SliverToBoxAdapter(child: WhyChooseUs()),
 
-          const SliverToBoxAdapter(
-            child: SizedBox(height: 40),
+          SliverToBoxAdapter(
+            child: SizedBox(height: context.hp(5)),
           ),
         ],
       ),
-
       bottomNavigationBar: const CustomBottomNav(
         currentIndex: 0,
       ),

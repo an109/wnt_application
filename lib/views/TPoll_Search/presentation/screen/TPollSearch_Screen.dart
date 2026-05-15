@@ -4,6 +4,7 @@ import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import '../../../../common_widgets/logo.dart';
 import '../../../../injection_container.dart';
 import '../../domain/entities/TPollSearchEntity.dart';
+import '../../../TResult/presentation/screen/TPoll_Booking.dart';
 import '../Widget/TPoll_VehicleCard.dart';
 import '../Widget/TPoll_filterDrawer.dart';
 import '../bloc/TPoll_SearchBloc.dart';
@@ -66,7 +67,6 @@ class _TpollSearchResultsPageState extends State<TpollSearchResultsPage> {
         key: _scaffoldKey,
         backgroundColor: _bgGray,
         drawer: BlocBuilder<TpollSearchBloc, TpollSearchState>(
-          // ← ADD
           builder: (context, state) {
             if (state is TpollSearchSuccess) {
               return TpollFilterDrawer(
@@ -77,7 +77,7 @@ class _TpollSearchResultsPageState extends State<TpollSearchResultsPage> {
                 },
               );
             }
-            return const SizedBox.shrink(); // drawer not ready until data loads
+            return const SizedBox.shrink();
           },
         ),
         appBar: _buildAppBar(context),
@@ -101,31 +101,30 @@ class _TpollSearchResultsPageState extends State<TpollSearchResultsPage> {
     return AppBar(
       elevation: 0,
       backgroundColor: Colors.white,
-
       title: const WanderNovaLogo(scaleFactor: 0.6),
       actions: [
-        // ── ADD THIS FILTER BUTTON ──
         BlocBuilder<TpollSearchBloc, TpollSearchState>(
           builder: (context, state) {
             if (state is! TpollSearchSuccess) return const SizedBox.shrink();
             return Padding(
-              padding: const EdgeInsets.only(right: 8),
+              padding: EdgeInsets.only(right: context.wp(2)),
               child: Stack(
                 alignment: Alignment.center,
-                children: [
-
-                ],
+                children: [],
               ),
             );
           },
         ),
         Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: Image.asset("assets/images/wander_nova_logo.jpg", height: 35),
+          padding: EdgeInsets.all(context.wp(2)),
+          child: Image.asset(
+            "assets/images/wander_nova_logo.jpg",
+            height: context.hp(4.5),
+          ),
         ),
       ],
       bottom: PreferredSize(
-        preferredSize: const Size.fromHeight(1),
+        preferredSize: Size.fromHeight(1),
         child: Container(color: Colors.grey.shade200, height: 1),
       ),
     );
@@ -148,50 +147,40 @@ class _TpollSearchResultsPageState extends State<TpollSearchResultsPage> {
 
     return Column(
       children: [
-        // Route summary header
         _buildRouteHeader(context, searchData),
-        // Filters + sort bar
         _buildFilterSortBar(context, vehicleTypes, allAmenities),
-        // Results count bar
-        _buildResultsCountBar(
-          context,
-          filteredResults.length,
-          searchData.moreComing,
-        ),
-        // Results list
+        _buildResultsCountBar(context, filteredResults.length, searchData.moreComing),
         Expanded(
           child: filteredResults.isEmpty
               ? _buildEmptyView()
               : RefreshIndicator(
-                  color: _primaryOrange,
-                  onRefresh: () async {
-                    _bloc.add(
-                      TpollSearchRefreshEvent(searchId: widget.searchId),
-                    );
-                  },
-                  child: ListView.builder(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: context.wp(4),
-                      vertical: context.hp(2),
-                    ),
-                    itemCount: filteredResults.length,
-                    itemBuilder: (context, index) {
-                      final result = filteredResults[index];
-                      return TpollVehicleCard(
-                        result: result,
-                        currencySymbol: searchData.currencyInfo.prefixSymbol,
-                        currencyCode: searchData.currencyInfo.code,
-                        onTap: () => _handleBooking(context, result),
-                      );
-                    },
-                  ),
-                ),
+            color: _primaryOrange,
+            onRefresh: () async {
+              _bloc.add(TpollSearchRefreshEvent(searchId: widget.searchId));
+            },
+            child: ListView.builder(
+              padding: EdgeInsets.symmetric(
+                horizontal: context.wp(4),
+                vertical: context.hp(2),
+              ),
+              itemCount: filteredResults.length,
+              itemBuilder: (context, index) {
+                final result = filteredResults[index];
+                return TpollVehicleCard(
+                  searchId: widget.searchId,
+                  result: result,
+                  currencySymbol: searchData.currencyInfo.prefixSymbol,
+                  currencyCode: searchData.currencyInfo.code,
+                  onTap: () => _handleBooking(context, result),
+                );
+              },
+            ),
+          ),
         ),
       ],
     );
   }
 
-  /// Route header: shows from → to, date, passengers
   Widget _buildRouteHeader(BuildContext context, SearchDataEntity searchData) {
     return Container(
       color: Colors.white,
@@ -202,7 +191,6 @@ class _TpollSearchResultsPageState extends State<TpollSearchResultsPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // From → To row
           Row(
             children: [
               Expanded(
@@ -218,7 +206,7 @@ class _TpollSearchResultsPageState extends State<TpollSearchResultsPage> {
                         letterSpacing: 1,
                       ),
                     ),
-                    const SizedBox(height: 2),
+                    SizedBox(height: context.hp(0.3)),
                     Text(
                       widget.startAddress.isNotEmpty
                           ? widget.startAddress
@@ -239,15 +227,15 @@ class _TpollSearchResultsPageState extends State<TpollSearchResultsPage> {
               Padding(
                 padding: EdgeInsets.symmetric(horizontal: context.wp(2)),
                 child: Container(
-                  padding: const EdgeInsets.all(6),
+                  padding: EdgeInsets.all(context.hp(0.8)),
                   decoration: BoxDecoration(
                     color: _primaryOrange.withOpacity(0.1),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.arrow_forward,
                     color: _primaryOrange,
-                    size: 16,
+                    size: context.iconSmall,
                   ),
                 ),
               ),
@@ -264,7 +252,7 @@ class _TpollSearchResultsPageState extends State<TpollSearchResultsPage> {
                         letterSpacing: 1,
                       ),
                     ),
-                    const SizedBox(height: 2),
+                    SizedBox(height: context.hp(0.3)),
                     Text(
                       widget.endAddress.isNotEmpty
                           ? widget.endAddress
@@ -284,8 +272,7 @@ class _TpollSearchResultsPageState extends State<TpollSearchResultsPage> {
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          // Date + Passengers row
+          SizedBox(height: context.hp(1)),
           Row(
             children: [
               _infoChip(
@@ -295,8 +282,7 @@ class _TpollSearchResultsPageState extends State<TpollSearchResultsPage> {
               SizedBox(width: context.wp(3)),
               _infoChip(
                 icon: Icons.person_outline,
-                label:
-                    '${widget.numPassengers} Passenger${widget.numPassengers > 1 ? 's' : ''}',
+                label: '${widget.numPassengers} Passenger${widget.numPassengers > 1 ? 's' : ''}',
               ),
             ],
           ),
@@ -309,12 +295,12 @@ class _TpollSearchResultsPageState extends State<TpollSearchResultsPage> {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 13, color: Colors.grey.shade600),
-        const SizedBox(width: 4),
+        Icon(icon, size: context.iconSmall, color: Colors.grey.shade600),
+        SizedBox(width: context.wp(1)),
         Text(
           label,
           style: TextStyle(
-            fontSize: 12,
+            fontSize: context.bodySmall,
             color: Colors.grey.shade700,
             fontWeight: FontWeight.w500,
           ),
@@ -323,12 +309,11 @@ class _TpollSearchResultsPageState extends State<TpollSearchResultsPage> {
     );
   }
 
-  /// Horizontal scrollable vehicle type filters + sort dropdown
   Widget _buildFilterSortBar(
-    BuildContext context,
-    List<String> vehicleTypes,
-    List<String> amenities,
-  ) {
+      BuildContext context,
+      List<String> vehicleTypes,
+      List<String> amenities,
+      ) {
     return Container(
       color: Colors.white,
       child: Column(
@@ -345,7 +330,7 @@ class _TpollSearchResultsPageState extends State<TpollSearchResultsPage> {
                 Text(
                   'SORT BY',
                   style: TextStyle(
-                    fontSize: 11,
+                    fontSize: context.labelSmall,
                     fontWeight: FontWeight.w700,
                     color: Colors.grey.shade500,
                     letterSpacing: 1,
@@ -354,7 +339,7 @@ class _TpollSearchResultsPageState extends State<TpollSearchResultsPage> {
                 SizedBox(width: context.wp(3)),
                 Expanded(
                   child: SizedBox(
-                    height: 36,
+                    height: context.hp(4.5),
                     child: ListView(
                       scrollDirection: Axis.horizontal,
                       children: [
@@ -375,56 +360,17 @@ class _TpollSearchResultsPageState extends State<TpollSearchResultsPage> {
     );
   }
 
-  Widget _filterChip({
-    required String label,
-    required bool selected,
-    required VoidCallback onTap,
-    required IconData icon,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        margin: const EdgeInsets.only(right: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: selected ? _primaryBlue : Colors.transparent,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: selected ? _primaryBlue : Colors.grey.shade300,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              size: 14,
-              color: selected ? Colors.white : Colors.grey.shade600,
-            ),
-            const SizedBox(width: 5),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: selected ? Colors.white : Colors.grey.shade700,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _sortChip(String value, String label) {
     final selected = _sortBy == value;
     return GestureDetector(
       onTap: () => setState(() => _sortBy = value),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        margin: const EdgeInsets.only(right: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        margin: EdgeInsets.only(right: context.wp(2)),
+        padding: EdgeInsets.symmetric(
+          horizontal: context.wp(3),
+          vertical: context.hp(0.8),
+        ),
         decoration: BoxDecoration(
           color: selected ? _primaryBlue.withOpacity(0.08) : Colors.transparent,
           borderRadius: BorderRadius.circular(20),
@@ -436,14 +382,14 @@ class _TpollSearchResultsPageState extends State<TpollSearchResultsPage> {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (selected)
-              const Padding(
-                padding: EdgeInsets.only(right: 4),
-                child: Icon(Icons.check_circle, size: 13, color: _primaryBlue),
+              Padding(
+                padding: EdgeInsets.only(right: context.wp(1)),
+                child: Icon(Icons.check_circle, size: context.iconSmall, color: _primaryBlue),
               ),
             Text(
               label,
               style: TextStyle(
-                fontSize: 12,
+                fontSize: context.bodySmall,
                 fontWeight: FontWeight.w600,
                 color: selected ? _primaryBlue : Colors.grey.shade700,
               ),
@@ -454,11 +400,7 @@ class _TpollSearchResultsPageState extends State<TpollSearchResultsPage> {
     );
   }
 
-  Widget _buildResultsCountBar(
-    BuildContext context,
-    int count,
-    bool moreComing,
-  ) {
+  Widget _buildResultsCountBar(BuildContext context, int count, bool moreComing) {
     return Container(
       color: _bgGray,
       padding: EdgeInsets.symmetric(
@@ -470,26 +412,26 @@ class _TpollSearchResultsPageState extends State<TpollSearchResultsPage> {
           Text(
             '$count result${count != 1 ? 's' : ''} found',
             style: TextStyle(
-              fontSize: 13,
+              fontSize: context.bodyMedium,
               fontWeight: FontWeight.w600,
               color: Colors.grey.shade700,
             ),
           ),
           if (moreComing) ...[
-            const SizedBox(width: 8),
+            SizedBox(width: context.wp(2)),
             SizedBox(
-              width: 12,
-              height: 12,
+              width: context.hp(1.5),
+              height: context.hp(1.5),
               child: CircularProgressIndicator(
                 strokeWidth: 1.5,
                 color: _primaryOrange,
               ),
             ),
-            const SizedBox(width: 5),
+            SizedBox(width: context.wp(1.5)),
             Text(
               'More coming...',
               style: TextStyle(
-                fontSize: 12,
+                fontSize: context.bodySmall,
                 color: _primaryOrange,
                 fontWeight: FontWeight.w500,
               ),
@@ -506,19 +448,22 @@ class _TpollSearchResultsPageState extends State<TpollSearchResultsPage> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           const CircularProgressIndicator(color: _primaryOrange),
-          const SizedBox(height: 16),
+          SizedBox(height: context.hp(2)),
           Text(
             'Finding the best rides for you...',
             style: TextStyle(
               color: _darkNavy,
-              fontSize: 15,
+              fontSize: context.titleSmall,
               fontWeight: FontWeight.w500,
             ),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: context.hp(1)),
           Text(
             'Searching across multiple providers',
-            style: TextStyle(color: Colors.grey.shade500, fontSize: 13),
+            style: TextStyle(
+              color: Colors.grey.shade500,
+              fontSize: context.bodyMedium,
+            ),
           ),
         ],
       ),
@@ -528,31 +473,34 @@ class _TpollSearchResultsPageState extends State<TpollSearchResultsPage> {
   Widget _buildEmptyView() {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(32),
+        padding: EdgeInsets.all(context.wp(8)),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
               Icons.directions_car_outlined,
-              size: 64,
+              size: context.iconLarge * 2,
               color: Colors.grey.shade300,
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: context.hp(2)),
             Text(
               'No rides found',
               style: TextStyle(
-                fontSize: 18,
+                fontSize: context.titleLarge,
                 fontWeight: FontWeight.w700,
                 color: Colors.grey.shade700,
               ),
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: context.hp(1)),
             Text(
               'Try changing your filters or search criteria',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
+              style: TextStyle(
+                fontSize: context.bodyMedium,
+                color: Colors.grey.shade500,
+              ),
             ),
-            const SizedBox(height: 24),
+            SizedBox(height: context.hp(3)),
             OutlinedButton.icon(
               onPressed: () {
                 setState(() {
@@ -561,13 +509,17 @@ class _TpollSearchResultsPageState extends State<TpollSearchResultsPage> {
                   _sortBy = 'price_low';
                 });
               },
-              icon: const Icon(Icons.refresh, size: 16),
-              label: const Text('Clear Filters'),
+              icon: Icon(Icons.refresh, size: context.iconSmall),
+              label: Text('Clear Filters', style: TextStyle(fontSize: context.bodyMedium)),
               style: OutlinedButton.styleFrom(
                 foregroundColor: _primaryBlue,
                 side: const BorderSide(color: _primaryBlue),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
+                ),
+                padding: EdgeInsets.symmetric(
+                  horizontal: context.wp(4),
+                  vertical: context.hp(1.2),
                 ),
               ),
             ),
@@ -580,39 +532,46 @@ class _TpollSearchResultsPageState extends State<TpollSearchResultsPage> {
   Widget _buildErrorView(BuildContext context, TpollSearchFailure state) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(32),
+        padding: EdgeInsets.all(context.wp(8)),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.error_outline, size: 64, color: Colors.red.shade300),
-            const SizedBox(height: 16),
+            Icon(
+              Icons.error_outline,
+              size: context.iconLarge * 2,
+              color: Colors.red.shade300,
+            ),
+            SizedBox(height: context.hp(2)),
             Text(
               'Something went wrong',
               style: TextStyle(
-                fontSize: 18,
+                fontSize: context.titleLarge,
                 fontWeight: FontWeight.w700,
                 color: Colors.grey.shade700,
               ),
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: context.hp(1)),
             Text(
               state.error.message ?? 'Please try again',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
+              style: TextStyle(
+                fontSize: context.bodyMedium,
+                color: Colors.grey.shade500,
+              ),
             ),
-            const SizedBox(height: 24),
+            SizedBox(height: context.hp(3)),
             ElevatedButton.icon(
               onPressed: () {
                 _bloc.add(TpollSearchRefreshEvent(searchId: widget.searchId));
               },
-              icon: const Icon(Icons.refresh),
-              label: const Text('Retry'),
+              icon: Icon(Icons.refresh, size: context.iconMedium),
+              label: Text('Retry', style: TextStyle(fontSize: context.bodyLarge)),
               style: ElevatedButton.styleFrom(
                 backgroundColor: _primaryOrange,
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 32,
-                  vertical: 14,
+                padding: EdgeInsets.symmetric(
+                  horizontal: context.wp(8),
+                  vertical: context.hp(1.8),
                 ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
@@ -663,14 +622,14 @@ class _TpollSearchResultsPageState extends State<TpollSearchResultsPage> {
     switch (_filters.sortBy) {
       case 'price_low':
         filtered.sort(
-          (a, b) => (double.tryParse(a.totalPriceAmount) ?? 0).compareTo(
+              (a, b) => (double.tryParse(a.totalPriceAmount) ?? 0).compareTo(
             double.tryParse(b.totalPriceAmount) ?? 0,
           ),
         );
         break;
       case 'price_high':
         filtered.sort(
-          (a, b) => (double.tryParse(b.totalPriceAmount) ?? 0).compareTo(
+              (a, b) => (double.tryParse(b.totalPriceAmount) ?? 0).compareTo(
             double.tryParse(a.totalPriceAmount) ?? 0,
           ),
         );
@@ -680,7 +639,7 @@ class _TpollSearchResultsPageState extends State<TpollSearchResultsPage> {
         break;
       case 'top_rated':
         filtered.sort(
-          (a, b) => (b.bookable ? 1 : 0).compareTo(a.bookable ? 1 : 0),
+              (a, b) => (b.bookable ? 1 : 0).compareTo(a.bookable ? 1 : 0),
         );
         break;
     }
@@ -689,30 +648,37 @@ class _TpollSearchResultsPageState extends State<TpollSearchResultsPage> {
   }
 
   void _handleBooking(BuildContext context, SearchResultEntity result) {
-    // ScaffoldMessenger.of(context).showSnackBar(
-    //   SnackBar(
-    //     content: Text('Booking ${result.vehicleType} - ${result.providerName}'),
-    //     backgroundColor: _primaryOrange,
-    //     behavior: SnackBarBehavior.floating,
-    //     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-    //   ),
-    // );
+    final currentState = _bloc.state;
+
+    if (currentState is TpollSearchSuccess) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => TPollBookingScreen(
+            result: result,
+            searchId: widget.searchId,
+            resultId: result.resultId,
+            searchData: currentState.tpollSearchEntity.search,
+            startAddress: widget.startAddress,
+            endAddress: widget.endAddress,
+            pickupDate: widget.pickupDate,
+          ),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Unable to load booking details. Please try again.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   String _formatDate(DateTime date) {
     const months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
     ];
     const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     return '${days[date.weekday - 1]}, ${months[date.month - 1]} ${date.day}, ${date.year}';

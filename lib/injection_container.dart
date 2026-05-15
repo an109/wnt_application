@@ -26,6 +26,16 @@ import 'package:wander_nova/views/TPoll_Search/data/repository/TPoll_search_repo
 import 'package:wander_nova/views/TPoll_Search/domain/repository/TPoll_Search_repository.dart';
 import 'package:wander_nova/views/TPoll_Search/domain/usecase/TPoll_search_usecase.dart';
 import 'package:wander_nova/views/TPoll_Search/presentation/bloc/TPoll_SearchBloc.dart';
+import 'package:wander_nova/views/TResevation/data/data_source/TReservation_api_service.dart';
+import 'package:wander_nova/views/TResevation/data/repository/TReposiotry_impl.dart';
+import 'package:wander_nova/views/TResevation/domain/repository/TReservation_repository.dart';
+import 'package:wander_nova/views/TResevation/domain/usecase/TReservation_usecase.dart';
+import 'package:wander_nova/views/TResevation/presentation/bloc/TReservation_bloc.dart';
+import 'package:wander_nova/views/TResult/data/data_source/TResult_api_service.dart';
+import 'package:wander_nova/views/TResult/data/repository/TResult_repository_impl.dart';
+import 'package:wander_nova/views/TResult/domain/repository/TResult_repository.dart';
+import 'package:wander_nova/views/TResult/domain/usecase/get_TResult_usecase.dart';
+import 'package:wander_nova/views/TResult/presentation/bloc/TResult_bloc.dart';
 import 'package:wander_nova/views/T_Search/data/data_source/T_Search_api_service.dart';
 import 'package:wander_nova/views/T_Search/data/repository/T_SearchRepository_impl.dart';
 import 'package:wander_nova/views/T_Search/domain/repository/T_SearchRepository.dart';
@@ -140,7 +150,10 @@ Future<void> initializeDependencies() async {
         () => T_locationApiServiceImpl(sl<DioClient>().instance),
   );
   sl.registerLazySingleton<TransportSearchApiService>(() => TransportSearchApiServiceImpl(sl<DioClient>().instance),);
-  sl.registerLazySingleton<TpollSearchApiService>(() => TpollSearchApiServiceImpl(sl<DioClient>().instance),);
+  sl.registerLazySingleton<TpollSearchApiService>(() => TpollSearchApiServiceImpl(sl<DioClient>().instance));
+  sl.registerLazySingleton<TransportResultApiService>(() => TransportResultApiServiceImpl(sl<DioClient>().instance));
+  sl.registerLazySingleton<TransportReservationApiService>(() => TransportReservationApiServiceImpl(sl<DioClient>().instance),);
+
 
 
 
@@ -182,6 +195,10 @@ Future<void> initializeDependencies() async {
         () => TransportSearchRepositoryImpl(sl<TransportSearchApiService>()),
   );
   sl.registerLazySingleton<TpollSearchRepository>(() => TpollSearchRepositoryImpl(sl<TpollSearchApiService>()));
+  sl.registerLazySingleton<TransportResultRepository>(() => TransportResultRepositoryImpl(sl<TransportResultApiService>()));
+  sl.registerLazySingleton<TransportReservationRepository>(
+        () => TransportReservationRepositoryImpl(sl<TransportReservationApiService>()),);
+
 
 
 
@@ -209,12 +226,9 @@ Future<void> initializeDependencies() async {
   sl.registerLazySingleton<GetExclusiveDealsUseCase>(() => GetExclusiveDealsUseCase(sl()));
   sl.registerLazySingleton<GetT_locationsUseCase>(() => GetT_locationsUseCase(sl<T_locationRepository>()));
   sl.registerLazySingleton<TransportSearchUsecase>(() => TransportSearchUsecase(sl()));
-  sl.registerLazySingleton<TpollSearchUseCase>(
-        () => TpollSearchUseCase(sl<TpollSearchRepository>()),
-  );
-
-
-
+  sl.registerLazySingleton<TpollSearchUseCase>(() => TpollSearchUseCase(sl<TpollSearchRepository>()));
+  sl.registerLazySingleton<GetTransportResultUseCase>(() => GetTransportResultUseCase(sl<TransportResultRepository>()));
+  sl.registerLazySingleton(() => CreateTransportReservationUseCase(sl<TransportReservationRepository>()),);
 
 
 
@@ -243,8 +257,10 @@ Future<void> initializeDependencies() async {
   sl.registerFactory<ExclusiveDealsBloc>(() => ExclusiveDealsBloc(getExclusiveDealsUseCase: sl()));
   sl.registerFactory<T_locationBloc>(() => T_locationBloc(getT_locationsUseCase: sl()));
   sl.registerFactory<TransportSearchBloc>(() => TransportSearchBloc(transportSearchUsecase: sl()));
-  sl.registerFactory<TpollSearchBloc>(() => TpollSearchBloc(tpollSearchUseCase: sl<TpollSearchUseCase>()),);
-
+  sl.registerFactory<TpollSearchBloc>(() => TpollSearchBloc(tpollSearchUseCase: sl<TpollSearchUseCase>()));
+  sl.registerFactory<TransportResultBloc>(() => TransportResultBloc(getTransportResultUseCase: sl()));
+  sl.registerFactory<TransportReservationBloc>(() => TransportReservationBloc(
+      createTransportReservationUseCase: sl<CreateTransportReservationUseCase>()));
 
 
 }

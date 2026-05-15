@@ -32,6 +32,7 @@ class SearchDataModel extends Equatable {
   final int expiresIn;
   final bool moreComing;
 
+
   const SearchDataModel({
     required this.numPassengers,
     required this.pickupDatetime,
@@ -43,6 +44,7 @@ class SearchDataModel extends Equatable {
     required this.currencyInfo,
     required this.expiresIn,
     required this.moreComing,
+
   });
 
   factory SearchDataModel.fromJson(Map<String, dynamic> json) {
@@ -60,6 +62,7 @@ class SearchDataModel extends Equatable {
       currencyInfo: CurrencyInfoModel.fromJson(json['currency_info'] ?? {}),
       expiresIn: json['expires_in'] ?? 0,
       moreComing: json['more_coming'] ?? false,
+
     );
   }
 
@@ -75,6 +78,7 @@ class SearchDataModel extends Equatable {
     currencyInfo,
     expiresIn,
     moreComing,
+
   ];
 }
 
@@ -87,6 +91,8 @@ class SearchResultModel extends Equatable {
   final String vehicleName;
   final bool bookable;
   final List<StepModel> steps;
+  final String totalPriceAmount;
+  final String totalPriceCurrency;
 
   const SearchResultModel({
     required this.resultId,
@@ -97,6 +103,9 @@ class SearchResultModel extends Equatable {
     required this.vehicleName,
     required this.bookable,
     required this.steps,
+    required this.totalPriceAmount,
+    required this.totalPriceCurrency,
+
   });
 
   factory SearchResultModel.fromJson(Map<String, dynamic> json) {
@@ -108,6 +117,8 @@ class SearchResultModel extends Equatable {
       vehicleType: json['vehicle_type'] ?? '',
       vehicleName: json['vehicle_name'] ?? '',
       bookable: json['bookable'] ?? false,
+      totalPriceAmount: json['total_price_amount'] ?? '0',
+      totalPriceCurrency: json['total_price_currency'] ?? 'USD',
       // steps: (json['steps'] as List<dynamic>?)
       //     ?.map((e) => StepModel.fromJson(e))
       //     .toList() ??
@@ -126,6 +137,8 @@ class SearchResultModel extends Equatable {
     vehicleName,
     bookable,
     steps,
+    totalPriceAmount,
+    totalPriceCurrency
   ];
 }
 

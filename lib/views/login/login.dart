@@ -110,22 +110,14 @@ class _LoginSignupScreenState extends State<LoginSignupScreen> {
                 ),
               );
 
-              // Navigate based on user type
-              // Future.delayed(const Duration(milliseconds: 500), () {
-              //   if (!mounted) return;
-              //   final userType = state.user.userType;
+              // Navigator.of(context).pop();
               //
-              //   Navigator.pushReplacement(
-              //     context,
-              //     MaterialPageRoute(builder: (context) => const HomeScreen()),
-              //   );
-              // });
-
-
-              Navigator.of(context).pop();
-
-              // Then execute any pending navigation from queue
+              // // Then execute any pending navigation from queue
+              // NavigationQueueService().executePendingNavigation(context);
               NavigationQueueService().executePendingNavigation(context);
+
+              // Close the dialog after navigation is queued
+              Navigator.of(context).pop();
             } else if (state is AuthError) {
               print('LoginScreen: Auth error: ${state.message}');
               ScaffoldMessenger.of(context).showSnackBar(

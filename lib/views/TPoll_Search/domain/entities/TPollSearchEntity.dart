@@ -130,16 +130,37 @@ class CurrencyInfoEntity extends Equatable {
 class AmenityEntity extends Equatable {
   final String key;
   final String name;
+  final String description;
   final bool included;
   final bool chargeable;
+  final PriceInfoEntity? price;
 
   const AmenityEntity({
     required this.key,
     required this.name,
+    required this.description,
     required this.included,
     required this.chargeable,
+    this.price,
   });
 
   @override
-  List<Object?> get props => [key, name, included, chargeable];
+  List<Object?> get props => [key, name,description, included, chargeable, price];
+}
+
+class PriceInfoEntity extends Equatable {
+  final String value;
+  final String display;
+  final String compact;
+  final String currency;
+
+  const PriceInfoEntity({
+    required this.value,
+    required this.display,
+    required this.compact,
+    required this.currency,
+  });
+
+  @override
+  List<Object?> get props => [value, display, compact, currency];
 }

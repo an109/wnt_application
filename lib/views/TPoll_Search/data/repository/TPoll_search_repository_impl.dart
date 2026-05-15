@@ -53,8 +53,17 @@ class TpollSearchRepositoryImpl implements TpollSearchRepository {
             return AmenityEntity(
               key: amenityModel.key,
               name: amenityModel.name,
+              description: amenityModel.description,
               included: amenityModel.included,
               chargeable: amenityModel.chargeable,
+              price: amenityModel.price != null
+                  ? PriceInfoEntity(
+                value: amenityModel.price!.value,
+                display: amenityModel.price!.display,
+                compact: amenityModel.price!.compact,
+                currency: amenityModel.price!.currency,
+              )
+                  : null,
             );
           }).toList();
 
@@ -64,8 +73,8 @@ class TpollSearchRepositoryImpl implements TpollSearchRepository {
             providerName: result.providerName,
             vehicleType: result.vehicleType,
             vehicleName: result.vehicleName,
-            totalPriceAmount: result.totalPrice.totalPrice.value,
-            totalPriceCurrency: result.totalPrice.totalPrice.currency,
+            totalPriceAmount: result.totalPriceAmount,
+            totalPriceCurrency: result.totalPriceCurrency,
             bookable: result.bookable,
             // Mapped from vehicle model
             vehicleImageUrl: vehicle.image,

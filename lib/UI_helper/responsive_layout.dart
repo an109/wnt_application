@@ -104,18 +104,18 @@ extension ResponsiveExtension on BuildContext {
   }
 
   // Responsive font sizes
-  double get headlineLarge => sp(32);
-  double get headlineMedium => sp(28);
-  double get headlineSmall => sp(24);
-  double get titleLarge => sp(20);
-  double get titleMedium => sp(18);
-  double get titleSmall => sp(16);
-  double get bodyLarge => sp(16);
-  double get bodyMedium => sp(14);
-  double get bodySmall => sp(12);
-  double get labelLarge => sp(14);
-  double get labelMedium => sp(12);
-  double get labelSmall => sp(10);
+  double get headlineLarge => MediaQuery.of(this).size.width / 375 * 32;
+  double get headlineMedium => MediaQuery.of(this).size.width / 375 * 28;
+  double get headlineSmall => MediaQuery.of(this).size.width / 375 * 24;
+  double get titleLarge => MediaQuery.of(this).size.width / 375 * 20;
+  double get titleMedium => MediaQuery.of(this).size.width / 375 * 18;
+  double get titleSmall => MediaQuery.of(this).size.width / 375 * 16;
+  double get bodyLarge => MediaQuery.of(this).size.width / 375 * 16;
+  double get bodyMedium => MediaQuery.of(this).size.width / 375 * 14;
+  double get bodySmall => MediaQuery.of(this).size.width / 375 * 12;
+  double get labelLarge => MediaQuery.of(this).size.width / 375 * 14;
+  double get labelMedium => MediaQuery.of(this).size.width / 375 * 12;
+  double get labelSmall => MediaQuery.of(this).size.width / 375 * 10;
 
   // Responsive icon sizes
   double get iconSmall => isMobile ? 16 : (isTablet ? 20 : 24);

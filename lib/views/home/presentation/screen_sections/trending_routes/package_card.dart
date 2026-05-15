@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:flutter/material.dart';
+import 'package:wander_nova/UI_helper/responsive_layout.dart';
 
 class RouteCard extends StatelessWidget {
   final Map<String, dynamic> route;
@@ -10,28 +11,27 @@ class RouteCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 260,
-      margin: const EdgeInsets.only(right: 12),
-      padding: const EdgeInsets.all(10),
+      width: context.wp(70), // Responsive width
+      margin: EdgeInsets.only(right: context.wp(3)),
+      padding: EdgeInsets.all(context.wp(2.5)),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(context.borderRadius),
         border: Border.all(color: Colors.blue.shade200),
         color: Colors.white,
       ),
       child: Row(
         children: [
-          // Image
           ClipRRect(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(context.borderRadius - 4),
             child: Image.network(
               route['image'],
-              height: 50,
-              width: 50,
+              height: context.hp(6.5),
+              width: context.wp(12),
               fit: BoxFit.cover,
             ),
           ),
 
-          const SizedBox(width: 10),
+          SizedBox(width: context.wp(2.5)),
 
           // Content
           Expanded(
@@ -43,30 +43,33 @@ class RouteCard extends StatelessWidget {
                   children: [
                     Text(
                       route['from'],
-                      style: const TextStyle(fontWeight: FontWeight.w600),
+                      style: TextStyle(
+                        fontSize: context.bodySmall,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                    const SizedBox(width: 4),
-                    const Icon(Icons.flight, size: 14, color: Colors.blue),
-                    const SizedBox(width: 4),
+                    SizedBox(width: context.wp(1)),
+                    Icon(Icons.flight, size: context.iconSmall, color: Colors.blue),
+                    SizedBox(width: context.wp(1)),
                     Text(
                       route['to'],
-                      style: const TextStyle(fontWeight: FontWeight.w600),
+                      style: TextStyle(fontSize: context.bodySmall,fontWeight: FontWeight.w600),
                     ),
                   ],
                 ),
 
-                const SizedBox(height: 4),
+                SizedBox(height: context.gapSmall / 2),
 
                 Text(
                   "${route['fromCode']} > ${route['toCode']}",
-                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                  style: TextStyle(  fontSize: context.labelSmall, color: Colors.grey[600]),
                 ),
 
-                const SizedBox(height: 4),
+                SizedBox(height: context.gapSmall / 2),
 
                 Text(
                   route['date'],
-                  style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                  style: TextStyle( fontSize: context.labelSmall - 1, color: Colors.grey[500]),
                 ),
               ],
             ),
@@ -75,9 +78,9 @@ class RouteCard extends StatelessWidget {
           // Price
           Text(
             route['price'],
-            style: const TextStyle(
+            style: TextStyle(
               fontWeight: FontWeight.bold,
-              fontSize: 14,
+              fontSize: context.titleSmall,
             ),
           ),
         ],

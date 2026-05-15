@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
+import '../../../../UI_helper/navigation_queue.dart';
+import '../../../../injection_container.dart';
+import '../../../auth/presentation/bloc/auth_bloc.dart';
+import '../../../auth/presentation/bloc/auth_state.dart';
+import '../../../login/login.dart';
 import '../../domain/entities/TPollSearchEntity.dart';
 
 class TpollVehicleCard extends StatelessWidget {
@@ -8,6 +13,9 @@ class TpollVehicleCard extends StatelessWidget {
   final String currencySymbol;
   final String currencyCode;
   final VoidCallback onTap;
+  final String searchId;
+
+  final Map<String, dynamic>? stepDetails;
 
   // Design constants matching website
   static const _primaryBlue = Color(0xff1663F7);
@@ -21,6 +29,8 @@ class TpollVehicleCard extends StatelessWidget {
     required this.currencySymbol,
     required this.currencyCode,
     required this.onTap,
+    this.stepDetails,
+    required this.searchId,
   });
 
   @override
@@ -209,46 +219,86 @@ class TpollVehicleCard extends StatelessWidget {
     );
   }
 
+
   Widget _buildProviderRow(BuildContext context) {
-    return Row(
+    // Get rating from result or stepDetails
+    final rating = stepDetails?['provider']?['rating']?.toDouble() ?? 5.0;
+    final ratingCount = stepDetails?['provider']?['rating_count'] ?? 0;
+
+    // Get vehicle make and model
+    final vehicleMake = stepDetails?['vehicle']?['make'] ?? '';
+    final vehicleModel = stepDetails?['vehicle']?['model'] ?? '';
+    final vehicleFullName = [vehicleMake, vehicleModel]
+        .where((s) => s.isNotEmpty)
+        .join(' ');
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(
-          child: Text(
-            result.providerName,
+        // Provider name + rating row
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                result.providerName,
+                style: TextStyle(
+                  fontSize: context.titleSmall,
+                  fontWeight: FontWeight.w700,
+                  color: _darkNavy,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            // Rating badge - FROM API
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.amber.shade50,
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: Colors.amber.shade200),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.star, size: 11, color: Colors.amber.shade600),
+                  const SizedBox(width: 2),
+                  Text(
+                    rating.toStringAsFixed(1), // Dynamic rating
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.amber.shade700,
+                    ),
+                  ),
+                  if (ratingCount > 0) ...[
+                    const SizedBox(width: 2),
+                    Text(
+                      '($ratingCount)',
+                      style: TextStyle(
+                        fontSize: 9,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+        SizedBox(height: context.hp(0.3)),
+        // Vehicle make + model (like website: "Standard Volkswagen Bora")
+        if (vehicleFullName.isNotEmpty)
+          Text(
+            '${result.vehicleName} $vehicleFullName'.trim(),
             style: TextStyle(
-              fontSize: context.titleSmall,
-              fontWeight: FontWeight.w700,
-              color: _darkNavy,
+              fontSize: context.bodySmall,
+              color: Colors.grey.shade600,
+              fontWeight: FontWeight.w500,
             ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
-        ),
-        // Rating badge (static 5.0 like website — replace with real data if available)
-        Container(
-          padding:
-          const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-          decoration: BoxDecoration(
-            color: Colors.amber.shade50,
-            borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: Colors.amber.shade200),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.star, size: 11, color: Colors.amber.shade600),
-              const SizedBox(width: 2),
-              Text(
-                '5.0',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.amber.shade700,
-                ),
-              ),
-            ],
-          ),
-        ),
       ],
     );
   }
@@ -273,8 +323,13 @@ class TpollVehicleCard extends StatelessWidget {
   }
 
   Widget _buildTravelTimeRow(BuildContext context) {
-    // "Flight info needed" / "45 min included" — static for now,
-    // extend if your entity has departure_datetime or step time
+    // Get time from stepDetails or use default
+    final time = stepDetails?['time'] ?? 25;
+    final waitTimeData = stepDetails?['wait_time'];
+    final minutesIncluded = waitTimeData?['minutes_included'] ?? 60;
+    final waitingPrice = waitTimeData?['waiting_minute_price']?['value'];
+    final flightInfoRequired = stepDetails?['flight_info_required'] ?? false;
+
     return Wrap(
       spacing: context.wp(3),
       runSpacing: 4,
@@ -282,18 +337,31 @@ class TpollVehicleCard extends StatelessWidget {
         _iconLabel(
           context,
           icon: Icons.access_time_outlined,
-          label: '25 min',
+          label: '$time min',
           color: Colors.grey.shade500,
         ),
-        _iconLabel(
-          context,
-          icon: Icons.flight_land_outlined,
-          label: 'Flight info needed',
-          color: Colors.grey.shade500,
-        ),
+        // Show wait time info like website
+        if (minutesIncluded > 0)
+          _iconLabel(
+            context,
+            icon: Icons.hourglass_bottom_outlined,
+            label: waitingPrice != null
+                ? '$minutesIncluded min included, then $currencySymbol$waitingPrice/min'
+                : '$minutesIncluded min included',
+            color: Colors.grey.shade500,
+          ),
+        // Flight info badge
+        if (flightInfoRequired)
+          _iconLabel(
+            context,
+            icon: Icons.flight_land_outlined,
+            label: 'Flight info needed',
+            color: Colors.grey.shade500,
+          ),
       ],
     );
   }
+
 
   Widget _iconLabel(
       BuildContext context, {
@@ -318,12 +386,14 @@ class TpollVehicleCard extends StatelessWidget {
     );
   }
 
-  /// Amenities chips — matching website style
+  /// Amenities chips
+
   Widget _buildAmenitiesSection(BuildContext context) {
-    final included =
-    result.amenities.where((a) => a.included).take(3).toList();
-    final chargeable =
-    result.amenities.where((a) => a.chargeable && !a.included).take(2).toList();
+    final included = result.amenities.where((a) => a.included).take(3).toList();
+    final chargeable = result.amenities
+        .where((a) => a.chargeable && !a.included)
+        .take(2)
+        .toList();
     final allToShow = [...included, ...chargeable];
 
     if (allToShow.isEmpty) return const SizedBox.shrink();
@@ -333,9 +403,11 @@ class TpollVehicleCard extends StatelessWidget {
       runSpacing: 6,
       children: allToShow.map((amenity) {
         final isIncluded = amenity.included;
+        final hasPrice = amenity.price != null &&
+            (amenity.price?.value?.isNotEmpty ?? false);
+
         return Container(
-          padding:
-          const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
             color: isIncluded
                 ? _primaryBlue.withOpacity(0.08)
@@ -353,11 +425,12 @@ class TpollVehicleCard extends StatelessWidget {
                 const SizedBox(width: 3),
               ],
               Text(
-                isIncluded ? amenity.name : '${amenity.name} (+)',
+                isIncluded
+                    ? amenity.name
+                    : '${amenity.name} +$currencySymbol${amenity.price?.value ?? '0'}',
                 style: TextStyle(
                   fontSize: 11,
-                  fontWeight:
-                  isIncluded ? FontWeight.w600 : FontWeight.w400,
+                  fontWeight: isIncluded ? FontWeight.w600 : FontWeight.w400,
                   color: isIncluded
                       ? _primaryBlue
                       : Colors.grey.shade600,
@@ -372,13 +445,23 @@ class TpollVehicleCard extends StatelessWidget {
 
   /// Trust signals: Free cancellation, No hidden fees, SMS notifications etc.
   Widget _buildTrustSignals(BuildContext context) {
+    // Get cancellation policy from stepDetails
+    final cancellation = stepDetails?['cancellation'];
+    final cancellationPolicy = cancellation?['policy'] as List?;
+    final freeCancellationHours = cancellationPolicy?.isNotEmpty == true
+        ? cancellationPolicy!.first['notice']
+        : null;
+
     return Wrap(
       spacing: context.wp(4),
       runSpacing: 4,
       children: [
+        // Free cancellation with hours
         _trustItem(
           icon: Icons.cancel_outlined,
-          label: 'Free cancellation',
+          label: freeCancellationHours != null
+              ? 'Free cancellation up to $freeCancellationHours hours'
+              : 'Free cancellation',
           color: _successGreen,
         ),
         _trustItem(
@@ -386,10 +469,36 @@ class TpollVehicleCard extends StatelessWidget {
           label: 'No hidden fees',
           color: _successGreen,
         ),
-        _trustItem(
-          icon: Icons.sms_outlined,
-          label: 'SMS notifications',
-          color: Colors.grey.shade600,
+        // SMS with price
+        _buildSmsWithPrice(context),
+      ],
+    );
+  }
+
+  Widget _buildSmsWithPrice(BuildContext context) {
+    // Find SMS notification amenity
+    final smsAmenity = result.amenities
+        .firstWhere((a) => a.key == 'sms_notifications', orElse: () => result.amenities.first);
+
+    //  Fixed: Check if price exists and access value properly
+    final hasSmsPrice = smsAmenity.price != null &&
+        smsAmenity.price!.value.isNotEmpty;
+    final smsPrice = hasSmsPrice ? smsAmenity.price!.value : '1.99';
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(Icons.sms_outlined, size: 13, color: Colors.grey.shade600),
+        const SizedBox(width: 4),
+        Text(
+          hasSmsPrice
+              ? 'SMS notifications $currencySymbol$smsPrice'
+              : 'SMS notifications',
+          style: TextStyle(
+            fontSize: 12,
+            color: Colors.grey.shade600,
+            fontWeight: FontWeight.w500,
+          ),
         ),
       ],
     );
@@ -418,10 +527,10 @@ class TpollVehicleCard extends StatelessWidget {
 
   /// Price display + Book Now button
   Widget _buildPriceAndBookRow(BuildContext context) {
-    final price = double.tryParse(result.totalPriceAmount) ?? 0;
-    final formattedPrice =
-    price > 0 ? price.toStringAsFixed(0) : result.totalPriceAmount;
+    print(' DEBUG: totalPriceAmount = "${result.totalPriceAmount}"');
 
+    final price = double.tryParse(result.totalPriceAmount) ?? 0;
+    final formattedPrice = price > 0 ? price.toStringAsFixed(0) : result.totalPriceAmount;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
@@ -466,7 +575,52 @@ class TpollVehicleCard extends StatelessWidget {
         SizedBox(
           height: 44,
           child: ElevatedButton(
-            onPressed: result.bookable ? onTap : null,
+
+            onPressed: result.bookable ? () {
+              print('BOOK NOW TAPPED');
+              print('Search ID: $searchId');
+              print('Result ID: ${result.resultId}');
+
+              // Check authentication state
+              final authState = sl<AuthBloc>().state;
+              if (authState is AuthAuthenticated) {
+                // User is logged in
+                onTap();
+              } else {
+                // User not logged in - queue navigation and show login
+                NavigationQueueService().setPendingNavigation(() {
+                  if (context.mounted) {
+                    onTap();
+                  }
+                });
+
+                // Use showGeneralDialog exactly like RoomCard
+                showGeneralDialog(
+                  context: context,
+                  barrierDismissible: true,
+                  barrierLabel: "Login",
+                  barrierColor: Colors.black.withOpacity(0.15),
+                  transitionDuration: const Duration(milliseconds: 300),
+                  pageBuilder: (_, __, ___) {
+                    return const LoginSignupScreen();
+                  },
+                  transitionBuilder: (_, animation, __, child) {
+                    return FadeTransition(
+                      opacity: animation,
+                      child: ScaleTransition(
+                        scale: Tween<double>(begin: 0.95, end: 1).animate(
+                          CurvedAnimation(
+                            parent: animation,
+                            curve: Curves.easeOut,
+                          ),
+                        ),
+                        child: child,
+                      ),
+                    );
+                  },
+                );
+              }
+            } : null,
             style: ElevatedButton.styleFrom(
               backgroundColor:
               result.bookable ? _primaryOrange : Colors.grey.shade300,

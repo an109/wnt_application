@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import 'package_card.dart';
 
 class TrendingPackages extends StatelessWidget {
@@ -84,25 +85,28 @@ class TrendingPackages extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: context.wp(4), vertical: context.hp(1.5)),
           child: Text(
             "Trending Routes With Best Prices",
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            style: TextStyle(
+              fontSize: context.headlineSmall,
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ),
 
         SizedBox(
-          height: 190,
+          height: context.hp(24),
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
+            padding: EdgeInsets.symmetric(horizontal: context.wp(3)),
             itemCount: (routes.length / 2).ceil(),
             itemBuilder: (context, index) {
               return Column(
                 children: [
                   RouteCard(route: routes[index * 2]),
-                  const SizedBox(height: 10),
+                  SizedBox(height: context.gapMedium),
                   if (index * 2 + 1 < routes.length)
                     RouteCard(route: routes[index * 2 + 1]),
                 ],

@@ -1,0 +1,81 @@
+import '../../../../core/error/data_state.dart';
+import '../entities/TReservation-entity.dart';
+import '../repository/TReservation_repository.dart';
+
+class CreateTransportReservationUseCase {
+  final TransportReservationRepository repository;
+
+  CreateTransportReservationUseCase(this.repository);
+
+  Future<DataState<TransportReservationEntity>> call({
+    required String searchId,
+    required String resultId,
+    required String firstName,
+    required String email,
+    required String phoneNumber,
+    required CustomerInfoEntity customerInfo,
+    required List<PassengerEntity> passengers,
+    required int numPassengers,
+    required String currency,
+    required String selectedCurrency,
+    required String displayCurrency,
+    required double displayTotalPrice,
+    required double displayBasePrice,
+    required double displayRideBasePrice,
+    required double displayDiscountAmount,
+    required List<String> optionalAmenities,
+    required String tripStartAddress,
+    required String tripEndAddress,
+    required String tripPickupDatetime,
+    required String tripType,
+    required String vehicleName,
+    required String providerName,
+    required String paidVia,
+    required String paymentGateway,
+    required String paymentReferenceId,
+    required String razorpayOrderId,
+    required String razorpayPaymentId,
+    String? specialInstructions,
+    String? notes,
+    String? flightNumber,
+    String? airline,
+    String? couponCode,
+    List<ExtraPaxInfoEntity>? extraPaxInfo,
+  }) {
+    return repository.createReservation(
+      searchId: searchId,
+      resultId: resultId,
+      firstName: firstName,
+      email: email,
+      phoneNumber: phoneNumber,
+      customerInfo: customerInfo,
+      passengers: passengers,
+      numPassengers: numPassengers,
+      currency: currency,
+      selectedCurrency: selectedCurrency,
+      displayCurrency: displayCurrency,
+      displayTotalPrice: displayTotalPrice,
+      displayBasePrice: displayBasePrice,
+      displayRideBasePrice: displayRideBasePrice,
+      displayDiscountAmount: displayDiscountAmount,
+      optionalAmenities: optionalAmenities,
+      tripStartAddress: tripStartAddress,
+      tripEndAddress: tripEndAddress,
+      tripPickupDatetime: tripPickupDatetime,
+      tripType: tripType,
+      vehicleName: vehicleName,
+      providerName: providerName,
+      paidVia: paidVia,
+      paymentGateway: paymentGateway,
+      paymentReferenceId: paymentReferenceId,
+      razorpayOrderId: razorpayOrderId,
+      razorpayPaymentId: razorpayPaymentId,
+      specialInstructions: specialInstructions,
+      notes: notes,
+      flightNumber: flightNumber,
+      airline: airline,
+      couponCode: couponCode,
+      extraPaxInfo: extraPaxInfo,
+    );
+  }
+}

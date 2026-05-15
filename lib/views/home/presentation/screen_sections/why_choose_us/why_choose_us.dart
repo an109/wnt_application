@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wander_nova/UI_helper/responsive_layout.dart';
 
 class WhyChooseUs extends StatelessWidget {
   const WhyChooseUs({super.key});
@@ -6,51 +7,45 @@ class WhyChooseUs extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 24),
+      padding: EdgeInsets.symmetric(vertical: context.hp(3)),
       child: Column(
         children: [
-          /// Title
-          const Text(
+          Text(
             "Why Choose Wander Nova?",
             style: TextStyle(
-              fontSize: 22,
+              fontSize: context.headlineSmall,
               fontWeight: FontWeight.bold,
             ),
           ),
 
-          const SizedBox(height: 8),
+          SizedBox(height: context.gapMedium),
 
-          /// Subtitle
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
+            padding: EdgeInsets.symmetric(horizontal: context.wp(6)),
             child: Text(
               "Your trusted partner for flights, hotels, holidays & visa — with great prices and support every step of the way.",
               textAlign: TextAlign.center,
               style: TextStyle(
-                fontSize: 13,
+                fontSize: context.bodyMedium,
                 color: Colors.grey[600],
               ),
             ),
           ),
 
-          const SizedBox(height: 20),
+          SizedBox(height: context.gapLarge * 1.5),
 
-          /// Cards Row
           LayoutBuilder(
             builder: (context, constraints) {
-              double width = constraints.maxWidth;
-
-              // Responsive: 2 cards mobile, 4 web/tablet
-              int crossAxisCount = width < 600 ? 2 : 4;
+              int crossAxisCount = context.gridCrossAxisCount;
 
               return GridView.count(
                 crossAxisCount: crossAxisCount,
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
-                crossAxisSpacing: 16,
-                mainAxisSpacing: 16,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                childAspectRatio: MediaQuery.of(context).size.width < 600 ? 0.75 : 0.9,
+                crossAxisSpacing: context.gapMedium,
+                mainAxisSpacing: context.gapMedium,
+                padding: context.horizontalPadding,
+                childAspectRatio: context.gridChildAspectRatio,
                 children: const [
                   _Item(
                     icon: Icons.flight_takeoff,
@@ -100,10 +95,10 @@ class _Item extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: EdgeInsets.all(context.wp(4)),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(context.borderRadius),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.06),
@@ -115,9 +110,8 @@ class _Item extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          /// Icon Circle
           Container(
-            padding: const EdgeInsets.all(14),
+            padding: EdgeInsets.all(context.wp(3.5)),
             decoration: BoxDecoration(
               color: Colors.red.withOpacity(0.1),
               shape: BoxShape.circle,
@@ -125,31 +119,29 @@ class _Item extends StatelessWidget {
             child: Icon(
               icon,
               color: Colors.red,
-              size: 26,
+              size: context.iconMedium,
             ),
           ),
 
-          const SizedBox(height: 12),
+          SizedBox(height: context.gapMedium),
 
-          /// Title
           Text(
             title,
             textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 13,
+            style: TextStyle(
+              fontSize: context.labelLarge,
               fontWeight: FontWeight.bold,
               letterSpacing: 0.5,
             ),
           ),
 
-          const SizedBox(height: 8),
+          SizedBox(height: context.gapMedium),
 
-          /// Description
           Text(
             desc,
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 12,
+              fontSize: context.bodySmall,
               color: Colors.grey[600],
               height: 1.5,
             ),
