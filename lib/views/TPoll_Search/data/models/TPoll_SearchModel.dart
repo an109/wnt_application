@@ -108,10 +108,11 @@ class SearchResultModel extends Equatable {
       vehicleType: json['vehicle_type'] ?? '',
       vehicleName: json['vehicle_name'] ?? '',
       bookable: json['bookable'] ?? false,
-      steps: (json['steps'] as List<dynamic>?)
-          ?.map((e) => StepModel.fromJson(e))
-          .toList() ??
-          [],
+      // steps: (json['steps'] as List<dynamic>?)
+      //     ?.map((e) => StepModel.fromJson(e))
+      //     .toList() ??
+      //     [],
+      steps: (json['raw_result']?['steps'] as List<dynamic>?)?.map((e) => StepModel.fromJson(e)).toList() ?? [],
     );
   }
 
@@ -244,6 +245,8 @@ class StepDetailsModel extends Equatable {
 
 class VehicleModel extends Equatable {
   final String image;
+  final String make;
+  final String model;
   final VehicleTypeModel vehicleType;
   final int maxBags;
   final int maxPassengers;
@@ -251,6 +254,8 @@ class VehicleModel extends Equatable {
 
   const VehicleModel({
     required this.image,
+    required this.make,
+    required this.model,
     required this.vehicleType,
     required this.maxBags,
     required this.maxPassengers,
@@ -260,6 +265,8 @@ class VehicleModel extends Equatable {
   factory VehicleModel.fromJson(Map<String, dynamic> json) {
     return VehicleModel(
       image: json['image'] ?? '',
+      make: json['make'] ?? '',
+      model: json['model'] ?? '',
       vehicleType: VehicleTypeModel.fromJson(json['vehicle_type'] ?? {}),
       maxBags: json['max_bags'] ?? 0,
       maxPassengers: json['max_passengers'] ?? 0,
@@ -268,7 +275,7 @@ class VehicleModel extends Equatable {
   }
 
   @override
-  List<Object?> get props => [image, vehicleType, maxBags, maxPassengers, category];
+  List<Object?> get props => [image, make, model, vehicleType, maxBags, maxPassengers, category];
 }
 
 class VehicleTypeModel extends Equatable {
@@ -309,11 +316,19 @@ class ProviderModel extends Equatable {
   final String name;
   final String displayName;
   final String logoUrl;
+  final num? rating;
+  final int? ratingCount;
+  final num? supplierScore;
+  final String? ratingWithDecimals;
 
   const ProviderModel({
     required this.name,
     required this.displayName,
     required this.logoUrl,
+    this.rating,
+    this.ratingCount,
+    this.supplierScore,
+    this.ratingWithDecimals,
   });
 
   factory ProviderModel.fromJson(Map<String, dynamic> json) {
@@ -321,11 +336,15 @@ class ProviderModel extends Equatable {
       name: json['name'] ?? '',
       displayName: json['display_name'] ?? '',
       logoUrl: json['logo_url'] ?? '',
+      rating: json['rating'],
+      ratingCount: json['rating_count'],
+      supplierScore: json['supplier_score'],
+      ratingWithDecimals: json['rating_with_decimals'],
     );
   }
 
   @override
-  List<Object?> get props => [name, displayName, logoUrl];
+  List<Object?> get props => [name, displayName, logoUrl, rating, ratingCount, supplierScore, ratingWithDecimals];
 }
 
 class PriceModel extends Equatable {

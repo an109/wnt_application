@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wander_nova/UI_helper/responsive_layout.dart';
 
 class FAQSection extends StatefulWidget {
   const FAQSection({super.key});
@@ -60,11 +61,14 @@ class _FAQSectionState extends State<FAQSection>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: context.wp(4), vertical: context.hp(1.5)),
           child: Text(
             "Frequently asked questions",
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            style: TextStyle(
+              fontSize: context.titleLarge,
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ),
 
@@ -80,16 +84,18 @@ class _FAQSectionState extends State<FAQSection>
                 InkWell(
                   onTap: () => toggle(index),
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 18),
+                    padding: EdgeInsets.symmetric(
+                      horizontal: context.wp(4),
+                      vertical: context.hp(2),
+                    ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Expanded(
                           child: Text(
                             faqs[index]['q']!,
-                            style: const TextStyle(
-                              fontSize: 15,
+                            style: TextStyle(
+                              fontSize: context.bodyMedium,
                               fontWeight: FontWeight.w500,
                             ),
                           ),
@@ -97,14 +103,16 @@ class _FAQSectionState extends State<FAQSection>
                         AnimatedRotation(
                           turns: isOpen ? 0.5 : 0,
                           duration: const Duration(milliseconds: 250),
-                          child: const Icon(Icons.keyboard_arrow_down),
+                          child: Icon(
+                            Icons.keyboard_arrow_down,
+                            size: context.iconMedium,
+                          ),
                         ),
                       ],
                     ),
                   ),
                 ),
 
-                /// ✅ REAL SLIDE EFFECT
                 ClipRect(
                   child: AnimatedSize(
                     duration: const Duration(milliseconds: 300),
@@ -115,11 +123,11 @@ class _FAQSectionState extends State<FAQSection>
                           ? const BoxConstraints()
                           : const BoxConstraints(maxHeight: 0),
                       child: Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                        padding: EdgeInsets.fromLTRB(context.wp(4), 0, context.wp(4), context.hp(2)),
                         child: Text(
                           faqs[index]['a']!,
                           style: TextStyle(
-                            fontSize: 13,
+                            fontSize: context.bodySmall,
                             color: Colors.grey[700],
                             height: 1.5,
                           ),

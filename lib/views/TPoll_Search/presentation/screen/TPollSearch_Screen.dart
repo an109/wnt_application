@@ -113,34 +113,7 @@ class _TpollSearchResultsPageState extends State<TpollSearchResultsPage> {
               child: Stack(
                 alignment: Alignment.center,
                 children: [
-                  IconButton(
-                    icon: const Icon(Icons.tune, color: _darkNavy),
-                    onPressed: () => _scaffoldKey.currentState?.openDrawer(),
-                  ),
-                  // Badge showing active filter count
-                  if (_filters.activeFilterCount > 0)
-                    Positioned(
-                      top: 8,
-                      right: 6,
-                      child: Container(
-                        width: 16,
-                        height: 16,
-                        decoration: const BoxDecoration(
-                          color: _primaryOrange,
-                          shape: BoxShape.circle,
-                        ),
-                        child: Center(
-                          child: Text(
-                            '${_filters.activeFilterCount}',
-                            style: const TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
+
                 ],
               ),
             );

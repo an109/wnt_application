@@ -106,15 +106,14 @@ class TpollVehicleCard extends StatelessWidget {
         children: [
           // Vehicle type badge
           Container(
-            padding:
-            const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
             decoration: BoxDecoration(
               color: categoryColor.withOpacity(0.12),
               borderRadius: BorderRadius.circular(20),
               border: Border.all(color: categoryColor.withOpacity(0.3)),
             ),
             child: Text(
-              result.vehicleType,
+              result.vehicleType,  // ← From API: "Sedan", "Bus", etc.
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
@@ -124,22 +123,29 @@ class TpollVehicleCard extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          // Vehicle name sub-badge
-          if (result.vehicleName.isNotEmpty)
-            Text(
-              result.vehicleName,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                color: Colors.grey.shade600,
+          // Vehicle name sub-badge (FROM API)
+          if (result.vehicleName?.isNotEmpty == true)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey.shade200),
+              ),
+              child: Text(
+                result.vehicleName!,  // ← "Standard", "Luxury", etc.
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.black,
+                ),
               ),
             ),
           const Spacer(),
           // Bookable star badge
           if (result.bookable)
             Container(
-              padding:
-              const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
                 color: _primaryOrange,
                 borderRadius: BorderRadius.circular(20),
@@ -164,7 +170,6 @@ class TpollVehicleCard extends StatelessWidget {
       ),
     );
   }
-
   /// Vehicle image on left, details on right
   Widget _buildMainContent(BuildContext context) {
     return Row(

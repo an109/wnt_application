@@ -5,6 +5,14 @@ class Responsive {
   static double screenWidth(BuildContext context) => MediaQuery.of(context).size.width;
   static double screenHeight(BuildContext context) => MediaQuery.of(context).size.height;
 
+  // Get safe area heights
+  static double safeTop(BuildContext context) => MediaQuery.of(context).padding.top;
+  static double safeBottom(BuildContext context) => MediaQuery.of(context).padding.bottom;
+
+  // Get available height after removing safe areas
+  static double availableHeight(BuildContext context) =>
+      screenHeight(context) - safeTop(context) - safeBottom(context);
+
   // Responsive width (percentage based - pass value like 90 for 90%)
   static double wp(BuildContext context, double percentage) => screenWidth(context) * percentage / 100;
 
@@ -12,8 +20,8 @@ class Responsive {
   static double hp(BuildContext context, double percentage) => screenHeight(context) * percentage / 100;
 
   // Responsive font size (based on screen width)
-  static double sp(BuildContext context, double size) {
-    double scaleFactor = screenWidth(context) / 375; // 375 is base design width (iPhone SE)
+  static double sp(BuildContext context, double size, {double baseWidth = 375}) {
+    double scaleFactor = screenWidth(context) / baseWidth;
     return (size * scaleFactor).clamp(size * 0.8, size * 1.5);
   }
 
@@ -36,6 +44,7 @@ extension ResponsiveExtension on BuildContext {
   double get screenHeight => MediaQuery.of(this).size.height;
   double get statusBarHeight => MediaQuery.of(this).padding.top;
   double get bottomBarHeight => MediaQuery.of(this).padding.bottom;
+  double get availableHeight => screenHeight - statusBarHeight - bottomBarHeight;
 
   // Device type
   bool get isMobile => screenWidth < 600;
@@ -150,4 +159,18 @@ extension ResponsiveExtension on BuildContext {
   ScrollPhysics get scrollPhysics => isMobile
       ? const BouncingScrollPhysics()
       : const ClampingScrollPhysics();
+
+  // Responsive image height
+  double get imageHeight {
+    if (isMobile) return 200;
+    if (isTablet) return 250;
+    return 300;
+  }
+
+  // Responsive card height
+  double get cardHeight {
+    if (isMobile) return 420;
+    if (isTablet) return 450;
+    return 480;
+  }
 }
