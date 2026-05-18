@@ -16,6 +16,10 @@ class GoogleLoginRequested extends AuthEvent {
   List<Object?> get props => [idToken];
 }
 
+class AuthCheckStatusRequested extends AuthEvent {
+  const AuthCheckStatusRequested();
+}
+
 class AuthLogoutRequested extends AuthEvent {
   const AuthLogoutRequested();
 }

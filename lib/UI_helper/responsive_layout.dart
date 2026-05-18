@@ -169,7 +169,7 @@ extension ResponsiveExtension on BuildContext {
 
   // Responsive card height
   double get cardHeight {
-    if (isMobile) return 420;
+    if (isMobile) return 400;
     if (isTablet) return 450;
     return 480;
   }

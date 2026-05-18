@@ -6,6 +6,7 @@ import 'package:wander_nova/views/TResevation/presentation/bloc/TReservation_blo
 import 'package:wander_nova/views/TResult/presentation/bloc/TResult_bloc.dart';
 import 'package:wander_nova/views/T_Search/presentation/bloc/T_SearchBloc.dart';
 import 'package:wander_nova/views/T_location/presentation/bloc/T_locationBloc.dart';
+import 'package:wander_nova/views/flight_popularDestination/presentation/bloc/destination_bloc.dart';
 import 'package:wander_nova/views/splash/splash_screen.dart';
 import 'package:wander_nova/views/Hotel_Booking/presentation/bloc/hotel_booking_bloc.dart';
 import 'package:wander_nova/views/Hotel_Details/presentation/bloc/hotel_details_bloc.dart';
@@ -18,6 +19,8 @@ import 'package:wander_nova/views/fare_rule/presentation/bloc/fare_rule_bloc.dar
 import 'package:wander_nova/views/flight_destination/presentation/bloc/destination_bloc.dart';
 import 'package:wander_nova/views/flight_search/presentation/bloc/flight_search_bloc.dart';
 import 'package:wander_nova/views/flight_ssr/presentation/bloc/ssr_bloc.dart';
+import 'package:wander_nova/views/travel_stories/presentation/bloc/travel_stories_bloc.dart';
+import 'package:wander_nova/views/trending_route/presentation/bloc/trending_routes_bloc.dart';
 
 import 'injection_container.dart' as di;
 
@@ -52,6 +55,9 @@ class MyApp extends StatelessWidget {
         BlocProvider(create: (_) => di.sl<TpollSearchBloc>()),
         BlocProvider(create: (_) => di.sl<TransportResultBloc>()),
         BlocProvider(create: (_) => di.sl<TransportReservationBloc>()),
+        BlocProvider(create: (_) => di.sl<PopularDestinationBloc>()),
+        BlocProvider(create: (_) => di.sl<TrendingRoutesBloc>()),
+        BlocProvider(create: (_) => di.sl<TravelStoriesBloc>()),
       ],
 
       child: MaterialApp(

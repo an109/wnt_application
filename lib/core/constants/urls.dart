@@ -19,4 +19,8 @@ class Urls {
   static String transportSearchResult(String searchId, String resultId) {
     return '$basesUrl/transport/search/$searchId/$resultId/';}
   static const String transportReservations = '$basesUrl/transport/reservations/';
+
+  static const String popularDestinations = '$basesUrl/flights-popular-destinations/';
+  static const String trendingRoutes = '$basesUrl/trending-routes/live/';
+  static const String travelStories = '$basesUrl/travel-stories/';
 }

@@ -11,10 +11,10 @@ import '../../../injection_container.dart';
 import '../../ExclusiveDeals/presentation/bloc/exclusive_deals_bloc.dart';
 import '../../ExclusiveDeals/presentation/screen/T_exclusiveDeals.dart';
 import '../../Hotel/section/exclusive_deals/company_info.dart';
-import '../../Hotel/section/exclusive_deals/travel_stories.dart';
+import '../../travel_stories/presentation/screen/travel_stories.dart';
 import '../../home/presentation/screen_sections/faq/FAQ_section.dart';
-import '../../home/presentation/screen_sections/popular_destination/popular_destination.dart';
-import '../../home/presentation/screen_sections/trending_routes/trending_routes.dart';
+import '../../flight_popularDestination/presentation/screen/popular_destination.dart';
+import '../../trending_route/presentation/screen/trending_routes.dart';
 import '../../home/presentation/screen_sections/why_choose_us/why_choose_us.dart';
 import '../../T_location/presentation/screen/booking_card.dart';
 

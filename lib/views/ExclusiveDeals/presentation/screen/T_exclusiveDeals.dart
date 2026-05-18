@@ -66,28 +66,6 @@ class _TransportExclusiveDealsSectionState
     return deals;
   }
 
-  // List<ExclusiveDealEntity> _filterDealsByCategory(
-  //     List<ExclusiveDealEntity> deals,
-  //     int tabIndex,
-  //     ) {
-  //   if (tabIndex == 0) {
-  //     return deals.where((deal) => deal.isHotDeal).toList();
-  //   }
-  //   final categoryMap = {
-  //     1: 'flight',
-  //     2: 'hotel',
-  //     3: 'holidays',
-  //   };
-  //   final category = categoryMap[tabIndex];
-  //   if (category != null) {
-  //     return deals
-  //         .where((deal) =>
-  //         deal.category.toLowerCase().contains(category.toLowerCase()))
-  //         .toList();
-  //   }
-  //   return deals;
-  // }
-
   @override
   void initState() {
     super.initState();

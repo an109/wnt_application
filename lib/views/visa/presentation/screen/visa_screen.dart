@@ -4,7 +4,7 @@ import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import '../../../../common_widgets/custom_bottom_nav.dart';
 import '../../../../common_widgets/custom_drawer.dart';
 import '../../../../common_widgets/logo.dart';
-import '../../../Hotel/section/exclusive_deals/travel_stories.dart';
+import '../../../travel_stories/presentation/screen/travel_stories.dart';
 import '../../../home/presentation/screen_sections/why_choose_us/why_choose_us.dart';
 import '../sections/popular_visa_destination.dart';
 import '../sections/visa_banner_section.dart';

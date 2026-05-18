@@ -12,7 +12,7 @@ import '../section/exclusive_deals/company_info.dart';
 import '../section/exclusive_deals/hotel_info.dart';
 import '../section/exclusive_deals/hotel_search_card.dart';
 import '../section/exclusive_deals/popular_destination.dart';
-import '../section/exclusive_deals/travel_stories.dart';
+import '../../travel_stories/presentation/screen/travel_stories.dart';
 import '../section/exclusive_deals/why_choose.dart';
 
 class HotelBookingScreen extends StatelessWidget {

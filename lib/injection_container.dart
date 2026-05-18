@@ -77,6 +77,11 @@ import 'package:wander_nova/views/flight_destination/data/repository/destination
 import 'package:wander_nova/views/flight_destination/domain/repository/destination_repository.dart';
 import 'package:wander_nova/views/flight_destination/domain/usecase/search_destination_usecase.dart';
 import 'package:wander_nova/views/flight_destination/presentation/bloc/destination_bloc.dart';
+import 'package:wander_nova/views/flight_popularDestination/data/data_source/destination_api_service.dart';
+import 'package:wander_nova/views/flight_popularDestination/data/repository/destination_repository_impl.dart';
+import 'package:wander_nova/views/flight_popularDestination/domain/repository/destination_repository.dart';
+import 'package:wander_nova/views/flight_popularDestination/domain/usecase/get_popular_destination_usecase.dart';
+import 'package:wander_nova/views/flight_popularDestination/presentation/bloc/destination_bloc.dart';
 import 'package:wander_nova/views/flight_search/data/data_source/flight_api_service.dart';
 import 'package:wander_nova/views/flight_search/data/repository/flight_repository_impl.dart';
 import 'package:wander_nova/views/flight_search/domain/repository/flight_repository.dart';
@@ -87,6 +92,17 @@ import 'package:wander_nova/views/flight_ssr/data/repository/ssr_repository_impl
 import 'package:wander_nova/views/flight_ssr/domain/repository/ssr_repository.dart';
 import 'package:wander_nova/views/flight_ssr/domain/usecase/get_ssr_usecase.dart';
 import 'package:wander_nova/views/flight_ssr/presentation/bloc/ssr_bloc.dart';
+import 'package:wander_nova/views/travel_stories/data/data_source/travel_stories_api_service.dart';
+import 'package:wander_nova/views/travel_stories/data/repository/travel_stories_repository_impl.dart';
+import 'package:wander_nova/views/travel_stories/domain/repository/travel_stories_repository.dart';
+import 'package:wander_nova/views/travel_stories/domain/usecase/get_travel_stories_by_slug_usecase.dart';
+import 'package:wander_nova/views/travel_stories/domain/usecase/get_travel_stories_usecase.dart';
+import 'package:wander_nova/views/travel_stories/presentation/bloc/travel_stories_bloc.dart';
+import 'package:wander_nova/views/trending_route/data/data_source/trending_route_api_service.dart';
+import 'package:wander_nova/views/trending_route/data/repository/trending_routes_repository_impl.dart';
+import 'package:wander_nova/views/trending_route/domain/repository/trending_routes_repository.dart';
+import 'package:wander_nova/views/trending_route/domain/usecase/get_trending_routes_usecase.dart';
+import 'package:wander_nova/views/trending_route/presentation/bloc/trending_routes_bloc.dart';
 import 'core/network/dio_client.dart';
 import 'core/utils/storage/shared_preference.dart';
 import 'core/constants/urls.dart';
@@ -153,6 +169,10 @@ Future<void> initializeDependencies() async {
   sl.registerLazySingleton<TpollSearchApiService>(() => TpollSearchApiServiceImpl(sl<DioClient>().instance));
   sl.registerLazySingleton<TransportResultApiService>(() => TransportResultApiServiceImpl(sl<DioClient>().instance));
   sl.registerLazySingleton<TransportReservationApiService>(() => TransportReservationApiServiceImpl(sl<DioClient>().instance),);
+  sl.registerLazySingleton<PopularDestinationApiService>(() => PopularDestinationApiServiceImpl(sl<DioClient>().instance));
+  sl.registerLazySingleton<TrendingRoutesApiService>(() => TrendingRoutesApiServiceImpl(sl<DioClient>().instance));
+  sl.registerLazySingleton<TravelStoriesApiService>(() => TravelStoriesApiServiceImpl(sl<DioClient>().instance));
+
 
 
 
@@ -196,8 +216,10 @@ Future<void> initializeDependencies() async {
   );
   sl.registerLazySingleton<TpollSearchRepository>(() => TpollSearchRepositoryImpl(sl<TpollSearchApiService>()));
   sl.registerLazySingleton<TransportResultRepository>(() => TransportResultRepositoryImpl(sl<TransportResultApiService>()));
-  sl.registerLazySingleton<TransportReservationRepository>(
-        () => TransportReservationRepositoryImpl(sl<TransportReservationApiService>()),);
+  sl.registerLazySingleton<TransportReservationRepository>(() => TransportReservationRepositoryImpl(sl<TransportReservationApiService>()),);
+  sl.registerLazySingleton<PopularDestinationRepository>(() => PopularDestinationRepositoryImpl(sl()));
+  sl.registerLazySingleton<TrendingRoutesRepository>(() => TrendingRoutesRepositoryImpl(sl()),);
+  sl.registerLazySingleton<TravelStoriesRepository>(() => TravelStoriesRepositoryImpl(sl<TravelStoriesApiService>()));
 
 
 
@@ -229,6 +251,11 @@ Future<void> initializeDependencies() async {
   sl.registerLazySingleton<TpollSearchUseCase>(() => TpollSearchUseCase(sl<TpollSearchRepository>()));
   sl.registerLazySingleton<GetTransportResultUseCase>(() => GetTransportResultUseCase(sl<TransportResultRepository>()));
   sl.registerLazySingleton(() => CreateTransportReservationUseCase(sl<TransportReservationRepository>()),);
+  sl.registerLazySingleton<GetPopularDestinationsUseCase>(() => GetPopularDestinationsUseCase(sl()),);
+  sl.registerLazySingleton<GetTrendingRoutesUseCase>(() => GetTrendingRoutesUseCase(sl()));
+  sl.registerLazySingleton<GetTravelStoriesUseCase>(() => GetTravelStoriesUseCase(sl<TravelStoriesRepository>()),);
+  sl.registerLazySingleton<GetTravelStoryBySlugUseCase>(() => GetTravelStoryBySlugUseCase(sl<TravelStoriesRepository>()),);
+
 
 
 
@@ -236,8 +263,12 @@ Future<void> initializeDependencies() async {
 
   // Presentation Layer - Bloc
   sl.registerFactory<AirportBloc>(() => AirportBloc(sl()),);
-  sl.registerFactory<AuthBloc>(
-        () => AuthBloc(googleLoginUseCase: sl<GoogleLoginUseCase>()),);
+  // sl.registerFactory<AuthBloc>(
+  //       () => AuthBloc(googleLoginUseCase: sl<GoogleLoginUseCase>()),);
+  sl.registerFactory<AuthBloc>(() => AuthBloc(
+    googleLoginUseCase: sl(),
+    preferencesManager: sl(),
+  ));
   sl.registerFactory<FlightSearchBloc>(
         () => FlightSearchBloc(sl<SearchFlightsUseCase>()),);
   sl.registerFactory<FareRuleBloc>(
@@ -259,8 +290,11 @@ Future<void> initializeDependencies() async {
   sl.registerFactory<TransportSearchBloc>(() => TransportSearchBloc(transportSearchUsecase: sl()));
   sl.registerFactory<TpollSearchBloc>(() => TpollSearchBloc(tpollSearchUseCase: sl<TpollSearchUseCase>()));
   sl.registerFactory<TransportResultBloc>(() => TransportResultBloc(getTransportResultUseCase: sl()));
-  sl.registerFactory<TransportReservationBloc>(() => TransportReservationBloc(
-      createTransportReservationUseCase: sl<CreateTransportReservationUseCase>()));
-
+  sl.registerFactory<TransportReservationBloc>(() => TransportReservationBloc(createTransportReservationUseCase: sl<CreateTransportReservationUseCase>()));
+  sl.registerFactory<PopularDestinationBloc>(() => PopularDestinationBloc(getPopularDestinationsUseCase: sl(),),);
+  sl.registerFactory<TrendingRoutesBloc>(() => TrendingRoutesBloc(getTrendingRoutesUseCase: sl()));
+  sl.registerFactory<TravelStoriesBloc>(() => TravelStoriesBloc(
+      getTravelStoriesUseCase: sl<GetTravelStoriesUseCase>(),
+      getTravelStoryBySlugUseCase: sl<GetTravelStoryBySlugUseCase>()));
 
 }

@@ -53,4 +53,19 @@ class UserEntity extends Equatable {
     platform,
     isloggedin,
   ];
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'email': email,
+      'name': name,
+      'firstname': firstname,
+      'lastname': lastname,
+      'access_token': accessToken,
+      'refresh_token': refreshToken,
+      'user_type': userType,
+      'platform': platform,
+      'isloggedin': isloggedin,
+    };
+  }
 }

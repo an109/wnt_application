@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 
 import '../../../../common_widgets/logo.dart';
+import '../../domain/entities/TReservation-entity.dart';
+
 
 class PaymentScreen extends StatefulWidget {
   final String resultId;
+  final String searchId;
   final String vehicleType;
   final String vehicleName;
   final String providerName;
@@ -17,10 +20,12 @@ class PaymentScreen extends StatefulWidget {
   final String passengerName;
   final String passengerEmail;
   final String passengerPhone;
+  final int? userId;
 
   const PaymentScreen({
     super.key,
     required this.resultId,
+    required this.searchId,
     required this.vehicleType,
     required this.vehicleName,
     required this.providerName,
@@ -33,6 +38,7 @@ class PaymentScreen extends StatefulWidget {
     required this.passengerName,
     required this.passengerEmail,
     required this.passengerPhone,
+    required this.userId,
   });
 
   @override
@@ -49,8 +55,83 @@ class _PaymentScreenState extends State<PaymentScreen> {
   static const _successGreen = Color(0xff10B981);
   static const _lightGreen = Color(0xffECFDF5);
 
+  TransportReservationEntity _buildReservationEntity() {
+    print('BUILDING RESERVATION ENTITY');
+
+    final nameParts = widget.passengerName.split(' ');
+    final firstName = nameParts[0];
+    final lastName = nameParts.length > 1 ? nameParts.sublist(1).join(' ') : '';
+
+    // Get selected amenities from booking screen (you'll need to pass these)
+    final optionalAmenities = <String>[];
+    if (_selectedPaymentMethod == 'razorpay') {
+      optionalAmenities.add('razorpay_payment');
+    }
+
+    final entity = TransportReservationEntity(
+      searchId: widget.searchId,
+      resultId: widget.resultId,
+      firstName: firstName,
+      email: widget.passengerEmail,
+      phoneNumber: widget.passengerPhone,
+      customerInfo: CustomerInfoEntity(
+        firstName: firstName,
+        lastName: lastName,
+        email: widget.passengerEmail,
+        phoneNumber: widget.passengerPhone,
+      ),
+      passengers: [
+        PassengerEntity(
+          firstName: firstName,
+          lastName: lastName,
+          email: widget.passengerEmail,
+        ),
+      ],
+      numPassengers: widget.passengers,
+      currency: 'USD',
+      selectedCurrency: 'INR',
+      displayCurrency: 'INR',
+      displayTotalPrice: widget.totalAmount,
+      displayBasePrice: widget.baseFare,
+      displayRideBasePrice: widget.baseFare,
+      displayDiscountAmount: 0.00,
+      optionalAmenities: optionalAmenities,
+      userId: widget.userId ?? 123,
+      guestReference: null,
+      tripStartAddress: widget.pickupLocation,
+      tripEndAddress: widget.dropoffLocation,
+      tripPickupDatetime: widget.pickupDate.toIso8601String(),
+      tripPickupDatetimePretty: _formatDateTime(widget.pickupDate),
+      tripReturnPickupDatetime: '',
+      tripReturnPickupDatetimePretty: '',
+      tripType: 'one_way',
+      vehicleName: widget.vehicleName,
+      providerName: widget.providerName,
+      paidVia: _selectedPaymentMethod ?? 'razorpay',
+      paymentGateway: _selectedPaymentMethod ?? 'razorpay',
+      paymentReferenceId: '',
+      razorpayOrderId: '',
+      razorpayPaymentId: '',
+      specialInstructions: '',
+      notes: '',
+      flightNumber: '',
+      airline: '',
+      couponCode: null,
+      extraPaxInfo: null,
+    );
+
+    print('Reservation entity built successfully');
+    print('Result ID: ${entity.resultId}');
+    print('Total Price: ${entity.displayTotalPrice}');
+    print('Payment Method: ${entity.paidVia}');
+
+    return entity;
+  }
+
   @override
   Widget build(BuildContext context) {
+    print('PAYMENT SCREEN BUILD CALLED');
+
     return Scaffold(
       backgroundColor: const Color(0xffF8F9FA),
       appBar: AppBar(
@@ -63,18 +144,14 @@ class _PaymentScreenState extends State<PaymentScreen> {
           )
         ],
       ),
+      // Remove BlocConsumer - just render UI directly
       body: SingleChildScrollView(
         child: Column(
           children: [
-            // Trip Details Section
             _buildTripDetailsSection(),
-
             const SizedBox(height: 16),
-
-            // Payment Method Section
             _buildPaymentMethodSection(),
-
-            const SizedBox(height: 100), // Space for bottom bar
+            const SizedBox(height: 100),
           ],
         ),
       ),
@@ -666,10 +743,103 @@ class _PaymentScreenState extends State<PaymentScreen> {
     }
   }
 
+
+  // void _processPayment() {
+  //   print('=== PROCESS PAYMENT CLICKED ===');
+  //
+  //   if (_selectedPaymentMethod == null) {
+  //     print('ERROR: No payment method selected');
+  //     ScaffoldMessenger.of(context).showSnackBar(
+  //       SnackBar(
+  //         content: Text('Please select a payment method'),
+  //         backgroundColor: Colors.red,
+  //         behavior: SnackBarBehavior.floating,
+  //         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+  //       ),
+  //     );
+  //     return;
+  //   }
+  //
+  //   print('Payment method selected: $_selectedPaymentMethod');
+  //
+  //   try {
+  //     final bloc = context.read<TransportReservationBloc>();
+  //     print('BLoC instance retrieved: ${bloc.runtimeType}');
+  //
+  //     final reservationEntity = _buildReservationEntity();
+  //
+  //     print('=== DISPATCHING CREATE RESERVATION EVENT ===');
+  //     print('Search ID: ${reservationEntity.searchId}');
+  //     print('Result ID: ${reservationEntity.resultId}');
+  //     print('User ID: ${reservationEntity.userId}');
+  //     print('Customer: ${reservationEntity.firstName} ${reservationEntity.customerInfo.lastName}');
+  //     print('Email: ${reservationEntity.email}');
+  //     print('Phone: ${reservationEntity.phoneNumber}');
+  //     print('Trip: ${reservationEntity.tripStartAddress} → ${reservationEntity.tripEndAddress}');
+  //     print('Pickup: ${reservationEntity.tripPickupDatetime}');
+  //     print('Vehicle: ${reservationEntity.vehicleName} (${reservationEntity.providerName})');
+  //     print('Total: ${reservationEntity.displayTotalPrice} ${reservationEntity.displayCurrency}');
+  //     print('Payment: ${reservationEntity.paidVia} via ${reservationEntity.paymentGateway}');
+  //
+  //     bloc.add(
+  //       CreateTransportReservationEvent(
+  //         searchId: reservationEntity.searchId,
+  //         resultId: reservationEntity.resultId,
+  //         firstName: reservationEntity.firstName,
+  //         email: reservationEntity.email,
+  //         phoneNumber: reservationEntity.phoneNumber,
+  //         customerInfo: reservationEntity.customerInfo,
+  //         passengers: reservationEntity.passengers,
+  //         numPassengers: reservationEntity.numPassengers,
+  //         currency: reservationEntity.currency,
+  //         selectedCurrency: reservationEntity.selectedCurrency,
+  //         displayCurrency: reservationEntity.displayCurrency,
+  //         displayTotalPrice: reservationEntity.displayTotalPrice,
+  //         displayBasePrice: reservationEntity.displayBasePrice,
+  //         displayRideBasePrice: reservationEntity.displayRideBasePrice,
+  //         displayDiscountAmount: reservationEntity.displayDiscountAmount,
+  //         optionalAmenities: reservationEntity.optionalAmenities,
+  //         tripStartAddress: reservationEntity.tripStartAddress,
+  //         tripEndAddress: reservationEntity.tripEndAddress,
+  //         tripPickupDatetime: reservationEntity.tripPickupDatetime,
+  //         tripType: reservationEntity.tripType,
+  //         vehicleName: reservationEntity.vehicleName,
+  //         providerName: reservationEntity.providerName,
+  //         paidVia: reservationEntity.paidVia,
+  //         paymentGateway: reservationEntity.paymentGateway,
+  //         paymentReferenceId: reservationEntity.paymentReferenceId,
+  //         razorpayOrderId: reservationEntity.razorpayOrderId,
+  //         razorpayPaymentId: reservationEntity.razorpayPaymentId,
+  //         specialInstructions: reservationEntity.specialInstructions,
+  //         notes: reservationEntity.notes,
+  //         flightNumber: reservationEntity.flightNumber,
+  //         airline: reservationEntity.airline,
+  //         couponCode: reservationEntity.couponCode,
+  //         extraPaxInfo: reservationEntity.extraPaxInfo,
+  //       ),
+  //     );
+  //
+  //     print('✓ Event dispatched successfully');
+  //
+  //   } catch (e, stack) {
+  //     print('✗ ERROR in _processPayment: $e');
+  //     print('Stack trace: $stack');
+  //     ScaffoldMessenger.of(context).showSnackBar(
+  //       SnackBar(
+  //         content: Text('Error: $e'),
+  //         backgroundColor: Colors.red,
+  //         behavior: SnackBarBehavior.floating,
+  //       ),
+  //     );
+  //   }
+  // }
   void _processPayment() {
+    print('=== PAYMENT SCREEN: Processing payment method ===');
+
     if (_selectedPaymentMethod == null) {
+      print('ERROR: No payment method selected');
       ScaffoldMessenger.of(context).showSnackBar(
-         SnackBar(
+        SnackBar(
           content: Text('Please select a payment method'),
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
@@ -679,39 +849,19 @@ class _PaymentScreenState extends State<PaymentScreen> {
       return;
     }
 
-    String message = '';
-    switch (_selectedPaymentMethod) {
-      case 'qr':
-        message = 'Opening QR Scanner...';
-        break;
-      case 'wallet':
-        message = 'Processing wallet payment...';
-        break;
-      case 'card':
-        message = 'Processing card payment...';
-        break;
-      case 'upi':
-        message = 'Processing UPI payment...';
-        break;
-      case 'netbanking':
-        message = 'Redirecting to net banking...';
-        break;
-      case 'wallets':
-        message = 'Processing digital wallet payment...';
-        break;
-      case 'razorpay':
-        message = 'Processing Razorpay payment...';
-        break;
-    }
+    print('Payment method selected: $_selectedPaymentMethod');
 
+    // Since reservation is already created, just proceed with payment gateway
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(message),
+        content: Text('Processing $_selectedPaymentMethod payment...'),
         backgroundColor: _successGreen,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
     );
+
+    // TODO: Integrate actual payment gateway (Razorpay, etc.) here
+    // After payment success, navigate to confirmation screen
   }
 
   String _formatDateTime(DateTime date) {

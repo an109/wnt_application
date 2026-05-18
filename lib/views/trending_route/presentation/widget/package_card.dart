@@ -1,89 +1,155 @@
 import 'package:flutter/material.dart';
-
-import 'package:flutter/material.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
+
 
 class RouteCard extends StatelessWidget {
   final Map<String, dynamic> route;
+  final VoidCallback? onTap; // Added onTap callback
 
-  const RouteCard({super.key, required this.route});
+  const RouteCard({
+    super.key,
+    required this.route,
+    this.onTap, // Optional callback
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: context.wp(70), // Responsive width
-      margin: EdgeInsets.only(right: context.wp(3)),
-      padding: EdgeInsets.all(context.wp(2.5)),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(context.borderRadius),
-        border: Border.all(color: Colors.blue.shade200),
-        color: Colors.white,
-      ),
-      child: Row(
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(context.borderRadius - 4),
-            child: Image.network(
-              route['image'],
-              height: context.hp(6.5),
-              width: context.wp(12),
-              fit: BoxFit.cover,
+    print('Building RouteCard for: ${route['from']} to ${route['to']}');
+
+    return GestureDetector(
+      onTap: () {
+        print('RouteCard tapped: ${route['from']} to ${route['to']}');
+        if (onTap != null) {
+          onTap!();
+        }
+      },
+      child: Container(
+        width: context.wp(70),
+        margin: EdgeInsets.only(right: context.wp(3)),
+        padding: EdgeInsets.all(context.wp(2.5)),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(context.borderRadius),
+          border: Border.all(color: Colors.blue.shade200),
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
             ),
-          ),
-
-          SizedBox(width: context.wp(2.5)),
-
-          // Content
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Route
-                Row(
-                  children: [
-                    Text(
-                      route['from'],
-                      style: TextStyle(
-                        fontSize: context.bodySmall,
-                        fontWeight: FontWeight.w600,
+          ],
+        ),
+        child: Row(
+          children: [
+            // Image with error handling
+            ClipRRect(
+              borderRadius: BorderRadius.circular(context.borderRadius - 4),
+              child: Image.network(
+                route['image'] ?? '',
+                height: context.hp(6.5),
+                width: context.wp(12),
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  print('Image load error: $error');
+                  return Container(
+                    height: context.hp(6.5),
+                    width: context.wp(12),
+                    color: Colors.grey[200],
+                    child: Icon(
+                      Icons.flight_takeoff,
+                      size: context.iconMedium,
+                      color: Colors.grey[400],
+                    ),
+                  );
+                },
+                loadingBuilder: (context, child, loadingProgress) {
+                  if (loadingProgress == null) return child;
+                  return Container(
+                    height: context.hp(6.5),
+                    width: context.wp(12),
+                    color: Colors.grey[100],
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        value: loadingProgress.expectedTotalBytes != null
+                            ? loadingProgress.cumulativeBytesLoaded /
+                            loadingProgress.expectedTotalBytes!
+                            : null,
                       ),
                     ),
-                    SizedBox(width: context.wp(1)),
-                    Icon(Icons.flight, size: context.iconSmall, color: Colors.blue),
-                    SizedBox(width: context.wp(1)),
-                    Text(
-                      route['to'],
-                      style: TextStyle(fontSize: context.bodySmall,fontWeight: FontWeight.w600),
+                  );
+                },
+              ),
+            ),
+
+            SizedBox(width: context.wp(2.5)),
+
+            // Content
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Route
+                  Row(
+                    children: [
+                      Text(
+                        route['from'] ?? '',
+                        style: TextStyle(
+                          fontSize: context.bodySmall,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      SizedBox(width: context.wp(1)),
+                      Icon(Icons.flight, size: context.iconSmall, color: Colors.blue),
+                      SizedBox(width: context.wp(1)),
+                      Text(
+                        route['to'] ?? '',
+                        style: TextStyle(
+                          fontSize: context.bodySmall,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+
+                  SizedBox(height: context.gapSmall / 2),
+
+                  Text(
+                    "${route['fromCode'] ?? ''} > ${route['toCode'] ?? ''}",
+                    style: TextStyle(
+                        fontSize: context.labelSmall,
+                        color: Colors.grey[600]
                     ),
-                  ],
-                ),
+                  ),
 
-                SizedBox(height: context.gapSmall / 2),
+                  SizedBox(height: context.gapSmall / 2),
 
-                Text(
-                  "${route['fromCode']} > ${route['toCode']}",
-                  style: TextStyle(  fontSize: context.labelSmall, color: Colors.grey[600]),
-                ),
-
-                SizedBox(height: context.gapSmall / 2),
-
-                Text(
-                  route['date'],
-                  style: TextStyle( fontSize: context.labelSmall - 1, color: Colors.grey[500]),
-                ),
-              ],
+                  Text(
+                    route['date'] ?? '',
+                    style: TextStyle(
+                        fontSize: context.labelSmall - 1,
+                        color: Colors.grey[500]
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
 
-          // Price
-          Text(
-            route['price'],
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: context.titleSmall,
+            // Price
+            Text(
+              route['price'] ?? '',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: context.titleSmall,
+                color: Colors.black,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -381,7 +447,7 @@ class RouteDetailSheet extends StatelessWidget {
                         Text(
                           route['price'],
                           style: TextStyle(
-                            fontSize: 28,
+                            fontSize: 22,
                             fontWeight: FontWeight.bold,
                             color: route['color'],
                           ),

@@ -1,8 +1,19 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
-import 'package:wander_nova/views/TPoll_Search/presentation/Widget/payment_screen.dart';
+import 'package:wander_nova/views/TResevation/presentation/screen/payment_screen.dart';
 import '../../../../common_widgets/logo.dart';
+import '../../../../core/utils/storage/shared_preference.dart';
+import '../../../../injection_container.dart';
 import '../../../TPoll_Search/domain/entities/TPollSearchEntity.dart';
+import '../../../TResevation/domain/entities/TReservation-entity.dart';
+import '../../../TResevation/presentation/bloc/TReservation_bloc.dart';
+import '../../../TResevation/presentation/bloc/TReservation_event.dart';
+import '../../../TResevation/presentation/bloc/TReservation_state.dart';
+import '../../../auth/domain/entity/user_entity.dart';
+import '../../../auth/presentation/bloc/auth_bloc.dart';
+import '../../../auth/presentation/bloc/auth_state.dart';
 
 class TPollBookingScreen extends StatefulWidget {
   final SearchResultEntity result;
@@ -55,6 +66,9 @@ class _TPollBookingScreenState extends State<TPollBookingScreen> {
   bool _phoneError = false;
   bool _flightNumberError = false;
 
+  int? _userId;
+  static UserEntity? _cachedUser;
+
   // Color constants
   static const _primaryBlue = Color(0xff1663F7);
   static const _primaryOrange = Color(0xffF97316);
@@ -62,17 +76,252 @@ class _TPollBookingScreenState extends State<TPollBookingScreen> {
   static const _successGreen = Color(0xff10B981);
   static const _errorRed = Color(0xffDC2626);
 
+  String _formatDateTime(DateTime date) {
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+    final dayName = days[date.weekday - 1];
+    final monthName = months[date.month - 1];
+    final day = date.day;
+    final year = date.year;
+    final hour = date.hour.toString().padLeft(2, '0');
+    final minute = date.minute.toString().padLeft(2, '0');
+
+    return '$dayName, $monthName $day, $year, $hour:$minute';
+  }
+
   @override
   void initState() {
     super.initState();
     _initializePrices();
 
-    // Print IDs for debugging
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadUserData();
+    });
+
     print('========================================');
     print('BOOKING SCREEN LOADED');
     print('Search ID: ${widget.searchId}');
     print('Result ID: ${widget.resultId}');
     print('========================================');
+  }
+
+  void _loadUserData() async {
+    print(' LOADING USER DATA FROM STORAGE...');
+
+    try {
+      final prefs = sl<PreferencesManager>();
+      final isLoggedIn = prefs.isLoggedIn();
+      final userData = prefs.getUserData();
+
+      if (isLoggedIn && userData != null) {
+        print(' User found in local storage');
+        final user = UserEntity.fromJson(userData);
+        _applyUserData(user);
+        return;
+      }
+    } catch (e) {
+      print('Error reading from storage: $e');
+    }
+
+    // Fallback to AuthBloc state
+    final authState = sl<AuthBloc>().state;
+    if (authState is AuthAuthenticated) {
+      print(' User found in AuthBloc state');
+      _applyUserData(authState.user);
+      return;
+    }
+
+    // Listen for auth changes
+    print(' Waiting for login to complete...');
+    final authBloc = sl<AuthBloc>();
+    authBloc.stream.listen((state) {
+      if (mounted && state is AuthAuthenticated) {
+        print(' User data received via stream!');
+        _applyUserData(state.user);
+      }
+    });
+  }
+
+  void _applyUserData(UserEntity user) {
+    if (!mounted) return;
+
+    setState(() {
+      _firstNameController.text = user.firstname ?? '';
+      _lastNameController.text = user.lastname ?? '';
+      _emailController.text = user.email;
+      _userId = int.tryParse(user.id) ?? 0;
+    });
+
+    print('------- PREFILLED SUCCESSFULLY ------');
+    print('Name: ${user.firstname} ${user.lastname}');
+    print('Email: ${user.email}');
+    print('User ID: $_userId');
+  }
+
+  void _proceedToPayment() {
+    print('=== CONTINUE TO PAYMENT TAPPED ===');
+    print('Result ID: ${widget.resultId}');
+    print('Search ID: ${widget.searchId}');
+    print('User ID: $_userId');
+
+    // Build the reservation entity from form data
+    final nameParts = '${_firstNameController.text.trim()} ${_lastNameController.text.trim()}'.split(' ');
+    final firstName = nameParts[0];
+    final lastName = nameParts.length > 1 ? nameParts.sublist(1).join(' ') : '';
+
+    final reservationEntity = TransportReservationEntity(
+      searchId: widget.searchId,
+      resultId: widget.resultId,
+      firstName: firstName,
+      email: _emailController.text.trim(),
+      phoneNumber: _phoneController.text.trim(),
+      customerInfo: CustomerInfoEntity(
+        firstName: firstName,
+        lastName: lastName,
+        email: _emailController.text.trim(),
+        phoneNumber: _phoneController.text.trim(),
+      ),
+      passengers: [
+        PassengerEntity(
+          firstName: firstName,
+          lastName: lastName,
+          email: _emailController.text.trim(),
+        ),
+      ],
+      numPassengers: 1,
+      currency: 'USD',
+      selectedCurrency: 'INR',
+      displayCurrency: 'INR',
+      displayTotalPrice: _totalPrice,
+      displayBasePrice: _baseFare,
+      displayRideBasePrice: _baseFare,
+      displayDiscountAmount: 0.00,
+      optionalAmenities: _selectedAmenities.toList(),
+      userId: _userId ?? 0,
+      guestReference: null,
+      tripStartAddress: widget.startAddress.isNotEmpty
+          ? widget.startAddress
+          : widget.searchData.startLocation.city,
+      tripEndAddress: widget.endAddress.isNotEmpty
+          ? widget.endAddress
+          : widget.searchData.endLocation.city,
+      tripPickupDatetime: widget.pickupDate.toIso8601String(),
+      tripPickupDatetimePretty: _formatDateTime(widget.pickupDate),
+      tripReturnPickupDatetime: '',
+      tripReturnPickupDatetimePretty: '',
+      tripType: 'one_way',
+      vehicleName: widget.result.vehicleName,
+      providerName: widget.result.providerName,
+      paidVia: 'razorpay',
+      paymentGateway: 'razorpay',
+      paymentReferenceId: '',
+      razorpayOrderId: '',
+      razorpayPaymentId: '',
+      specialInstructions: _specialRequestsController.text.trim(),
+      notes: '',
+      flightNumber: _flightNumberController.text.trim(),
+      airline: _airlineCodeController.text.trim(),
+      couponCode: _promoCodeApplied ? _appliedPromoCode : null,
+      extraPaxInfo: null,
+    );
+
+    print('Entity built, dispatching BLoC event...');
+
+    // Get BLoC instance and dispatch event
+    final bloc = sl<TransportReservationBloc>();
+
+    bloc.add(
+      CreateTransportReservationEvent(
+        searchId: reservationEntity.searchId,
+        resultId: reservationEntity.resultId,
+        firstName: reservationEntity.firstName,
+        email: reservationEntity.email,
+        phoneNumber: reservationEntity.phoneNumber,
+        customerInfo: reservationEntity.customerInfo,
+        passengers: reservationEntity.passengers,
+        numPassengers: reservationEntity.numPassengers,
+        currency: reservationEntity.currency,
+        selectedCurrency: reservationEntity.selectedCurrency,
+        displayCurrency: reservationEntity.displayCurrency,
+        displayTotalPrice: reservationEntity.displayTotalPrice,
+        displayBasePrice: reservationEntity.displayBasePrice,
+        displayRideBasePrice: reservationEntity.displayRideBasePrice,
+        displayDiscountAmount: reservationEntity.displayDiscountAmount,
+        optionalAmenities: reservationEntity.optionalAmenities,
+        tripStartAddress: reservationEntity.tripStartAddress,
+        tripEndAddress: reservationEntity.tripEndAddress,
+        tripPickupDatetime: reservationEntity.tripPickupDatetime,
+        tripType: reservationEntity.tripType,
+        vehicleName: reservationEntity.vehicleName,
+        providerName: reservationEntity.providerName,
+        paidVia: reservationEntity.paidVia,
+        paymentGateway: reservationEntity.paymentGateway,
+        paymentReferenceId: reservationEntity.paymentReferenceId,
+        razorpayOrderId: reservationEntity.razorpayOrderId,
+        razorpayPaymentId: reservationEntity.razorpayPaymentId,
+        specialInstructions: reservationEntity.specialInstructions,
+        notes: reservationEntity.notes,
+        flightNumber: reservationEntity.flightNumber,
+        airline: reservationEntity.airline,
+        couponCode: reservationEntity.couponCode,
+        extraPaxInfo: reservationEntity.extraPaxInfo,
+      ),
+    );
+
+    print('Event dispatched, listening for response...');
+
+    // Listen for BLoC state changes
+    bloc.stream.listen((state) {
+      if (state is TransportReservationLoading) {
+        print('Loading...');
+        // Optional: Show loading dialog
+      }
+      else if (state is TransportReservationSuccess) {
+        print('SUCCESS: Reservation created - ${state.reservation.resultId}');
+
+        // Navigate to PaymentScreen AFTER successful API call
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => PaymentScreen(
+              searchId: widget.searchId,
+              resultId: widget.resultId,
+              vehicleType: widget.result.vehicleType,
+              vehicleName: widget.result.vehicleName,
+              providerName: widget.result.providerName,
+              pickupLocation: widget.startAddress.isNotEmpty
+                  ? widget.startAddress
+                  : widget.searchData.startLocation.city,
+              dropoffLocation: widget.endAddress.isNotEmpty
+                  ? widget.endAddress
+                  : widget.searchData.endLocation.city,
+              pickupDate: widget.pickupDate,
+              passengers: 1,
+              baseFare: _baseFare,
+              totalAmount: _totalPrice,
+              passengerName: '${_firstNameController.text.trim()} ${_lastNameController.text.trim()}',
+              passengerEmail: _emailController.text.trim(),
+              passengerPhone: '91${_phoneController.text.trim()}',
+              userId: _userId,
+            ),
+          ),
+        );
+      }
+      else if (state is TransportReservationFailed) {
+        print('FAILED: ${state.dataState.error?.message}');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: ${state.dataState.error?.message ?? 'Failed to create reservation'}'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    });
   }
 
   void _initializePrices() {
@@ -341,7 +590,7 @@ class _TPollBookingScreenState extends State<TPollBookingScreen> {
                 child: _buildTextField(
                   controller: _phoneController,
                   label: 'Phone Number*',
-                  hintText: '+91 98765 43210',
+                  hintText: '98765 43210',
                   keyboardType: TextInputType.phone,
                   hasError: _phoneError,
                 ),
@@ -1119,30 +1368,4 @@ class _TPollBookingScreenState extends State<TPollBookingScreen> {
     _proceedToPayment();
   }
 
-  void _proceedToPayment() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => PaymentScreen(
-          resultId: widget.resultId,
-          vehicleType: widget.result.vehicleType,
-          vehicleName: widget.result.vehicleName,
-          providerName: widget.result.providerName,
-          pickupLocation: widget.startAddress.isNotEmpty
-              ? widget.startAddress
-              : widget.searchData.startLocation.city,
-          dropoffLocation: widget.endAddress.isNotEmpty
-              ? widget.endAddress
-              : widget.searchData.endLocation.city,
-          pickupDate: widget.pickupDate,
-          passengers: 1,
-          baseFare: _baseFare,
-          totalAmount: _totalPrice,
-          passengerName: '${_firstNameController.text.trim()} ${_lastNameController.text.trim()}',
-          passengerEmail: _emailController.text.trim(),
-          passengerPhone: _phoneController.text.trim(),
-        ),
-      ),
-    );
-  }
 }

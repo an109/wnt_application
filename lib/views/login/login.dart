@@ -114,10 +114,15 @@ class _LoginSignupScreenState extends State<LoginSignupScreen> {
               //
               // // Then execute any pending navigation from queue
               // NavigationQueueService().executePendingNavigation(context);
-              NavigationQueueService().executePendingNavigation(context);
+              Future.delayed(const Duration(milliseconds: 200), () {
+                // Execute pending navigation
+                NavigationQueueService().executePendingNavigation(context);
 
-              // Close the dialog after navigation is queued
-              Navigator.of(context).pop();
+                // Close dialog
+                if (mounted) {
+                  Navigator.of(context).pop();
+                }
+              });
             } else if (state is AuthError) {
               print('LoginScreen: Auth error: ${state.message}');
               ScaffoldMessenger.of(context).showSnackBar(

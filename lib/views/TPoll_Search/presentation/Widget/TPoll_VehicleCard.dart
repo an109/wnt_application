@@ -576,25 +576,84 @@ class TpollVehicleCard extends StatelessWidget {
           height: 44,
           child: ElevatedButton(
 
+            // onPressed: result.bookable ? () {
+            //   print('BOOK NOW TAPPED');
+            //   print('Search ID: $searchId');
+            //   print('Result ID: ${result.resultId}');
+            //
+            //   // Check authentication state
+            //   final authState = sl<AuthBloc>().state;
+            //   if (authState is AuthAuthenticated) {
+            //     // User is logged in
+            //     onTap();
+            //   } else {
+            //     // User not logged in - queue navigation and show login
+            //     NavigationQueueService().setPendingNavigation(() {
+            //       if (context.mounted) {
+            //         onTap();
+            //       }
+            //     });
+            //
+            //     // Use showGeneralDialog exactly like RoomCard
+            //     showGeneralDialog(
+            //       context: context,
+            //       barrierDismissible: true,
+            //       barrierLabel: "Login",
+            //       barrierColor: Colors.black.withOpacity(0.15),
+            //       transitionDuration: const Duration(milliseconds: 300),
+            //       pageBuilder: (_, __, ___) {
+            //         return const LoginSignupScreen();
+            //       },
+            //       transitionBuilder: (_, animation, __, child) {
+            //         return FadeTransition(
+            //           opacity: animation,
+            //           child: ScaleTransition(
+            //             scale: Tween<double>(begin: 0.95, end: 1).animate(
+            //               CurvedAnimation(
+            //                 parent: animation,
+            //                 curve: Curves.easeOut,
+            //               ),
+            //             ),
+            //             child: child,
+            //           ),
+            //         );
+            //       },
+            //     );
+            //   }
+            // } : null,
             onPressed: result.bookable ? () {
               print('BOOK NOW TAPPED');
               print('Search ID: $searchId');
               print('Result ID: ${result.resultId}');
 
-              // Check authentication state
               final authState = sl<AuthBloc>().state;
+              final isLoggedIn = authState is AuthAuthenticated && authState.user != null;
+
               if (authState is AuthAuthenticated) {
-                // User is logged in
-                onTap();
-              } else {
-                // User not logged in - queue navigation and show login
-                NavigationQueueService().setPendingNavigation(() {
+                Future.delayed(const Duration(milliseconds: 100), () {
                   if (context.mounted) {
                     onTap();
                   }
                 });
+              }
 
-                // Use showGeneralDialog exactly like RoomCard
+              if (isLoggedIn) {
+                print('User already logged in, proceeding directly');
+                onTap();
+              } else {
+                print('User not logged in, showing login popup');
+
+                // Store the navigation for after login
+                NavigationQueueService().setPendingNavigation(() {
+                  print('Executing pending navigation after login');
+                  // Wait a bit for auth state to update
+                  Future.delayed(const Duration(milliseconds: 300), () {
+                    if (context.mounted) {
+                      onTap();
+                    }
+                  });
+                });
+
                 showGeneralDialog(
                   context: context,
                   barrierDismissible: true,

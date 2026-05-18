@@ -231,9 +231,6 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
         backgroundColor: Colors.grey.shade50,
         body: BlocBuilder<FlightSearchBloc, FlightSearchState>(
           builder: (context, state) {
-            // if (state is FlightSearchLoading) {
-            //   return const Center(child: CircularProgressIndicator());
-            // }
             if (state is FlightSearchLoading) {
               return ProfessionalLoadingScreen(
                 searchParams: {
