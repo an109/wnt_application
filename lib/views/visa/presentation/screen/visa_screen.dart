@@ -33,35 +33,38 @@ class VisaScreen extends StatelessWidget {
         ],
       ),
 
-      body: CustomScrollView(
-        physics: context.scrollPhysics,
-        slivers: [
+      body: Container(
+        color: const Color(0xFFF8F9FA),
+        child: CustomScrollView(
+          physics: context.scrollPhysics,
+          slivers: [
 
-          /// TOP BANNER + SEARCH CARD
-          const SliverToBoxAdapter(
-            child: VisaBannerSection(),
-          ),
+            /// TOP BANNER + SEARCH CARD
+            const SliverToBoxAdapter(
+              child: VisaBannerSection(),
+            ),
 
-          SliverToBoxAdapter(
-            child: SizedBox(height: context.hp(2)),
-          ),
+            SliverToBoxAdapter(
+              child: SizedBox(height: context.hp(2)),
+            ),
 
-          /// POPULAR DESTINATIONS
-          const SliverToBoxAdapter(
-            child: PopularVisaDestinations(),
-          ),
-          SliverToBoxAdapter(
-            child: SizedBox(height: context.hp(0.3)),
-          ),
-          const SliverToBoxAdapter(child: VisaProcessSection()),
-          const SliverToBoxAdapter(child: WhyChooseUs()),
-          const SliverToBoxAdapter(child: TravelStoriesSection()),
+            /// POPULAR DESTINATIONS
+            const SliverToBoxAdapter(
+              child: PopularVisaDestinations(),
+            ),
+            SliverToBoxAdapter(
+              child: SizedBox(height: context.hp(0.3)),
+            ),
+            const SliverToBoxAdapter(child: VisaProcessSection()),
+            const SliverToBoxAdapter(child: WhyChooseUs()),
+            const SliverToBoxAdapter(child: TravelStoriesSection()),
 
 
-          SliverToBoxAdapter(
-            child: SizedBox(height: context.hp(4)),
-          ),
-        ],
+            SliverToBoxAdapter(
+              child: SizedBox(height: context.hp(4)),
+            ),
+          ],
+        ),
       ),
 
       bottomNavigationBar: const CustomBottomNav(

@@ -75,7 +75,7 @@ class _TransportBookingCardState extends State<TransportBookingCard> {
           children: [
             // TRIP TYPE
             Container(
-              padding: const EdgeInsets.all(4),
+              padding: const EdgeInsets.all(2),
               decoration: BoxDecoration(
                 color: const Color(0xffF5F6FA),
                 borderRadius: BorderRadius.circular(40),
@@ -147,7 +147,7 @@ class _TransportBookingCardState extends State<TransportBookingCard> {
               },
             ),
 
-            const Divider(height: 20),
+            const Divider(height: 18),
 
             Text(
               "PICKUP DATE & TIME",
@@ -159,7 +159,7 @@ class _TransportBookingCardState extends State<TransportBookingCard> {
               ),
             ),
 
-            SizedBox(height: context.hp(2)),
+            SizedBox(height: context.hp(1.2)),
 
             Row(
               children: [

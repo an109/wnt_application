@@ -31,7 +31,7 @@ class _TransportBookingScreenState
 
   bool isOneWay = true;
 
-  DateTime selectedDate = DateTime(2026, 5, 11);
+  DateTime selectedDate = DateTime.now();
   // DateTime selectedDate = DateTime.now();
 
   TimeOfDay selectedTime =
@@ -57,140 +57,143 @@ class _TransportBookingScreenState
         ],
       ),
 
-      body: CustomScrollView(
-        physics: context.scrollPhysics,
-        slivers: [
-          SliverToBoxAdapter(
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: [
+      body: Container(
+        color: const Color(0xFFF8F9FA),
+        child: CustomScrollView(
+          physics: context.scrollPhysics,
+          slivers: [
+            SliverToBoxAdapter(
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
 
-                // BACKGROUND IMAGE
-                SizedBox(
-                  height: context.hp(84),
-                  width: double.infinity,
-                  child: Image.network(
-                    "https://images.unsplash.com/photo-1566073771259-6a8506099945?q=80&w=1200&auto=format&fit=crop",
-                    fit: BoxFit.cover,
+                  // BACKGROUND IMAGE
+                  SizedBox(
+                    height: context.hp(84),
+                    width: double.infinity,
+                    child: Image.network(
+                      "https://images.unsplash.com/photo-1566073771259-6a8506099945?q=80&w=1200&auto=format&fit=crop",
+                      fit: BoxFit.cover,
+                    ),
                   ),
-                ),
 
-                // OVERLAY
-                IgnorePointer(
-                  ignoring: true,
-                  child: Container(
-                    height: context.hp(72),
-                    color: Colors.white.withOpacity(0.15),
+                  // OVERLAY
+                  IgnorePointer(
+                    ignoring: true,
+                    child: Container(
+                      height: context.hp(72),
+                      color: Colors.white.withOpacity(0.15),
+                    ),
                   ),
-                ),
 
-                // TOP TEXT
-                Positioned(
-                  top: context.hp(6),
-                  left: context.wp(6),
-                  right: context.wp(6),
-                  child: Column(
-                    crossAxisAlignment:
-                    CrossAxisAlignment.start,
-                    children: [
+                  // TOP TEXT
+                  Positioned(
+                    top: context.hp(6),
+                    left: context.wp(6),
+                    right: context.wp(6),
+                    child: Column(
+                      crossAxisAlignment:
+                      CrossAxisAlignment.start,
+                      children: [
 
-                      SizedBox(
-                        width: context.wp(75),
-                        child: Text(
-                          "Comfortable\nRides,\nOn Time, Every\nTime",
-                          style: TextStyle(
-                            fontSize: context.sp(24),
-                            fontWeight: FontWeight.w800,
-                            color: const Color(0xff0D2B5C),
-                            height: 1.1,
+                        SizedBox(
+                          width: context.wp(75),
+                          child: Text(
+                            "Comfortable\nRides,\nOn Time, Every\nTime",
+                            style: TextStyle(
+                              fontSize: context.sp(24),
+                              fontWeight: FontWeight.w800,
+                              color: const Color(0xff0D2B5C),
+                              height: 1.1,
+                            ),
                           ),
                         ),
-                      ),
 
-                      SizedBox(height: context.hp(2)),
+                        SizedBox(height: context.hp(2)),
 
-                      Text(
-                        "Airport transfers, city rides,\nintercity travel and more.",
-                        style: TextStyle(
-                          fontSize: context.bodyLarge,
-                          color: const Color(0xff1F2A44),
-                          fontWeight: FontWeight.w500,
+                        Text(
+                          "Airport transfers, city rides,\nintercity travel and more.",
+                          style: TextStyle(
+                            fontSize: context.bodyLarge,
+                            color: const Color(0xff1F2A44),
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
 
-                // BOOKING CARD
-                Positioned(
-                  left: context.wp(4),
-                  right: context.wp(4),
-                  bottom: -context.hp(10),
+                  // BOOKING CARD
+                  Positioned(
+                    left: context.wp(4),
+                    right: context.wp(4),
+                    bottom: -context.hp(10),
 
-                  child: TransportBookingCard(
-                    isOneWay: isOneWay,
-                    selectedDate: selectedDate,
-                    selectedTime: selectedTime,
+                    child: TransportBookingCard(
+                      isOneWay: isOneWay,
+                      selectedDate: selectedDate,
+                      selectedTime: selectedTime,
 
-                    onTripTypeChanged: (value) {
-                      setState(() {
-                        isOneWay = value;
-                      });
-                    },
+                      onTripTypeChanged: (value) {
+                        setState(() {
+                          isOneWay = value;
+                        });
+                      },
 
-                    onDateChanged: (date) {
-                      setState(() {
-                        selectedDate = date;
-                      });
-                    },
+                      onDateChanged: (date) {
+                        setState(() {
+                          selectedDate = date;
+                        });
+                      },
 
-                    onTimeChanged: (time) {
-                      setState(() {
-                        selectedTime = time;
-                      });
-                    },
+                      onTimeChanged: (time) {
+                        setState(() {
+                          selectedTime = time;
+                        });
+                      },
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
 
-          SliverToBoxAdapter(
-            child: SizedBox(height: context.hp(12)),
-          ),
-
-
-          const SliverToBoxAdapter(
-            child: WhyBookTransportSection(),
-          ),
-
-          SliverToBoxAdapter(
-            child: BlocProvider<ExclusiveDealsBloc>(
-              create: (context) => sl<ExclusiveDealsBloc>(),
-              child: const TransportExclusiveDealsSection(),
+            SliverToBoxAdapter(
+              child: SizedBox(height: context.hp(12)),
             ),
-          ),
 
-          const SliverToBoxAdapter(
-              child: PopularDestinations()
-          ),
 
-          const SliverToBoxAdapter(
-              child: TrendingPackages()
-          ),
+            const SliverToBoxAdapter(
+              child: WhyBookTransportSection(),
+            ),
 
-          const SliverToBoxAdapter(
-              child: FAQSection()
-          ),
+            SliverToBoxAdapter(
+              child: BlocProvider<ExclusiveDealsBloc>(
+                create: (context) => sl<ExclusiveDealsBloc>(),
+                child: const TransportExclusiveDealsSection(),
+              ),
+            ),
 
-          const SliverToBoxAdapter(child: TravelStoriesSection()),
-          const SliverToBoxAdapter(child: WhyChooseUs()),
+            const SliverToBoxAdapter(
+                child: PopularDestinations()
+            ),
 
-          const SliverToBoxAdapter(
-            child: CompanyInformationSection(),
-          ),
+            const SliverToBoxAdapter(
+                child: TrendingPackages()
+            ),
 
-        ],
+            const SliverToBoxAdapter(
+                child: FAQSection()
+            ),
+
+            const SliverToBoxAdapter(child: TravelStoriesSection()),
+            const SliverToBoxAdapter(child: WhyChooseUs()),
+
+            const SliverToBoxAdapter(
+              child: CompanyInformationSection(),
+            ),
+
+          ],
+        ),
       ),
 
       bottomNavigationBar: const CustomBottomNav(

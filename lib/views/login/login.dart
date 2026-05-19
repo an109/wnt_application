@@ -10,7 +10,7 @@ import '../auth/presentation/bloc/auth_bloc.dart';
 import '../auth/presentation/bloc/auth_event.dart';
 import '../auth/presentation/bloc/auth_state.dart';
 import '../auth/presentation/sdk/google_sign_in_service.dart';
-import '../home/presentation/screens/home_screen.dart';
+import '../home/flight/flight_screen.dart';
 
 class LoginSignupScreen extends StatefulWidget {
   const LoginSignupScreen({super.key});
@@ -93,7 +93,10 @@ class _LoginSignupScreenState extends State<LoginSignupScreen> {
           children: [
             // FULL SCREEN BLUR
             BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+              filter: ImageFilter.blur(
+                sigmaX: context.wp(3),
+                sigmaY: context.wp(3),
+              ),
               child: Container(
                 color: Colors.black.withOpacity(0.08),
               ),
@@ -145,7 +148,7 @@ class _LoginSignupScreenState extends State<LoginSignupScreen> {
                   ),
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(26),
+                    borderRadius: BorderRadius.circular(context.borderRadiusLarge + 6),
                   ),
                   child: SingleChildScrollView(
                     physics: context.scrollPhysics,
@@ -245,7 +248,7 @@ class _LoginSignupScreenState extends State<LoginSignupScreen> {
                                           ),
                                           SizedBox(height: context.hp(1)),
                                           Container(
-                                            height: 3,
+                                            height: context.dividerMedium,
                                             color: _isLogin
                                                 ? const Color(0xffFF3B42)
                                                 : Colors.grey.shade300,
@@ -275,7 +278,7 @@ class _LoginSignupScreenState extends State<LoginSignupScreen> {
                                           ),
                                           SizedBox(height: context.hp(1)),
                                           Container(
-                                            height: 3,
+                                            height: context.dividerMedium,
                                             color: !_isLogin
                                                 ? const Color(0xffFF3B42)
                                                 : Colors.grey.shade300,
@@ -323,7 +326,7 @@ class _LoginSignupScreenState extends State<LoginSignupScreen> {
                                   border: Border.all(
                                     color: Colors.grey.shade300,
                                   ),
-                                  borderRadius: BorderRadius.circular(16),
+                                  borderRadius: BorderRadius.circular(context.borderRadiusMedium),
                                 ),
                                 child: TextField(
                                   controller: _emailController,
@@ -358,7 +361,7 @@ class _LoginSignupScreenState extends State<LoginSignupScreen> {
                                     backgroundColor: AppColors.accent,
                                     elevation: 0,
                                     shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(16),
+                                      borderRadius: BorderRadius.circular(context.borderRadiusMedium),
                                     ),
                                   ),
                                   child: Text(
@@ -469,17 +472,17 @@ class _LoginSignupScreenState extends State<LoginSignupScreen> {
           border: Border.all(
             color: Colors.grey.shade300,
           ),
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(context.borderRadiusMedium),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             if (isLoading)
               SizedBox(
-                height: 20,
-                width: 20,
+                height: context.hp(2.5),
+                width: context.hp(2.5),
                 child: CircularProgressIndicator(
-                  strokeWidth: 2,
+                  strokeWidth: context.dividerThin,
                   valueColor: AlwaysStoppedAnimation<Color>(
                     Colors.grey.shade600,
                   ),
@@ -488,7 +491,7 @@ class _LoginSignupScreenState extends State<LoginSignupScreen> {
             else ...[
               Image.asset(
                 image,
-                height: 24,
+                height: context.iconMedium,
               ),
               SizedBox(width: context.wp(2)),
               Text(
@@ -512,7 +515,7 @@ class _LoginSignupScreenState extends State<LoginSignupScreen> {
         border: Border.all(
           color: Colors.grey.shade300,
         ),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(context.borderRadiusMedium),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,

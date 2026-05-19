@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../common_widgets/custom_dropdown.dart';
@@ -28,21 +30,36 @@ class _DestinationSearchFieldState extends State<DestinationSearchField> {
   final TextEditingController _searchController = TextEditingController();
   String _lastSearchQuery = '';
 
+  Timer? _debounce;
+
   @override
   void dispose() {
+    _debounce?.cancel();
     _searchController.dispose();
     super.dispose();
   }
 
+
   void _onSearchChanged(String query) {
-    // Only trigger API for new queries (avoid duplicate calls)
-    if (query.length >= 2 && query != _lastSearchQuery) {
-      _lastSearchQuery = query;
-      context.read<DestinationBloc>().add(
-        SearchDestinationsEvent(query: query.trim()),
-      );
+    if (_debounce?.isActive ?? false) {
+      _debounce!.cancel();
     }
-    // If query cleared, we still show all current results (no reset to empty)
+
+    final trimmedQuery = query.trim();
+
+    if (trimmedQuery.isEmpty) return;
+
+    _debounce = Timer(const Duration(milliseconds: 500), () {
+      if (trimmedQuery.length >= 2 &&
+          trimmedQuery != _lastSearchQuery) {
+
+        _lastSearchQuery = trimmedQuery;
+
+        context.read<DestinationBloc>().add(
+          SearchDestinationsEvent(query: trimmedQuery),
+        );
+      }
+    });
   }
 
   void _onDestinationSelected(DestinationEntity destination) {
@@ -66,10 +83,8 @@ class _DestinationSearchFieldState extends State<DestinationSearchField> {
         if (state is DestinationLoading) {
           isLoading = true;
         } else if (state is DestinationLoaded) {
-          // FIXED: Always use fresh API response, never cache/append
           options = state.destinationData.getAllDestinations();
         }
-
         return CustomDropdownSearch<DestinationEntity>(
           options: options, // Always fresh from API
           label: widget.label,

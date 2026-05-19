@@ -32,22 +32,25 @@ class HolidaysScreen extends StatelessWidget {
         ],
       ),
 
-      body: CustomScrollView(
-        physics: context.scrollPhysics,
+      body: Container(
+        color: const Color(0xFFF8F9FA),
+        child: CustomScrollView(
+          physics: context.scrollPhysics,
 
-        slivers: [
+          slivers: [
 
-          /// TOP BANNER + SEARCH CARD
-          const SliverToBoxAdapter(
-            child: HolidaysBannerSection(),
-          ),
-
-          SliverToBoxAdapter(
-            child: SizedBox(
-              height: context.hp(5),
+            /// TOP BANNER + SEARCH CARD
+            const SliverToBoxAdapter(
+              child: HolidaysBannerSection(),
             ),
-          ),
-        ],
+
+            SliverToBoxAdapter(
+              child: SizedBox(
+                height: context.hp(5),
+              ),
+            ),
+          ],
+        ),
       ),
 
       bottomNavigationBar: const CustomBottomNav(

@@ -60,7 +60,7 @@ class PopularVisaDestinations extends StatelessWidget {
             "Popular Destinations",
             style: TextStyle(
               fontSize: context.titleLarge,
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w700,
             ),
           ),
 

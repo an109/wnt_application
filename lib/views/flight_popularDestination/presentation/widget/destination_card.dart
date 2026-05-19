@@ -23,7 +23,7 @@ class DestinationCard extends StatelessWidget {
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
+            blurRadius: context.wp(2.5),
             offset: const Offset(0, 4),
           ),
         ],

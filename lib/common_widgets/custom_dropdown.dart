@@ -152,15 +152,52 @@ class _CustomDropdownSearchState<T extends Object> extends State<CustomDropdownS
         ),
 
         // FIXED: Scrollable options list with remaining height
+        // Expanded(
+        //   child: ListView.builder(
+        //     padding: EdgeInsets.zero,
+        //     physics: const BouncingScrollPhysics(),
+        //     // FIXED: Force rebuild when options change (no cached results)
+        //     key: ValueKey(widget.options.hashCode),
+        //     itemCount: filteredOptions.length,
+        //     itemBuilder: (context, index) {
+        //       final option = filteredOptions[index];
+        //       return Material(
+        //         color: Colors.transparent,
+        //         child: InkWell(
+        //           onTap: () {
+        //             widget.onSelected(option);
+        //             _searchController.clear();
+        //             _closeDropdown();
+        //           },
+        //           child: Container(
+        //             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        //             child: Text(
+        //               widget.displayStringForOption(option),
+        //               style: const TextStyle(fontSize: 14),
+        //             ),
+        //           ),
+        //         ),
+        //       );
+        //     },
+        //   ),
+        // ),
         Expanded(
-          child: ListView.builder(
+          child: widget.isLoading
+              ? const Center(
+            child: CircularProgressIndicator(),
+          )
+              : filteredOptions.isEmpty
+              ? const Center(
+            child: Text("Search .."),
+          )
+              : ListView.builder(
             padding: EdgeInsets.zero,
             physics: const BouncingScrollPhysics(),
-            // FIXED: Force rebuild when options change (no cached results)
             key: ValueKey(widget.options.hashCode),
             itemCount: filteredOptions.length,
             itemBuilder: (context, index) {
               final option = filteredOptions[index];
+
               return Material(
                 color: Colors.transparent,
                 child: InkWell(
@@ -170,7 +207,10 @@ class _CustomDropdownSearchState<T extends Object> extends State<CustomDropdownS
                     _closeDropdown();
                   },
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
                     child: Text(
                       widget.displayStringForOption(option),
                       style: const TextStyle(fontSize: 14),
@@ -180,7 +220,7 @@ class _CustomDropdownSearchState<T extends Object> extends State<CustomDropdownS
               );
             },
           ),
-        ),
+        )
       ],
     );
   }
@@ -233,18 +273,6 @@ class _CustomDropdownSearchState<T extends Object> extends State<CustomDropdownS
             ),
           ),
         ),
-        // Loading indicator below field (only when closed)
-        if (widget.isLoading && !_isDropdownOpen)
-          Padding(
-            padding: const EdgeInsets.only(top: 4),
-            child: LinearProgressIndicator(
-              minHeight: 2,
-              backgroundColor: Colors.grey.shade200,
-              valueColor: AlwaysStoppedAnimation<Color>(
-                Theme.of(context).primaryColor,
-              ),
-            ),
-          ),
       ],
     );
   }

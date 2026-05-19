@@ -31,8 +31,8 @@ class _HotelPopularDestinationsSectionState
           Text(
             "Popular Destinations",
             style: TextStyle(
-              fontSize: context.headlineSmall,
-              fontWeight: FontWeight.bold,
+              fontSize: context.titleMedium,
+              fontWeight: FontWeight.w700,
               color: Colors.black87,
             ),
           ),
@@ -72,7 +72,7 @@ class _HotelPopularDestinationsSectionState
                     child: Text(
                       filters[index],
                       style: TextStyle(
-                        fontSize: context.titleMedium,
+                        fontSize: context.titleSmall,
                         fontWeight: FontWeight.w700,
                         color: isSelected
                             ? const Color(0xffD62828)
@@ -158,17 +158,6 @@ class _HotelPopularDestinationsSectionState
 
       default:
         return "Popular hotel destinations are not configured yet. Add them from the reseller dashboard.";
-    }
-  }
-
-  String _getTag() {
-    switch (selectedIndex) {
-      case 1:
-        return "DOMESTIC";
-      case 2:
-        return "INTERNATIONAL";
-      default:
-        return "ALL DESTINATIONS";
     }
   }
 }

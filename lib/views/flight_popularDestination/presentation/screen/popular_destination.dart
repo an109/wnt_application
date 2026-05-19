@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import 'package:wander_nova/views/flight_popularDestination/presentation/widget/destination_card.dart';
-import 'package:wander_nova/views/home/presentation/screens/home_screen.dart';
+import 'package:wander_nova/views/home/flight/flight_screen.dart';
 
 import '../../../Holidays/presentation/screen/holidays_screen.dart';
 import '../../domain/entities/Popular_destination_entity.dart';
@@ -127,11 +127,11 @@ class _PopularDestinationsState extends State<PopularDestinations> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                   Text(
                     'Popular Destinations',
                     style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
+                      fontSize: context.titleLarge,
+                      fontWeight: FontWeight.w700,
                       color: Colors.black87,
                     ),
                   ),
@@ -222,7 +222,7 @@ class _PopularDestinationsState extends State<PopularDestinations> {
                       SizedBox(height: context.gapSmall),
                       AnimatedContainer(
                         duration: const Duration(milliseconds: 250),
-                        height: 3,
+                        height: context.dividerMedium,
                         width: context.wp(17),
                         decoration: BoxDecoration(
                           color: isSelected
@@ -239,7 +239,7 @@ class _PopularDestinationsState extends State<PopularDestinations> {
           ),
         ),
 
-        Divider(color: Colors.grey.shade300, thickness: 1),
+        Divider(color: Colors.grey.shade300, thickness: context.dividerThin),
         SizedBox(height: context.gapMedium),
 
         // BLOC BUILDER
@@ -292,10 +292,10 @@ class _PopularDestinationsState extends State<PopularDestinations> {
                     margin: EdgeInsets.symmetric(
                       horizontal: context.gapSmall / 2,
                     ),
-                    width: _currentPage == index ? 22 : 8,
-                    height: 8,
+                    width: _currentPage == index ? context.wp(5.5) : context.wp(2),
+                    height: context.hp(1), // 8px on 800px
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(20),
+                      borderRadius: BorderRadius.circular(context.borderRadiusLarge),
                       color: _currentPage == index
                           ? const Color(0xff005B7F)
                           : Colors.grey.shade300,
@@ -338,11 +338,11 @@ class _PopularDestinationsState extends State<PopularDestinations> {
               ),
               child: Center(
                 child: SizedBox(
-                  height: 40,
-                  width: 40,
+                  height: context.hp(5), // 40px on 800px
+                  width: context.hp(5),
                   child: CircularProgressIndicator(
                     color: const Color(0xff005B7F),
-                    strokeWidth: 3,
+                    strokeWidth: context.dividerMedium,
                   ),
                 ),
               ),
@@ -359,7 +359,7 @@ class _PopularDestinationsState extends State<PopularDestinations> {
       height: context.hp(35),
       margin: EdgeInsets.all(context.wp(4)),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(context.borderRadiusMedium),
         color: Colors.red.shade50,
         border: Border.all(color: Colors.red.shade200),
       ),
@@ -397,7 +397,7 @@ class _PopularDestinationsState extends State<PopularDestinations> {
                   vertical: context.gapSmall,
                 ),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(context.borderRadiusSmall),
                 ),
               ),
               child: Text(

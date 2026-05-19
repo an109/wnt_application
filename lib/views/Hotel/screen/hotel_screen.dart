@@ -63,7 +63,7 @@ class HotelBookingScreen extends StatelessWidget {
 
                 /// TITLE
                 Positioned(
-                  top: context.hp(6),
+                  top: context.hp(18),
                   left: context.wp(5),
                   child: Row(
                     children: [

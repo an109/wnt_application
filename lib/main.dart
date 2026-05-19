@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:wander_nova/views/ExclusiveDeals/presentation/bloc/exclusive_deals_bloc.dart';
 import 'package:wander_nova/views/TPoll_Search/presentation/bloc/TPoll_SearchBloc.dart';
 import 'package:wander_nova/views/TResevation/presentation/bloc/TReservation_bloc.dart';
@@ -64,7 +65,16 @@ class MyApp extends StatelessWidget {
         debugShowCheckedModeBanner: false,
         title: 'WanderNova',
         theme: ThemeData(
-          primarySwatch: Colors.blue,
+          // primarySwatch: Colors.blue,
+          //   textTheme: GoogleFonts.poppinsTextTheme(),
+          useMaterial3: true, // Upgrades to the modern Material 3 standard design language
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: const Color(0xFF0054A0), // Uses your exact logo blue color profile
+            primary: const Color(0xFF0054A0),
+            secondary: const Color(0xFFFF7200), // Your logo orange accent color
+          ),
+          scaffoldBackgroundColor: const Color(0xFFF8F9FA),
+          textTheme: GoogleFonts.poppinsTextTheme(Theme.of(context).textTheme),
         ),
         home: const SplashScreen(),
       ),

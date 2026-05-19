@@ -1,6 +1,7 @@
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../domain/entities/exclusive_deal_entity.dart';
 import '../../../../../UI_helper/responsive_layout.dart';
 import '../bloc/exclusive_deals_bloc.dart';
@@ -17,15 +18,15 @@ class TransportExclusiveDealsSection extends StatefulWidget {
 
 class _TransportExclusiveDealsSectionState
     extends State<TransportExclusiveDealsSection> {
-  int selectedTab = 1; // 0=HOT DEAL, 1=FLIGHT, 2=HOTEL, 3=HOLIDAYS
+  int selectedTab = 1;
   int currentIndex = 0;
-  final CarouselSliderController _carouselController = CarouselSliderController();
+  final CarouselSliderController _carouselController =
+      CarouselSliderController();
 
-  // Map tabs to API domain/category filters
   String? _getDomainFilter(int tabIndex) {
     switch (tabIndex) {
       case 0: // HOT DEAL
-        return null; // Fetch all hot deals
+        return null;
       case 1: // FLIGHT
         return 'flight';
       case 2: // HOTEL
@@ -38,16 +39,16 @@ class _TransportExclusiveDealsSectionState
   }
 
   List<ExclusiveDealEntity> _filterDealsByCategory(
-      List<ExclusiveDealEntity> deals,
-      int tabIndex,
-      ) {
+    List<ExclusiveDealEntity> deals,
+    int tabIndex,
+  ) {
     if (tabIndex == 0) {
       return deals.where((deal) => deal.isHotDeal).toList();
     }
 
     final filterMap = {
       1: ['flight'],
-      2: ['hotel'],  // Will match if category OR owner_tab contains "hotel"
+      2: ['hotel'], // Will match if category OR owner_tab contains "hotel"
       3: ['holidays', 'holiday'], // Handle plural/singular
     };
 
@@ -57,9 +58,11 @@ class _TransportExclusiveDealsSectionState
         final category = deal.category.toLowerCase();
         final ownerTab = deal.ownerTab.toLowerCase();
 
-        return filters.any((f) =>
-        category.contains(f.toLowerCase()) ||
-            ownerTab.contains(f.toLowerCase()));
+        return filters.any(
+          (f) =>
+              category.contains(f.toLowerCase()) ||
+              ownerTab.contains(f.toLowerCase()),
+        );
       }).toList();
     }
 
@@ -90,17 +93,27 @@ class _TransportExclusiveDealsSectionState
           Text(
             "Exclusive Deals",
             style: TextStyle(
-              fontSize: context.sp(24),
-              fontWeight: FontWeight.bold,
+              fontSize: context.titleLarge,
+              fontWeight: FontWeight.w700,
               color: Colors.black87,
             ),
           ),
+
+          // Text(
+          //   "Exclusive Deals",
+          //   style: GoogleFonts.playfairDisplay(
+          //     fontSize: context.titleLarge,
+          //     fontWeight: FontWeight.w700, // Thick stroke profiles look gorgeous in serif
+          //     color: const Color(0xFF1A1A1A),
+          //     letterSpacing: 0.5,
+          //   ),
+          // ),
 
           SizedBox(height: context.gapLarge),
 
           /// TABS
           SizedBox(
-            height: context.hp(5),
+            height: context.hp(4),
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
               itemCount: 4,
@@ -125,7 +138,7 @@ class _TransportExclusiveDealsSectionState
                         Text(
                           tabs[index],
                           style: TextStyle(
-                            fontSize: context.bodyLarge,
+                            fontSize: context.bodyMedium,
                             fontWeight: FontWeight.w600,
                             color: isSelected
                                 ? const Color(0xff005B7F)
@@ -135,7 +148,7 @@ class _TransportExclusiveDealsSectionState
                         SizedBox(height: context.gapSmall),
                         AnimatedContainer(
                           duration: const Duration(milliseconds: 250),
-                          height: 3,
+                          height: context.dividerMedium,
                           width: context.wp(17),
                           decoration: BoxDecoration(
                             color: isSelected
@@ -152,10 +165,7 @@ class _TransportExclusiveDealsSectionState
             ),
           ),
 
-          Divider(
-            color: Colors.grey.shade300,
-            thickness: 1,
-          ),
+          Divider(color: Colors.grey.shade300, thickness: context.dividerThin),
 
           SizedBox(height: context.gapMedium),
 
@@ -190,7 +200,7 @@ class _TransportExclusiveDealsSectionState
                 child: Text(
                   "View All",
                   style: TextStyle(
-                    fontSize: context.titleMedium,
+                    fontSize: context.titleSmall,
                     fontWeight: FontWeight.w700,
                     color: const Color(0xff005B7F),
                   ),
@@ -207,7 +217,10 @@ class _TransportExclusiveDealsSectionState
               if (state is ExclusiveDealsLoading) {
                 return _buildLoadingCarousel(context);
               } else if (state is ExclusiveDealsLoaded) {
-                final filteredDeals = _filterDealsByCategory(state.deals, selectedTab);
+                final filteredDeals = _filterDealsByCategory(
+                  state.deals,
+                  selectedTab,
+                );
 
                 if (filteredDeals.isEmpty) {
                   return const SizedBox.shrink();
@@ -228,22 +241,29 @@ class _TransportExclusiveDealsSectionState
           BlocBuilder<ExclusiveDealsBloc, ExclusiveDealsState>(
             builder: (context, state) {
               if (state is ExclusiveDealsLoaded) {
-                final filteredDeals = _filterDealsByCategory(state.deals, selectedTab);
+                final filteredDeals = _filterDealsByCategory(
+                  state.deals,
+                  selectedTab,
+                );
                 if (filteredDeals.isEmpty) return const SizedBox.shrink();
 
                 return Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: List.generate(
                     filteredDeals.length > 5 ? 5 : filteredDeals.length,
-                        (index) => AnimatedContainer(
+                    (index) => AnimatedContainer(
                       duration: const Duration(milliseconds: 300),
                       margin: EdgeInsets.symmetric(
-                        horizontal: context.gapSmall / 2,
+                        horizontal: context.gapXXSmall, // Use consistent gap
                       ),
-                      width: currentIndex == index ? 22 : 8,
-                      height: 8,
+                      width: currentIndex == index
+                          ? context.wp(5.5)
+                          : context.wp(2), // Responsive (22px or 8px on 400px)
+                      height: context.hp(1), // 8px on 800px
                       decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(20),
+                        borderRadius: BorderRadius.circular(
+                          context.borderRadiusLarge,
+                        ),
                         color: currentIndex == index
                             ? const Color(0xff005B7F)
                             : Colors.grey.shade300,
@@ -283,18 +303,20 @@ class _TransportExclusiveDealsSectionState
           ),
           child: Center(
             child: SizedBox(
-              height: 40,
-              width: 40,
+              height: context.hp(5),
+              width: context.hp(5),
               child: CircularProgressIndicator(
                 color: const Color(0xff005B7F),
-                strokeWidth: 3,
+                strokeWidth: context.dividerMedium, // Responsive stroke
               ),
             ),
           ),
         );
       },
       options: CarouselOptions(
-        height: context.isMobile ? context.hp(20) : context.hp(30),
+        height: context.isMobile
+            ? context.hp(20)
+            : (context.isTablet ? context.hp(25) : context.hp(30)),
         viewportFraction: 1,
         autoPlay: false,
         enlargeCenterPage: false,
@@ -306,7 +328,9 @@ class _TransportExclusiveDealsSectionState
   Widget _buildErrorState(BuildContext context, String message) {
     return Container(
       width: double.infinity,
-      height: context.isMobile ? context.hp(16) : context.hp(22),
+      height: context.isMobile
+          ? context.hp(16)
+          : (context.isTablet ? context.hp(20) : context.hp(24)),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(context.borderRadius),
         color: Colors.red.shade50,
@@ -345,7 +369,9 @@ class _TransportExclusiveDealsSectionState
                   vertical: context.gapSmall,
                 ),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(
+                    context.borderRadiusSmall,
+                  ),
                 ),
               ),
               child: Text(
@@ -361,9 +387,9 @@ class _TransportExclusiveDealsSectionState
 
   /// Main carousel with API data
   Widget _buildDealsCarousel(
-      BuildContext context,
-      List<ExclusiveDealEntity> deals,
-      ) {
+    BuildContext context,
+    List<ExclusiveDealEntity> deals,
+  ) {
     // Limit to 5 items for carousel display
     final displayDeals = deals.length > 5 ? deals.sublist(0, 5) : deals;
 
@@ -374,10 +400,14 @@ class _TransportExclusiveDealsSectionState
         return _buildDealBannerCard(context, deal: displayDeals[index]);
       },
       options: CarouselOptions(
-        height: context.isMobile ? context.hp(20) : context.hp(30),
-        viewportFraction: 1,
+        height: context.isMobile
+            ? context.hp(20)
+            : (context.isTablet ? context.hp(25) : context.hp(30)),
+        viewportFraction: context.isMobile
+            ? 1
+            : (context.isTablet ? 0.9 : 0.8), // Better on larger screens
         autoPlay: true,
-        enlargeCenterPage: false,
+        enlargeCenterPage: context.isTablet ? true : false, // Enlarge on tablet
         onPageChanged: (index, reason) {
           setState(() {
             currentIndex = index;
@@ -388,10 +418,10 @@ class _TransportExclusiveDealsSectionState
   }
 
   Widget _buildArrowButton(
-      BuildContext context, {
-        required IconData icon,
-        required VoidCallback onTap,
-      }) {
+    BuildContext context, {
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
     return InkWell(
       borderRadius: BorderRadius.circular(100),
       onTap: onTap,
@@ -400,7 +430,10 @@ class _TransportExclusiveDealsSectionState
         width: context.hp(5.5),
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          border: Border.all(color: Colors.grey.shade300),
+          border: Border.all(
+            color: Colors.grey.shade300,
+            width: context.dividerThin,
+          ),
         ),
         child: Icon(
           icon,
@@ -412,9 +445,9 @@ class _TransportExclusiveDealsSectionState
   }
 
   Widget _buildDealBannerCard(
-      BuildContext context, {
-        required ExclusiveDealEntity deal,
-      }) {
+    BuildContext context, {
+    required ExclusiveDealEntity deal,
+  }) {
     return GestureDetector(
       onTap: () {
         // Handle deal tap - navigate to deal details or apply coupon
@@ -436,7 +469,7 @@ class _TransportExclusiveDealsSectionState
             image: deal.imageUrl.isNotEmpty
                 ? NetworkImage(deal.imageUrl)
                 : const AssetImage('assets/images/placeholder_deal.png')
-            as ImageProvider,
+                      as ImageProvider,
             fit: BoxFit.cover,
             onError: (exception, stackTrace) {
               // Fallback to placeholder on image load error
@@ -453,10 +486,7 @@ class _TransportExclusiveDealsSectionState
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.transparent,
-                    Colors.black.withOpacity(0.6),
-                  ],
+                  colors: [Colors.transparent, Colors.black.withOpacity(0.6)],
                   stops: const [0.6, 1.0],
                 ),
               ),
@@ -475,11 +505,13 @@ class _TransportExclusiveDealsSectionState
                     Container(
                       padding: EdgeInsets.symmetric(
                         horizontal: context.gapSmall,
-                        vertical: 4,
+                        vertical: context.gapXXSmall,
                       ),
                       decoration: BoxDecoration(
                         color: Colors.red.shade700,
-                        borderRadius: BorderRadius.circular(4),
+                        borderRadius: BorderRadius.circular(
+                          context.borderRadiusSmall,
+                        ),
                       ),
                       child: Text(
                         "HOT DEAL",
