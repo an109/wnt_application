@@ -7,7 +7,10 @@ import 'package:wander_nova/views/TResevation/presentation/bloc/TReservation_blo
 import 'package:wander_nova/views/TResult/presentation/bloc/TResult_bloc.dart';
 import 'package:wander_nova/views/T_Search/presentation/bloc/T_SearchBloc.dart';
 import 'package:wander_nova/views/T_location/presentation/bloc/T_locationBloc.dart';
+import 'package:wander_nova/views/VisaDestination/presentation/bloc/visaDestin_bloc.dart';
+import 'package:wander_nova/views/Visa_popularDestinaton/presentation/bloc/visa_destination_bloc.dart';
 import 'package:wander_nova/views/flight_popularDestination/presentation/bloc/destination_bloc.dart';
+import 'package:wander_nova/views/footer/presentation/bloc/footer_setting_bloc.dart';
 import 'package:wander_nova/views/splash/splash_screen.dart';
 import 'package:wander_nova/views/Hotel_Booking/presentation/bloc/hotel_booking_bloc.dart';
 import 'package:wander_nova/views/Hotel_Details/presentation/bloc/hotel_details_bloc.dart';
@@ -59,6 +62,9 @@ class MyApp extends StatelessWidget {
         BlocProvider(create: (_) => di.sl<PopularDestinationBloc>()),
         BlocProvider(create: (_) => di.sl<TrendingRoutesBloc>()),
         BlocProvider(create: (_) => di.sl<TravelStoriesBloc>()),
+        BlocProvider(create: (_) => di.sl<VisaPopularDestinationBloc>()),
+        BlocProvider(create: (_) => di.sl<FooterSettingsBloc>()),
+        BlocProvider(create: (_) => di.sl<VisaDestinationBloc>()),
       ],
 
       child: MaterialApp(
@@ -67,11 +73,11 @@ class MyApp extends StatelessWidget {
         theme: ThemeData(
           // primarySwatch: Colors.blue,
           //   textTheme: GoogleFonts.poppinsTextTheme(),
-          useMaterial3: true, // Upgrades to the modern Material 3 standard design language
+          useMaterial3: true,
           colorScheme: ColorScheme.fromSeed(
-            seedColor: const Color(0xFF0054A0), // Uses your exact logo blue color profile
+            seedColor: const Color(0xFF0054A0),
             primary: const Color(0xFF0054A0),
-            secondary: const Color(0xFFFF7200), // Your logo orange accent color
+            secondary: const Color(0xFFFF7200),
           ),
           scaffoldBackgroundColor: const Color(0xFFF8F9FA),
           textTheme: GoogleFonts.poppinsTextTheme(Theme.of(context).textTheme),

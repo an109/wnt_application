@@ -1,7 +1,7 @@
 class Urls {
-  static const String baseUrl = 'http://192.168.29.79:8000/api/';
+  static const String baseUrl = 'http://192.168.1.62:8000/api/';
   // static const String baseUrl = 'https://thewandernova.com/api/';
-  static const String basesUrl = 'http://192.168.29.79:8000/api';
+  static const String basesUrl = 'http://192.168.1.62:8000/api';
   // static const String basesUrl = 'https://thewandernova.com/api';
 
   static const String airports = '$basesUrl/flights/airports';
@@ -23,4 +23,9 @@ class Urls {
   static const String popularDestinations = '$basesUrl/flights-popular-destinations/';
   static const String trendingRoutes = '$basesUrl/trending-routes/live/';
   static const String travelStories = '$basesUrl/travel-stories/';
+  static const String footerSettings = '${baseUrl}settings/footer/';
+
+  // ----- VISA -----
+  static const String visaPopularDestinations = '$basesUrl/visa-popular-destinations/';
+  static const String visaDestinations = '${baseUrl}visa-destination-page-content/';
 }

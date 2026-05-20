@@ -194,7 +194,6 @@ class _TransportExclusiveDealsSectionState
               ),
               GestureDetector(
                 onTap: () {
-                  // Navigate to full deals page
                   debugPrint("View all clicked");
                 },
                 child: Text(
@@ -426,8 +425,8 @@ class _TransportExclusiveDealsSectionState
       borderRadius: BorderRadius.circular(100),
       onTap: onTap,
       child: Container(
-        height: context.hp(5.5),
-        width: context.hp(5.5),
+        height: context.hp(4.5),
+        width: context.hp(4.5),
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           border: Border.all(

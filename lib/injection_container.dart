@@ -46,6 +46,16 @@ import 'package:wander_nova/views/T_location/data/repository/T_location_reposito
 import 'package:wander_nova/views/T_location/domain/repository/T_location_repository.dart';
 import 'package:wander_nova/views/T_location/domain/usecase/get_location_usecase.dart';
 import 'package:wander_nova/views/T_location/presentation/bloc/T_locationBloc.dart';
+import 'package:wander_nova/views/VisaDestination/data/data_source/visaDestin_apiService.dart';
+import 'package:wander_nova/views/VisaDestination/data/repository/visaDestin_Repository_impl.dart';
+import 'package:wander_nova/views/VisaDestination/domain/repository/visaDestin_Repository.dart';
+import 'package:wander_nova/views/VisaDestination/domain/usecase/get_visaDestin_usecase.dart';
+import 'package:wander_nova/views/VisaDestination/presentation/bloc/visaDestin_bloc.dart';
+import 'package:wander_nova/views/Visa_popularDestinaton/data/data_source/visa_destination_api_service.dart';
+import 'package:wander_nova/views/Visa_popularDestinaton/data/repository/visa_destination_repository_impl.dart';
+import 'package:wander_nova/views/Visa_popularDestinaton/domain/repository/visa_destination_repository.dart';
+import 'package:wander_nova/views/Visa_popularDestinaton/domain/usecase/get_visa_destination_usecase.dart';
+import 'package:wander_nova/views/Visa_popularDestinaton/presentation/bloc/visa_destination_bloc.dart';
 import 'package:wander_nova/views/airport/data/data_source/airport_api_service.dart';
 import 'package:wander_nova/views/airport/data/repository/airport_repositories_impl.dart';
 import 'package:wander_nova/views/airport/domain/repository/airport_repositories.dart';
@@ -92,6 +102,11 @@ import 'package:wander_nova/views/flight_ssr/data/repository/ssr_repository_impl
 import 'package:wander_nova/views/flight_ssr/domain/repository/ssr_repository.dart';
 import 'package:wander_nova/views/flight_ssr/domain/usecase/get_ssr_usecase.dart';
 import 'package:wander_nova/views/flight_ssr/presentation/bloc/ssr_bloc.dart';
+import 'package:wander_nova/views/footer/data/data_source/footer_setting_api_service.dart';
+import 'package:wander_nova/views/footer/data/repository/footer_repository_impl.dart';
+import 'package:wander_nova/views/footer/domain/repository/footer_setting_repository.dart';
+import 'package:wander_nova/views/footer/domain/usecase/get_footer_settings_usecase.dart';
+import 'package:wander_nova/views/footer/presentation/bloc/footer_setting_bloc.dart';
 import 'package:wander_nova/views/travel_stories/data/data_source/travel_stories_api_service.dart';
 import 'package:wander_nova/views/travel_stories/data/repository/travel_stories_repository_impl.dart';
 import 'package:wander_nova/views/travel_stories/domain/repository/travel_stories_repository.dart';
@@ -133,38 +148,19 @@ Future<void> initializeDependencies() async {
 
 
   // Data Layer
-  sl.registerLazySingleton<AirportApiService>(
-        () => AirportApiServiceImpl(sl<DioClient>().instance),);
-  sl.registerLazySingleton<AuthApiService>(
-        () => AuthApiServiceImpl(sl<Dio>()),);
-  sl.registerLazySingleton<FlightApiService>(
-        () => FlightApiService(sl<DioClient>()),);
-  sl.registerFactory<FareRuleApiService>(
-        () => FareRuleApiServiceImpl(sl<DioClient>().instance),);
-  sl.registerFactory<FareQuoteApiService>(
-        () => FareQuoteApiServiceImpl(sl<DioClient>().instance),);
-  sl.registerFactory<SsrApiService>(
-          () => SsrApiServiceImpl(sl<DioClient>().instance));
-  sl.registerFactory<CountryApiService>(
-        () => CountryApiServiceImpl(sl<DioClient>().instance));
-  sl.registerLazySingleton<DestinationApiService>(
-        () => DestinationApiServiceImpl(sl<DioClient>().instance),
-  );
-  sl.registerLazySingleton<HotelApiService>(
-        () => HotelApiServiceImpl(sl<DioClient>().instance),
-  );
-  sl.registerLazySingleton<HotelDetailsApiService>(
-        () => HotelDetailsApiServiceImpl(sl<DioClient>().instance),
-  );
-  sl.registerFactory<HotelBookingApiService>(
-        () => HotelBookingApiServiceImpl(sl<DioClient>().instance),
-  );
-  sl.registerLazySingleton<ExclusiveDealsApiService>(
-        () => ExclusiveDealsApiServiceImpl(sl<DioClient>().instance),
-  );
-  sl.registerLazySingleton<T_locationApiService>(
-        () => T_locationApiServiceImpl(sl<DioClient>().instance),
-  );
+  sl.registerLazySingleton<AirportApiService>(() => AirportApiServiceImpl(sl<DioClient>().instance),);
+  sl.registerLazySingleton<AuthApiService>(() => AuthApiServiceImpl(sl<Dio>()),);
+  sl.registerLazySingleton<FlightApiService>(() => FlightApiService(sl<DioClient>()),);
+  sl.registerFactory<FareRuleApiService>(() => FareRuleApiServiceImpl(sl<DioClient>().instance),);
+  sl.registerFactory<FareQuoteApiService>(() => FareQuoteApiServiceImpl(sl<DioClient>().instance),);
+  sl.registerFactory<SsrApiService>(() => SsrApiServiceImpl(sl<DioClient>().instance));
+  sl.registerFactory<CountryApiService>(() => CountryApiServiceImpl(sl<DioClient>().instance));
+  sl.registerLazySingleton<DestinationApiService>(() => DestinationApiServiceImpl(sl<DioClient>().instance));
+  sl.registerLazySingleton<HotelApiService>(() => HotelApiServiceImpl(sl<DioClient>().instance));
+  sl.registerLazySingleton<HotelDetailsApiService>(() => HotelDetailsApiServiceImpl(sl<DioClient>().instance));
+  sl.registerFactory<HotelBookingApiService>(() => HotelBookingApiServiceImpl(sl<DioClient>().instance));
+  sl.registerLazySingleton<ExclusiveDealsApiService>(() => ExclusiveDealsApiServiceImpl(sl<DioClient>().instance));
+  sl.registerLazySingleton<T_locationApiService>(() => T_locationApiServiceImpl(sl<DioClient>().instance));
   sl.registerLazySingleton<TransportSearchApiService>(() => TransportSearchApiServiceImpl(sl<DioClient>().instance),);
   sl.registerLazySingleton<TpollSearchApiService>(() => TpollSearchApiServiceImpl(sl<DioClient>().instance));
   sl.registerLazySingleton<TransportResultApiService>(() => TransportResultApiServiceImpl(sl<DioClient>().instance));
@@ -172,6 +168,10 @@ Future<void> initializeDependencies() async {
   sl.registerLazySingleton<PopularDestinationApiService>(() => PopularDestinationApiServiceImpl(sl<DioClient>().instance));
   sl.registerLazySingleton<TrendingRoutesApiService>(() => TrendingRoutesApiServiceImpl(sl<DioClient>().instance));
   sl.registerLazySingleton<TravelStoriesApiService>(() => TravelStoriesApiServiceImpl(sl<DioClient>().instance));
+  sl.registerFactory<VisaPopularDestinationApiService>(() => VisaPopularDestinationApiServiceImpl(sl<DioClient>().instance));
+  sl.registerFactory<FooterSettingsApiService>(() => FooterSettingsApiServiceImpl(sl<DioClient>().instance));
+  sl.registerFactory<VisaDestinationApiService>(() => VisaDestinationApiServiceImpl(sl<DioClient>().instance));
+
 
 
 
@@ -179,47 +179,29 @@ Future<void> initializeDependencies() async {
 
 
   // Repository
-  sl.registerLazySingleton<AirportRepository>(
-        () => AirportRepositoryImpl(sl()),);
-  sl.registerLazySingleton<AuthRepository>(
-        () => AuthRepositoryImpl(sl<AuthApiService>()),);
-  sl.registerLazySingleton<FlightRepository>(
-        () => FlightRepositoryImpl(sl<FlightApiService>()),);
-  sl.registerFactory<FareRuleRepository>(
-        () => FareRuleRepositoryImpl(sl<FareRuleApiService>()),);
-  sl.registerFactory<FareQuoteRepository>(
-        () => FareQuoteRepositoryImpl(sl<FareQuoteApiService>()));
-  sl.registerFactory<SsrRepository>(
-          () => SsrRepositoryImpl(sl<SsrApiService>()));
-  sl.registerFactory<CountryRepository>(
-        () => CountryRepositoryImpl(sl<CountryApiService>()),);
-  sl.registerLazySingleton<DestinationRepository>(
-        () => DestinationRepositoryImpl(sl<DestinationApiService>()));
-  sl.registerLazySingleton<HotelRepository>(
-        () => HotelRepositoryImpl(sl<HotelApiService>()),
-  );
-  sl.registerLazySingleton<HotelDetailsRepository>(
-        () => HotelDetailsRepositoryImpl(sl<HotelDetailsApiService>()),
-  );
-  sl.registerLazySingleton<HotelBookingRepository>(
-        () => HotelBookingRepositoryImpl(sl<HotelBookingApiService>()),
-  );
-
-  sl.registerLazySingleton<ExclusiveDealsRepository>(
-        () => ExclusiveDealsRepositoryImpl(sl<ExclusiveDealsApiService>()),
-  );
-  sl.registerLazySingleton<T_locationRepository>(
-        () => T_locationRepositoryImpl(sl<T_locationApiService>()),
-  );
-  sl.registerLazySingleton<TransportSearchRepository>(
-        () => TransportSearchRepositoryImpl(sl<TransportSearchApiService>()),
-  );
+  sl.registerLazySingleton<AirportRepository>(() => AirportRepositoryImpl(sl()));
+  sl.registerLazySingleton<AuthRepository>(() => AuthRepositoryImpl(sl<AuthApiService>()));
+  sl.registerLazySingleton<FlightRepository>(() => FlightRepositoryImpl(sl<FlightApiService>()));
+  sl.registerFactory<FareRuleRepository>(() => FareRuleRepositoryImpl(sl<FareRuleApiService>()));
+  sl.registerFactory<FareQuoteRepository>(() => FareQuoteRepositoryImpl(sl<FareQuoteApiService>()));
+  sl.registerFactory<SsrRepository>(() => SsrRepositoryImpl(sl<SsrApiService>()));
+  sl.registerFactory<CountryRepository>(() => CountryRepositoryImpl(sl<CountryApiService>()),);
+  sl.registerLazySingleton<DestinationRepository>(() => DestinationRepositoryImpl(sl<DestinationApiService>()));
+  sl.registerLazySingleton<HotelRepository>(() => HotelRepositoryImpl(sl<HotelApiService>()));
+  sl.registerLazySingleton<HotelDetailsRepository>(() => HotelDetailsRepositoryImpl(sl<HotelDetailsApiService>()));
+  sl.registerLazySingleton<HotelBookingRepository>(() => HotelBookingRepositoryImpl(sl<HotelBookingApiService>()));
+  sl.registerLazySingleton<ExclusiveDealsRepository>(() => ExclusiveDealsRepositoryImpl(sl<ExclusiveDealsApiService>()));
+  sl.registerLazySingleton<T_locationRepository>(() => T_locationRepositoryImpl(sl<T_locationApiService>()));
+  sl.registerLazySingleton<TransportSearchRepository>(() => TransportSearchRepositoryImpl(sl<TransportSearchApiService>()));
   sl.registerLazySingleton<TpollSearchRepository>(() => TpollSearchRepositoryImpl(sl<TpollSearchApiService>()));
   sl.registerLazySingleton<TransportResultRepository>(() => TransportResultRepositoryImpl(sl<TransportResultApiService>()));
   sl.registerLazySingleton<TransportReservationRepository>(() => TransportReservationRepositoryImpl(sl<TransportReservationApiService>()),);
   sl.registerLazySingleton<PopularDestinationRepository>(() => PopularDestinationRepositoryImpl(sl()));
   sl.registerLazySingleton<TrendingRoutesRepository>(() => TrendingRoutesRepositoryImpl(sl()),);
   sl.registerLazySingleton<TravelStoriesRepository>(() => TravelStoriesRepositoryImpl(sl<TravelStoriesApiService>()));
+  sl.registerLazySingleton<VisaPopularDestinationRepository>(() => VisaPopularDestinationRepositoryImpl(sl<VisaPopularDestinationApiService>()),);
+  sl.registerLazySingleton<FooterSettingsRepository>(() => FooterSettingsRepositoryImpl(sl<FooterSettingsApiService>()));
+  sl.registerLazySingleton<VisaDestinationRepository>(() => VisaDestinationRepositoryImpl(sl<VisaDestinationApiService>()));
 
 
 
@@ -227,21 +209,14 @@ Future<void> initializeDependencies() async {
 
 
   // Domain Layer - UseCases
-  sl.registerLazySingleton<GetAirportsUsecase>(
-        () => GetAirportsUsecase(sl()),);
-  sl.registerLazySingleton<GoogleLoginUseCase>(
-        () => GoogleLoginUseCase(sl<AuthRepository>()),);
-  sl.registerLazySingleton<SearchFlightsUseCase>(
-        () => SearchFlightsUseCase(sl<FlightRepository>()),);
-  sl.registerLazySingleton<GetFareRulesUsecase>(
-          () => GetFareRulesUsecase(sl<FareRuleRepository>()));
-  sl.registerLazySingleton<FareQuoteUsecase>(
-        () => FareQuoteUsecase(sl<FareQuoteRepository>()),);
-  sl.registerLazySingleton<GetSsrUsecase>(
-          () => GetSsrUsecase(sl<SsrRepository>()));
+  sl.registerLazySingleton<GetAirportsUsecase>(() => GetAirportsUsecase(sl()));
+  sl.registerLazySingleton<GoogleLoginUseCase>(() => GoogleLoginUseCase(sl<AuthRepository>()));
+  sl.registerLazySingleton<SearchFlightsUseCase>(() => SearchFlightsUseCase(sl<FlightRepository>()));
+  sl.registerLazySingleton<GetFareRulesUsecase>(() => GetFareRulesUsecase(sl<FareRuleRepository>()));
+  sl.registerLazySingleton<FareQuoteUsecase>(() => FareQuoteUsecase(sl<FareQuoteRepository>()));
+  sl.registerLazySingleton<GetSsrUsecase>(() => GetSsrUsecase(sl<SsrRepository>()));
   sl.registerLazySingleton<GetCountriesUseCase>(() => GetCountriesUseCase(sl()));
-  sl.registerLazySingleton<SearchDestinationsUseCase>(
-        () => SearchDestinationsUseCase(sl()),);
+  sl.registerLazySingleton<SearchDestinationsUseCase>(() => SearchDestinationsUseCase(sl()),);
   sl.registerLazySingleton<GetHotelsByCityUseCase>(() => GetHotelsByCityUseCase(sl()));
   sl.registerLazySingleton<GetHotelDetailsUsecase>(() => GetHotelDetailsUsecase(sl()));
   sl.registerLazySingleton<GetHotelBookingDetailsUseCase>(() => GetHotelBookingDetailsUseCase(sl<HotelBookingRepository>()),);
@@ -250,37 +225,28 @@ Future<void> initializeDependencies() async {
   sl.registerLazySingleton<TransportSearchUsecase>(() => TransportSearchUsecase(sl()));
   sl.registerLazySingleton<TpollSearchUseCase>(() => TpollSearchUseCase(sl<TpollSearchRepository>()));
   sl.registerLazySingleton<GetTransportResultUseCase>(() => GetTransportResultUseCase(sl<TransportResultRepository>()));
-  sl.registerLazySingleton(() => CreateTransportReservationUseCase(sl<TransportReservationRepository>()),);
-  sl.registerLazySingleton<GetPopularDestinationsUseCase>(() => GetPopularDestinationsUseCase(sl()),);
+  sl.registerLazySingleton(() => CreateTransportReservationUseCase(sl<TransportReservationRepository>()));
+  sl.registerLazySingleton<GetPopularDestinationsUseCase>(() => GetPopularDestinationsUseCase(sl()));
   sl.registerLazySingleton<GetTrendingRoutesUseCase>(() => GetTrendingRoutesUseCase(sl()));
-  sl.registerLazySingleton<GetTravelStoriesUseCase>(() => GetTravelStoriesUseCase(sl<TravelStoriesRepository>()),);
-  sl.registerLazySingleton<GetTravelStoryBySlugUseCase>(() => GetTravelStoryBySlugUseCase(sl<TravelStoriesRepository>()),);
-
+  sl.registerLazySingleton<GetTravelStoriesUseCase>(() => GetTravelStoriesUseCase(sl<TravelStoriesRepository>()));
+  sl.registerLazySingleton<GetTravelStoryBySlugUseCase>(() => GetTravelStoryBySlugUseCase(sl<TravelStoriesRepository>()));
+  sl.registerLazySingleton<GetVisaPopularDestinationsUsecase>(() => GetVisaPopularDestinationsUsecase(sl<VisaPopularDestinationRepository>()));
+  sl.registerLazySingleton<GetFooterSettingsUseCase>(() => GetFooterSettingsUseCase(sl<FooterSettingsRepository>()));
+  sl.registerLazySingleton<GetVisaDestinationsUseCase>(() => GetVisaDestinationsUseCase(sl<VisaDestinationRepository>()));
 
 
 
 
 
   // Presentation Layer - Bloc
-  sl.registerFactory<AirportBloc>(() => AirportBloc(sl()),);
-  // sl.registerFactory<AuthBloc>(
-  //       () => AuthBloc(googleLoginUseCase: sl<GoogleLoginUseCase>()),);
-  sl.registerFactory<AuthBloc>(() => AuthBloc(
-    googleLoginUseCase: sl(),
-    preferencesManager: sl(),
-  ));
-  sl.registerFactory<FlightSearchBloc>(
-        () => FlightSearchBloc(sl<SearchFlightsUseCase>()),);
-  sl.registerFactory<FareRuleBloc>(
-        () => FareRuleBloc(getFareRulesUsecase: sl<GetFareRulesUsecase>()),);
-  sl.registerFactory<FareQuoteBloc>(
-        () => FareQuoteBloc(fareQuoteUsecase: sl<FareQuoteUsecase>()),);
-  sl.registerFactory<SsrBloc>(
-          () => SsrBloc(getSsrUsecase: sl<GetSsrUsecase>()));
+  sl.registerFactory<AirportBloc>(() => AirportBloc(sl()));
+  sl.registerFactory<AuthBloc>(() => AuthBloc(googleLoginUseCase: sl(), preferencesManager: sl()));
+  sl.registerFactory<FlightSearchBloc>(() => FlightSearchBloc(sl<SearchFlightsUseCase>()));
+  sl.registerFactory<FareRuleBloc>(() => FareRuleBloc(getFareRulesUsecase: sl<GetFareRulesUsecase>()));
+  sl.registerFactory<FareQuoteBloc>(() => FareQuoteBloc(fareQuoteUsecase: sl<FareQuoteUsecase>()));
+  sl.registerFactory<SsrBloc>(() => SsrBloc(getSsrUsecase: sl<GetSsrUsecase>()));
   sl.registerFactory<CountryBloc>(() => CountryBloc(sl()));
-  sl.registerFactory<DestinationBloc>(
-        () => DestinationBloc(searchDestinationsUseCase: sl()),
-  );
+  sl.registerFactory<DestinationBloc>(() => DestinationBloc(searchDestinationsUseCase: sl()));
   sl.registerFactory<HotelBloc>(() => HotelBloc(getHotelsByCityUseCase: sl()));
   sl.registerFactory<HotelDetailsBloc>(() => HotelDetailsBloc(getHotelDetailsUsecase: sl()));
   sl.registerFactory<HotelBookingBloc>(() => HotelBookingBloc(
@@ -296,5 +262,10 @@ Future<void> initializeDependencies() async {
   sl.registerFactory<TravelStoriesBloc>(() => TravelStoriesBloc(
       getTravelStoriesUseCase: sl<GetTravelStoriesUseCase>(),
       getTravelStoryBySlugUseCase: sl<GetTravelStoryBySlugUseCase>()));
+  sl.registerFactory<VisaPopularDestinationBloc>(() => VisaPopularDestinationBloc(getVisaPopularDestinationsUsecase: sl<GetVisaPopularDestinationsUsecase>()));
+  sl.registerFactory<FooterSettingsBloc>(() => FooterSettingsBloc(sl<GetFooterSettingsUseCase>()));
+  sl.registerFactory<VisaDestinationBloc>(() => VisaDestinationBloc(getVisaDestinationsUseCase: sl<GetVisaDestinationsUseCase>()));
+
+
 
 }

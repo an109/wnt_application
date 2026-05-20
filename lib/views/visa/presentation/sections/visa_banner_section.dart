@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 
-import '../widget/visa_search_card.dart';
+import '../../../VisaDestination/presentation/section/visa_search_card.dart';
 
 
 class VisaBannerSection extends StatelessWidget {
