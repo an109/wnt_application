@@ -12,13 +12,17 @@ import '../../../ExclusiveDeals/presentation/bloc/exclusive_deals_bloc.dart';
 import '../../../ExclusiveDeals/presentation/screen/T_exclusiveDeals.dart';
 import '../../../Holidays/presentation/screen/holidays_screen.dart';
 import '../../../Hotel/screen/hotel_screen.dart';
+import '../../../MainApi/presentation/bloc/general_setting_bloc.dart';
+import '../../../MainApi/presentation/bloc/general_settings_event.dart';
 import '../../../Transport/screen/transport_screen.dart';
 import '../../../footer/presentation/widget/footer_banner_widget.dart';
 import '../../../travel_stories/presentation/screen/travel_stories.dart';
 import '../../../visa/presentation/screen/visa_screen.dart';
+import '../screen_sections/about_company_section.dart';
 import '../screen_sections/faq/FAQ_section.dart';
 import '../../../flight_popularDestination/presentation/screen/popular_destination.dart';
 import '../../../trending_route/presentation/screen/trending_routes.dart';
+import '../screen_sections/service_info_section.dart';
 import '../screen_sections/why_choose_us/why_choose_us.dart';
 import '../../flight/flight_screen.dart';
 
@@ -129,9 +133,35 @@ class _HomeScreenState extends State<HomeScreen> {
 
             const SliverToBoxAdapter(child: PopularDestinations()),
             const SliverToBoxAdapter(child: TrendingPackages()),
-            const SliverToBoxAdapter(child: FAQSection()),
+            SliverToBoxAdapter(
+              child: BlocProvider(
+                create: (_) => sl<GeneralSettingsBloc>()
+                  ..add(const LoadFaqList(domain: 'thewandernova.com')),
+                child: const FAQSection(),
+              ),
+            ),
+            // const SliverToBoxAdapter(child: FAQSection()),
             const SliverToBoxAdapter(child: TravelStoriesSection()),
             const SliverToBoxAdapter(child: WhyChooseUs()),
+            // const SliverToBoxAdapter(child: AboutCompanySection()),
+            // const SliverToBoxAdapter(child: ServicesInfoSection()),
+
+
+            SliverToBoxAdapter(
+              child: BlocProvider(
+                create: (_) => sl<GeneralSettingsBloc>()
+                  ..add(const LoadGeneralSettings(domain: 'thewandernova.com')),
+                child: const AboutCompanySection(),
+              ),
+            ),
+
+            SliverToBoxAdapter(
+              child: BlocProvider(
+                create: (_) => sl<GeneralSettingsBloc>()
+                  ..add(const LoadGeneralSettings(domain: 'thewandernova.com')),
+                child: const ServicesInfoSection(),
+              ),
+            ),
 
             SliverToBoxAdapter(
               child: FooterBannerWidget(
@@ -250,65 +280,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // ===== MAIN SERVICES GRID (4 columns - MakeMyTrip style) =====
-  // Widget _buildMainServicesGrid(BuildContext context) {
-  //   final services = [
-  //     ServiceItem(
-  //       icon: Icons.flight_takeoff,
-  //       label: 'Flights',
-  //       color: const Color(0xFF4A90E2),
-  //       onTap: () => Navigator.push(
-  //         context,
-  //         MaterialPageRoute(builder: (_) => const FlightScreen()),
-  //       ),
-  //     ),
-  //     ServiceItem(
-  //       icon: Icons.hotel,
-  //       label: 'Hotels',
-  //       color: const Color(0xFF50C878),
-  //       onTap: () => Navigator.push(
-  //         context,
-  //         MaterialPageRoute(builder: (_) => const HotelBookingScreen()),
-  //       ),
-  //     ),
-  //     ServiceItem(
-  //       icon: Icons.assignment_turned_in, // Visa icon
-  //       label: 'Visa',
-  //       color: const Color(0xFF8E44AD),
-  //       onTap: () => Navigator.push(
-  //         context,
-  //         MaterialPageRoute(builder: (_) => const VisaScreen()),
-  //       ),
-  //     ),
-  //     ServiceItem(
-  //       icon: Icons.beach_access,
-  //       label: 'Holidays',
-  //       color: const Color(0xFFFF6B6B),
-  //       onTap: () => Navigator.push(
-  //         context,
-  //         MaterialPageRoute(builder: (_) => const HolidaysScreen()),
-  //       ),
-  //     ),
-  //   ];
-  //
-  //   return GridView.builder(
-  //     shrinkWrap: true,
-  //     physics: const NeverScrollableScrollPhysics(),
-  //     padding: EdgeInsets.zero,
-  //     gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-  //       crossAxisCount: 4,
-  //       childAspectRatio: context.isMobile ? 0.75 : (context.isTablet ? 0.9 : 1.0),
-  //       crossAxisSpacing: context.wp(1),
-  //       mainAxisSpacing: context.hp(1),
-  //     ),
-  //     itemCount: services.length,
-  //     itemBuilder: (context, index) {
-  //       return _buildServiceIcon(context, services[index]);
-  //     },
-  //   );
-  // }
-
-// ===== MAIN SERVICES GRID (4 columns - taller cards with less gap) =====
   Widget _buildMainServicesGrid(BuildContext context) {
     final services = [
       ServiceItem(
@@ -576,116 +547,6 @@ class _HomeScreenState extends State<HomeScreen> {
       },
     );
   }
-
-  // Widget _buildServiceIcon(BuildContext context, ServiceItem service) {
-  //   return Material(
-  //     color: Colors.transparent,
-  //     child: InkWell(
-  //       onTap: service.onTap,
-  //       borderRadius: BorderRadius.circular(context.isMobile ? 10 : 12),
-  //       splashColor: service.color.withOpacity(0.1),
-  //       highlightColor: service.color.withOpacity(0.05),
-  //       child: Container(
-  //         padding: EdgeInsets.all(context.gapSmall),
-  //
-  //         decoration: BoxDecoration(
-  //           color: Colors.white,
-  //           borderRadius: BorderRadius.circular(context.borderRadiusSmall),
-  //           boxShadow: [
-  //             BoxShadow(
-  //               color: Colors.black.withOpacity(0.06),
-  //               blurRadius: 10,
-  //               offset: const Offset(0, 4),
-  //             ),
-  //           ],
-  //           border: Border.all(
-  //             color: Colors.grey.withOpacity(0.1),
-  //             width: 1,
-  //           ),
-  //         ),
-  //         child: Column(
-  //           mainAxisAlignment: MainAxisAlignment.center,
-  //           mainAxisSize: MainAxisSize.min,
-  //           children: [
-  //             //  3D-STYLE ICON (No background, with shadow)
-  //             Stack(
-  //               clipBehavior: Clip.none,
-  //               children: [
-  //                 // Shadow layer for 3D effect
-  //                 Positioned(
-  //                   left: 2,
-  //                   top: 3,
-  //                   child: Icon(
-  //                     service.icon,
-  //                     color: service.color.withOpacity(0.3),
-  //                     size: context.iconXLarge,
-  //                   ),
-  //                 ),
-  //                 // Main icon
-  //                 Icon(
-  //                   service.icon,
-  //                   color: service.color,
-  //                   size: context.iconXLarge,
-  //                 ),
-  //
-  //                 // Badge
-  //                 if (service.badge != null)
-  //                   Positioned(
-  //                     right: -6,
-  //                     top: -6,
-  //                     child: Container(
-  //                       padding: const EdgeInsets.symmetric(
-  //                         horizontal: 5,
-  //                         vertical: 2,
-  //                       ),
-  //                       decoration: BoxDecoration(
-  //                         color: Colors.red,
-  //                         borderRadius: BorderRadius.circular(8),
-  //                         boxShadow: [
-  //                           BoxShadow(
-  //                             color: Colors.red.withOpacity(0.3),
-  //                             blurRadius: 4,
-  //                             offset: const Offset(0, 2),
-  //                           ),
-  //                         ],
-  //                       ),
-  //                       child: Text(
-  //                         service.badge!,
-  //                         style: TextStyle(
-  //                           color: Colors.white,
-  //                           fontSize: context.caption,
-  //                           fontWeight: FontWeight.bold,
-  //                         ),
-  //                       ),
-  //                     ),
-  //                   ),
-  //               ],
-  //             ),
-  //
-  //             SizedBox(height: context.gapXSmall),
-  //
-  //             // BOLDER & LARGER LABEL
-  //             Flexible(
-  //               child: Text(
-  //                 service.label,
-  //                 textAlign: TextAlign.center,
-  //                 style: TextStyle(
-  //                   fontSize: context.labelMedium, // Use responsive font
-  //                   fontWeight: FontWeight.w700, // Extra bold
-  //                   color: Colors.black87,
-  //                   height: 1.3,
-  //                   letterSpacing: context.letterSpacingTight,
-  //                 ),
-  //                 maxLines: 2,
-  //                 overflow: TextOverflow.ellipsis,
-  //               ),
-  //             ),
-  //           ],
-  //         ),
-  //       ),
-  //     ),
-  //   );
-  // }
 
   Widget _buildServiceIcon(BuildContext context, ServiceItem service) {
     return StatefulBuilder(

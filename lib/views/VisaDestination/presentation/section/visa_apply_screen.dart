@@ -1,11 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../../../../UI_helper/navigation_queue.dart';
 import '../../../../UI_helper/responsive_layout.dart';
-import '../../../../common_widgets/logo.dart';
+import '../../../../core/utils/storage/shared_preference.dart';
+import '../../../VisaApplication/Screen/visa_Application_screen.dart';
+import '../../../login/login.dart';
+import '../../domain/entity/visaDestin_Entity.dart';
 
 class VisaApplyPopup extends StatefulWidget {
   final String destinationName;
   final String price;
   final String currency;
+  final List<VisaTypeEntity> visaTypes;  // Add this - receive actual visa types
   final VoidCallback? onSuccess;
 
   const VisaApplyPopup({
@@ -13,6 +19,7 @@ class VisaApplyPopup extends StatefulWidget {
     required this.destinationName,
     required this.price,
     required this.currency,
+    required this.visaTypes,  // Required now
     this.onSuccess,
   }) : super(key: key);
 
@@ -25,21 +32,15 @@ class _VisaApplyPopupState extends State<VisaApplyPopup>
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
-  String? _selectedVisaType;
+
+  VisaTypeEntity? _selectedVisaType;  // Changed to store actual visa type object
   String? _selectedTravellers;
   String _countryCode = '+91';
   bool _isExpanded = true;
   bool _isSubmitting = false;
 
   late final AnimationController _animationController;
-  late final Animation<double> _slideAnimation;
   late final Animation<double> _fadeAnimation;
-
-  final List<String> _visaTypes = [
-    '30 Days Tourist E-Visa',
-    '1 Year Tourist E-Visa',
-    'Business Visitor E-Visa',
-  ];
 
   final List<String> _travellers = [
     '1 Traveller',
@@ -51,8 +52,13 @@ class _VisaApplyPopupState extends State<VisaApplyPopup>
     '7 Travellers',
     '8 Travellers',
     '9 Travellers',
+    '10 Travellers',
   ];
 
+  /// Get list of visa type names for dropdown
+  List<String> get _visaTypeNames {
+    return widget.visaTypes.map((visa) => visa.title).toList();
+  }
 
   /// Parse traveller count from dropdown value (e.g., "3 Travellers" → 3)
   int _getTravellerCount(String? travellersValue) {
@@ -61,66 +67,102 @@ class _VisaApplyPopupState extends State<VisaApplyPopup>
     return match != null ? int.tryParse(match.group(1)!) ?? 1 : 1;
   }
 
-  /// Calculate total price based on base price × travellers
-  String _calculateTotalPrice(String basePrice, String? travellersValue) {
-    final base = double.tryParse(basePrice) ?? 0;
-    final count = _getTravellerCount(travellersValue);
+  /// Calculate total price based on selected visa type price × travellers
+  String _calculateTotalPrice() {
+    if (_selectedVisaType == null) {
+      // Fallback to base price if no visa selected
+      final base = double.tryParse(widget.price) ?? 0;
+      final count = _getTravellerCount(_selectedTravellers);
+      final total = base * count;
+      return total.toStringAsFixed(total % 1 == 0 ? 0 : 2);
+    }
+
+    final base = _selectedVisaType!.feesInr;
+    final count = _getTravellerCount(_selectedTravellers);
     final total = base * count;
     return total.toStringAsFixed(total % 1 == 0 ? 0 : 2);
   }
 
-  /// Add this method to display dynamic price
-  Widget _buildPriceDisplay() {
-    final count = _getTravellerCount(_selectedTravellers);
-    final total = _calculateTotalPrice(widget.price, _selectedTravellers);
-
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
-      padding: EdgeInsets.all(context.wp(3)),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.6),
-        borderRadius: BorderRadius.circular(context.borderRadiusSmall),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Text(
-                'Total for $count traveller${count > 1 ? 's' : ''}',
-                style: TextStyle(
-                  fontSize: context.labelSmall,
-                  color: Colors.grey.shade700,
-                ),
-              ),
-              const Spacer(),
-              Text(
-                '${widget.currency} $total',
-                style: TextStyle(
-                  fontSize: context.titleMedium,
-                  fontWeight: FontWeight.w800,
-                  color: const Color(0xff0D47A1),
-                ),
-              ),
-            ],
-          ),
-          // Optional: Show per-person breakdown
-          if (_selectedTravellers != null && count > 1)
-            Padding(
-              padding: EdgeInsets.only(top: context.gapXXSmall),
-              child: Text(
-                '${widget.currency} ${widget.price} × $count',
-                style: TextStyle(
-                  fontSize: context.labelSmall,
-                  color: Colors.grey.shade500,
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
+  /// Get current visa price
+  num get _currentVisaPrice {
+    if (_selectedVisaType != null) {
+      return _selectedVisaType!.feesInr;
+    }
+    return double.tryParse(widget.price) ?? 0;
   }
 
+  /// Build dynamic price display
+  Widget _buildPriceDisplay() {
+    final count = _getTravellerCount(_selectedTravellers);
+    final total = _calculateTotalPrice();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              'Total Amount',
+              style: TextStyle(
+                fontSize: context.labelMedium,
+                fontWeight: FontWeight.w600,
+                color: Colors.grey.shade700,
+              ),
+            ),
+            const Spacer(),
+            Text(
+              '${widget.currency} $total',
+              style: TextStyle(
+                fontSize: context.titleLarge,
+                fontWeight: FontWeight.w800,
+                color: const Color(0xffFF6B00),
+              ),
+            ),
+          ],
+        ),
+
+        // Show breakdown if applicable
+        if (_selectedTravellers != null && count > 0 && _selectedVisaType != null)
+          Padding(
+            padding: EdgeInsets.only(top: context.gapXSmall),
+            child: Text(
+              '${widget.currency} ${_currentVisaPrice.toStringAsFixed(_currentVisaPrice % 1 == 0 ? 0 : 2)} × $count traveller${count > 1 ? 's' : ''}',
+              style: TextStyle(
+                fontSize: context.labelSmall,
+                color: Colors.grey.shade500,
+              ),
+            ),
+          ),
+
+        // // Show visa type info
+        // if (_selectedVisaType != null)
+        //   Padding(
+        //     padding: EdgeInsets.only(top: context.gapXSmall),
+        //     child: Row(
+        //       children: [
+        //         Icon(
+        //           Icons.check_circle_outline,
+        //           size: context.iconXSmall,
+        //           color: Colors.green,
+        //         ),
+        //         const SizedBox(width: 4),
+        //         Expanded(
+        //           child: Text(
+        //             '${_selectedVisaType!.title} • Stay: ${_selectedVisaType!.stay} • Processing: ${_selectedVisaType!.processing}',
+        //             style: TextStyle(
+        //               fontSize: context.labelSmall,
+        //               color: Colors.grey.shade600,
+        //             ),
+        //             maxLines: 1,
+        //             overflow: TextOverflow.ellipsis,
+        //           ),
+        //         ),
+        //       ],
+        //     ),
+        //   ),
+      ],
+    );
+  }
 
   @override
   void initState() {
@@ -129,13 +171,15 @@ class _VisaApplyPopupState extends State<VisaApplyPopup>
       duration: const Duration(milliseconds: 350),
       vsync: this,
     );
-    _slideAnimation = Tween<double>(begin: 1.0, end: 0.0).animate(
-      CurvedAnimation(parent: _animationController, curve: Curves.easeOutCubic),
-    );
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _animationController, curve: Curves.easeIn),
     );
     _animationController.forward();
+
+    // Auto-select first visa type if available
+    if (widget.visaTypes.isNotEmpty) {
+      _selectedVisaType = widget.visaTypes.first;
+    }
   }
 
   @override
@@ -162,18 +206,7 @@ class _VisaApplyPopupState extends State<VisaApplyPopup>
               ),
             ),
 
-            /// POPUP CONTENT WITH SLIDE UP
-            // Align(
-            //   alignment: Alignment.bottomCenter,
-            //   child: AnimatedBuilder(
-            //     animation: _slideAnimation,
-            //     builder: (_, child) => Transform.translate(
-            //       offset: Offset(0, context.screenHeight * _slideAnimation.value),
-            //       child: child,
-            //     ),
-            //     child: _buildPopupContent(),
-            //   ),
-            // ),
+            /// POPUP CONTENT - Centered
             Center(
               child: AnimatedBuilder(
                 animation: _fadeAnimation,
@@ -195,28 +228,19 @@ class _VisaApplyPopupState extends State<VisaApplyPopup>
 
   Widget _buildPopupContent() {
     return Container(
-      // margin: EdgeInsets.only(
-      //   bottom: context.isMobile ? context.hp(2) : context.hp(4),
-      //   left: context.wp(4),
-      //   right: context.wp(4),
-      // ),
       constraints: BoxConstraints(
-        maxWidth: context.isDesktop ? context.wp(60) : context.wp(92),
+        maxWidth: context.isDesktop ? context.wp(50) : context.wp(92),
         maxHeight: context.isMobile ? context.hp(85) : context.hp(90),
       ),
       margin: EdgeInsets.all(context.isMobile ? context.wp(4) : context.wp(8)),
       decoration: BoxDecoration(
         color: Colors.white,
-        // borderRadius: BorderRadius.only(
-        //   topLeft: Radius.circular(context.borderRadiusLarge),
-        //   topRight: Radius.circular(context.borderRadiusLarge),
-        // ),
         borderRadius: BorderRadius.circular(context.borderRadiusLarge),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.2),
             blurRadius: 20,
-            offset: Offset(0, -4),
+            offset: const Offset(0, 10),
           ),
         ],
       ),
@@ -256,11 +280,10 @@ class _VisaApplyPopupState extends State<VisaApplyPopup>
                       ),
                       SizedBox(height: context.gapXXSmall),
                       Text(
-                        'Starting from ${widget.currency} ${widget.price}',
+                        'Choose your visa type and proceed',
                         style: TextStyle(
                           fontSize: context.labelMedium,
-                          color: const Color(0xff0D47A1),
-                          fontWeight: FontWeight.w600,
+                          color: Colors.grey.shade600,
                         ),
                       ),
                     ],
@@ -293,12 +316,15 @@ class _VisaApplyPopupState extends State<VisaApplyPopup>
             child: SingleChildScrollView(
               padding: EdgeInsets.symmetric(horizontal: context.wp(4)),
               child: Column(
+                mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  /// PRICE DISPLAY
+                  _buildPriceDisplay(),
+                  SizedBox(height: context.gapMedium),
                   /// QUICK INFO CARD
                   _buildQuickInfoCard(),
                   SizedBox(height: context.gapMedium),
-
                   /// APPLY FORM
                   _buildApplyForm(),
                   SizedBox(height: context.gapLarge),
@@ -307,7 +333,7 @@ class _VisaApplyPopupState extends State<VisaApplyPopup>
             ),
           ),
 
-          /// SINGLE APPLY BUTTON (Fixed at bottom)
+          /// SUBMIT BUTTON
           Container(
             padding: EdgeInsets.fromLTRB(
               context.wp(4),
@@ -321,7 +347,7 @@ class _VisaApplyPopupState extends State<VisaApplyPopup>
                 BoxShadow(
                   color: Colors.black.withOpacity(0.05),
                   blurRadius: 10,
-                  offset: Offset(0, -2),
+                  offset: const Offset(0, -2),
                 ),
               ],
             ),
@@ -342,13 +368,13 @@ class _VisaApplyPopupState extends State<VisaApplyPopup>
                       ? SizedBox(
                     height: context.iconMedium,
                     width: context.iconMedium,
-                    child: CircularProgressIndicator(
+                    child: const CircularProgressIndicator(
                       strokeWidth: 2,
                       color: Colors.white,
                     ),
                   )
                       : Text(
-                    'Apply Visa',
+                    'Apply Visa • ${widget.currency} ${_calculateTotalPrice()}',
                     style: TextStyle(
                       fontSize: context.labelLarge,
                       fontWeight: FontWeight.w700,
@@ -376,8 +402,8 @@ class _VisaApplyPopupState extends State<VisaApplyPopup>
         children: [
           Container(
             padding: EdgeInsets.all(context.wp(2)),
-            decoration: BoxDecoration(
-              color: const Color(0xff0D47A1),
+            decoration: const BoxDecoration(
+              color: Color(0xff0D47A1),
               shape: BoxShape.circle,
             ),
             child: Icon(
@@ -420,7 +446,7 @@ class _VisaApplyPopupState extends State<VisaApplyPopup>
               ),
               onPressed: () => setState(() => _isExpanded = !_isExpanded),
               padding: EdgeInsets.zero,
-              constraints: BoxConstraints(),
+              constraints: const BoxConstraints(),
             ),
           ),
         ],
@@ -446,14 +472,11 @@ class _VisaApplyPopupState extends State<VisaApplyPopup>
             SizedBox(height: context.gapSmall),
             _buildPhoneField(),
             SizedBox(height: context.gapSmall),
-            _buildDropdownField(
-              value: _selectedVisaType,
-              label: 'Visa type *',
-              hint: 'Select visa type',
-              items: _visaTypes,
-              onChanged: (val) => setState(() => _selectedVisaType = val),
-            ),
+
+            // Dynamic Visa Type Dropdown
+            _buildDynamicVisaTypeDropdown(),
             SizedBox(height: context.gapSmall),
+
             _buildDropdownField(
               value: _selectedTravellers,
               label: 'Travellers *',
@@ -465,6 +488,107 @@ class _VisaApplyPopupState extends State<VisaApplyPopup>
         ),
       )
           : Container(),
+    );
+  }
+
+  /// New: Dynamic Visa Type Dropdown that shows visa details
+  Widget _buildDynamicVisaTypeDropdown() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(context.borderRadiusSmall),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: DropdownButtonFormField<VisaTypeEntity>(
+        value: _selectedVisaType,
+        isExpanded: true,
+        isDense: true,
+        dropdownColor: Colors.white,
+        iconEnabledColor: const Color(0xff0D47A1),
+        iconDisabledColor: Colors.grey.shade400,
+        decoration: InputDecoration(
+          labelText: 'Visa Type *',
+          labelStyle: TextStyle(
+            fontSize: context.labelMedium,
+            color: Colors.grey.shade600,
+          ),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(context.borderRadiusSmall),
+            borderSide: BorderSide(color: Colors.grey.shade200),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(context.borderRadiusSmall),
+            borderSide: BorderSide(color: Colors.grey.shade200),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(context.borderRadiusSmall),
+            borderSide: const BorderSide(color: Color(0xff0D47A1), width: 2),
+          ),
+          filled: true,
+          fillColor: Colors.white,
+          contentPadding: EdgeInsets.symmetric(
+            horizontal: context.wp(3),
+            vertical: context.hp(1.2),
+          ),
+        ),
+        hint: Text(
+          'Select visa type',
+          style: TextStyle(
+            fontSize: context.labelMedium,
+            color: Colors.grey.shade400,
+          ),
+        ),
+        items: widget.visaTypes.map((visa) {
+          return DropdownMenuItem(
+            value: visa,
+            child: Padding(
+              padding: EdgeInsets.symmetric(vertical: context.hp(0.5)),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      visa.title,  // Only show the title
+                      style: TextStyle(
+                        fontSize: context.bodyMedium,
+                        fontWeight: FontWeight.w500,
+                        color: const Color(0xff0D1B3D),
+                      ),
+                    ),
+                  ),
+                  if (visa.popular)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: const Color(0xff0D47A1).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        'Popular',
+                        style: TextStyle(
+                          fontSize: context.labelSmall,
+                          color: const Color(0xff0D47A1),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          );
+        }).toList(),
+        onChanged: (VisaTypeEntity? newValue) {
+          setState(() {
+            _selectedVisaType = newValue;
+          });
+        },
+        validator: (value) => value == null ? 'Please select a visa type' : null,
+      ),
     );
   }
 
@@ -482,7 +606,7 @@ class _VisaApplyPopupState extends State<VisaApplyPopup>
           BoxShadow(
             color: Colors.black.withOpacity(0.03),
             blurRadius: 4,
-            offset: Offset(0, 2),
+            offset: const Offset(0, 2),
           ),
         ],
       ),
@@ -510,7 +634,7 @@ class _VisaApplyPopupState extends State<VisaApplyPopup>
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(context.borderRadiusSmall),
-            borderSide: BorderSide(color: const Color(0xff0D47A1), width: 2),
+            borderSide: const BorderSide(color: Color(0xff0D47A1), width: 2),
           ),
           filled: true,
           fillColor: Colors.white,
@@ -540,7 +664,7 @@ class _VisaApplyPopupState extends State<VisaApplyPopup>
           BoxShadow(
             color: Colors.black.withOpacity(0.03),
             blurRadius: 4,
-            offset: Offset(0, 2),
+            offset: const Offset(0, 2),
           ),
         ],
       ),
@@ -553,7 +677,7 @@ class _VisaApplyPopupState extends State<VisaApplyPopup>
             ),
             child: DropdownButton<String>(
               value: _countryCode,
-              underline: SizedBox(),
+              underline: const SizedBox(),
               icon: Icon(Icons.arrow_drop_down, size: context.iconSmall),
               items: ['+91', '+1', '+44', '+971'].map((code) {
                 return DropdownMenuItem(
@@ -613,16 +737,16 @@ class _VisaApplyPopupState extends State<VisaApplyPopup>
           BoxShadow(
             color: Colors.black.withOpacity(0.03),
             blurRadius: 4,
-            offset: Offset(0, 2),
+            offset: const Offset(0, 2),
           ),
         ],
       ),
       child: DropdownButtonFormField<String>(
         value: value,
-        isExpanded: true,           // Fill available width
-        isDense: true,              // Reduce internal padding
-        dropdownColor: Colors.white, // Consistent background
-        iconEnabledColor: const Color(0xff0D47A1), // Match theme
+        isExpanded: true,
+        isDense: true,
+        dropdownColor: Colors.white,
+        iconEnabledColor: const Color(0xff0D47A1),
         iconDisabledColor: Colors.grey.shade400,
         decoration: InputDecoration(
           labelText: label,
@@ -640,7 +764,7 @@ class _VisaApplyPopupState extends State<VisaApplyPopup>
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(context.borderRadiusSmall),
-            borderSide: BorderSide(color: const Color(0xff0D47A1), width: 2),
+            borderSide: const BorderSide(color: Color(0xff0D47A1), width: 2),
           ),
           filled: true,
           fillColor: Colors.white,
@@ -651,12 +775,15 @@ class _VisaApplyPopupState extends State<VisaApplyPopup>
         ),
         hint: Text(
           hint,
-          style: TextStyle(fontSize: context.labelMedium, color: Colors.grey.shade400),
+          style: TextStyle(
+            fontSize: context.labelMedium,
+            color: Colors.grey.shade400,
+          ),
         ),
         items: items.map((item) {
           return DropdownMenuItem(
             value: item,
-            child: Padding(  //  Add padding to dropdown items
+            child: Padding(
               padding: EdgeInsets.symmetric(vertical: context.hp(0.5)),
               child: Text(item, style: TextStyle(fontSize: context.bodyMedium)),
             ),
@@ -680,29 +807,101 @@ class _VisaApplyPopupState extends State<VisaApplyPopup>
 
     setState(() => _isSubmitting = true);
 
-    // Simulate API call
-    await Future.delayed(const Duration(seconds: 2));
+    // Prepare application data
+    final applicationData = {
+      'destination': widget.destinationName,
+      'visaType': _selectedVisaType?.title,
+      'visaStay': _selectedVisaType?.stay,
+      'visaEntry': _selectedVisaType?.entry,
+      'travellers': _getTravellerCount(_selectedTravellers),
+      'totalAmount': _calculateTotalPrice(),
+      'currency': widget.currency,
+      'email': _emailController.text.trim(),
+      'phone': '$_countryCode ${_phoneController.text.trim()}',
+      'countryCode': _countryCode,
+    };
+
+    // Check if user is authenticated
+    final prefs = await SharedPreferences.getInstance();
+    final preferencesManager = await PreferencesManager.create(prefs);
+    final isLoggedIn = preferencesManager.isLoggedIn();
+
+    print(' Is user logged in? $isLoggedIn');
+
+    if (isLoggedIn) {
+      // User is authenticated, get user data and navigate directly
+      final userData = preferencesManager.getUserData();
+      final filledData = {
+        ...applicationData,
+        'userEmail': userData?['email'] ?? _emailController.text.trim(),
+        'userName': userData?['name'] ?? '',
+      };
+
+      if (mounted) {
+        Navigator.pop(context); // Close popup first
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => VisaApplicationScreen(
+              destinationName: widget.destinationName,
+              price: widget.price,
+              currency: widget.currency,
+              visaType: _selectedVisaType ?? widget.visaTypes.first,
+              preFilledData: filledData,
+            ),
+          ),
+        );
+      }
+    } else {
+      // User not authenticated, store data and show login
+      if (mounted) {
+        // Store application data temporarily (you can use a simple map or service)
+        // For now, we'll pass it through the navigation queue
+        NavigationQueueService().setPendingNavigation(() {
+          // After login, get user data and navigate
+          _navigateToApplicationWithUserData(applicationData);
+        });
+
+        // Close current popup
+        Navigator.pop(context);
+
+        // Show login popup
+        showDialog(
+          context: context,
+          barrierDismissible: true,
+          builder: (context) => const LoginSignupScreen(),
+        );
+      }
+    }
+
+    setState(() => _isSubmitting = false);
+  }
+
+// Helper method to navigate after login with user data
+  Future<void> _navigateToApplicationWithUserData(Map<String, dynamic> applicationData) async {
+    final prefs = await SharedPreferences.getInstance();
+    final preferencesManager = await PreferencesManager.create(prefs);
+    final userData = preferencesManager.getUserData();
+
+    final filledData = {
+      ...applicationData,
+      'userEmail': userData?['email'] ?? applicationData['email'],
+      'userName': userData?['name'] ?? '',
+    };
 
     if (mounted) {
-      setState(() => _isSubmitting = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              Icon(Icons.check_circle, color: Colors.white),
-              SizedBox(width: context.gapSmall),
-              Text('Application submitted successfully!'),
-            ],
-          ),
-          backgroundColor: const Color(0xff10B981),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(context.borderRadiusSmall),
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => VisaApplicationScreen(
+            destinationName: widget.destinationName,
+            price: widget.price,
+            currency: widget.currency,
+            visaType: _selectedVisaType ?? widget.visaTypes.first,
+            preFilledData: filledData,
           ),
         ),
       );
-      widget.onSuccess?.call();
-      _closePopup();
     }
   }
 }

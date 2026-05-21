@@ -105,7 +105,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import 'package:wander_nova/injection_container.dart' as di;
 import 'package:wander_nova/views/Visa_popularDestinaton/presentation/widget/destinaiton_card.dart';
-import '../../domain/entities/visa_destination_entity.dart';
+import '../../../VisaDestination/domain/entity/visaDestin_Entity.dart';
+import '../../../VisaDestination/presentation/section/visa_destination_detail_screen.dart';
+import '../../domain/entities/visa_destination_entity.dart' hide VisaTypeEntity;
 import '../bloc/visa_destination_bloc.dart';
 import '../bloc/visa_destination_event.dart';
 import '../bloc/visa_destination_state.dart';
@@ -291,6 +293,16 @@ class PopularVisaDestinations extends StatelessWidget {
                   type: destination.region,
                   price: formattedPrice,
                   processing: processingTime,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => VisaDestinationDetailPage(
+                          destination: _convertToDestinationEntity(destination),
+                        ),
+                      ),
+                    );
+                  },
                 );
               },
             ),
@@ -374,5 +386,34 @@ class PopularVisaDestinations extends StatelessWidget {
     }
 
     return '$formatted,$lastThree';
+  }
+
+  VisaDestinationEntity _convertToDestinationEntity(VisaPopularDestinationEntity popular) {
+    final convertedVisaTypes = popular.visaTypes.map((visaType) => VisaTypeEntity(
+      stay: visaType.stay,
+      entry: visaType.entry,
+      title: visaType.title,
+      feesInr: visaType.feesInr,
+      popular: visaType.popular,
+      validity: visaType.validity,
+      processing: visaType.processing,
+    )).toList();
+
+    return VisaDestinationEntity(
+      id: popular.id,
+      name: popular.name,
+      region: popular.region,
+      price: popular.price,
+      priceCurrency: popular.priceCurrency,
+      processingTime: popular.processingTime,
+      heroBannerImageUrl: null,
+      heroBannerImage: null,
+      imageUrl: popular.imageUrl,
+      VisaIntroParagraph: null,
+      visaTypes: convertedVisaTypes,
+      priceIncludesHeading: "Price Includes",
+      priceIncludesItems: popular.priceIncludesItems,
+      requirementsItems: popular.requirementsItems,
+    );
   }
 }

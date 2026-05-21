@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:wander_nova/views/ExclusiveDeals/presentation/bloc/exclusive_deals_bloc.dart';
+import 'package:wander_nova/views/Holiday_destination/presentation/bloc/holiday_destination_bloc.dart';
+import 'package:wander_nova/views/MainApi/presentation/bloc/general_setting_bloc.dart';
 import 'package:wander_nova/views/TPoll_Search/presentation/bloc/TPoll_SearchBloc.dart';
 import 'package:wander_nova/views/TResevation/presentation/bloc/TReservation_bloc.dart';
 import 'package:wander_nova/views/TResult/presentation/bloc/TResult_bloc.dart';
@@ -65,6 +67,8 @@ class MyApp extends StatelessWidget {
         BlocProvider(create: (_) => di.sl<VisaPopularDestinationBloc>()),
         BlocProvider(create: (_) => di.sl<FooterSettingsBloc>()),
         BlocProvider(create: (_) => di.sl<VisaDestinationBloc>()),
+        BlocProvider(create: (_) => di.sl<GeneralSettingsBloc>()),
+        BlocProvider(create: (_) => di.sl<HolidayBloc>()),
       ],
 
       child: MaterialApp(

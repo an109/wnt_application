@@ -6,6 +6,11 @@ import 'package:wander_nova/views/ExclusiveDeals/data/repository/exclusive_deals
 import 'package:wander_nova/views/ExclusiveDeals/domain/repository/exclusive_deals_repository.dart';
 import 'package:wander_nova/views/ExclusiveDeals/domain/usecase/get_exclusive_deals_usecase.dart';
 import 'package:wander_nova/views/ExclusiveDeals/presentation/bloc/exclusive_deals_bloc.dart';
+import 'package:wander_nova/views/Holiday_destination/data/data_source/holiday_destination_api_service.dart';
+import 'package:wander_nova/views/Holiday_destination/data/repository/holiday_destination_repository_impl.dart';
+import 'package:wander_nova/views/Holiday_destination/domain/repository/holiday_repository.dart';
+import 'package:wander_nova/views/Holiday_destination/domain/usecase/get_detination_usecase.dart';
+import 'package:wander_nova/views/Holiday_destination/presentation/bloc/holiday_destination_bloc.dart';
 import 'package:wander_nova/views/Hotel_Booking/data/data_source/hotel_booking_api_service.dart';
 import 'package:wander_nova/views/Hotel_Booking/data/repository/hotel_booking_repository_impl.dart';
 import 'package:wander_nova/views/Hotel_Booking/domain/repository/hotel_booking_repository.dart';
@@ -21,6 +26,13 @@ import 'package:wander_nova/views/Hotel_api/data/repository/hotel_repository_imp
 import 'package:wander_nova/views/Hotel_api/domain/repository/hotel_repository.dart';
 import 'package:wander_nova/views/Hotel_api/domain/usecase/get_hotels_by_city_usecase.dart';
 import 'package:wander_nova/views/Hotel_api/presentation/bloc/hotel_bloc.dart';
+import 'package:wander_nova/views/MainApi/data/data_source/general_setting_api_service.dart';
+import 'package:wander_nova/views/MainApi/data/respository/general_setting_repository_impl.dart';
+import 'package:wander_nova/views/MainApi/domain/repository/general_setting_repository.dart';
+import 'package:wander_nova/views/MainApi/domain/usecase/get_faq_list_usecase.dart';
+import 'package:wander_nova/views/MainApi/domain/usecase/get_general_setting_usecase.dart';
+import 'package:wander_nova/views/MainApi/domain/usecase/get_section_heros_usecase.dart';
+import 'package:wander_nova/views/MainApi/presentation/bloc/general_setting_bloc.dart';
 import 'package:wander_nova/views/TPoll_Search/data/data_source/TPoll_Search_api-service.dart';
 import 'package:wander_nova/views/TPoll_Search/data/repository/TPoll_search_repository_impl.dart';
 import 'package:wander_nova/views/TPoll_Search/domain/repository/TPoll_Search_repository.dart';
@@ -171,6 +183,9 @@ Future<void> initializeDependencies() async {
   sl.registerFactory<VisaPopularDestinationApiService>(() => VisaPopularDestinationApiServiceImpl(sl<DioClient>().instance));
   sl.registerFactory<FooterSettingsApiService>(() => FooterSettingsApiServiceImpl(sl<DioClient>().instance));
   sl.registerFactory<VisaDestinationApiService>(() => VisaDestinationApiServiceImpl(sl<DioClient>().instance));
+  sl.registerFactory<GeneralSettingsApiService>(() => GeneralSettingsApiServiceImpl(sl<DioClient>().instance));
+  sl.registerFactory<HolidayApiService>(() => HolidayApiServiceImpl(sl<DioClient>().instance));
+
 
 
 
@@ -202,6 +217,8 @@ Future<void> initializeDependencies() async {
   sl.registerLazySingleton<VisaPopularDestinationRepository>(() => VisaPopularDestinationRepositoryImpl(sl<VisaPopularDestinationApiService>()),);
   sl.registerLazySingleton<FooterSettingsRepository>(() => FooterSettingsRepositoryImpl(sl<FooterSettingsApiService>()));
   sl.registerLazySingleton<VisaDestinationRepository>(() => VisaDestinationRepositoryImpl(sl<VisaDestinationApiService>()));
+  sl.registerLazySingleton<GeneralSettingsRepository>(() => GeneralSettingsRepositoryImpl(sl<GeneralSettingsApiService>()));
+  sl.registerLazySingleton<HolidayRepository>(() => HolidayRepositoryImpl(sl<HolidayApiService>()));
 
 
 
@@ -233,6 +250,10 @@ Future<void> initializeDependencies() async {
   sl.registerLazySingleton<GetVisaPopularDestinationsUsecase>(() => GetVisaPopularDestinationsUsecase(sl<VisaPopularDestinationRepository>()));
   sl.registerLazySingleton<GetFooterSettingsUseCase>(() => GetFooterSettingsUseCase(sl<FooterSettingsRepository>()));
   sl.registerLazySingleton<GetVisaDestinationsUseCase>(() => GetVisaDestinationsUseCase(sl<VisaDestinationRepository>()));
+  sl.registerLazySingleton<GetGeneralSettingsUsecase>(() => GetGeneralSettingsUsecase(sl<GeneralSettingsRepository>()));
+  sl.registerLazySingleton<GetFaqListUsecase>(() => GetFaqListUsecase(sl<GeneralSettingsRepository>()));
+  sl.registerLazySingleton<GetSectionHeroesUsecase>(() => GetSectionHeroesUsecase(sl<GeneralSettingsRepository>()));
+  sl.registerLazySingleton<GetDestinationsUseCase>(() => GetDestinationsUseCase(sl<HolidayRepository>()));
 
 
 
@@ -265,7 +286,10 @@ Future<void> initializeDependencies() async {
   sl.registerFactory<VisaPopularDestinationBloc>(() => VisaPopularDestinationBloc(getVisaPopularDestinationsUsecase: sl<GetVisaPopularDestinationsUsecase>()));
   sl.registerFactory<FooterSettingsBloc>(() => FooterSettingsBloc(sl<GetFooterSettingsUseCase>()));
   sl.registerFactory<VisaDestinationBloc>(() => VisaDestinationBloc(getVisaDestinationsUseCase: sl<GetVisaDestinationsUseCase>()));
-
+  sl.registerFactory<GeneralSettingsBloc>(() => GeneralSettingsBloc(getGeneralSettingsUsecase: sl<GetGeneralSettingsUsecase>(),
+      getSectionHeroesUsecase: sl<GetSectionHeroesUsecase>(),
+      getFaqListUsecase: sl<GetFaqListUsecase>()));
+  sl.registerFactory<HolidayBloc>(() => HolidayBloc(getPopularDestinationsUseCase: sl<GetDestinationsUseCase>()));
 
 
 }

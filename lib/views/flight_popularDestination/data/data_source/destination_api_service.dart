@@ -13,10 +13,10 @@ class PopularDestinationApiServiceImpl implements PopularDestinationApiService {
   @override
   Future<Response> getPopularDestinations() async {
     try {
-      print('CALLING POPULAR DESTINATIONS API: ${Urls.popularDestinations}');
+      print('CALLING POPULAR DESTINATIONS API: ${Urls.popularsDestinations}');
 
       final response = await dio.get(
-        Urls.popularDestinations,
+        Urls.popularsDestinations,
         queryParameters: {
           'domain': 'thewandernova.com',
         },
@@ -29,7 +29,7 @@ class PopularDestinationApiServiceImpl implements PopularDestinationApiService {
     } catch (e) {
       print('Unknown Error: $e');
       throw DioException(
-        requestOptions: RequestOptions(path: Urls.popularDestinations),
+        requestOptions: RequestOptions(path: Urls.popularsDestinations),
         error: e.toString(),
         type: DioExceptionType.unknown,
       );

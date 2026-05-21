@@ -62,7 +62,6 @@ class _VisaDestinationDetailPageState
           child: SizedBox(
             height: 46,
             child: ElevatedButton(
-              // In your VisaDestinationDetailPage onPressed:
               onPressed: () {
                 showModalBottomSheet(
                   context: context,
@@ -72,6 +71,7 @@ class _VisaDestinationDetailPageState
                     destinationName: widget.destination.name,
                     price: widget.destination.price,
                     currency: widget.destination.priceCurrency,
+                    visaTypes: widget.destination.visaTypes,  // ← Pass the actual visa types
                     onSuccess: () {
                       // Optional: Refresh data or show confirmation
                     },

@@ -1,5 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
+
+import '../../../../MainApi/domain/entities/general_setting_entity.dart';
+import '../../../../MainApi/presentation/bloc/general_setting_bloc.dart';
+import '../../../../MainApi/presentation/bloc/general_settings_event.dart';
+import '../../../../MainApi/presentation/bloc/general_settings_state.dart';
 
 class FAQSection extends StatefulWidget {
   const FAQSection({super.key});
@@ -8,47 +14,20 @@ class FAQSection extends StatefulWidget {
   State<FAQSection> createState() => _FAQSectionState();
 }
 
-class _FAQSectionState extends State<FAQSection>
-    with TickerProviderStateMixin {
+class _FAQSectionState extends State<FAQSection> with TickerProviderStateMixin {
   int? expandedIndex;
 
-  final List<Map<String, String>> faqs = [
-    {
-      "q": "What destinations do you offer travel packages for?",
-      "a":
-      "We offer travel packages for domestic and international destinations including Dubai, Singapore, Bali, Europe, and more."
-    },
-    {
-      "q": "How can I book a travel package with Wander Nova?",
-      "a":
-      "You can book directly through our website or contact our support team for personalized assistance."
-    },
-    {
-      "q": "Do your travel packages include flights?",
-      "a":
-      "Yes, most of our packages include flights, accommodation, and transfers."
-    },
-    {
-      "q": "Can I customize my travel package?",
-      "a":
-      "Absolutely! You can customize destinations, hotels, transport, and activities."
-    },
-    {
-      "q": "What payment methods do you accept?",
-      "a":
-      "We accept credit/debit cards, UPI, net banking, and international payments."
-    },
-    {
-      "q": "Do you provide visa assistance?",
-      "a":
-      "Yes, we assist with visa documentation and application processes."
-    },
-    {
-      "q": "Can I cancel or reschedule my booking?",
-      "a":
-      "Yes, cancellations and rescheduling are allowed based on our policy."
-    },
-  ];
+  @override
+  void initState() {
+    super.initState();
+    // Load FAQ list when widget initializes
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        context.read<GeneralSettingsBloc>()
+            .add(const LoadFaqList(domain: 'thewandernova.com'));
+      }
+    });
+  }
 
   void toggle(int index) {
     setState(() {
@@ -58,95 +37,152 @@ class _FAQSectionState extends State<FAQSection>
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: EdgeInsets.symmetric(horizontal: context.wp(4), vertical: context.hp(1.5)),
-          child: Text(
-            "Frequently asked questions",
-            style: TextStyle(
-              fontSize: context.titleLarge,
-              fontWeight: FontWeight.bold,
+    return BlocBuilder<GeneralSettingsBloc, GeneralSettingsState>(
+      builder: (context, state) {
+        // Handle loading state
+        if (state is GeneralSettingsLoading || state is GeneralSettingsInitial) {
+          return const Center(
+            child: Padding(
+              padding: EdgeInsets.all(20.0),
+              child: CircularProgressIndicator(),
             ),
-          ),
-        ),
+          );
+        }
 
-        ListView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: faqs.length,
-          itemBuilder: (context, index) {
-            final isOpen = expandedIndex == index;
+        // Handle error state
+        if (state is GeneralSettingsError) {
+          return Padding(
+            padding: EdgeInsets.symmetric(horizontal: context.wp(4), vertical: context.hp(2)),
+            child: Text(
+              'Failed to load FAQs: ${state.message}',
+              style: TextStyle(
+                color: Colors.red,
+                fontSize: context.bodySmall,
+              ),
+            ),
+          );
+        }
 
-            return Column(
-              children: [
-                InkWell(
-                  onTap: () => toggle(index),
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: context.wp(4),
-                      vertical: context.hp(2),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                          child: Text(
-                            faqs[index]['q']!,
-                            style: TextStyle(
-                              fontSize: context.bodyMedium,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                        AnimatedRotation(
-                          turns: isOpen ? 0.5 : 0,
-                          duration: const Duration(milliseconds: 250),
-                          child: Icon(
-                            Icons.keyboard_arrow_down,
-                            size: context.iconMedium,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+        // Extract FAQ list from state
+        List<FaqEntity> faqList = [];
+
+        if (state is FaqListLoaded) {
+          faqList = state.faqList;
+        } else if (state is PopularDestinationsDataLoaded) {
+          faqList = state.faqList;
+        }
+
+        // Show message if no FAQs available
+        if (faqList.isEmpty) {
+          return Padding(
+            padding: EdgeInsets.symmetric(horizontal: context.wp(4), vertical: context.hp(3)),
+            child: Text(
+              'No FAQs available at the moment.',
+              style: TextStyle(
+                fontSize: context.bodyMedium,
+                color: Colors.grey[600],
+              ),
+            ),
+          );
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: context.wp(4), vertical: context.hp(1.5)),
+              child: Text(
+                "Frequently asked questions",
+                style: TextStyle(
+                  fontSize: context.titleLarge,
+                  fontWeight: FontWeight.bold,
                 ),
+              ),
+            ),
 
-                ClipRect(
-                  child: AnimatedSize(
-                    duration: const Duration(milliseconds: 300),
-                    curve: Curves.easeInOut,
-                    alignment: Alignment.topCenter,
-                    child: ConstrainedBox(
-                      constraints: isOpen
-                          ? const BoxConstraints()
-                          : const BoxConstraints(maxHeight: 0),
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: faqList.length,
+              itemBuilder: (context, index) {
+                final isOpen = expandedIndex == index;
+                final faq = faqList[index];
+
+                return Column(
+                  children: [
+                    InkWell(
+                      onTap: () => toggle(index),
                       child: Padding(
-                        padding: EdgeInsets.fromLTRB(context.wp(4), 0, context.wp(4), context.hp(2)),
-                        child: Text(
-                          faqs[index]['a']!,
-                          style: TextStyle(
-                            fontSize: context.bodySmall,
-                            color: Colors.grey[700],
-                            height: 1.5,
+                        padding: EdgeInsets.symmetric(
+                          horizontal: context.wp(4),
+                          vertical: context.hp(2),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                faq.question,
+                                style: TextStyle(
+                                  fontSize: context.bodyMedium,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                            AnimatedRotation(
+                              turns: isOpen ? 0.5 : 0,
+                              duration: const Duration(milliseconds: 250),
+                              child: Icon(
+                                Icons.keyboard_arrow_down,
+                                size: context.iconMedium,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    ClipRect(
+                      child: AnimatedSize(
+                        duration: const Duration(milliseconds: 300),
+                        curve: Curves.easeInOut,
+                        alignment: Alignment.topCenter,
+                        child: ConstrainedBox(
+                          constraints: isOpen
+                              ? const BoxConstraints()
+                              : const BoxConstraints(maxHeight: 0),
+                          child: Padding(
+                            padding: EdgeInsets.fromLTRB(
+                              context.wp(4),
+                              0,
+                              context.wp(4),
+                              context.hp(2),
+                            ),
+                            child: Text(
+                              faq.answer,
+                              style: TextStyle(
+                                fontSize: context.bodySmall,
+                                color: Colors.grey[700],
+                                height: 1.5,
+                              ),
+                            ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-                ),
 
-                Divider(
-                  height: 1,
-                  thickness: 1,
-                  color: Colors.grey[300],
-                ),
-              ],
-            );
-          },
-        ),
-      ],
+                    Divider(
+                      height: 1,
+                      thickness: 1,
+                      color: Colors.grey[300],
+                    ),
+                  ],
+                );
+              },
+            ),
+          ],
+        );
+      },
     );
   }
 }
