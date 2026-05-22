@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import '../../../../injection_container.dart';
+import '../../../Hotel_Details/presentation/screens/widgets/room_config.dart';
 import '../../../Hotel_api/presentation/bloc/hotel_bloc.dart';
 import '../../../flight_destination/domain/entities/destination_entity.dart';
 import '../../../flight_destination/presentation/widget/destination_search_field.dart';
@@ -21,9 +22,11 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
   DateTime? _checkOutDate;
   DestinationEntity? _selectedDestination;
   String _guestNationality = 'India';
-  int _rooms = 1;
-  int _adults = 1;
-  int _children = 0;
+  // int _rooms = 1;
+  // int _adults = 1;
+  // int _children = 0;
+
+  List<RoomConfig> _rooms = [RoomConfig()];
 
 
   final FocusNode _destinationFocusNode = FocusNode();
@@ -34,6 +37,326 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
     _destinationFocusNode.dispose();
     _nationalityFocusNode.dispose();
     super.dispose();
+  }
+
+  String _getRoomSummary() {
+    int totalAdults = _rooms.fold(0, (sum, room) => sum + room.adults);
+    int totalChildren = _rooms.fold(0, (sum, room) => sum + room.children);
+    int totalGuests = totalAdults + totalChildren;
+
+    if (_rooms.length == 1) {
+      return '${_rooms.length} Room, $totalGuests Guest${totalGuests > 1 ? 's' : ''}';
+    }
+    return '${_rooms.length} Rooms, $totalGuests Guests';
+  }
+
+  void _showRoomSelectionModal() {
+    List<RoomConfig> tempRooms = _rooms.map((room) => room.copy()).toList();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return DraggableScrollableSheet(
+              initialChildSize: 0.9,
+              minChildSize: 0.5,
+              maxChildSize: 0.95,
+              expand: false,
+              builder: (context, scrollController) {
+                return Column(
+                  children: [
+                    _buildModalHeader(() {
+                      setState(() {
+                        _rooms = tempRooms;
+                      });
+                      Navigator.pop(context);
+                    }),
+                    Expanded(
+                      child: ListView.builder(
+                        controller: scrollController,
+                        itemCount: tempRooms.length,
+                        itemBuilder: (context, index) {
+                          return _buildRoomConfigCard(
+                            tempRooms,
+                            index,
+                            setModalState,
+                          );
+                        },
+                      ),
+                    ),
+                    Padding(
+                      padding: EdgeInsets.all(context.gapMedium),
+                      child: TextButton.icon(
+                        onPressed: tempRooms.length < 5
+                            ? () {
+                          setModalState(() {
+                            tempRooms.add(RoomConfig());
+                          });
+                        }
+                            : null,
+                        icon: Icon(Icons.add_circle_outline),
+                        label: Text('Add another room'),
+                        style: TextButton.styleFrom(
+                          foregroundColor: Colors.redAccent,
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: context.gapLarge),
+                  ],
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildModalHeader(VoidCallback onApply) {
+    return Container(
+      padding: EdgeInsets.all(context.gapMedium),
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: Colors.grey.shade200),
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Cancel', style: TextStyle(color: Colors.grey)),
+          ),
+          Text(
+            'Rooms & Guests',
+            style: TextStyle(
+              fontSize: context.titleMedium,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          ElevatedButton(
+            onPressed: onApply,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.redAccent,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: Text('Apply', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRoomConfigCard(
+      List<RoomConfig> rooms,
+      int index,
+      StateSetter setModalState,
+      ) {
+    RoomConfig room = rooms[index];
+
+    return Container(
+      margin: EdgeInsets.symmetric(
+        horizontal: context.gapMedium,
+        vertical: context.gapSmall,
+      ),
+      padding: EdgeInsets.all(context.gapMedium),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey.shade300),
+        borderRadius: BorderRadius.circular(context.borderRadiusMedium),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Room ${index + 1}',
+                style: TextStyle(
+                  fontSize: context.titleSmall,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              if (rooms.length > 1)
+                IconButton(
+                  icon: Icon(Icons.remove_circle_outline, color: Colors.red),
+                  onPressed: () {
+                    setModalState(() {
+                      rooms.removeAt(index);
+                    });
+                  },
+                ),
+            ],
+          ),
+          SizedBox(height: context.gapMedium),
+
+          _buildCounterRow(
+            title: 'Adults',
+            subtitle: 'Above 12 years',
+            count: room.adults,
+            onIncrement: () => setModalState(() => room.adults++),
+            onDecrement: () {
+              if (room.adults > 1) setModalState(() => room.adults--);
+            },
+          ),
+          SizedBox(height: context.gapMedium),
+
+          _buildCounterRow(
+            title: 'Children',
+            subtitle: 'Ages 1-12 years',
+            count: room.children,
+            onIncrement: () {
+              if (room.children < 4) {
+                setModalState(() {
+                  room.addChild(8);
+                });
+              }
+            },
+            onDecrement: () {
+              setModalState(() => room.removeChild());
+            },
+          ),
+
+          if (room.children > 0) ...[
+            SizedBox(height: context.gapMedium),
+            Divider(color: Colors.grey.shade200),
+            SizedBox(height: context.gapSmall),
+            Text(
+              'Children Ages',
+              style: TextStyle(
+                fontSize: context.labelMedium,
+                fontWeight: FontWeight.w600,
+                color: Colors.grey.shade700,
+              ),
+            ),
+            SizedBox(height: context.gapSmall),
+            ...List.generate(room.children, (childIndex) {
+              return Padding(
+                padding: EdgeInsets.only(bottom: context.gapSmall),
+                child: Row(
+                  children: [
+                    Text(
+                      'Child ${childIndex + 1}',
+                      style: TextStyle(fontSize: context.bodySmall),
+                    ),
+                    SizedBox(width: context.gapMedium),
+                    Expanded(
+                      child: DropdownButtonFormField<int>(
+                        value: room.childAges[childIndex],
+                        decoration: InputDecoration(
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          contentPadding: EdgeInsets.symmetric(
+                            horizontal: context.gapSmall,
+                            vertical: context.gapXSmall,
+                          ),
+                        ),
+                        items: List.generate(12, (i) => i + 1)
+                            .map((age) => DropdownMenuItem(
+                          value: age,
+                          child: Text('$age years'),
+                        ))
+                            .toList(),
+                        onChanged: (value) {
+                          if (value != null) {
+                            setModalState(() {
+                              room.updateChildAge(childIndex, value);
+                            });
+                          }
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCounterRow({
+    required String title,
+    required String subtitle,
+    required int count,
+    required VoidCallback onIncrement,
+    required VoidCallback onDecrement,
+  }) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: context.bodyMedium,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            Text(
+              subtitle,
+              style: TextStyle(
+                fontSize: context.labelSmall,
+                color: Colors.grey.shade600,
+              ),
+            ),
+          ],
+        ),
+        Row(
+          children: [
+            GestureDetector(
+              onTap: onDecrement,
+              child: Container(
+                width: context.wp(8),
+                height: context.wp(8),
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey.shade300),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(Icons.remove, size: context.iconSmall),
+              ),
+            ),
+            SizedBox(width: context.gapMedium),
+            Text(
+              count.toString(),
+              style: TextStyle(
+                fontSize: context.titleMedium,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            SizedBox(width: context.gapMedium),
+            GestureDetector(
+              onTap: onIncrement,
+              child: Container(
+                width: context.wp(8),
+                height: context.wp(8),
+                decoration: BoxDecoration(
+                  color: Colors.redAccent,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  Icons.add,
+                  size: context.iconSmall,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
   }
 
   Future<void> _selectDate(
@@ -117,7 +440,11 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
     print('Destination Type: ${_selectedDestination?.type}');
     print('Check-in: $_checkInDate');
     print('Check-out: $_checkOutDate');
-    print('Guests: $_adults adults, $_children children');
+    // print('Guests: $_room adults, $_children children');
+    int totalAdults = _rooms.fold(0, (sum, room) => sum + room.adults);
+    int totalChildren = _rooms.fold(0, (sum, room) => sum + room.children);
+    print('Guests: $totalAdults adults, $totalChildren children');
+    print('Rooms: ${_rooms.length}');
     print('Rooms: $_rooms');
 
     final checkInFormatted = DateFormat('yyyy-MM-dd').format(_checkInDate!);
@@ -134,11 +461,19 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
       print('City selected - using id: $cityCode');
     }
 
-    final paxRooms = List.generate(_rooms, (index) {
+    // final paxRooms = List.generate(_rooms, (index) {
+    //   return {
+    //     'Adults': _adults,
+    //     'Children': _children,
+    //     'ChildrenAges': List.generate(_children, (childIndex) => 8),
+    //   };
+    // });
+    final paxRooms = List.generate(_rooms.length, (index) {
+      final room = _rooms[index];
       return {
-        'Adults': _adults,
-        'Children': _children,
-        'ChildrenAges': List.generate(_children, (childIndex) => 8),
+        'Adults': room.adults,
+        'Children': room.children,
+        'ChildrenAges': List.generate(room.children, (childIndex) => room.childAges[childIndex]),
       };
     });
 
@@ -229,34 +564,37 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'ROOMS & GUESTS',
-                      style: TextStyle(
-                        fontSize: context.labelMedium,
-                        color: Colors.grey.shade600,
-                        fontWeight: FontWeight.w600,
+                child: GestureDetector(
+                  onTap: _showRoomSelectionModal,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'ROOMS & GUESTS',
+                        style: TextStyle(
+                          fontSize: context.labelMedium,
+                          color: Colors.grey.shade600,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
-                    ),
-                    SizedBox(height: context.gapSmall),
-                    Text(
-                      '$_rooms Room, $_adults\nGuest',
-                      style: TextStyle(
-                        fontSize: context.titleLarge,
-                        fontWeight: FontWeight.bold,
+                      SizedBox(height: context.gapSmall),
+                      Text(
+                        _getRoomSummary(),
+                        style: TextStyle(
+                          fontSize: context.titleLarge,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                    ),
-                    SizedBox(height: context.gapSmall),
-                    Text(
-                      'Adults & Children',
-                      style: TextStyle(
-                        fontSize: context.bodySmall,
-                        color: Colors.grey.shade600,
+                      SizedBox(height: context.gapSmall),
+                      Text(
+                        'Tap to configure',
+                        style: TextStyle(
+                          fontSize: context.bodySmall,
+                          color: Colors.grey.shade600,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
               SizedBox(width: context.gapMedium),
@@ -292,6 +630,75 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
               ),
             ],
           ),
+
+          // /// ROOM + BUTTON
+          // Row(
+          //   crossAxisAlignment: CrossAxisAlignment.end,
+          //   children: [
+          //     Expanded(
+          //       child: Column(
+          //         crossAxisAlignment: CrossAxisAlignment.start,
+          //         children: [
+          //           Text(
+          //             'ROOMS & GUESTS',
+          //             style: TextStyle(
+          //               fontSize: context.labelMedium,
+          //               color: Colors.grey.shade600,
+          //               fontWeight: FontWeight.w600,
+          //             ),
+          //           ),
+          //           SizedBox(height: context.gapSmall),
+          //           Text(
+          //             '$_rooms Room, $_adults\nGuest',
+          //             style: TextStyle(
+          //               fontSize: context.titleLarge,
+          //               fontWeight: FontWeight.bold,
+          //             ),
+          //           ),
+          //           SizedBox(height: context.gapSmall),
+          //           Text(
+          //             'Adults & Children',
+          //             style: TextStyle(
+          //               fontSize: context.bodySmall,
+          //               color: Colors.grey.shade600,
+          //             ),
+          //           ),
+          //         ],
+          //       ),
+          //     ),
+          //     SizedBox(width: context.gapMedium),
+          //     Expanded(
+          //       child: SizedBox(
+          //         height: context.buttonHeight + 10,
+          //         child: ElevatedButton(
+          //           style: ElevatedButton.styleFrom(
+          //             backgroundColor: Colors.redAccent,
+          //             elevation: 0,
+          //             shape: RoundedRectangleBorder(
+          //               borderRadius: BorderRadius.circular(context.borderRadius),
+          //             ),
+          //           ),
+          //           onPressed: _onSearchPressed,
+          //           child: Row(
+          //             mainAxisAlignment: MainAxisAlignment.center,
+          //             children: [
+          //               Text(
+          //                 'SEARCH',
+          //                 style: TextStyle(
+          //                   fontSize: context.labelLarge,
+          //                   fontWeight: FontWeight.bold,
+          //                   color: Colors.white,
+          //                 ),
+          //               ),
+          //               SizedBox(width: context.gapSmall),
+          //               const Icon(Icons.search, color: Colors.white),
+          //             ],
+          //           ),
+          //         ),
+          //       ),
+          //     ),
+          //   ],
+          // ),
         ],
       ),
     );

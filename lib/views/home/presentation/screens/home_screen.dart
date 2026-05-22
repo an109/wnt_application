@@ -12,6 +12,7 @@ import '../../../ExclusiveDeals/presentation/bloc/exclusive_deals_bloc.dart';
 import '../../../ExclusiveDeals/presentation/screen/T_exclusiveDeals.dart';
 import '../../../Holidays/presentation/screen/holidays_screen.dart';
 import '../../../Hotel/screen/hotel_screen.dart';
+import '../../../MMT_Holiday/screen/holiday_screen.dart';
 import '../../../MainApi/presentation/bloc/general_setting_bloc.dart';
 import '../../../MainApi/presentation/bloc/general_settings_event.dart';
 import '../../../Transport/screen/transport_screen.dart';
@@ -315,7 +316,8 @@ class _HomeScreenState extends State<HomeScreen> {
         color: const Color(0xFFFF6B6B),
         onTap: () => Navigator.push(
           context,
-          MaterialPageRoute(builder: (_) => const HolidaysScreen()),
+          MaterialPageRoute(builder: (_) => const NewHolidayScreen()),
+          // MaterialPageRoute(builder: (_) => const HolidaysScreen()),
         ),
       ),
     ];

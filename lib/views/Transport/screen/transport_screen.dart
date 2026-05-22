@@ -11,6 +11,10 @@ import '../../../injection_container.dart';
 import '../../ExclusiveDeals/presentation/bloc/exclusive_deals_bloc.dart';
 import '../../ExclusiveDeals/presentation/screen/T_exclusiveDeals.dart';
 import '../../Hotel/section/exclusive_deals/company_info.dart';
+import '../../MainApi/presentation/bloc/general_setting_bloc.dart';
+import '../../MainApi/presentation/bloc/general_settings_event.dart';
+import '../../home/presentation/screen_sections/about_company_section.dart';
+import '../../home/presentation/screen_sections/service_info_section.dart';
 import '../../travel_stories/presentation/screen/travel_stories.dart';
 import '../../home/presentation/screen_sections/faq/FAQ_section.dart';
 import '../../flight_popularDestination/presentation/screen/popular_destination.dart';
@@ -181,15 +185,31 @@ class _TransportBookingScreenState
                 child: TrendingPackages()
             ),
 
-            const SliverToBoxAdapter(
-                child: FAQSection()
+            SliverToBoxAdapter(
+              child: BlocProvider(
+                create: (_) => sl<GeneralSettingsBloc>()
+                  ..add(const LoadFaqList(domain: 'thewandernova.com')),
+                child: const FAQSection(),
+              ),
             ),
 
             const SliverToBoxAdapter(child: TravelStoriesSection()),
             const SliverToBoxAdapter(child: WhyChooseUs()),
 
-            const SliverToBoxAdapter(
-              child: CompanyInformationSection(),
+            SliverToBoxAdapter(
+              child: BlocProvider(
+                create: (_) => sl<GeneralSettingsBloc>()
+                  ..add(const LoadGeneralSettings(domain: 'thewandernova.com')),
+                child: const AboutCompanySection(),
+              ),
+            ),
+
+            SliverToBoxAdapter(
+              child: BlocProvider(
+                create: (_) => sl<GeneralSettingsBloc>()
+                  ..add(const LoadGeneralSettings(domain: 'thewandernova.com')),
+                child: const ServicesInfoSection(),
+              ),
             ),
 
           ],
