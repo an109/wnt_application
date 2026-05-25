@@ -4,12 +4,14 @@ import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import 'package:wander_nova/views/MMT_Holiday/MMT_reviewDetails/section/destination_guideSection.dart';
 import 'package:wander_nova/views/MMT_Holiday/MMT_reviewDetails/section/expandable_section.dart';
 import 'package:wander_nova/views/MMT_Holiday/MMT_reviewDetails/section/headerSection.dart';
-import 'package:wander_nova/views/MMT_Holiday/MMT_reviewDetails/section/hotel_section.dart';
 import 'package:wander_nova/views/MMT_Holiday/MMT_reviewDetails/section/itinerary_section.dart';
 import 'package:wander_nova/views/MMT_Holiday/MMT_reviewDetails/section/package_infoSection.dart';
 import 'package:wander_nova/views/MMT_Holiday/MMT_reviewDetails/widget/package_bottom_bar.dart';
 import '../../../../core/resources/app_colours.dart';
 import '../../sections/cutomize_trip_dialogue.dart';
+import '../section/T&C.dart';
+import '../section/policy_section.dart';
+import '../section/summary_timeline_section.dart';
 
 
 class PackageDetailsScreen extends StatefulWidget {
@@ -98,10 +100,6 @@ class _PackageDetailsScreenState extends State<PackageDetailsScreen> {
                 ),
               ),
 
-              // Hotel Section
-              SliverToBoxAdapter(
-                child: HotelSection(),
-              ),
 
               // Destination Guide
               SliverToBoxAdapter(
@@ -114,24 +112,111 @@ class _PackageDetailsScreenState extends State<PackageDetailsScreen> {
               SliverToBoxAdapter(
                 child: ExpandableSection(
                   title: 'Summary',
-                  child: _buildSummaryContent(),
+                  child: const SummaryTimelineSection(),
                 ),
               ),
 
               SliverToBoxAdapter(
-                child: ExpandableSection(
-                  title: 'Terms and Conditions',
-                  child: _buildTermsContent(),
+                child: Container(
+                  margin: EdgeInsets.symmetric(horizontal: context.wp(4)),
+                  decoration: BoxDecoration(
+                    border: Border(
+                      bottom: BorderSide(
+                        color: AppColors.divider,
+                        width: 1,
+                      ),
+                    ),
+                  ),
+                  child: InkWell(
+                    onTap: () {
+                      showModalBottomSheet(
+                        context: context,
+                        isScrollControlled: true,
+                        backgroundColor: Colors.transparent,
+                        builder: (_) => const TermsConditionsScreen(),
+                      );
+                    },
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: context.wp(4),
+                        vertical: context.gapMedium,
+                      ),
+                      child: Row(
+                        children: [
+
+                          Text(
+                            'Terms and Conditions',
+                            style: TextStyle(
+                              fontSize: context.bodyMedium,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.primary,
+                            ),
+                          ),
+
+                          const Spacer(),
+
+                          Icon(
+                            Icons.keyboard_arrow_down,
+                            color: AppColors.primary,
+                            size: context.iconMedium,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
               ),
 
               SliverToBoxAdapter(
-                child: ExpandableSection(
-                  title: 'Policies',
-                  child: _buildPoliciesContent(),
+                child: Container(
+                  margin: EdgeInsets.symmetric(horizontal: context.wp(4)),
+                  decoration: BoxDecoration(
+                    border: Border(
+                      bottom: BorderSide(
+                        color: AppColors.divider,
+                        width: 1,
+                      ),
+                    ),
+                  ),
+                  child: InkWell(
+                    onTap: () {
+                      showModalBottomSheet(
+                        context: context,
+                        isScrollControlled: true,
+                        backgroundColor: Colors.transparent,
+                        builder: (_) => const PoliciesScreen(),
+                      );
+                    },
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: context.wp(4),
+                        vertical: context.gapMedium,
+                      ),
+                      child: Row(
+                        children: [
+
+                          Text(
+                            'Policies',
+                            style: TextStyle(
+                              fontSize: context.bodyMedium,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.primary,
+                            ),
+                          ),
+
+                          const Spacer(),
+
+                          Icon(
+                            Icons.keyboard_arrow_up,
+                            color: AppColors.primary,
+                            size: context.iconMedium,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
               ),
-
               // Bottom Padding for FAB and Bottom Bar
               SliverToBoxAdapter(
                 child: SizedBox(height: context.hp(15)),
@@ -155,14 +240,8 @@ class _PackageDetailsScreenState extends State<PackageDetailsScreen> {
 
   Widget _buildWarningMessage() {
     return Container(
-      // margin: EdgeInsets.symmetric(
-      //   horizontal: context.wp(4),
-      //   vertical: context.gapSmall,
-      // ),
-      // padding: context.responsivePadding,
       decoration: BoxDecoration(
         color: Color(0xFFFFF8E1),
-        // borderRadius: BorderRadius.circular(context.borderRadiusSmall),
         border: Border.all(color: Color(0xFFFFECB3)),
       ),
       child: Row(
@@ -294,105 +373,6 @@ class _PackageDetailsScreenState extends State<PackageDetailsScreen> {
             ),
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildSummaryContent() {
-    return Padding(
-      padding: context.responsivePadding,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildSummaryRow('Total Nights', '4 Nights'),
-          SizedBox(height: context.gapSmall),
-          _buildSummaryRow('Total Days', '5 Days'),
-          SizedBox(height: context.gapSmall),
-          _buildSummaryRow('Destination', 'Goa'),
-          SizedBox(height: context.gapSmall),
-          _buildSummaryRow('Starting From', 'New Delhi'),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSummaryRow(String label, String value) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: context.bodySmall,
-            color: AppColors.textSecondary,
-          ),
-        ),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: context.bodySmall,
-            fontWeight: FontWeight.w600,
-            color: AppColors.textPrimary,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildTermsContent() {
-    return Padding(
-      padding: context.responsivePadding,
-      child: Text(
-        'Standard terms and conditions apply. Please refer to the detailed terms before booking.',
-        style: TextStyle(
-          fontSize: context.bodySmall,
-          color: AppColors.textSecondary,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPoliciesContent() {
-    return Align(
-      alignment: Alignment.bottomLeft,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Cancellation Policy:',
-            style: TextStyle(
-              fontSize: context.bodySmall,
-              fontWeight: FontWeight.w600,
-              color: AppColors.textPrimary,
-            ),
-          ),
-          SizedBox(height: context.gapXXSmall),
-          Text(
-            '• Free cancellation up to 7 days before travel\n• 50% refund if cancelled 3-7 days before\n• No refund if cancelled within 3 days',
-            style: TextStyle(
-              fontSize: context.bodySmall,
-              color: AppColors.textSecondary,
-              height: 1.5,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-
-  void _showCustomTripDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Customise Your Trip'),
-        content: Text('Our travel experts will contact you soon!'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('OK'),
-          ),
-        ],
       ),
     );
   }

@@ -126,28 +126,28 @@ class _FlightScreenState extends State<FlightScreen> {
                     ),
 
                     // TITLE
-                    Positioned(
-                      top: context.hp(10.5),
-                      left: context.wp(5),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.flight_takeoff,
-                            color: Colors.white,
-                            size: context.isMobile ? 28 : 36,
-                          ),
-                          SizedBox(width: context.wp(2.5)),
-                          Text(
-                            "Book Flights",
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: context.isMobile ? 24 : 32,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                    // Positioned(
+                    //   top: context.hp(10.5),
+                    //   left: context.wp(5),
+                    //   child: Row(
+                    //     children: [
+                    //       Icon(
+                    //         Icons.flight_takeoff,
+                    //         color: Colors.white,
+                    //         size: context.isMobile ? 28 : 36,
+                    //       ),
+                    //       SizedBox(width: context.wp(2.5)),
+                    //       Text(
+                    //         "Book Flights",
+                    //         style: TextStyle(
+                    //           color: Colors.white,
+                    //           fontSize: context.isMobile ? 24 : 32,
+                    //           fontWeight: FontWeight.bold,
+                    //         ),
+                    //       ),
+                    //     ],
+                    //   ),
+                    // ),
 
                     Positioned(
                       left: context.wp(1.2),
@@ -163,7 +163,7 @@ class _FlightScreenState extends State<FlightScreen> {
               ),
 
               const SliverToBoxAdapter(
-                child: SizedBox(height: 84),
+                child: SizedBox(height: 62),
               ),
 
               SliverToBoxAdapter(

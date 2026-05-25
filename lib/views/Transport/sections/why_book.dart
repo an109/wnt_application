@@ -28,7 +28,7 @@ class WhyBookTransportSection extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              SizedBox(height: context.hp(2)),
+              SizedBox(height: context.hp(1.5)),
 
               /// TITLE
               Text(
@@ -36,12 +36,12 @@ class WhyBookTransportSection extends StatelessWidget {
                 style: TextStyle(
                   fontSize: context.sp(22),
                   fontWeight: FontWeight.w800,
-                  height: 1.15,
+                  height: 1.12,
                   color: const Color(0xFF102347),
                 ),
               ),
 
-              SizedBox(height: context.hp(1.4)),
+              SizedBox(height: context.hp(1)),
 
               /// BLUE LINE
               Container(
@@ -66,7 +66,7 @@ class WhyBookTransportSection extends StatelessWidget {
                 ),
               ),
 
-              SizedBox(height: context.hp(4)),
+              SizedBox(height: context.hp(3)),
 
               /// PRIVATE TRANSFERS
               const TransportCard(
@@ -132,12 +132,12 @@ class TransportCard extends StatelessWidget {
     return Container(
       width: double.infinity,
 
-      padding: EdgeInsets.all(context.wp(5)),
+      padding: EdgeInsets.all(context.wp(3)),
 
       decoration: BoxDecoration(
         color: Colors.white,
 
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(18),
 
         border: Border.all(
           color: const Color(0xFFE8E8EC),
@@ -178,7 +178,7 @@ class TransportCard extends StatelessWidget {
           /// TEXT SECTION
           Expanded(
             child: Padding(
-              padding: EdgeInsets.only(top: context.hp(0.3)),
+              padding: EdgeInsets.only(top: context.hp(0.1)),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -186,20 +186,21 @@ class TransportCard extends StatelessWidget {
                   Text(
                     title,
                     style: TextStyle(
-                      fontSize: context.sp(18),
+                      fontSize: context.sp(16.5),
                       fontWeight: FontWeight.w800,
                       color: const Color(0xFF102347),
                     ),
                   ),
 
-                  SizedBox(height: context.hp(1)),
+                  SizedBox(height: context.hp(0.8)),
 
                   /// DESCRIPTION
                   Text(
                     description,
                     style: TextStyle(
                       fontSize: context.sp(14),
-                      height: 1.6,
+                      letterSpacing: 0.5,
+                      height: 1.4,
                       fontWeight: FontWeight.w500,
                       color: const Color(0xFF6B7280),
                     ),

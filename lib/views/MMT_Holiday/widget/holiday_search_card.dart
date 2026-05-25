@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import '../../../core/resources/app_colours.dart';
 import '../screen/destination_package_screen.dart';
+import '../sections/city_search_card.dart';
 import 'search_field_tile.dart';
 import 'filter_chips.dart';
 
@@ -54,15 +55,21 @@ class _HolidaySearchCardState extends State<HolidaySearchCard> {
     }
   }
 
-  void _selectOrigin() {
-    _showCityPicker(
-      title: 'Starting From',
-      onSelect: (city) {
-        setState(() {
-          _originCity = city;
-        });
-      },
+  void _selectOrigin() async {
+    final selectedCity = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const CitySearchScreen(
+          title: 'Starting From',
+        ),
+      ),
     );
+
+    if (selectedCity != null) {
+      setState(() {
+        _originCity = selectedCity;
+      });
+    }
   }
 
   String _getRoomGuestSummary() {
@@ -72,106 +79,23 @@ class _HolidaySearchCardState extends State<HolidaySearchCard> {
     return '$_adults Adults, $_rooms Rooms';
   }
 
-  void _selectDestination() {
-    _showCityPicker(
-      title: 'Travelling To',
-      onSelect: (city) {
-        setState(() {
-          _destinationCity = city;
-        });
-      },
+  void _selectDestination() async {
+    final selectedCity = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const CitySearchScreen(
+          title: 'Travelling To',
+        ),
+      ),
     );
+
+    if (selectedCity != null) {
+      setState(() {
+        _destinationCity = selectedCity;
+      });
+    }
   }
 
-  void _showCityPicker({
-    required String title,
-    required Function(String) onSelect,
-  }) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        decoration: BoxDecoration(
-          color: AppColors.white,
-          borderRadius: BorderRadius.vertical(
-            top: Radius.circular(context.borderRadiusLarge),
-          ),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              margin: EdgeInsets.only(top: context.gapMedium),
-              width: context.wp(10),
-              height: context.hp(0.5),
-              decoration: BoxDecoration(
-                color: AppColors.divider,
-                borderRadius: BorderRadius.circular(4),
-              ),
-            ),
-            Padding(
-              padding: context.responsivePadding,
-              child: Row(
-                children: [
-                  IconButton(
-                    icon: Icon(Icons.close, color: AppColors.textPrimary),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: context.titleMedium,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Divider(color: AppColors.divider, height: 1),
-            SizedBox(
-              height: context.hp(40),
-              child: ListView(
-                children: [
-                  _buildCityTile('New Delhi', onSelect),
-                  _buildCityTile('Mumbai', onSelect),
-                  _buildCityTile('Bangalore', onSelect),
-                  _buildCityTile('Chennai', onSelect),
-                  _buildCityTile('Kolkata', onSelect),
-                  _buildCityTile('Hyderabad', onSelect),
-                  _buildCityTile('Pune', onSelect),
-                  _buildCityTile('Ahmedabad', onSelect),
-                  _buildCityTile('Jaipur', onSelect),
-                  _buildCityTile('Goa', onSelect),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCityTile(String city, Function(String) onSelect) {
-    return ListTile(
-      leading: Icon(
-        Icons.location_on_outlined,
-        color: AppColors.primary,
-        size: context.iconMedium,
-      ),
-      title: Text(
-        city,
-        style: TextStyle(
-          fontSize: context.bodyMedium,
-          color: AppColors.textPrimary,
-        ),
-      ),
-      onTap: () {
-        onSelect(city);
-        Navigator.pop(context);
-      },
-    );
-  }
 
   void _selectRoomAndGuests() {
     // Create local copies for editing
