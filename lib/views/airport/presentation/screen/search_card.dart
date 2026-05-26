@@ -345,7 +345,7 @@ class _SearchCardState extends State<SearchCard> {
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 250),
-        padding: EdgeInsets.symmetric(vertical: context.hp(1.5)),
+        padding: EdgeInsets.symmetric(vertical: context.hp(1.3)),
         decoration: BoxDecoration(
           color: selected ? const Color(0xff1663F7) : Colors.transparent,
           borderRadius: BorderRadius.circular(context.borderRadiusLarge),

@@ -84,7 +84,7 @@ class _FlightScreenState extends State<FlightScreen> {
                   children: [
                     // BACKGROUND IMAGE - Dynamic from API with fallback
                     SizedBox(
-                      height: context.isMobile ? context.hp(65) : context.hp(70),
+                      height: context.isMobile ? context.hp(62) : context.hp(67),
                       width: double.infinity,
                       child: _flightHeroImage != null && _flightHeroImage!.isNotEmpty
                           ? Image.network(
@@ -106,10 +106,6 @@ class _FlightScreenState extends State<FlightScreen> {
                         },
                         errorBuilder: (context, error, stackTrace) {
 
-                          // return Image.network(
-                          //   "https://images.unsplash.com/photo-1436491865332-7a61a109cc05?q=80&w=1200&auto=format&fit=crop",
-                          //   fit: BoxFit.cover,
-                          // );
                           return Container(
                             color: const Color(0xFFE0E0E0),
                           );
@@ -118,63 +114,21 @@ class _FlightScreenState extends State<FlightScreen> {
                       : Container(
                         color: const Color(0xFFE0E0E0),
                       ),
-                      //     : Image.network(
-                      //   "https://images.unsplash.com/photo-1436491865332-7a61a109cc05?q=80&w=1200&auto=format&fit=crop",
-                      //   fit: BoxFit.cover,
-                      //   loadingBuilder: (context, child, loadingProgress) {
-                      //     if (loadingProgress == null) return child;
-                      //     return Container(
-                      //       color: const Color(0xFFE0E0E0),
-                      //       child: Center(
-                      //         child: CircularProgressIndicator(
-                      //           value: loadingProgress.expectedTotalBytes != null
-                      //               ? loadingProgress.cumulativeBytesLoaded /
-                      //               loadingProgress.expectedTotalBytes!
-                      //               : null,
-                      //         ),
-                      //       ),
-                      //     );
-                      //   },
-                      // ),
                     ),
 
                     // DARK OVERLAY
                     IgnorePointer(
                       ignoring: true,
                       child: Container(
-                        height: context.isMobile ? context.hp(65) : context.hp(70),
+                        height: context.isMobile ? context.hp(62) : context.hp(67),
                         color: Colors.black.withOpacity(0.30),
                       ),
                     ),
 
-                    // TITLE
                     Positioned(
-                      top: context.hp(12.5),
-                      left: context.wp(5),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.flight_takeoff,
-                            color: Colors.white,
-                            size: context.isMobile ? 28 : 36,
-                          ),
-                          SizedBox(width: context.wp(2.5)),
-                          Text(
-                            "Book Flights",
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: context.isMobile ? 24 : 32,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    Positioned(
-                      left: context.wp(1.5),
+                      left: context.wp(1.2),
                       right: context.wp(1.5),
-                      bottom: -context.hp(4),
+                      bottom: -context.hp(-4),
                       child: Material(
                         color: Colors.transparent,
                         child: SearchCard(),
@@ -185,7 +139,7 @@ class _FlightScreenState extends State<FlightScreen> {
               ),
 
               const SliverToBoxAdapter(
-                child: SizedBox(height: 80),
+                child: SizedBox(height: 18),
               ),
 
               SliverToBoxAdapter(
@@ -197,7 +151,13 @@ class _FlightScreenState extends State<FlightScreen> {
 
               const SliverToBoxAdapter(child: PopularDestinations()),
               const SliverToBoxAdapter(child: TrendingPackages()),
-              const SliverToBoxAdapter(child: FAQSection()),
+              SliverToBoxAdapter(
+                child: BlocProvider(
+                  create: (_) => sl<GeneralSettingsBloc>()
+                    ..add(const LoadFaqList(domain: 'thewandernova.com')),
+                  child: const FAQSection(),
+                ),
+              ),
               const SliverToBoxAdapter(child: TravelStoriesSection()),
               const SliverToBoxAdapter(child: WhyChooseUs()),
 

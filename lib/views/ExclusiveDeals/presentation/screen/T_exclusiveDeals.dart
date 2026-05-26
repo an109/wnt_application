@@ -1,12 +1,12 @@
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../domain/entities/exclusive_deal_entity.dart';
 import '../../../../../UI_helper/responsive_layout.dart';
 import '../bloc/exclusive_deals_bloc.dart';
 import '../bloc/exclusive_deals_event.dart';
 import '../bloc/exclusive_deals_state.dart';
+import 'dealDetails_Screen.dart';
 
 class TransportExclusiveDealsSection extends StatefulWidget {
   const TransportExclusiveDealsSection({super.key});
@@ -113,7 +113,7 @@ class _TransportExclusiveDealsSectionState
 
           /// TABS
           SizedBox(
-            height: context.hp(4),
+            height: context.hp(3.7),
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
               itemCount: 4,
@@ -400,8 +400,8 @@ class _TransportExclusiveDealsSectionState
       },
       options: CarouselOptions(
         height: context.isMobile
-            ? context.hp(20)
-            : (context.isTablet ? context.hp(25) : context.hp(30)),
+            ? context.hp(24)
+            : (context.isTablet ? context.hp(29) : context.hp(34)),
         viewportFraction: context.isMobile
             ? 1
             : (context.isTablet ? 0.9 : 0.8), // Better on larger screens
@@ -449,14 +449,19 @@ class _TransportExclusiveDealsSectionState
   }) {
     return GestureDetector(
       onTap: () {
-        // Handle deal tap - navigate to deal details or apply coupon
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => DealDetailsScreen(deal: deal),
+          ),
+        );
         debugPrint("Deal tapped: ${deal.title}");
       },
       child: Container(
         width: double.infinity,
-        margin: EdgeInsets.symmetric(horizontal: context.gapSmall),
+        // margin: EdgeInsets.symmetric(horizontal: context.gapSmall),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(context.borderRadius),
+          // borderRadius: BorderRadius.circular(context.borderRadius),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.08),
@@ -488,91 +493,6 @@ class _TransportExclusiveDealsSectionState
                   colors: [Colors.transparent, Colors.black.withOpacity(0.6)],
                   stops: const [0.6, 1.0],
                 ),
-              ),
-            ),
-            // Deal info overlay
-            Positioned(
-              bottom: context.gapMedium,
-              left: context.gapMedium,
-              right: context.gapMedium,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Hot deal badge
-                  if (deal.isHotDeal)
-                    Container(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: context.gapSmall,
-                        vertical: context.gapXXSmall,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.red.shade700,
-                        borderRadius: BorderRadius.circular(
-                          context.borderRadiusSmall,
-                        ),
-                      ),
-                      child: Text(
-                        "HOT DEAL",
-                        style: TextStyle(
-                          fontSize: context.labelSmall,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                  if (deal.isHotDeal) SizedBox(height: context.gapSmall / 2),
-
-                  // Deal title
-                  Text(
-                    deal.title,
-                    style: TextStyle(
-                      fontSize: context.titleMedium,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-
-                  SizedBox(height: context.gapSmall / 2),
-
-                  // Discount text
-                  if (deal.discountText.isNotEmpty)
-                    Text(
-                      deal.discountText,
-                      style: TextStyle(
-                        fontSize: context.bodyMedium,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.amber.shade300,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-
-                  // Coupon code chip
-                  if (deal.couponCode.isNotEmpty) ...[
-                    SizedBox(height: context.gapSmall / 2),
-                    Container(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: context.gapSmall,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.9),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        "Code: ${deal.couponCode}",
-                        style: TextStyle(
-                          fontSize: context.labelMedium,
-                          fontWeight: FontWeight.w600,
-                          color: const Color(0xff005B7F),
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
               ),
             ),
           ],

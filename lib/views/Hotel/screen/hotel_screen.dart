@@ -11,6 +11,8 @@ import '../../ExclusiveDeals/presentation/screen/T_exclusiveDeals.dart';
 import '../../MainApi/presentation/bloc/general_setting_bloc.dart';
 import '../../MainApi/presentation/bloc/general_settings_event.dart';
 import '../../MainApi/presentation/bloc/general_settings_state.dart';
+import '../../home/presentation/screen_sections/about_company_section.dart';
+import '../../home/presentation/screen_sections/service_info_section.dart';
 import '../section/exclusive_deals/company_info.dart';
 import '../section/exclusive_deals/hotel_info.dart';
 import '../section/exclusive_deals/hotel_search_card.dart';
@@ -163,8 +165,20 @@ class _HotelBookingScreenState extends State<HotelBookingScreen> {
               child: WhyChooseWanderNova(),
             ),
 
-            const SliverToBoxAdapter(
-              child: CompanyInformationSection(),
+            SliverToBoxAdapter(
+              child: BlocProvider(
+                create: (_) => sl<GeneralSettingsBloc>()
+                  ..add(const LoadGeneralSettings(domain: 'thewandernova.com')),
+                child: const AboutCompanySection(),
+              ),
+            ),
+
+            SliverToBoxAdapter(
+              child: BlocProvider(
+                create: (_) => sl<GeneralSettingsBloc>()
+                  ..add(const LoadGeneralSettings(domain: 'thewandernova.com')),
+                child: const ServicesInfoSection(),
+              ),
             ),
 
             SliverToBoxAdapter(

@@ -12,6 +12,7 @@ import '../../../ExclusiveDeals/presentation/bloc/exclusive_deals_bloc.dart';
 import '../../../ExclusiveDeals/presentation/screen/T_exclusiveDeals.dart';
 import '../../../Holidays/presentation/screen/holidays_screen.dart';
 import '../../../Hotel/screen/hotel_screen.dart';
+import '../../../MMT_Holiday/screen/holiday_screen.dart';
 import '../../../MainApi/presentation/bloc/general_setting_bloc.dart';
 import '../../../MainApi/presentation/bloc/general_settings_event.dart';
 import '../../../Transport/screen/transport_screen.dart';
@@ -96,12 +97,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
                     SizedBox(height: context.hp(3)),
 
-                    // SizedBox(height: context.hp(2.5)), // More spacing
 
                     // Main Services (Top Row - 4 items)
                     _buildMainServicesGrid(context),
 
-                    SizedBox(height: context.hp(3)),
+                    SizedBox(height: context.hp(1)),
 
                     //  BOLDER & LARGER SUBTITLE
                     Text(
@@ -140,12 +140,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: const FAQSection(),
               ),
             ),
-            // const SliverToBoxAdapter(child: FAQSection()),
             const SliverToBoxAdapter(child: TravelStoriesSection()),
             const SliverToBoxAdapter(child: WhyChooseUs()),
-            // const SliverToBoxAdapter(child: AboutCompanySection()),
-            // const SliverToBoxAdapter(child: ServicesInfoSection()),
-
 
             SliverToBoxAdapter(
               child: BlocProvider(
@@ -227,52 +223,57 @@ class _HomeScreenState extends State<HomeScreen> {
 
           SizedBox(height: context.hp(2.2)),
 
-          Container(
-            padding: EdgeInsets.symmetric(
-              horizontal: context.wp(4),
-              vertical: context.hp(1.5),
-            ),
+          GestureDetector(
+            onTap: () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => FlightScreen()));
+            },
+            child: Container(
+              padding: EdgeInsets.symmetric(
+                horizontal: context.wp(4),
+                vertical: context.hp(1.5),
+              ),
 
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.12),
-              borderRadius: BorderRadius.circular(50),
-              border: Border.all(color: Colors.white.withOpacity(0.1)),
-            ),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(50),
+                border: Border.all(color: Colors.white.withOpacity(0.1)),
+              ),
 
-            child: Row(
-              children: [
-                Icon(
-                  Icons.search_rounded,
-                  color: Colors.white.withOpacity(0.7),
-                ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.search_rounded,
+                    color: Colors.white.withOpacity(0.7),
+                  ),
 
-                SizedBox(width: context.wp(2.5)),
+                  SizedBox(width: context.wp(2.5)),
 
-                Expanded(
-                  child: Text(
-                    "Search destinations...",
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.7),
-                      fontWeight: FontWeight.w500,
+                  Expanded(
+                    child: Text(
+                      "Search destinations...",
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.7),
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                   ),
-                ),
 
-                Container(
-                  padding: const EdgeInsets.all(8),
+                  Container(
+                    padding: const EdgeInsets.all(8),
 
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                    ),
+
+                    child:  Icon(
+                      Icons.arrow_forward_ios_rounded,
+                      size: 14,
+                      color: AppColors.primary,
+                    ),
                   ),
-
-                  child:  Icon(
-                    Icons.arrow_forward_ios_rounded,
-                    size: 14,
-                    color: AppColors.primary,
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ],
@@ -315,7 +316,8 @@ class _HomeScreenState extends State<HomeScreen> {
         color: const Color(0xFFFF6B6B),
         onTap: () => Navigator.push(
           context,
-          MaterialPageRoute(builder: (_) => const HolidaysScreen()),
+          MaterialPageRoute(builder: (_) => const NewHolidayScreen()),
+          // MaterialPageRoute(builder: (_) => const HolidaysScreen()),
         ),
       ),
     ];

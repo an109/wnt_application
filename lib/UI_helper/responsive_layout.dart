@@ -187,6 +187,12 @@ extension ResponsiveExtension on BuildContext {
   double get cardHeightLarge => hp(60); // 480px on 800px
   double get cardHeight => isMobile ? hp(50) : (isTablet ? hp(56) : hp(60));
 
+  double responsiveFontSize(double desktop, double tablet, double mobile) {
+    if (isDesktop) return desktop;
+    if (isTablet) return tablet;
+    return mobile;
+  }
+
   // Dialog specific sizes
   double get dialogBorderRadius => isMobile ? wp(4) : (isTablet ? wp(4.5) : wp(4)); // 16, 27, 48
   double get dialogContentPadding => isMobile ? wp(5) : (isTablet ? wp(5.5) : wp(5)); // 20, 33, 60
@@ -196,9 +202,9 @@ extension ResponsiveExtension on BuildContext {
   double get radioSize => isMobile ? wp(5) : (isTablet ? wp(6) : wp(5.5)); // 20, 36, 66
 
   // Divider thickness
-  double get dividerThin => hp(0.1); // ~1px
-  double get dividerMedium => hp(0.15); // ~1.5px
-  double get dividerThick => hp(0.2); // ~2px
+  double get dividerThin => hp(0.1);
+  double get dividerMedium => hp(0.15);
+  double get dividerThick => hp(0.2);
 
   // Shadow offsets
   Offset get shadowOffsetSmall => Offset(0, hp(0.6)); // ~5px

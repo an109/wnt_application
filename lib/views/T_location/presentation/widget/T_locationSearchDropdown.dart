@@ -55,7 +55,7 @@ class _T_locationSearchTileState extends State<T_locationSearchTile> {
 
   void _onFocusChange() {
     if (_focusNode.hasFocus) {
-      // ✅ Always try to open overlay when focused AND has text
+      // Always try to open overlay when focused AND has text
       if (_controller.text.isNotEmpty) {
         _openOverlay();
       }
@@ -75,7 +75,7 @@ class _T_locationSearchTileState extends State<T_locationSearchTile> {
 
     setState(() => _isSearching = true);
 
-    // ✅ FIX: Reopen overlay when typing (in case it was closed)
+    //  FIX: Reopen overlay when typing (in case it was closed)
     if (_focusNode.hasFocus) {
       _openOverlay();
     }
@@ -107,7 +107,7 @@ class _T_locationSearchTileState extends State<T_locationSearchTile> {
   }
 
   void _openOverlay() {
-    // ✅ Allow reopening if overlay was closed
+    //  Allow reopening if overlay was closed
     if (_overlayEntry != null) {
       // Overlay already exists, just mark for rebuild
       _overlayEntry?.markNeedsBuild();
@@ -124,35 +124,50 @@ class _T_locationSearchTileState extends State<T_locationSearchTile> {
         final offset = renderBox.localToGlobal(Offset.zero);
 
         _overlayEntry = OverlayEntry(
-          builder: (context) => Positioned(
-            left: offset.dx,
-            top: offset.dy + renderBox.size.height + 8,
-            width: renderBox.size.width,
-            child: CompositedTransformFollower(
-              link: _layerLink,
-              showWhenUnlinked: false,
-              offset: Offset(0, renderBox.size.height + 8),
-              child: Material(
-                elevation: 8,
-                borderRadius: BorderRadius.circular(context.borderRadius),
-                child: Container(
-                  constraints: BoxConstraints(maxHeight: context.hp(25)),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(context.borderRadius),
-                    border: Border.all(color: Colors.grey.shade300),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.08),
-                        blurRadius: 15,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: _buildDropdownContent(),
+          builder: (context) => Stack(
+            children: [
+              Positioned.fill(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.translucent,
+                  onTap: () {
+                    _focusNode.unfocus();
+                    _closeOverlay();
+                  },
                 ),
               ),
-            ),
+              Positioned(
+                left: offset.dx,
+                top: offset.dy + renderBox.size.height + 8,
+                width: renderBox.size.width,
+                child: CompositedTransformFollower(
+                  link: _layerLink,
+                  showWhenUnlinked: false,
+                  offset: Offset(0, renderBox.size.height + 8),
+                  child: Material(
+                    elevation: 8,
+                    borderRadius: BorderRadius.circular(context.borderRadius),
+                    child: Container(
+                      constraints: BoxConstraints(maxHeight: context.hp(25)),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(
+                          context.borderRadius,
+                        ),
+                        border: Border.all(color: Colors.grey.shade300),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.08),
+                            blurRadius: 15,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: _buildDropdownContent(),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         );
 
@@ -231,23 +246,23 @@ class _T_locationSearchTileState extends State<T_locationSearchTile> {
                 ),
                 trailing: location.iataCode.isNotEmpty
                     ? Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xffF5F6FA),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    location.iataCode,
-                    style: TextStyle(
-                      fontSize: context.labelSmall,
-                      fontWeight: FontWeight.w700,
-                      color: const Color(0xff0D1B3D),
-                    ),
-                  ),
-                )
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xffF5F6FA),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          location.iataCode,
+                          style: TextStyle(
+                            fontSize: context.labelSmall,
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xff0D1B3D),
+                          ),
+                        ),
+                      )
                     : null,
                 onTap: () => _selectLocation(location),
               );
@@ -339,9 +354,12 @@ class _T_locationSearchTileState extends State<T_locationSearchTile> {
                             contentPadding: EdgeInsets.zero,
                             suffixIcon: _selectedLocation != null
                                 ? IconButton(
-                              icon: Icon(Icons.clear, size: context.iconSmall),
-                              onPressed: _clearSelection,
-                            )
+                                    icon: Icon(
+                                      Icons.clear,
+                                      size: context.iconSmall,
+                                    ),
+                                    onPressed: _clearSelection,
+                                  )
                                 : null,
                           ),
                           style: TextStyle(
@@ -355,24 +373,13 @@ class _T_locationSearchTileState extends State<T_locationSearchTile> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      _selectedLocation?.formattedAddress ?? widget.initialSubtitle,
+                      _selectedLocation?.formattedAddress ??
+                          widget.initialSubtitle,
                       style: TextStyle(
                         fontSize: context.bodyMedium,
                         color: Colors.grey.shade600,
                       ),
                     ),
-                    // if (_isSearching) ...[
-                    //   SizedBox(height: context.hp(0.5)),
-                    //   SizedBox(
-                    //     height: 2,
-                    //     child: LinearProgressIndicator(
-                    //       backgroundColor: Colors.grey.shade200,
-                    //       valueColor: AlwaysStoppedAnimation<Color>(
-                    //         const Color(0xffF97316),
-                    //       ),
-                    //     ),
-                    //   ),
-                    // ],
                   ],
                 ),
               ),

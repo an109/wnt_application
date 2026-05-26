@@ -1,4 +1,3 @@
-// airport_search_dropdown.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -199,35 +198,49 @@ class _AirportSearchDropdownState extends State<AirportSearchDropdown> {
         final offset = renderBox.localToGlobal(Offset.zero);
 
         _overlayEntry = OverlayEntry(
-          builder: (context) => Positioned(
-            left: offset.dx,
-            top: offset.dy + renderBox.size.height + 8,
-            width: renderBox.size.width,
-            child: CompositedTransformFollower(
-              link: _layerLink,
-              showWhenUnlinked: false,
-              offset: Offset(0, renderBox.size.height + 8),
-              child: Material(
-                elevation: 8,
-                borderRadius: BorderRadius.circular(context.borderRadius),
-                child: Container(
-                  constraints: BoxConstraints(maxHeight: context.hp(25)),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(context.borderRadius),
-                    border: Border.all(color: Colors.grey.shade300),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.08),
-                        blurRadius: 15,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
+          builder: (context) => Stack(
+            children: [
+              // Detect outside taps
+              Positioned.fill(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.translucent,
+                  onTap: () {
+                    _focusNode.unfocus();
+                    _closeOverlay();
+                  },
+                ),
+              ),
+             Positioned(
+              left: offset.dx,
+              top: offset.dy + renderBox.size.height + 8,
+              width: renderBox.size.width,
+              child: CompositedTransformFollower(
+                link: _layerLink,
+                showWhenUnlinked: false,
+                offset: Offset(0, renderBox.size.height + 8),
+                child: Material(
+                  elevation: 8,
+                  borderRadius: BorderRadius.circular(context.borderRadius),
+                  child: Container(
+                    constraints: BoxConstraints(maxHeight: context.hp(25)),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(context.borderRadius),
+                      border: Border.all(color: Colors.grey.shade300),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.08),
+                          blurRadius: 15,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: _buildDropdownContent(),
                   ),
-                  child: _buildDropdownContent(),
                 ),
               ),
             ),
+            ],
           ),
         );
 
