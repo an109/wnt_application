@@ -1,25 +1,36 @@
 import 'package:flutter/material.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
-
-import '../../../domain/entities/hotel_booking_entity.dart';
-
+import 'package:wander_nova/core/services/currency_service.dart';
 
 class FareDetailsSection extends StatelessWidget {
-  final RoomEntity room;
+  /// Pre-converted base fare in INR (or original currency if conversion pending).
+  final double baseFare;
+
+  /// Pre-converted tax in INR (or original currency if conversion pending).
+  final double taxes;
+
+  /// Display currency — shown as symbol (₹ for INR).
   final String currency;
+
   final String bookingCode;
+  final VoidCallback? onContinueToPayment;
+
+  /// True while the parent is fetching the live exchange rate.
+  final bool isConverting;
 
   const FareDetailsSection({
     super.key,
-    required this.room,
+    required this.baseFare,
+    required this.taxes,
     required this.currency,
     required this.bookingCode,
+    this.onContinueToPayment,
+    this.isConverting = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    final baseFare = room.totalFare;
-    final taxes = room.totalTax;
+    final sym = CurrencyService.symbol(currency);
     final totalAmount = baseFare + taxes;
 
     return Container(
@@ -39,44 +50,36 @@ class FareDetailsSection extends StatelessWidget {
           children: [
             Padding(
               padding: context.responsivePadding,
-              child: Column(
-                children: [
-                  _buildFareRow(context, 'Base Fare', '${currency} ${baseFare.toStringAsFixed(0)}'),
-                  const SizedBox(height: 8),
-                  _buildFareRow(context, 'Tax & Charges', '${currency} ${taxes.toStringAsFixed(0)}'),
-                  const Divider(height: 24),
-                  _buildTotalRow(context, 'Total Amount:', '${currency} ${totalAmount.toStringAsFixed(0)}'),
-                  const SizedBox(height: 16),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.green[50],
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      'Promo Code',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: context.titleSmall,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.green[800],
+              child: isConverting
+                  ? const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 16),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                          SizedBox(width: 10),
+                          Text('Fetching live price in ₹...'),
+                        ],
                       ),
+                    )
+                  : Column(
+                      children: [
+                        _buildFareRow(context, 'Base Fare',
+                            '$sym ${baseFare.toStringAsFixed(2)}'),
+                        const SizedBox(height: 8),
+                        _buildFareRow(context, 'Tax & Charges',
+                            '$sym ${taxes.toStringAsFixed(2)}'),
+                        const Divider(height: 24),
+                        _buildTotalRow(context, 'Total Amount:',
+                            '$sym ${totalAmount.toStringAsFixed(2)}'),
+                        const SizedBox(height: 16),
+                        _buildContinueButton(context, sym, totalAmount),
+                      ],
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'No promo codes available for hotel booking.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: context.sp(12),
-                      color: Colors.grey[600],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  _buildContinueButton(context),
-                ],
-              ),
             ),
           ],
         ),
@@ -92,71 +95,52 @@ class FareDetailsSection extends StatelessWidget {
           children: [
             Icon(Icons.add, size: context.sp(14), color: Colors.grey[600]),
             const SizedBox(width: 4),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: context.sp(14),
-                color: Colors.grey[700],
-              ),
-            ),
+            Text(label,
+                style: TextStyle(
+                    fontSize: context.sp(14), color: Colors.grey[700])),
           ],
         ),
-        Text(
-          amount,
-          style: TextStyle(
-            fontSize: context.sp(14),
-            color: Colors.grey[700],
-          ),
-        ),
+        Text(amount,
+            style: TextStyle(
+                fontSize: context.sp(14), color: Colors.grey[700])),
       ],
     );
   }
 
-  Widget _buildTotalRow(BuildContext context, String label, String amount) {
+  Widget _buildTotalRow(
+      BuildContext context, String label, String amount) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: context.titleMedium,
-            fontWeight: FontWeight.bold,
-            color: Colors.black87,
-          ),
-        ),
-        Text(
-          amount,
-          style: TextStyle(
-            fontSize: context.titleMedium,
-            fontWeight: FontWeight.bold,
-            color: Colors.black87,
-          ),
-        ),
+        Text(label,
+            style: TextStyle(
+                fontSize: context.titleMedium,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87)),
+        Text(amount,
+            style: TextStyle(
+                fontSize: context.titleMedium,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87)),
       ],
     );
   }
 
-  Widget _buildContinueButton(BuildContext context) {
+  Widget _buildContinueButton(
+      BuildContext context, String sym, double total) {
     return ElevatedButton(
-      onPressed: () {
-        print('FareDetailsSection: Continue to Payment pressed');
-        print('Booking Code: $bookingCode');
-        // Navigate to payment screen
-        // Navigator.push(context, MaterialPageRoute(builder: (_) => PaymentScreen(...)));
-      },
+      onPressed: onContinueToPayment,
       style: ElevatedButton.styleFrom(
         backgroundColor: Colors.red[700],
         padding: const EdgeInsets.symmetric(vertical: 16),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         minimumSize: const Size(double.infinity, 50),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Text(
-            'Continue to Payment',
+            'Continue to Payment  $sym ${total.toStringAsFixed(2)}',
             style: TextStyle(
               fontSize: context.titleMedium,
               fontWeight: FontWeight.w600,

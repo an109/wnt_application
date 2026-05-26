@@ -12,16 +12,26 @@ class TravellerDetailsSection extends StatefulWidget {
   });
 
   @override
-  State<TravellerDetailsSection> createState() => _TravellerDetailsSectionState();
+  State<TravellerDetailsSection> createState() => TravellerDetailsSectionState();
 }
 
-class _TravellerDetailsSectionState extends State<TravellerDetailsSection> {
+class TravellerDetailsSectionState extends State<TravellerDetailsSection> {
   final List<TextEditingController> _firstNameControllers = [];
   final List<TextEditingController> _lastNameControllers = [];
   final List<TextEditingController> _dobControllers = [];
   final List<String> _selectedTitles = [];
   final List<String> _selectedGenders = [];
   final List<String> _selectedNationalities = [];
+
+  /// Returns [title, firstName, lastName] of the first adult, or empty strings.
+  List<String> getFirstAdultData() {
+    if (_firstNameControllers.isEmpty) return ['Mr', '', ''];
+    return [
+      _selectedTitles.isNotEmpty && _selectedTitles[0].isNotEmpty ? _selectedTitles[0] : 'Mr',
+      _firstNameControllers[0].text.trim(),
+      _lastNameControllers[0].text.trim(),
+    ];
+  }
 
   @override
   void initState() {

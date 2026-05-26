@@ -89,6 +89,16 @@ import 'package:wander_nova/views/fare_quote/data/repository/fare_quote_reposito
 import 'package:wander_nova/views/fare_quote/domain/repository/fare_quote_repository.dart';
 import 'package:wander_nova/views/fare_quote/domain/usecase/fare_quote_usecase.dart';
 import 'package:wander_nova/views/fare_quote/presentation/bloc/fare_quote_bloc.dart';
+import 'package:wander_nova/views/flight_booking/data/data_source/booking_api_service.dart';
+import 'package:wander_nova/views/flight_booking/data/repository/booking_repository_impl.dart';
+import 'package:wander_nova/views/flight_booking/domain/repository/booking_repository.dart';
+import 'package:wander_nova/views/flight_booking/domain/usecase/book_flight_usecase.dart';
+import 'package:wander_nova/views/flight_booking/presentation/bloc/booking_bloc.dart';
+import 'package:wander_nova/views/flight_ticket/data/data_source/ticket_api_service.dart';
+import 'package:wander_nova/views/flight_ticket/data/repository/ticket_repository_impl.dart';
+import 'package:wander_nova/views/flight_ticket/domain/repository/ticket_repository.dart';
+import 'package:wander_nova/views/flight_ticket/domain/usecase/issue_ticket_usecase.dart';
+import 'package:wander_nova/views/flight_ticket/presentation/bloc/ticket_bloc.dart';
 import 'package:wander_nova/views/fare_rule/data/data_sorce/fare_rule_api_service.dart';
 import 'package:wander_nova/views/fare_rule/data/repository/fare_rule_repository_impl.dart';
 import 'package:wander_nova/views/fare_rule/domain/repository/fare_rule_repository.dart';
@@ -166,6 +176,8 @@ Future<void> initializeDependencies() async {
   sl.registerFactory<FareRuleApiService>(() => FareRuleApiServiceImpl(sl<DioClient>().instance),);
   sl.registerFactory<FareQuoteApiService>(() => FareQuoteApiServiceImpl(sl<DioClient>().instance),);
   sl.registerFactory<SsrApiService>(() => SsrApiServiceImpl(sl<DioClient>().instance));
+  sl.registerFactory<BookingApiService>(() => BookingApiServiceImpl(sl<DioClient>().instance));
+  sl.registerFactory<TicketApiService>(() => TicketApiServiceImpl(sl<DioClient>().instance));
   sl.registerFactory<CountryApiService>(() => CountryApiServiceImpl(sl<DioClient>().instance));
   sl.registerLazySingleton<DestinationApiService>(() => DestinationApiServiceImpl(sl<DioClient>().instance));
   sl.registerLazySingleton<HotelApiService>(() => HotelApiServiceImpl(sl<DioClient>().instance));
@@ -200,6 +212,8 @@ Future<void> initializeDependencies() async {
   sl.registerFactory<FareRuleRepository>(() => FareRuleRepositoryImpl(sl<FareRuleApiService>()));
   sl.registerFactory<FareQuoteRepository>(() => FareQuoteRepositoryImpl(sl<FareQuoteApiService>()));
   sl.registerFactory<SsrRepository>(() => SsrRepositoryImpl(sl<SsrApiService>()));
+  sl.registerFactory<BookingRepository>(() => BookingRepositoryImpl(sl<BookingApiService>()));
+  sl.registerFactory<TicketRepository>(() => TicketRepositoryImpl(sl<TicketApiService>()));
   sl.registerFactory<CountryRepository>(() => CountryRepositoryImpl(sl<CountryApiService>()),);
   sl.registerLazySingleton<DestinationRepository>(() => DestinationRepositoryImpl(sl<DestinationApiService>()));
   sl.registerLazySingleton<HotelRepository>(() => HotelRepositoryImpl(sl<HotelApiService>()));
@@ -232,6 +246,8 @@ Future<void> initializeDependencies() async {
   sl.registerLazySingleton<GetFareRulesUsecase>(() => GetFareRulesUsecase(sl<FareRuleRepository>()));
   sl.registerLazySingleton<FareQuoteUsecase>(() => FareQuoteUsecase(sl<FareQuoteRepository>()));
   sl.registerLazySingleton<GetSsrUsecase>(() => GetSsrUsecase(sl<SsrRepository>()));
+  sl.registerLazySingleton<BookFlightUsecase>(() => BookFlightUsecase(sl<BookingRepository>()));
+  sl.registerLazySingleton<IssueTicketUsecase>(() => IssueTicketUsecase(sl<TicketRepository>()));
   sl.registerLazySingleton<GetCountriesUseCase>(() => GetCountriesUseCase(sl()));
   sl.registerLazySingleton<SearchDestinationsUseCase>(() => SearchDestinationsUseCase(sl()),);
   sl.registerLazySingleton<GetHotelsByCityUseCase>(() => GetHotelsByCityUseCase(sl()));
@@ -266,6 +282,8 @@ Future<void> initializeDependencies() async {
   sl.registerFactory<FareRuleBloc>(() => FareRuleBloc(getFareRulesUsecase: sl<GetFareRulesUsecase>()));
   sl.registerFactory<FareQuoteBloc>(() => FareQuoteBloc(fareQuoteUsecase: sl<FareQuoteUsecase>()));
   sl.registerFactory<SsrBloc>(() => SsrBloc(getSsrUsecase: sl<GetSsrUsecase>()));
+  sl.registerFactory<BookingBloc>(() => BookingBloc(bookFlightUsecase: sl<BookFlightUsecase>()));
+  sl.registerFactory<TicketBloc>(() => TicketBloc(issueTicketUsecase: sl<IssueTicketUsecase>()));
   sl.registerFactory<CountryBloc>(() => CountryBloc(sl()));
   sl.registerFactory<DestinationBloc>(() => DestinationBloc(searchDestinationsUseCase: sl()));
   sl.registerFactory<HotelBloc>(() => HotelBloc(getHotelsByCityUseCase: sl()));

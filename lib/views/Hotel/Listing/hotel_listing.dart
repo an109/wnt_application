@@ -4,6 +4,7 @@ import 'package:wander_nova/UI_helper/responsive_layout.dart';
 
 import '../../../common_widgets/custom_bottom_nav.dart';
 import '../../../common_widgets/logo.dart';
+import '../../../core/services/hotel_session_service.dart';
 import '../../../injection_container.dart';
 import '../../Hotel_Details/presentation/bloc/hotel_details_bloc.dart';
 import '../../Hotel_Details/presentation/screens/main_hotel_detail_screen.dart';
@@ -49,6 +50,8 @@ class _HotelListingScreenState extends State<HotelListingScreen> {
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
+    // Mark the start of the 15-minute TBO search session (Search → PreBook → Book)
+    HotelSessionService.instance.markSearchStarted();
     _loadInitialHotels();
   }
 

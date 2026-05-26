@@ -9,8 +9,12 @@ import 'package:wander_nova/views/Hotel_Booking/presentation/screen/widgets/poli
 import 'package:wander_nova/views/Hotel_Booking/presentation/screen/widgets/room_amenities_section.dart';
 import 'package:wander_nova/views/Hotel_Booking/presentation/screen/widgets/room_info_section.dart';
 import 'package:wander_nova/views/Hotel_Booking/presentation/screen/widgets/traveller_details_section.dart';
+import 'package:wander_nova/views/Hotel_Payment/hotel_payment_screen.dart';
+import '../../domain/entities/hotel_booking_entity.dart';
 import '../../../../UI_helper/responsive_layout.dart';
 import '../../../../common_widgets/logo.dart';
+import '../../../../core/services/currency_service.dart';
+import '../../../../core/services/hotel_session_service.dart';
 import '../bloc/hotel_booking_bloc.dart';
 import '../bloc/hotel_booking_event.dart';
 import '../bloc/hotel_booking_state.dart';
@@ -54,6 +58,16 @@ class _HotelBookingReviewScreenState extends State<HotelBookingReviewScreen> {
   final ScrollController _scrollController = ScrollController();
   bool _showScrollToTop = false;
 
+  final GlobalKey<TravellerDetailsSectionState> _travellerKey =
+      GlobalKey<TravellerDetailsSectionState>();
+  final GlobalKey<ContactInfoSectionState> _contactKey =
+      GlobalKey<ContactInfoSectionState>();
+
+  // Live-converted INR prices (fetched from exchangerate-api.com if needed)
+  double? _inrBaseFare;
+  double? _inrTax;
+  bool _isConverting = false;
+
   @override
   void initState() {
     super.initState();
@@ -85,6 +99,88 @@ class _HotelBookingReviewScreenState extends State<HotelBookingReviewScreen> {
     super.dispose();
   }
 
+  /// Called once prebook data loads.
+  /// If currency is already INR no API call is made (rate = 1.0).
+  Future<void> _convertPrices(RoomEntity room, String currency) async {
+    if (!mounted) return;
+    setState(() => _isConverting = true);
+    try {
+      final fare = await CurrencyService.instance.toInr(room.totalFare, currency);
+      final tax  = await CurrencyService.instance.toInr(room.totalTax,  currency);
+      if (mounted) setState(() { _inrBaseFare = fare; _inrTax = tax; });
+    } catch (_) {
+      // Keep original values on error
+      if (mounted) setState(() { _inrBaseFare = room.totalFare; _inrTax = room.totalTax; });
+    } finally {
+      if (mounted) setState(() => _isConverting = false);
+    }
+  }
+
+  Future<void> _navigateToPayment(RoomEntity room, String currency) async {
+    // Guard: TBO 15-minute session
+    final expired = await HotelSessionService.instance.isSessionExpired();
+    if (expired && mounted) {
+      showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text('Session Expired'),
+          content: const Text(
+            'Your hotel search session has expired (15-minute limit). '
+            'Please go back and search again to get fresh pricing.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                // Pop back to hotel listing / search
+                Navigator.of(context).pop();
+              },
+              child: const Text('Go Back'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
+    final pax   = _travellerKey.currentState?.getFirstAdultData() ?? ['Mr', '', ''];
+    final phone = _contactKey.currentState?.phone ?? '';
+    final email = _contactKey.currentState?.email ?? widget.userEmail;
+
+    if (phone.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter your phone number'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    // Use live-converted INR amounts; fall back to room values if not ready
+    final totalInr = (_inrBaseFare ?? room.totalFare) + (_inrTax ?? room.totalTax);
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => HotelPaymentScreen(
+          bookingCode: widget.bookingCode,
+          hotelName: widget.hotelName,
+          checkIn: widget.checkIn,
+          checkOut: widget.checkOut,
+          roomName: room.name.isNotEmpty ? room.name.first : '',
+          totalFare: totalInr,   // always INR rupees
+          currency: 'INR',
+          email: email,
+          phone: phone,
+          guestTitle: pax[0],
+          guestFirstName: pax[1],
+          guestLastName: pax[2],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -107,6 +203,15 @@ class _HotelBookingReviewScreenState extends State<HotelBookingReviewScreen> {
       ),
       body: BlocConsumer<HotelBookingBloc, HotelBookingState>(
         listener: (context, state) {
+          if (state is HotelBookingLoaded) {
+            final result = state.hotelBooking.hotelResult.isNotEmpty
+                ? state.hotelBooking.hotelResult.first
+                : null;
+            if (result != null && result.rooms.isNotEmpty) {
+              // Fetch live rate and convert to INR if price came in another currency
+              _convertPrices(result.rooms.first, result.currency);
+            }
+          }
           if (state is HotelBookingError) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
@@ -184,11 +289,13 @@ class _HotelBookingReviewScreenState extends State<HotelBookingReviewScreen> {
                         ),
                         const SizedBox(height: 16),
                         TravellerDetailsSection(
+                          key: _travellerKey,
                           userEmail: widget.userEmail,
                           adults: widget.adults,
                         ),
                         const SizedBox(height: 16),
                         ContactInfoSection(
+                          key: _contactKey,
                           userEmail: widget.userEmail,
                         ),
                         const SizedBox(height: 16),
@@ -221,9 +328,13 @@ class _HotelBookingReviewScreenState extends State<HotelBookingReviewScreen> {
                         ],
                         const SizedBox(height: 16),
                         FareDetailsSection(
-                          room: room,
-                          currency: hotelResult.currency,
+                          baseFare: _inrBaseFare ?? room.totalFare,
+                          taxes: _inrTax ?? room.totalTax,
+                          currency: _inrBaseFare != null ? 'INR' : hotelResult.currency,
                           bookingCode: widget.bookingCode,
+                          isConverting: _isConverting,
+                          onContinueToPayment: () =>
+                              _navigateToPayment(room, hotelResult.currency),
                         ),
                         const SizedBox(height: 100),
                       ],

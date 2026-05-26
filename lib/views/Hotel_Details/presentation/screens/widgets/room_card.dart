@@ -1,10 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
-import '../../../../../UI_helper/navigation_queue.dart';
-import '../../../../auth/presentation/bloc/auth_bloc.dart';
-import '../../../../auth/presentation/bloc/auth_state.dart';
-import '../../../../login/login.dart';
 import '../../../domain/entities/rooms_entity.dart';
 
 class RoomCard extends StatefulWidget {
@@ -26,52 +21,6 @@ class RoomCard extends StatefulWidget {
 }
 
 class _RoomCardState extends State<RoomCard> {
-  bool _isSelected = false;
-
-  void _handleBooking(BuildContext context) {
-    final authState = context.read<AuthBloc>().state;
-
-    if (authState is AuthAuthenticated) {
-      // User is logged in, proceed with booking
-      widget.onSelect();
-    } else {
-      // User not logged in, set pending navigation and show login
-      NavigationQueueService().setPendingNavigation(() {
-        if (context.mounted) {
-          widget.onSelect();
-        }
-      });
-
-      _showLoginPopup(context);
-    }
-  }
-
-  void _showLoginPopup(BuildContext context) {
-    showGeneralDialog(
-      context: context,
-      barrierDismissible: true,
-      barrierLabel: "Login",
-      barrierColor: Colors.black.withOpacity(0.15),
-      transitionDuration: const Duration(milliseconds: 300),
-      pageBuilder: (_, __, ___) {
-        return const LoginSignupScreen();
-      },
-      transitionBuilder: (_, animation, __, child) {
-        return FadeTransition(
-          opacity: animation,
-          child: ScaleTransition(
-            scale: Tween<double>(begin: 0.95, end: 1).animate(
-              CurvedAnimation(
-                parent: animation,
-                curve: Curves.easeOut,
-              ),
-            ),
-            child: child,
-          ),
-        );
-      },
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -79,12 +28,9 @@ class _RoomCardState extends State<RoomCard> {
 
     return Container(
       decoration: BoxDecoration(
-        color: _isSelected ? Colors.green[50] : Colors.white,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(ResponsiveExtension(context).borderRadius),
-        border: Border.all(
-          color: _isSelected ? Colors.green : Colors.grey[200]!,
-          width: _isSelected ? 2 : 1,
-        ),
+        border: Border.all(color: Colors.grey[200]!, width: 1),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
@@ -122,9 +68,9 @@ class _RoomCardState extends State<RoomCard> {
   Widget _buildRoomHeader(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: _isSelected ? Colors.green[50] : Colors.grey[50],
-        borderRadius: const BorderRadius.only(
+      decoration: const BoxDecoration(
+        color: Color(0xFFF9F9F9),
+        borderRadius: BorderRadius.only(
           topLeft: Radius.circular(12),
           topRight: Radius.circular(12),
         ),
@@ -133,7 +79,7 @@ class _RoomCardState extends State<RoomCard> {
         children: [
           Icon(
             Icons.meeting_room,
-            color: _isSelected ? Colors.green : Colors.blue,
+            color: Colors.blue,
             size: ResponsiveExtension(context).sp(20),
           ),
           const SizedBox(width: 8),
@@ -176,21 +122,6 @@ class _RoomCardState extends State<RoomCard> {
                 ),
               ),
             ),
-          if (_isSelected) ...[
-            const SizedBox(width: 8),
-            GestureDetector(
-              onTap: () {
-                setState(() {
-                  _isSelected = false;
-                });
-              },
-              child: const Icon(
-                Icons.close,
-                color: Colors.red,
-                size: 20,
-              ),
-            ),
-          ],
         ],
       ),
     );
@@ -305,26 +236,16 @@ class _RoomCardState extends State<RoomCard> {
           ],
         ),
         ElevatedButton(
-          onPressed: () {
-            if (!_isSelected) {
-              // First tap: Just change the button to "Book" mode
-              setState(() {
-                _isSelected = true;
-              });
-            } else {
-              // Second tap: Already in "Book" mode, now handle booking/login
-              _handleBooking(context);
-            }
-          },
+          onPressed: () => widget.onSelect(),
           style: ElevatedButton.styleFrom(
-            backgroundColor: _isSelected ? Colors.green : Colors.red[700],
+            backgroundColor: Colors.red[700],
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8),
             ),
           ),
           child: Text(
-            _isSelected ? "Book Room" : "Select Room",
+            'Book Room',
             style: TextStyle(
               fontSize: ResponsiveExtension(context).sp(14),
               fontWeight: FontWeight.w600,

@@ -9,6 +9,8 @@ import '../../../domain/entities/seat_option_entity.dart';
 import '../../../domain/entities/service_selection_entity.dart';
 import '../../bloc/ssr_bloc.dart';
 import '../../bloc/ssr_event.dart';
+import '../../../../flight_payment/presentation/screen/payment_screen.dart';
+import '../../../../flight_search/presentation/screen/booking_screen.dart';
 import 'baggage_screen.dart';
 import 'meal_screen.dart';
 import 'seats_screen.dart';
@@ -19,6 +21,9 @@ class SSRMainScreen extends StatefulWidget {
   final String tokenId;
   final String resultIndex;
   final String endUserIp;
+  final Map<String, dynamic> passengerData;
+  final FareQuoteData? fareQuoteData;
+  final FlightRouteSegment? route;
 
   const SSRMainScreen({
     super.key,
@@ -26,6 +31,9 @@ class SSRMainScreen extends StatefulWidget {
     required this.tokenId,
     required this.resultIndex,
     required this.endUserIp,
+    this.passengerData = const {},
+    this.fareQuoteData,
+    this.route,
   });
 
   @override
@@ -104,6 +112,37 @@ class _SSRMainScreenState extends State<SSRMainScreen> {
       });
       print('Baggage selected: ${options[selectedIndex].code}');
     }
+  }
+
+  void _navigateToPayment() {
+    if (widget.route == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Missing flight details. Please go back and try again.')),
+      );
+      return;
+    }
+
+    final ssrSelections = {
+      'baggage': _selectedBaggage?.code,
+      'meal': _selectedMeal?.code,
+      'seat': _selectedSeat?.seatLabel,
+      'services': _selectedServices.map((s) => s.code).toList(),
+    };
+
+    print('SSR Selections: $ssrSelections');
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => FlightPaymentScreen(
+          route: widget.route!,
+          traceId: widget.traceId,
+          resultIndex: widget.resultIndex,
+          passengerData: widget.passengerData,
+          ssrSelections: ssrSelections,
+        ),
+      ),
+    );
   }
 
   @override
@@ -259,17 +298,7 @@ class _SSRMainScreenState extends State<SSRMainScreen> {
                       child: ElevatedButton(
                         onPressed: () {
                           if (currentIndex == 3) {
-                            // Final continue action
-                            final summary = {
-                              'meal': _selectedMeal?.code,
-                              'seat': _selectedSeat?.seatLabel,
-                              'services': _selectedServices.map((s) => s.code).toList(),
-                              'traceId': widget.traceId,
-                              'resultIndex': widget.resultIndex,
-                            };
-
-                            print('SSR Summary: $summary');
-                            print('Continuing with selections');
+                            _navigateToPayment();
                           } else {
                             nextPage();
                           }

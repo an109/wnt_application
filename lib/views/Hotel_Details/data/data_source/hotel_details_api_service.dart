@@ -39,6 +39,7 @@ class HotelDetailsApiServiceImpl implements HotelDetailsApiService {
         'CheckIn': checkIn,
         'CheckOut': checkOut,
         'GuestNationality': guestNationality ?? 'IN',
+        'Currency': 'INR',
         'PaxRooms': [
           {
             'Adults': 1,

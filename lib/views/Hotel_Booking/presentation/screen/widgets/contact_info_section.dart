@@ -10,12 +10,15 @@ class ContactInfoSection extends StatefulWidget {
   });
 
   @override
-  State<ContactInfoSection> createState() => _ContactInfoSectionState();
+  State<ContactInfoSection> createState() => ContactInfoSectionState();
 }
 
-class _ContactInfoSectionState extends State<ContactInfoSection> {
+class ContactInfoSectionState extends State<ContactInfoSection> {
   late final TextEditingController _phoneController;
   late final TextEditingController _emailController;
+
+  String get phone => _phoneController.text.trim();
+  String get email => _emailController.text.trim();
 
   @override
   void initState() {
@@ -196,7 +199,6 @@ class _ContactInfoSectionState extends State<ContactInfoSection> {
                       borderSide: BorderSide(color: Colors.blue, width: 2),
                     ),
                   ),
-                  readOnly: true,
                 ),
               ],
             ),

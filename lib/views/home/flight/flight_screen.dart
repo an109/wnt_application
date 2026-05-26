@@ -174,7 +174,7 @@ class _FlightScreenState extends State<FlightScreen> {
                     Positioned(
                       left: context.wp(1.5),
                       right: context.wp(1.5),
-                      bottom: -context.hp(7),
+                      bottom: -context.hp(4),
                       child: Material(
                         color: Colors.transparent,
                         child: SearchCard(),

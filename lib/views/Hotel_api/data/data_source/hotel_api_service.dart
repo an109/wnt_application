@@ -49,6 +49,7 @@ class HotelApiServiceImpl implements HotelApiService {
             'ChildrenAges': [],
           }
         ],
+        'Currency': 'INR',
         'ResponseTime': 15,
         'page': page,
         'page_size': pageSize,

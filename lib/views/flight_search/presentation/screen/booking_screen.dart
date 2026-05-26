@@ -836,103 +836,64 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
         onPressed: _isLoadingFareQuote
             ? null
             : () {
-          print('FlightBookingScreen: Continue booking pressed');
-          _proceedWithoutValidation(); // Changed to bypass validation
-        },
+                print('FlightBookingScreen: Continue booking pressed');
+                _validateAndProceed();
+              },
         style: ElevatedButton.styleFrom(
-          backgroundColor: _isLoadingFareQuote
-              ? Colors.grey
-              : const Color(0xFFE71D36),
+          backgroundColor: _isLoadingFareQuote ? Colors.grey : const Color(0xFFE71D36),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(context.borderRadius),
           ),
           elevation: 2,
         ),
         child: _isLoadingFareQuote
-            ? SizedBox(
-          width: 20,
-          height: 20,
-          child: CircularProgressIndicator(
-            strokeWidth: 2,
-            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-          ),
-        )
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              )
             : Text(
-          "Continue",
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            fontSize: context.bodyLarge,
-          ),
-        ),
+                'Continue',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: context.bodyLarge,
+                ),
+              ),
       ),
     );
   }
 
-// Add this new method to bypass validation
-  void _proceedWithoutValidation() {
-    print('FlightBookingScreen: Proceeding without validation');
+  void _validateAndProceed() {
+    if (_formKey.currentState == null || !_formKey.currentState!.validateForm()) {
+      print('FlightBookingScreen: Validation failed');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please fill in all required passenger details')),
+      );
+      return;
+    }
 
-    // Navigate directly without validation
+    final travellerData = _formKey.currentState!.getTravellerData();
+    final route = _updatedRouteWithFareQuote ?? widget.routes.first;
+
+    print('FlightBookingScreen: Validation passed — navigating to SSR screen');
+
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => SSRMainScreen(
           endUserIp: '::1',
-          traceId: widget.traceId ?? '',
+          traceId: widget.traceId ?? route.traceId ?? '',
           tokenId: '',
-          resultIndex: widget.resultIndex ?? '',
+          resultIndex: widget.resultIndex ?? route.resultIndex ?? '',
+          passengerData: travellerData,
+          fareQuoteData: route.fareQuoteData,
+          route: route,
         ),
       ),
     );
   }
-
-// Keep the original validation method but not using it now
-  void _validateAndProceed() {
-    // Validate form from the traveller section
-    if (_formKey.currentState == null ||
-        !_formKey.currentState!.validateForm()) {
-      print('FlightBookingScreen: Validation failed');
-      return;
-    }
-
-    // Get traveller data from the form
-    final travellerData = _formKey.currentState!.getTravellerData();
-
-    print('FlightBookingScreen: Validation passed, proceeding to next step');
-
-    Navigator.pushNamed(
-      context,
-      '/payment',
-      arguments: {
-        'traveller': travellerData,
-        'route': _updatedRouteWithFareQuote ?? widget.routes.first,
-        'totalPrice': widget.totalPrice,
-      },
-    );
-  }
-
-  // void _validateAndProceed() {
-  //   // Validate form from the traveller section
-  //   if (_formKey.currentState == null ||
-  //       !_formKey.currentState!.validateForm()) {
-  //     print('FlightBookingScreen: Validation failed');
-  //     return;
-  //   }
-  //
-  //   // Get traveller data from the form
-  //   final travellerData = _formKey.currentState!.getTravellerData();
-  //
-  //   print('FlightBookingScreen: Validation passed, proceeding to next step');
-  //
-  //   Navigator.pushNamed(
-  //     context,
-  //     '/payment',
-  //     arguments: {
-  //       'traveller': travellerData,
-  //       'route': _updatedRouteWithFareQuote ?? widget.routes.first,
-  //       'totalPrice': widget.totalPrice,
-  //     },
-  //   );
-  // }
 }
