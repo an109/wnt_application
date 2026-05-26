@@ -74,7 +74,7 @@ class _SplashScreenState extends State<SplashScreen> {
       body: Center(
         child: Image.asset(
           'assets/images/wander_nova_logo.jpg',
-          height: 120,
+          height: 160,
           fit: BoxFit.contain,
           filterQuality: FilterQuality.high,
         )
@@ -89,14 +89,22 @@ class _SplashScreenState extends State<SplashScreen> {
         )
 
         // Feels like logo is continuously coming closer
+        //     .scale(
+        //   begin: const Offset(0.55, 0.55),
+        //   end: const Offset(7.0, 7.0),
+        //   // end: const Offset(5.5, 5.5),
+        //   duration: 3200.ms,
+        //   // duration: 2500.ms,
+        //   curve: Curves.easeInExpo,
+        //   // curve: Curves.easeInCubic,
+        // )
             .scale(
-          begin: const Offset(0.55, 0.55),
-          end: const Offset(5.5, 5.5),
-          duration: 2500.ms,
-          curve: Curves.easeInCubic,
+          begin: const Offset(0.35, 0.35),
+          end: const Offset(24.0, 24.0),
+          duration: 4000.ms,
+          curve: Curves.easeInExpo,
         )
-
-        // Smooth cinematic dissolve
+        // // Smooth cinematic dissolve
             .fadeOut(
           begin: 0.92,
           delay: 1850.ms,
@@ -160,7 +168,7 @@ class _HomeScreenWrapperState extends State<HomeScreenWrapper> {
           child: ScaleTransition(
             scale: Tween<double>(
               begin: 0.90,
-              end: 1.0,
+              end: 1.5,
             ).animate(
               CurvedAnimation(
                 parent: animation,
