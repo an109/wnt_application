@@ -8,7 +8,6 @@ import '../bloc/destination_bloc.dart';
 import '../bloc/destination_event.dart';
 import '../bloc/destination_state.dart';
 
-
 class DestinationSearchField extends StatefulWidget {
   final String label;
   final String hint;
@@ -29,7 +28,6 @@ class _DestinationSearchFieldState extends State<DestinationSearchField> {
   String? _selectedDisplayText;
   final TextEditingController _searchController = TextEditingController();
   String _lastSearchQuery = '';
-
   Timer? _debounce;
 
   @override
@@ -38,7 +36,6 @@ class _DestinationSearchFieldState extends State<DestinationSearchField> {
     _searchController.dispose();
     super.dispose();
   }
-
 
   void _onSearchChanged(String query) {
     if (_debounce?.isActive ?? false) {
@@ -50,14 +47,16 @@ class _DestinationSearchFieldState extends State<DestinationSearchField> {
     if (trimmedQuery.isEmpty) return;
 
     _debounce = Timer(const Duration(milliseconds: 500), () {
-      if (trimmedQuery.length >= 2 &&
-          trimmedQuery != _lastSearchQuery) {
-
+      if (trimmedQuery.length >= 2 && trimmedQuery != _lastSearchQuery) {
         _lastSearchQuery = trimmedQuery;
-
-        context.read<DestinationBloc>().add(
-          SearchDestinationsEvent(query: trimmedQuery),
-        );
+        // FIX: Add a small delay to ensure UI is ready
+        Future.delayed(const Duration(milliseconds: 50), () {
+          if (mounted) {
+            context.read<DestinationBloc>().add(
+              SearchDestinationsEvent(query: trimmedQuery),
+            );
+          }
+        });
       }
     });
   }
@@ -85,8 +84,9 @@ class _DestinationSearchFieldState extends State<DestinationSearchField> {
         } else if (state is DestinationLoaded) {
           options = state.destinationData.getAllDestinations();
         }
+
         return CustomDropdownSearch<DestinationEntity>(
-          options: options, // Always fresh from API
+          options: options,
           label: widget.label,
           hint: widget.hint,
           selectedValue: _selectedDisplayText,

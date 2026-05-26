@@ -6,11 +6,9 @@ import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import 'package:wander_nova/common_widgets/custom_drawer.dart';
 import 'package:wander_nova/core/resources/app_colours.dart';
 import '../../../../common_widgets/logo.dart';
-import '../../../../common_widgets/new_bottom_nav.dart';
 import '../../../../injection_container.dart';
 import '../../../ExclusiveDeals/presentation/bloc/exclusive_deals_bloc.dart';
 import '../../../ExclusiveDeals/presentation/screen/T_exclusiveDeals.dart';
-import '../../../Holidays/presentation/screen/holidays_screen.dart';
 import '../../../Hotel/screen/hotel_screen.dart';
 import '../../../MMT_Holiday/screen/holiday_screen.dart';
 import '../../../MainApi/presentation/bloc/general_setting_bloc.dart';
@@ -97,11 +95,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
                     SizedBox(height: context.hp(3)),
 
-
                     // Main Services (Top Row - 4 items)
                     _buildMainServicesGrid(context),
 
-                    SizedBox(height: context.hp(1)),
+                    SizedBox(height: context.hp(0.7)),
 
                     //  BOLDER & LARGER SUBTITLE
                     Text(
@@ -170,7 +167,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
       ),
-      bottomNavigationBar: const NewBottomNav(currentIndex: 0),
+      // bottomNavigationBar: const NewBottomNav(currentIndex: 0),
     );
   }
 

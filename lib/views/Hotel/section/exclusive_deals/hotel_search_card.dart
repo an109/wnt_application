@@ -22,15 +22,21 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
   DateTime? _checkOutDate;
   DestinationEntity? _selectedDestination;
   String _guestNationality = 'India';
-  // int _rooms = 1;
-  // int _adults = 1;
-  // int _children = 0;
 
   List<RoomConfig> _rooms = [RoomConfig()];
 
 
   final FocusNode _destinationFocusNode = FocusNode();
   final FocusNode _nationalityFocusNode = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+
+    // Auto-select dates on initialization
+    _checkInDate = DateTime.now();
+    _checkOutDate = DateTime.now().add(const Duration(days: 1));
+  }
 
   @override
   void dispose() {
@@ -53,23 +59,26 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
   void _showRoomSelectionModal() {
     List<RoomConfig> tempRooms = _rooms.map((room) => room.copy()).toList();
 
-    showModalBottomSheet(
+    showDialog(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
+      barrierDismissible: false,
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setModalState) {
-            return DraggableScrollableSheet(
-              initialChildSize: 0.9,
-              minChildSize: 0.5,
-              maxChildSize: 0.95,
-              expand: false,
-              builder: (context, scrollController) {
-                return Column(
+            return Dialog(
+              insetPadding: EdgeInsets.symmetric(
+                horizontal: context.wp(5),
+                vertical: context.hp(2),
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(context.borderRadiusLarge),
+              ),
+              child: Container(
+                width: double.infinity,
+                constraints: BoxConstraints(
+                  maxHeight: context.hp(60),
+                ),
+                child: Column(
                   children: [
                     _buildModalHeader(() {
                       setState(() {
@@ -79,7 +88,7 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
                     }),
                     Expanded(
                       child: ListView.builder(
-                        controller: scrollController,
+                        padding: EdgeInsets.zero,
                         itemCount: tempRooms.length,
                         itemBuilder: (context, index) {
                           return _buildRoomConfigCard(
@@ -107,10 +116,10 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
                         ),
                       ),
                     ),
-                    SizedBox(height: context.gapLarge),
+                    SizedBox(height: context.gapMedium),
                   ],
-                );
-              },
+                ),
+              ),
             );
           },
         );
@@ -461,13 +470,6 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
       print('City selected - using id: $cityCode');
     }
 
-    // final paxRooms = List.generate(_rooms, (index) {
-    //   return {
-    //     'Adults': _adults,
-    //     'Children': _children,
-    //     'ChildrenAges': List.generate(_children, (childIndex) => 8),
-    //   };
-    // });
     final paxRooms = List.generate(_rooms.length, (index) {
       final room = _rooms[index];
       return {
@@ -630,75 +632,6 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
               ),
             ],
           ),
-
-          // /// ROOM + BUTTON
-          // Row(
-          //   crossAxisAlignment: CrossAxisAlignment.end,
-          //   children: [
-          //     Expanded(
-          //       child: Column(
-          //         crossAxisAlignment: CrossAxisAlignment.start,
-          //         children: [
-          //           Text(
-          //             'ROOMS & GUESTS',
-          //             style: TextStyle(
-          //               fontSize: context.labelMedium,
-          //               color: Colors.grey.shade600,
-          //               fontWeight: FontWeight.w600,
-          //             ),
-          //           ),
-          //           SizedBox(height: context.gapSmall),
-          //           Text(
-          //             '$_rooms Room, $_adults\nGuest',
-          //             style: TextStyle(
-          //               fontSize: context.titleLarge,
-          //               fontWeight: FontWeight.bold,
-          //             ),
-          //           ),
-          //           SizedBox(height: context.gapSmall),
-          //           Text(
-          //             'Adults & Children',
-          //             style: TextStyle(
-          //               fontSize: context.bodySmall,
-          //               color: Colors.grey.shade600,
-          //             ),
-          //           ),
-          //         ],
-          //       ),
-          //     ),
-          //     SizedBox(width: context.gapMedium),
-          //     Expanded(
-          //       child: SizedBox(
-          //         height: context.buttonHeight + 10,
-          //         child: ElevatedButton(
-          //           style: ElevatedButton.styleFrom(
-          //             backgroundColor: Colors.redAccent,
-          //             elevation: 0,
-          //             shape: RoundedRectangleBorder(
-          //               borderRadius: BorderRadius.circular(context.borderRadius),
-          //             ),
-          //           ),
-          //           onPressed: _onSearchPressed,
-          //           child: Row(
-          //             mainAxisAlignment: MainAxisAlignment.center,
-          //             children: [
-          //               Text(
-          //                 'SEARCH',
-          //                 style: TextStyle(
-          //                   fontSize: context.labelLarge,
-          //                   fontWeight: FontWeight.bold,
-          //                   color: Colors.white,
-          //                 ),
-          //               ),
-          //               SizedBox(width: context.gapSmall),
-          //               const Icon(Icons.search, color: Colors.white),
-          //             ],
-          //           ),
-          //         ),
-          //       ),
-          //     ),
-          //   ],
-          // ),
         ],
       ),
     );

@@ -13,7 +13,6 @@ import '../../MainApi/presentation/bloc/general_settings_event.dart';
 import '../../MainApi/presentation/bloc/general_settings_state.dart';
 import '../../home/presentation/screen_sections/about_company_section.dart';
 import '../../home/presentation/screen_sections/service_info_section.dart';
-import '../section/exclusive_deals/company_info.dart';
 import '../section/exclusive_deals/hotel_info.dart';
 import '../section/exclusive_deals/hotel_search_card.dart';
 import '../section/exclusive_deals/popular_destination.dart';
@@ -83,7 +82,7 @@ class _HotelBookingScreenState extends State<HotelBookingScreen> {
 
                   /// BACKGROUND IMAGE - Dynamic from API
                   SizedBox(
-                    height: context.hp(65),
+                    height: context.hp(55),
                     width: double.infinity,
                     child: _getBackgroundImage(),
                   ),
@@ -99,7 +98,7 @@ class _HotelBookingScreenState extends State<HotelBookingScreen> {
 
                   /// TITLE
                   Positioned(
-                    top: context.hp(18),
+                    top: context.hp(12),
                     left: context.wp(5),
                     child: Row(
                       children: [
@@ -127,7 +126,7 @@ class _HotelBookingScreenState extends State<HotelBookingScreen> {
                   Positioned(
                     left: context.wp(4),
                     right: context.wp(4),
-                    bottom: -context.hp(-2),
+                    bottom: -context.hp(-4),
                     child: Material(
                       color: Colors.transparent,
                       child: HotelSearchCard(),
@@ -139,7 +138,7 @@ class _HotelBookingScreenState extends State<HotelBookingScreen> {
 
             /// SPACE BELOW OVERLAPPING CARD
             SliverToBoxAdapter(
-              child: SizedBox(height: context.hp(4)),
+              child: SizedBox(height: context.hp(2)),
             ),
 
             /// EXCLUSIVE DEALS SECTION

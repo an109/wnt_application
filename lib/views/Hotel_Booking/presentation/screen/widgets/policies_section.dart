@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import '../../../domain/entities/hotel_booking_entity.dart';
 
-class PoliciesSection extends StatelessWidget {
+class PoliciesSection extends StatefulWidget {
   final List<CancelPolicyEntity> cancelPolicies;
   final List<String> rateConditions;
 
@@ -11,6 +11,14 @@ class PoliciesSection extends StatelessWidget {
     required this.cancelPolicies,
     required this.rateConditions,
   });
+
+  @override
+  State<PoliciesSection> createState() => _PoliciesSectionState();
+}
+
+class _PoliciesSectionState extends State<PoliciesSection> {
+  bool _isExpanded = false;
+  static const int _previewItemCount = 3;
 
   @override
   Widget build(BuildContext context) {
@@ -31,11 +39,11 @@ class PoliciesSection extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (cancelPolicies.isNotEmpty) ...[
+            if (widget.cancelPolicies.isNotEmpty) ...[
               _buildCancellationPolicies(context),
               const SizedBox(height: 16),
             ],
-            if (rateConditions.isNotEmpty) ...[
+            if (widget.rateConditions.isNotEmpty) ...[
               _buildRateConditions(context),
             ],
           ],
@@ -57,7 +65,7 @@ class PoliciesSection extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 12),
-        ...cancelPolicies.map((policy) => Container(
+        ...widget.cancelPolicies.map((policy) => Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: Colors.red[50],
@@ -101,7 +109,7 @@ class PoliciesSection extends StatelessWidget {
     final cardsAccepted = <String>[];
     final otherConditions = <String>[];
 
-    for (var condition in rateConditions) {
+    for (var condition in widget.rateConditions) {
       final lowerCondition = condition.toLowerCase();
 
       if (lowerCondition.contains('check-in time') || lowerCondition.contains('checkin time')) {
@@ -123,6 +131,61 @@ class PoliciesSection extends StatelessWidget {
       }
     }
 
+    // Collect all condition widgets
+    final List<Widget> conditionWidgets = [];
+
+    if (checkInTimes.isNotEmpty) {
+      conditionWidgets.add(_buildSectionTitle(context, 'Check-in Time'));
+      conditionWidgets.addAll(checkInTimes.map((time) => _buildConditionItem(context, time)));
+      conditionWidgets.add(const SizedBox(height: 12));
+    }
+
+    if (checkOutTimes.isNotEmpty) {
+      conditionWidgets.add(_buildSectionTitle(context, 'Check-out Time'));
+      conditionWidgets.addAll(checkOutTimes.map((time) => _buildConditionItem(context, time)));
+      conditionWidgets.add(const SizedBox(height: 12));
+    }
+
+    if (instructions.isNotEmpty) {
+      conditionWidgets.add(_buildSectionTitle(context, 'Check-in Instructions'));
+      conditionWidgets.addAll(instructions.map((instruction) => _buildHtmlContent(context, instruction)));
+      conditionWidgets.add(const SizedBox(height: 12));
+    }
+
+    if (specialInstructions.isNotEmpty) {
+      conditionWidgets.add(_buildSectionTitle(context, 'Special Instructions'));
+      conditionWidgets.addAll(specialInstructions.map((instruction) => _buildHtmlContent(context, instruction)));
+      conditionWidgets.add(const SizedBox(height: 12));
+    }
+
+    if (mandatoryFees.isNotEmpty) {
+      conditionWidgets.add(_buildSectionTitle(context, 'Mandatory Fees'));
+      conditionWidgets.addAll(mandatoryFees.map((fee) => _buildHtmlContent(context, fee)));
+      conditionWidgets.add(const SizedBox(height: 12));
+    }
+
+    if (optionalFees.isNotEmpty) {
+      conditionWidgets.add(_buildSectionTitle(context, 'Optional Fees'));
+      conditionWidgets.addAll(optionalFees.map((fee) => _buildHtmlContent(context, fee)));
+      conditionWidgets.add(const SizedBox(height: 12));
+    }
+
+    if (cardsAccepted.isNotEmpty) {
+      conditionWidgets.add(_buildSectionTitle(context, 'Cards Accepted'));
+      conditionWidgets.addAll(cardsAccepted.map((card) => _buildConditionItem(context, card)));
+      conditionWidgets.add(const SizedBox(height: 12));
+    }
+
+    if (otherConditions.isNotEmpty) {
+      conditionWidgets.add(_buildSectionTitle(context, 'Additional Information'));
+      conditionWidgets.addAll(otherConditions.map((condition) => _buildHtmlContent(context, condition)));
+    }
+
+    // Get visible items based on expanded state
+    final visibleWidgets = _isExpanded
+        ? conditionWidgets
+        : conditionWidgets.take(_previewItemCount).toList();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -135,52 +198,37 @@ class PoliciesSection extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 12),
+        ...visibleWidgets,
 
-        if (checkInTimes.isNotEmpty) ...[
-          _buildSectionTitle(context, 'Check-in Time'),
-          ...checkInTimes.map((time) => _buildConditionItem(context, time)),
+        // Add Read More / Read Less button if there are more items
+        if (conditionWidgets.length > _previewItemCount) ...[
           const SizedBox(height: 12),
-        ],
-
-        if (checkOutTimes.isNotEmpty) ...[
-          _buildSectionTitle(context, 'Check-out Time'),
-          ...checkOutTimes.map((time) => _buildConditionItem(context, time)),
-          const SizedBox(height: 12),
-        ],
-
-        if (instructions.isNotEmpty) ...[
-          _buildSectionTitle(context, 'Check-in Instructions'),
-          ...instructions.map((instruction) => _buildHtmlContent(context, instruction)),
-          const SizedBox(height: 12),
-        ],
-
-        if (specialInstructions.isNotEmpty) ...[
-          _buildSectionTitle(context, 'Special Instructions'),
-          ...specialInstructions.map((instruction) => _buildHtmlContent(context, instruction)),
-          const SizedBox(height: 12),
-        ],
-
-        if (mandatoryFees.isNotEmpty) ...[
-          _buildSectionTitle(context, 'Mandatory Fees'),
-          ...mandatoryFees.map((fee) => _buildHtmlContent(context, fee)),
-          const SizedBox(height: 12),
-        ],
-
-        if (optionalFees.isNotEmpty) ...[
-          _buildSectionTitle(context, 'Optional Fees'),
-          ...optionalFees.map((fee) => _buildHtmlContent(context, fee)),
-          const SizedBox(height: 12),
-        ],
-
-        if (cardsAccepted.isNotEmpty) ...[
-          _buildSectionTitle(context, 'Cards Accepted'),
-          ...cardsAccepted.map((card) => _buildConditionItem(context, card)),
-          const SizedBox(height: 12),
-        ],
-
-        if (otherConditions.isNotEmpty) ...[
-          _buildSectionTitle(context, 'Additional Information'),
-          ...otherConditions.map((condition) => _buildHtmlContent(context, condition)),
+          GestureDetector(
+            onTap: () {
+              setState(() {
+                _isExpanded = !_isExpanded;
+              });
+            },
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  _isExpanded ? 'Read Less' : 'Read More',
+                  style: TextStyle(
+                    fontSize: context.sp(13),
+                    fontWeight: FontWeight.w600,
+                    color: Colors.redAccent,
+                  ),
+                ),
+                SizedBox(width: context.gapSmall),
+                Icon(
+                  _isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                  size: context.iconSmall,
+                  color: Colors.redAccent,
+                ),
+              ],
+            ),
+          ),
         ],
       ],
     );

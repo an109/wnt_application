@@ -34,7 +34,6 @@ class _CustomDropdownSearchState<T extends Object> extends State<CustomDropdownS
   OverlayEntry? _overlayEntry;
   final GlobalKey _fieldKey = GlobalKey();
 
-  // FIXED: Fixed dropdown height with internal scrolling
   static const double _dropdownHeight = 250.0;
   static const double _headerHeight = 48.0;
 
@@ -42,6 +41,17 @@ class _CustomDropdownSearchState<T extends Object> extends State<CustomDropdownS
   void initState() {
     super.initState();
     _searchController = widget.searchController ?? TextEditingController();
+  }
+
+  @override
+  void didUpdateWidget(CustomDropdownSearch<T> oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // FIX: Schedule update after build phase completes
+    if (_isDropdownOpen && oldWidget.options != widget.options) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _overlayEntry?.markNeedsBuild();
+      });
+    }
   }
 
   void _toggleDropdown() {
@@ -78,10 +88,7 @@ class _CustomDropdownSearchState<T extends Object> extends State<CustomDropdownS
         onTap: _closeDropdown,
         child: Stack(
           children: [
-            // Transparent overlay to catch outside taps
             Positioned.fill(child: Container(color: Colors.transparent)),
-
-            // FIXED: Dropdown with fixed height positioned below field
             Positioned(
               left: offset.dx,
               top: offset.dy + size.height + 8,
@@ -92,8 +99,19 @@ class _CustomDropdownSearchState<T extends Object> extends State<CustomDropdownS
                 borderRadius: BorderRadius.circular(12),
                 clipBehavior: Clip.antiAlias,
                 child: SizedBox(
-                  height: _dropdownHeight, // FIXED HEIGHT
-                  child: _buildDropdownContent(),
+                  height: _dropdownHeight,
+                  child: _DropdownContent<T>(
+                    searchController: _searchController,
+                    options: widget.options,
+                    isLoading: widget.isLoading,
+                    displayStringForOption: widget.displayStringForOption,
+                    onSelected: (option) {
+                      widget.onSelected(option);
+                      _searchController.clear();
+                      _closeDropdown();
+                    },
+                    onSearchChanged: widget.onSearchChanged,
+                  ),
                 ),
               ),
             ),
@@ -103,126 +121,6 @@ class _CustomDropdownSearchState<T extends Object> extends State<CustomDropdownS
     );
 
     Overlay.of(context).insert(_overlayEntry!);
-  }
-
-  Widget _buildDropdownContent() {
-    final input = _searchController.text.toLowerCase().trim();
-
-    // FIXED: Filter only current API response, no cached results
-    final filteredOptions = widget.options.where((option) {
-      final displayText = widget.displayStringForOption(option).toLowerCase();
-      return input.isEmpty || displayText.contains(input);
-    }).toList();
-
-    return Column(
-      children: [
-        // Fixed height search header
-        SizedBox(
-          height: _headerHeight,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            decoration: BoxDecoration(
-              border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
-              color: Colors.grey.shade50,
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.search, size: 18, color: Colors.grey.shade500),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: TextField(
-                    controller: _searchController,
-                    autofocus: true,
-                    decoration: const InputDecoration(
-                      hintText: 'Search...',
-                      border: InputBorder.none,
-                      isDense: true,
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                    style: const TextStyle(fontSize: 14),
-                    onChanged: (value) {
-                      widget.onSearchChanged?.call(value);
-                      _overlayEntry?.markNeedsBuild();
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-
-        // FIXED: Scrollable options list with remaining height
-        // Expanded(
-        //   child: ListView.builder(
-        //     padding: EdgeInsets.zero,
-        //     physics: const BouncingScrollPhysics(),
-        //     // FIXED: Force rebuild when options change (no cached results)
-        //     key: ValueKey(widget.options.hashCode),
-        //     itemCount: filteredOptions.length,
-        //     itemBuilder: (context, index) {
-        //       final option = filteredOptions[index];
-        //       return Material(
-        //         color: Colors.transparent,
-        //         child: InkWell(
-        //           onTap: () {
-        //             widget.onSelected(option);
-        //             _searchController.clear();
-        //             _closeDropdown();
-        //           },
-        //           child: Container(
-        //             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        //             child: Text(
-        //               widget.displayStringForOption(option),
-        //               style: const TextStyle(fontSize: 14),
-        //             ),
-        //           ),
-        //         ),
-        //       );
-        //     },
-        //   ),
-        // ),
-        Expanded(
-          child: widget.isLoading
-              ? const Center(
-            child: CircularProgressIndicator(),
-          )
-              : filteredOptions.isEmpty
-              ? const Center(
-            child: Text("Search .."),
-          )
-              : ListView.builder(
-            padding: EdgeInsets.zero,
-            physics: const BouncingScrollPhysics(),
-            key: ValueKey(widget.options.hashCode),
-            itemCount: filteredOptions.length,
-            itemBuilder: (context, index) {
-              final option = filteredOptions[index];
-
-              return Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: () {
-                    widget.onSelected(option);
-                    _searchController.clear();
-                    _closeDropdown();
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
-                    ),
-                    child: Text(
-                      widget.displayStringForOption(option),
-                      style: const TextStyle(fontSize: 14),
-                    ),
-                  ),
-                ),
-              );
-            },
-          ),
-        )
-      ],
-    );
   }
 
   @override
@@ -240,7 +138,6 @@ class _CustomDropdownSearchState<T extends Object> extends State<CustomDropdownS
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Main display field - matches nationality field style
         GestureDetector(
           key: _fieldKey,
           onTap: _toggleDropdown,
@@ -271,6 +168,137 @@ class _CustomDropdownSearchState<T extends Object> extends State<CustomDropdownS
                 ),
               ],
             ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// Separate widget to handle filtering and rebuilding
+class _DropdownContent<T> extends StatefulWidget {
+  final TextEditingController searchController;
+  final List<T> options;
+  final bool isLoading;
+  final String Function(T) displayStringForOption;
+  final void Function(T) onSelected;
+  final void Function(String)? onSearchChanged;
+
+  const _DropdownContent({
+    super.key,
+    required this.searchController,
+    required this.options,
+    required this.isLoading,
+    required this.displayStringForOption,
+    required this.onSelected,
+    this.onSearchChanged,
+  });
+
+  @override
+  State<_DropdownContent<T>> createState() => _DropdownContentState<T>();
+}
+
+class _DropdownContentState<T> extends State<_DropdownContent<T>> {
+  String _searchText = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _searchText = widget.searchController.text;
+    widget.searchController.addListener(_onSearchChanged);
+  }
+
+  void _onSearchChanged() {
+    setState(() {
+      _searchText = widget.searchController.text;
+    });
+    widget.onSearchChanged?.call(_searchText);
+  }
+
+  @override
+  void didUpdateWidget(_DropdownContent<T> oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // FIX: Update when options change
+    if (oldWidget.options != widget.options) {
+      setState(() {});
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.searchController.removeListener(_onSearchChanged);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final input = _searchText.toLowerCase().trim();
+
+    final filteredOptions = widget.options.where((option) {
+      final displayText = widget.displayStringForOption(option).toLowerCase();
+      return input.isEmpty || displayText.contains(input);
+    }).toList();
+
+    return Column(
+      children: [
+        SizedBox(
+          height: 48,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            decoration: BoxDecoration(
+              border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+              color: Colors.grey.shade50,
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.search, size: 18, color: Colors.grey.shade500),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextField(
+                    controller: widget.searchController,
+                    autofocus: true,
+                    decoration: const InputDecoration(
+                      hintText: 'Search...',
+                      border: InputBorder.none,
+                      isDense: true,
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                    style: const TextStyle(fontSize: 14),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+
+        Expanded(
+          child: widget.isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : filteredOptions.isEmpty
+              ? const Center(child: Text("No results found"))
+              : ListView.builder(
+            padding: EdgeInsets.zero,
+            physics: const BouncingScrollPhysics(),
+            itemCount: filteredOptions.length,
+            itemBuilder: (context, index) {
+              final option = filteredOptions[index];
+              return Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () => widget.onSelected(option),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    child: Text(
+                      widget.displayStringForOption(option),
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                  ),
+                ),
+              );
+            },
           ),
         ),
       ],

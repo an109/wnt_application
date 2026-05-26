@@ -4,6 +4,7 @@ import 'package:wander_nova/views/Dashboard/profile/screen/Profile_screen.dart';
 import 'package:wander_nova/views/Dashboard/screen/make_payment.dart';
 import 'package:wander_nova/views/Dashboard/screen/support_screen.dart';
 import 'package:wander_nova/views/Dashboard/screen/upcoming_trip.dart';
+import 'package:wander_nova/views/Dashboard/wallet/screen/wallet_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   final String userEmail;
@@ -75,6 +76,15 @@ class _DashboardScreenState extends State<DashboardScreen>
           builder: (_) => ProfileScreen(
 
           ),
+        ),
+      );
+    }
+    // Wallet SCREEN
+    else if (feature == 'Wallet Balance') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => WalletScreen(),
         ),
       );
     }

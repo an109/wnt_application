@@ -14,7 +14,7 @@ class _MakePaymentScreenState extends State<MakePaymentScreen> {
   String? _selectedService;
   final TextEditingController _referenceNoController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
-  final TextEditingController _emailController = TextEditingController(text: 'ay85955571@gmail.com');
+  final TextEditingController _emailController = TextEditingController(text: 'your@gmail.com');
   String _selectedPaymentMethod = 'ccavenue';
   bool _agreeToTerms = false;
   double _netFare = 0.0;

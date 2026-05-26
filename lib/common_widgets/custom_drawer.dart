@@ -4,6 +4,8 @@ import '../UI_helper/responsive_layout.dart';
 import '../core/utils/storage/shared_preference.dart';
 import '../views/Dashboard/dashboardScreen.dart';
 import '../views/Dashboard/profile/screen/Profile_screen.dart';
+import '../views/Dashboard/screen/make_payment.dart';
+import '../views/Dashboard/screen/support_screen.dart';
 import '../views/Dashboard/screen/upcoming_trip.dart';
 import '../views/login/login.dart';
 
@@ -398,69 +400,34 @@ class _CustomDrawerState extends State<CustomDrawer>
       ),
       _buildMenuItem(
         context,
-        icon: Icons.local_offer_outlined,
-        title: 'Offers & Deals',
-        onTap: () => _navigateTo(context, '/offers'),
-        trailing: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Colors.red.shade400, Colors.orange.shade400],
-            ),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Text(
-            'NEW',
-            style: TextStyle(
-              fontSize: context.labelSmall,
-              fontWeight: FontWeight.w700,
-              color: Colors.white,
-            ),
-          ),
-        ),
-      ),
-      _buildMenuItem(
-        context,
-        icon: Icons.hotel_outlined,
-        title: 'Hotels',
-        onTap: () => _navigateTo(context, '/hotels'),
-      ),
-      _buildMenuItem(
-        context,
         icon: Icons.beach_access_outlined,
-        title: 'Holiday Packages',
-        onTap: () => _navigateTo(context, '/holidays'),
+        title: 'My Bookings',
+        onTap: () => _navigateTo(context, '/bookings'),
       ),
 
       _buildDivider(context),
       _buildMenuSection(context, 'EXPLORE'),
       _buildMenuItem(
         context,
-        icon: Icons.trending_up_outlined,
-        title: 'Popular Destinations',
-        onTap: () => _navigateTo(context, '/destinations'),
-      ),
-      _buildMenuItem(
-        context,
         icon: Icons.star_outline,
-        title: 'Travel Guides',
-        onTap: () => _navigateTo(context, '/guides'),
+        title: 'Travel Stories',
+        onTap: () => _navigateTo(context, '/stories'),
       ),
       _buildMenuItem(
         context,
         icon: Icons.article_outlined,
-        title: 'Blog',
-        onTap: () => _navigateTo(context, '/blog'),
+        title: 'Make Payment',
+        onTap: () => _navigateTo(context, '/payment'),
       ),
 
       _buildDivider(context),
       _buildMenuSection(context, 'HELP'),
-      _buildMenuItem(
-        context,
-        icon: Icons.help_outline,
-        title: 'FAQs',
-        onTap: () => _navigateTo(context, '/faq'),
-      ),
+      // _buildMenuItem(
+      //   context,
+      //   icon: Icons.help_outline,
+      //   title: 'FAQs',
+      //   onTap: () => _navigateTo(context, '/faq'),
+      // ),
       _buildMenuItem(
         context,
         icon: Icons.support_agent,
@@ -757,8 +724,13 @@ class _CustomDrawerState extends State<CustomDrawer>
           );
           break;
 
-        case '/bookings':
-          // Navigate to bookings
+        case '/payment':
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => MakePaymentScreen(),
+            ),
+          );
           break;
 
         case '/trips':
@@ -774,6 +746,13 @@ class _CustomDrawerState extends State<CustomDrawer>
           Navigator.push(
             context,
             MaterialPageRoute(builder: (_) => ProfileScreen()),
+          );
+          break;
+
+        case '/support':
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => SupportScreen()),
           );
           break;
 
