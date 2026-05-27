@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
+import '../../../../../UI_helper/currency_converter.dart';
+import '../../../../../core/utils/storage/shared_preference.dart';
+import '../../../../../injection_container.dart';
 import '../../../domain/entities/rooms_entity.dart';
 
 class RoomCard extends StatefulWidget {
@@ -7,6 +10,7 @@ class RoomCard extends StatefulWidget {
   final int adults;
   final int children;
   final VoidCallback onSelect;
+  final String roomCurrency;
 
   const RoomCard({
     super.key,
@@ -14,6 +18,7 @@ class RoomCard extends StatefulWidget {
     required this.adults,
     required this.children,
     required this.onSelect,
+    required this.roomCurrency,
   });
 
   @override
@@ -63,6 +68,73 @@ class _RoomCardState extends State<RoomCard> {
         ],
       ),
     );
+  }
+
+  String _formatPrice(double amount, String apiCurrency) {
+    try {
+      // 🔹 Use currency passed from parent (more reliable than entity field)
+      final currency = apiCurrency.isNotEmpty ? apiCurrency : widget.roomCurrency;
+
+      double finalAmount = amount;
+      String displayCurrency = currency;
+
+      // Get user's preferred currency (defaults to INR)
+      final prefs = sl<PreferencesManager>();
+      final targetCurrency = prefs.getPreferredCurrency() ?? 'INR';
+
+      // Convert only if different and we have valid currency codes
+      if (currency.isNotEmpty &&
+          targetCurrency.isNotEmpty &&
+          currency.toUpperCase() != targetCurrency.toUpperCase()) {
+
+        finalAmount = CurrencyConverter.convert(
+          amount: amount,
+          fromCurrency: currency,
+          toCurrency: targetCurrency,
+        );
+        displayCurrency = targetCurrency;
+      }
+
+      // Format with symbol based on DISPLAY currency (after conversion)
+      final code = displayCurrency.toUpperCase();
+      final intAmount = finalAmount.toInt();
+
+      if (code == 'INR') {
+        return '₹${_formatIndianNumber(intAmount)}';
+      } else if (code == 'USD') {
+        return '\$${intAmount.toStringAsFixed(0)}';
+      } else if (code == 'EUR') {
+        return '€${intAmount.toStringAsFixed(0)}';
+      } else if (code == 'GBP') {
+        return '£${intAmount.toStringAsFixed(0)}';
+      } else if (code == 'AED') {
+        return 'د.إ ${intAmount.toStringAsFixed(0)}';
+      }
+      // Fallback: show code + amount
+      return '$code ${intAmount.toStringAsFixed(0)}';
+
+    } catch (e) {
+      print('RoomCard: Price format error: $e');
+      // Safe fallback: show original amount with passed currency
+      final code = apiCurrency.isNotEmpty ? apiCurrency : widget.roomCurrency;
+      return '$code ${amount.toStringAsFixed(0)}';
+    }
+  }
+
+  //  REUSE: Indian number formatting (1,00,000 style)
+  String _formatIndianNumber(int num) {
+    if (num < 1000) return num.toString();
+    final str = num.toString();
+    final lastThree = str.substring(str.length - 3);
+    final remaining = str.substring(0, str.length - 3);
+    var formatted = '';
+    for (int i = 0; i < remaining.length; i++) {
+      if (i > 0 && (remaining.length - i) % 2 == 0) {
+        formatted += ',';
+      }
+      formatted += remaining[i];
+    }
+    return '$formatted,$lastThree';
   }
 
   Widget _buildRoomHeader(BuildContext context) {
@@ -198,7 +270,70 @@ class _RoomCardState extends State<RoomCard> {
     );
   }
 
+  // Widget _buildPriceAndButton(BuildContext context) {
+  //   return Row(
+  //     mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  //     children: [
+  //       Column(
+  //         crossAxisAlignment: CrossAxisAlignment.start,
+  //         children: [
+  //           Row(
+  //             crossAxisAlignment: CrossAxisAlignment.baseline,
+  //             textBaseline: TextBaseline.alphabetic,
+  //             children: [
+  //               Text(
+  //                 widget.room.totalFare.toLocaleString(),
+  //                 style: TextStyle(
+  //                   fontSize: ResponsiveExtension(context).sp(24),
+  //                   fontWeight: FontWeight.bold,
+  //                   color: Colors.black87,
+  //                 ),
+  //               ),
+  //               Text(
+  //                 ' / night',
+  //                 style: TextStyle(
+  //                   fontSize: ResponsiveExtension(context).sp(14),
+  //                   color: Colors.grey[600],
+  //                 ),
+  //               ),
+  //             ],
+  //           ),
+  //           Text(
+  //             '+ ${widget.room.totalTax.toLocaleString()} taxes',
+  //             style: TextStyle(
+  //               fontSize: ResponsiveExtension(context).sp(12),
+  //               color: Colors.grey[600],
+  //             ),
+  //           ),
+  //         ],
+  //       ),
+  //       ElevatedButton(
+  //         onPressed: () => widget.onSelect(),
+  //         style: ElevatedButton.styleFrom(
+  //           backgroundColor: Colors.red[700],
+  //           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+  //           shape: RoundedRectangleBorder(
+  //             borderRadius: BorderRadius.circular(8),
+  //           ),
+  //         ),
+  //         child: Text(
+  //           'Book Room',
+  //           style: TextStyle(
+  //             fontSize: ResponsiveExtension(context).sp(14),
+  //             fontWeight: FontWeight.w600,
+  //             color: Colors.white,
+  //           ),
+  //         ),
+  //       ),
+  //     ],
+  //   );
+  // }
+
   Widget _buildPriceAndButton(BuildContext context) {
+    // 🔹 Pass the currency from parent widget
+    final formattedFare = _formatPrice(widget.room.totalFare, widget.roomCurrency);
+    final formattedTax = _formatPrice(widget.room.totalTax, widget.roomCurrency);
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -210,7 +345,7 @@ class _RoomCardState extends State<RoomCard> {
               textBaseline: TextBaseline.alphabetic,
               children: [
                 Text(
-                  widget.room.totalFare.toLocaleString(),
+                  formattedFare,
                   style: TextStyle(
                     fontSize: ResponsiveExtension(context).sp(24),
                     fontWeight: FontWeight.bold,
@@ -227,7 +362,7 @@ class _RoomCardState extends State<RoomCard> {
               ],
             ),
             Text(
-              '+ ${widget.room.totalTax.toLocaleString()} taxes',
+              '+ $formattedTax taxes',
               style: TextStyle(
                 fontSize: ResponsiveExtension(context).sp(12),
                 color: Colors.grey[600],

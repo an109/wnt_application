@@ -15,6 +15,7 @@ class RoomModel extends RoomEntity {
     required super.isRefundable,
     required super.supplements,
     required super.withTransfers,
+    required super.currency
   });
 
   factory RoomModel.fromJson(Map<String, dynamic> json) {
@@ -22,6 +23,7 @@ class RoomModel extends RoomEntity {
       name: json['Name'] != null
           ? List<String>.from(json['Name'].map((n) => n.toString()))
           : [],
+      currency: json['currency']?.toString() ?? 'INR',
       bookingCode: json['BookingCode']?.toString() ?? '',
       inclusion: json['Inclusion']?.toString() ?? '',
       dayRates: json['DayRates'] != null

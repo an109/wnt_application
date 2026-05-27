@@ -25,6 +25,7 @@ class HotelDetailsModel extends HotelDetailsEntity {
     required super.checkOutTime,
     super.hotelFees,
     required super.searchRooms,
+    required super.currency,
   });
 
   factory HotelDetailsModel.fromJson(Map<String, dynamic> json) {
@@ -35,6 +36,10 @@ class HotelDetailsModel extends HotelDetailsEntity {
       hotelFacilities: json['HotelFacilities'] != null
           ? List<String>.from(json['HotelFacilities'])
           : [],
+      currency: json['SearchCurrency']?.toString() ??
+          json['currency']?.toString() ??
+          json['pricing_currency']?.toString() ??
+          'USD',
       attractions: json['Attractions'] != null
           ? Map<String, String>.from(json['Attractions'])
           : {},

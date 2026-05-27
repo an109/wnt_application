@@ -8,6 +8,7 @@ import 'package:wander_nova/core/resources/app_colours.dart';
 import '../../../../common_widgets/logo.dart';
 import '../../../../injection_container.dart';
 import '../../../ExclusiveDeals/presentation/bloc/exclusive_deals_bloc.dart';
+import '../../../ExclusiveDeals/presentation/bloc/exclusive_deals_event.dart';
 import '../../../ExclusiveDeals/presentation/screen/T_exclusiveDeals.dart';
 import '../../../Hotel/screen/hotel_screen.dart';
 import '../../../MMT_Holiday/screen/holiday_screen.dart';
@@ -72,99 +73,116 @@ class _HomeScreenState extends State<HomeScreen> {
           )
         ],
       ),
-      body: Container(
+      body: RefreshIndicator(
+        onRefresh: () async {
+          final generalBloc = context.read<GeneralSettingsBloc>();
+          final dealsBloc = context.read<ExclusiveDealsBloc>();
 
-        color: const Color(0xFFF8F9FA),
-        child: CustomScrollView(
-          physics: context.scrollPhysics,
-          slivers: [
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: context.wp(3.5)),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    //  BOLDER & LARGER TITLE
+          generalBloc.add(const LoadFaqList(domain: 'thewandernova.com'));
+          generalBloc.add(const LoadGeneralSettings(domain: 'thewandernova.com'));
+          dealsBloc.add(const LoadExclusiveDeals());
 
-                    SizedBox(height: context.hp(2)),
+          // If PopularDestinations has a GlobalKey or you're using context
+          await Future.wait([
+            Future.delayed(const Duration(milliseconds: 500)),
+          ]);
+        },
+        color: const Color(0xff005B7F),
+        backgroundColor: Colors.white,
+        child: Container(
 
-                    // ================= HERO CARD =================
-                    _buildHeroCard(
-                      context,
-                    ).animate().fadeIn(duration: 500.ms).slideY(begin: -0.15),
+          color: const Color(0xFFF8F9FA),
+          child: CustomScrollView(
+            physics: context.scrollPhysics,
+            slivers: [
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: context.wp(3.5)),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      //  BOLDER & LARGER TITLE
 
-                    SizedBox(height: context.hp(3)),
+                      SizedBox(height: context.hp(2)),
 
-                    // Main Services (Top Row - 4 items)
-                    _buildMainServicesGrid(context),
+                      // ================= HERO CARD =================
+                      _buildHeroCard(
+                        context,
+                      ).animate().fadeIn(duration: 500.ms).slideY(begin: -0.15),
 
-                    SizedBox(height: context.hp(0.7)),
+                      SizedBox(height: context.hp(3)),
 
-                    //  BOLDER & LARGER SUBTITLE
-                    Text(
-                      'More Services',
-                      style: TextStyle(
-                        fontSize: context.titleLarge, // Use responsive font
-                        fontWeight: FontWeight.w800,
-                        color: Colors.black87,
-                        letterSpacing: context.letterSpacingTight,
+                      // Main Services (Top Row - 4 items)
+                      _buildMainServicesGrid(context),
+
+                      SizedBox(height: context.hp(0.7)),
+
+                      //  BOLDER & LARGER SUBTITLE
+                      Text(
+                        'More Services',
+                        style: TextStyle(
+                          fontSize: context.titleLarge, // Use responsive font
+                          fontWeight: FontWeight.w800,
+                          color: Colors.black87,
+                          letterSpacing: context.letterSpacingTight,
+                        ),
                       ),
-                    ),
-                    SizedBox(height: context.hp(2)),
+                      SizedBox(height: context.hp(2)),
 
-                    _buildAdditionalServicesGrid(context),
-                  ],
+                      _buildAdditionalServicesGrid(context),
+                    ],
+                  ),
                 ),
               ),
-            ),
 
-            const SliverToBoxAdapter(child: SizedBox(height: 20)),
+              const SliverToBoxAdapter(child: SizedBox(height: 20)),
 
-            // ===== EXISTING SECTIONS =====
-            SliverToBoxAdapter(
-              child: BlocProvider<ExclusiveDealsBloc>(
-                create: (context) => sl<ExclusiveDealsBloc>(),
-                child: const TransportExclusiveDealsSection(),
+              // ===== EXISTING SECTIONS =====
+              SliverToBoxAdapter(
+                child: BlocProvider<ExclusiveDealsBloc>(
+                  create: (context) => sl<ExclusiveDealsBloc>(),
+                  child: const TransportExclusiveDealsSection(),
+                ),
               ),
-            ),
 
-            const SliverToBoxAdapter(child: PopularDestinations()),
-            const SliverToBoxAdapter(child: TrendingPackages()),
-            SliverToBoxAdapter(
-              child: BlocProvider(
-                create: (_) => sl<GeneralSettingsBloc>()
-                  ..add(const LoadFaqList(domain: 'thewandernova.com')),
-                child: const FAQSection(),
+              const SliverToBoxAdapter(child: PopularDestinations()),
+              const SliverToBoxAdapter(child: TrendingPackages()),
+              SliverToBoxAdapter(
+                child: BlocProvider(
+                  create: (_) => sl<GeneralSettingsBloc>()
+                    ..add(const LoadFaqList(domain: 'thewandernova.com')),
+                  child: const FAQSection(),
+                ),
               ),
-            ),
-            const SliverToBoxAdapter(child: TravelStoriesSection()),
-            const SliverToBoxAdapter(child: WhyChooseUs()),
+              const SliverToBoxAdapter(child: TravelStoriesSection()),
+              const SliverToBoxAdapter(child: WhyChooseUs()),
 
-            SliverToBoxAdapter(
-              child: BlocProvider(
-                create: (_) => sl<GeneralSettingsBloc>()
-                  ..add(const LoadGeneralSettings(domain: 'thewandernova.com')),
-                child: const AboutCompanySection(),
+              SliverToBoxAdapter(
+                child: BlocProvider(
+                  create: (_) => sl<GeneralSettingsBloc>()
+                    ..add(const LoadGeneralSettings(domain: 'thewandernova.com')),
+                  child: const AboutCompanySection(),
+                ),
               ),
-            ),
 
-            SliverToBoxAdapter(
-              child: BlocProvider(
-                create: (_) => sl<GeneralSettingsBloc>()
-                  ..add(const LoadGeneralSettings(domain: 'thewandernova.com')),
-                child: const ServicesInfoSection(),
+              SliverToBoxAdapter(
+                child: BlocProvider(
+                  create: (_) => sl<GeneralSettingsBloc>()
+                    ..add(const LoadGeneralSettings(domain: 'thewandernova.com')),
+                  child: const ServicesInfoSection(),
+                ),
               ),
-            ),
 
-            SliverToBoxAdapter(
-              child: FooterBannerWidget(
-                domain: 'thewandernova.com',
-                height: context.hp(18),
+              SliverToBoxAdapter(
+                child: FooterBannerWidget(
+                  domain: 'thewandernova.com',
+                  height: context.hp(18),
+                ),
               ),
-            ),
 
-            SliverToBoxAdapter(child: SizedBox(height: context.hp(5))),
-          ],
+              SliverToBoxAdapter(child: SizedBox(height: context.hp(5))),
+            ],
+          ),
         ),
       ),
       // bottomNavigationBar: const NewBottomNav(currentIndex: 0),

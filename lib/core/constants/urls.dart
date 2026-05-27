@@ -1,7 +1,7 @@
 class Urls {
-  static const String baseUrl = 'http://192.168.1.48:8000/api/';
+  static const String baseUrl = 'http://192.168.1.15:8000/api/';
   // static const String baseUrl = 'https://thewandernova.com/api/';
-  static const String basesUrl = 'http://192.168.1.48:8000/api';
+  static const String basesUrl = 'http://192.168.1.15:8000/api';
   // static const String basesUrl = 'https://thewandernova.com/api';
 
   static const String airports = '$basesUrl/flights/airports';
@@ -47,4 +47,9 @@ class Urls {
 
   // ----- Holidays -----
   static const String holidaysPopularDestinations = '$basesUrl/holidays-popular-destinations/';
+
+  // Exchange Rate API endpoints
+  // static const String exchangeRatePrimary = 'https://v6.exchangerate-api.com/v6/5dff9de8575af8e0fcbeb0c5/latest/USD';
+  static const String exchangeRatePrimary = 'https://open.er-api.com/v6/latest/USD';
+  static const String exchangeRateFallback = 'https://open.er-api.com/v6/latest/USD';
 }

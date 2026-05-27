@@ -283,6 +283,8 @@ class _RoomsRatesSectionState extends State<RoomsRatesSection> {
       return _buildEmptyState();
     }
 
+    final roomCurrency = widget.hotelDetails?.currency ?? '';
+
     return Container(
       padding: context.responsivePadding,
       child: ListView.separated(
@@ -296,6 +298,7 @@ class _RoomsRatesSectionState extends State<RoomsRatesSection> {
             room: room,
             adults: widget.adults,
             children: widget.children,
+            roomCurrency: roomCurrency,
             onSelect: () {
               print('RoomsRatesSection: Room selected - ${room.bookingCode}');
 

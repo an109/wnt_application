@@ -2,17 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 
-import '../../../common_widgets/custom_bottom_nav.dart';
-import '../../../common_widgets/logo.dart';
-import '../../../core/services/hotel_session_service.dart';
-import '../../../injection_container.dart';
-import '../../Hotel_Details/presentation/bloc/hotel_details_bloc.dart';
-import '../../Hotel_Details/presentation/screens/main_hotel_detail_screen.dart';
-import '../../Hotel_api/domain/entities/hotel_ui_entity.dart';
-import '../../Hotel_api/presentation/bloc/hotel_bloc.dart';
-import '../../Hotel_api/presentation/bloc/hotel_event.dart';
-import '../../Hotel_api/presentation/bloc/hotel_state.dart';
-import '../Filter_drawer/filter_drawer.dart';
+import '../../../../UI_helper/currency_converter.dart';
+import '../../../../common_widgets/custom_bottom_nav.dart';
+import '../../../../common_widgets/logo.dart';
+import '../../../../core/services/hotel_session_service.dart';
+import '../../../../core/utils/storage/shared_preference.dart';
+import '../../../../injection_container.dart';
+import '../../../Hotel_Details/presentation/bloc/hotel_details_bloc.dart';
+import '../../../Hotel_Details/presentation/screens/main_hotel_detail_screen.dart';
+import '../../domain/entities/hotel_ui_entity.dart';
+import '../bloc/hotel_bloc.dart';
+import '../bloc/hotel_event.dart';
+import '../bloc/hotel_state.dart';
+import '../../../Hotel/Filter_drawer/filter_drawer.dart';
 
 class HotelListingScreen extends StatefulWidget {
   final String cityCode;
@@ -53,6 +55,61 @@ class _HotelListingScreenState extends State<HotelListingScreen> {
     // Mark the start of the 15-minute TBO search session (Search → PreBook → Book)
     HotelSessionService.instance.markSearchStarted();
     _loadInitialHotels();
+  }
+
+  // Convert price from API currency to user's preferred currency
+  String _convertPrice(String priceWithCurrency, String apiCurrency) {
+    try {
+      // Extract numeric value from string like "2,500 AED" or "2500"
+      final numericStr = priceWithCurrency.replaceAll(RegExp(r'[^0-9.]'), '');
+      final amount = double.tryParse(numericStr) ?? 0.0;
+
+      // Get user's preferred currency (defaults to INR)
+      final prefs = sl<PreferencesManager>();
+      final targetCurrency = prefs.getPreferredCurrency() ?? 'INR';
+
+      // Skip conversion if same currency
+      if (apiCurrency.toUpperCase() == targetCurrency.toUpperCase()) {
+        return priceWithCurrency;
+      }
+
+      // Convert using cached rates
+      final converted = CurrencyConverter.convert(
+        amount: amount,
+        fromCurrency: apiCurrency,
+        toCurrency: targetCurrency,
+      );
+
+      // Format with symbol and Indian commas if INR
+      if (targetCurrency.toUpperCase() == 'INR') {
+        return '₹${_formatIndianNumber(converted.toInt())}';
+      }
+
+      // Default format for other currencies
+      final symbols = {'USD': '\$', 'EUR': '€', 'GBP': '£', 'AED': 'د.إ'};
+      final symbol = symbols[targetCurrency.toUpperCase()] ?? '$targetCurrency ';
+      return '$symbol${converted.toStringAsFixed(0)}';
+
+    } catch (e) {
+      print('HotelListingScreen: Price conversion error: $e');
+      return priceWithCurrency; // Fallback to original
+    }
+  }
+
+  //  Format number with Indian comma system (reuse from other screens)
+  String _formatIndianNumber(int num) {
+    if (num < 1000) return num.toString();
+    final str = num.toString();
+    final lastThree = str.substring(str.length - 3);
+    final remaining = str.substring(0, str.length - 3);
+    var formatted = '';
+    for (int i = 0; i < remaining.length; i++) {
+      if (i > 0 && (remaining.length - i) % 2 == 0) {
+        formatted += ',';
+      }
+      formatted += remaining[i];
+    }
+    return '$formatted,$lastThree';
   }
 
   // Add this method to _HotelListingScreenState class
@@ -245,6 +302,8 @@ class _HotelListingScreenState extends State<HotelListingScreen> {
             final newHotels = state.hotels
                 .map((entity) => HotelUiModel.fromEntity(entity))
                 .toList();
+
+
 
             setState(() {
               if (state.currentPage == 1) {

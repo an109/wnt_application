@@ -87,9 +87,22 @@ class DestinationCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text('Starting from', style: TextStyle(fontSize: context.labelSmall, color: Colors.grey.shade500)),
-                        Text(
-                          destination.price.isNotEmpty ? destination.price : '',
-                          style: TextStyle(fontSize: context.titleMedium, fontWeight: FontWeight.bold, color: const Color(0xff005B7F)),
+                        RichText(
+                          text: TextSpan(
+                            children: [
+                              TextSpan(
+                                text: destination.price.isNotEmpty
+                                    ? destination.price.split('/')[0].trim()
+                                    : '',
+                                style: TextStyle(fontSize: context.titleMedium, fontWeight: FontWeight.bold, color: const Color(0xff005B7F)),
+                              ),
+                              if (destination.price.isNotEmpty && destination.price.contains('/'))
+                                TextSpan(
+                                  text: '\n${destination.price.split('/')[1].trim()}',
+                                  style: TextStyle(fontSize: context.labelSmall, fontWeight: FontWeight.normal, color: Colors.grey.shade600),
+                                ),
+                            ],
+                          ),
                         ),
                       ],
                     ),

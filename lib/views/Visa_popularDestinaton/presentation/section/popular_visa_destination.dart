@@ -105,6 +105,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import 'package:wander_nova/injection_container.dart' as di;
 import 'package:wander_nova/views/Visa_popularDestinaton/presentation/widget/destinaiton_card.dart';
+import '../../../../UI_helper/currency_converter.dart';
+import '../../../../core/utils/storage/shared_preference.dart';
 import '../../../VisaDestination/domain/entity/visaDestin_Entity.dart';
 import '../../../VisaDestination/presentation/section/visa_destination_detail_screen.dart';
 import '../../domain/entities/visa_destination_entity.dart' hide VisaTypeEntity;
@@ -276,9 +278,18 @@ class PopularVisaDestinations extends StatelessWidget {
                 print('PopularVisaDestinations: Building card #$index for ${destination.name}');
 
                 // Format price with currency symbol
+                // final formattedPrice = _formatPrice(
+                //   destination.price,
+                //   destination.priceCurrency,
+                // );
+
+                final prefs = di.sl<PreferencesManager>();
+                final targetCurrency = prefs.getPreferredCurrency() ?? 'INR';
+
                 final formattedPrice = _formatPrice(
                   destination.price,
                   destination.priceCurrency,
+                  targetCurrency: targetCurrency, // 🔹 Pass target currency
                 );
 
                 // Get image URL - prefer imageUrl, fallback to img field
@@ -336,26 +347,66 @@ class PopularVisaDestinations extends StatelessWidget {
     return 'N/A';
   }
 
-  String _formatPrice(String price, String currency) {
-    try {
-      print('PopularVisaDestinations: Formatting price: $price $currency');
+  // String _formatPrice(String price, String currency) {
+  //   try {
+  //     print('PopularVisaDestinations: Formatting price: $price $currency');
+  //
+  //     // Parse the price value
+  //     final priceValue = double.tryParse(price) ?? 0.0;
+  //
+  //     // Format based on currency code
+  //     final currencyCode = currency.toUpperCase();
+  //
+  //     if (currencyCode == 'USD') {
+  //       // Format USD with $ symbol
+  //       return '\$${priceValue.toStringAsFixed(0)}';
+  //     } else if (currencyCode == 'INR') {
+  //       // Format INR with ₹ symbol and Indian comma system
+  //       return '₹${_formatIndianNumber(priceValue.toInt())}';
+  //     } else if (currencyCode == 'EUR') {
+  //       return '€${priceValue.toStringAsFixed(0)}';
+  //     } else if (currencyCode == 'GBP') {
+  //       return '£${priceValue.toStringAsFixed(0)}';
+  //     }
+  //
+  //     // Default: show currency code + price
+  //     return '$currencyCode ${priceValue.toStringAsFixed(0)}';
+  //
+  //   } catch (e) {
+  //     print('PopularVisaDestinations: Price formatting error: $e');
+  //     // Fallback: return original values
+  //     return '$price $currency';
+  //   }
+  // }
 
+  String _formatPrice(String price, String currency, {String? targetCurrency}) {
+    try {
       // Parse the price value
-      final priceValue = double.tryParse(price) ?? 0.0;
+      double priceValue = double.tryParse(price) ?? 0.0;
+
+      // 🔹 MINIMAL CHANGE: Convert if target currency specified
+      if (targetCurrency != null && currency.toUpperCase() != targetCurrency.toUpperCase()) {
+        priceValue = CurrencyConverter.convert(
+          amount: priceValue,
+          fromCurrency: currency,
+          toCurrency: targetCurrency,
+        );
+        currency = targetCurrency; // Use target currency for display
+      }
 
       // Format based on currency code
       final currencyCode = currency.toUpperCase();
 
       if (currencyCode == 'USD') {
-        // Format USD with $ symbol
         return '\$${priceValue.toStringAsFixed(0)}';
       } else if (currencyCode == 'INR') {
-        // Format INR with ₹ symbol and Indian comma system
         return '₹${_formatIndianNumber(priceValue.toInt())}';
       } else if (currencyCode == 'EUR') {
         return '€${priceValue.toStringAsFixed(0)}';
       } else if (currencyCode == 'GBP') {
         return '£${priceValue.toStringAsFixed(0)}';
+      } else if (currencyCode == 'AED') {
+        return 'د.إ ${priceValue.toStringAsFixed(0)}';
       }
 
       // Default: show currency code + price
@@ -363,8 +414,7 @@ class PopularVisaDestinations extends StatelessWidget {
 
     } catch (e) {
       print('PopularVisaDestinations: Price formatting error: $e');
-      // Fallback: return original values
-      return '$price $currency';
+      return '$price $currency'; // Fallback
     }
   }
 

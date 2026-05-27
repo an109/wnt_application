@@ -33,13 +33,13 @@ class HotelDetailsRepositoryImpl implements HotelDetailsRepository {
 
         final status = data['Status'];
         if (status != null && status['Code'] == 200) {
-          // 👇 Parse HotelDetails array
+          //  Parse HotelDetails array
           final hotelDetailsJson = data['HotelDetails'] as List? ?? [];
           final hotelDetailsList = hotelDetailsJson
               .map((json) => HotelDetailsModel.fromJson(json))
               .toList();
 
-          // 👇 Parse SearchRooms from ROOT level (NOT inside HotelDetails)
+          //  Parse SearchRooms from ROOT level (NOT inside HotelDetails)
           final searchRoomsJson = data['SearchRooms'] as List? ?? [];
           final searchRoomsList = searchRoomsJson
               .map((json) => RoomModel.fromJson(json))
@@ -48,11 +48,12 @@ class HotelDetailsRepositoryImpl implements HotelDetailsRepository {
           print('Successfully fetched ${hotelDetailsList.length} hotel details');
           print('Successfully fetched ${searchRoomsList.length} rooms from SearchRooms');
 
-          // 👇 Attach rooms to the first hotel (or all hotels if needed)
+          //  Attach rooms to the first hotel (or all hotels if needed)
           if (hotelDetailsList.isNotEmpty) {
             final hotelWithRooms = HotelDetailsModel(
               // Copy all existing fields from first hotel
               hotelCode: hotelDetailsList.first.hotelCode,
+              currency: hotelDetailsList.first.currency,
               hotelName: hotelDetailsList.first.hotelName,
               description: hotelDetailsList.first.description,
               hotelFacilities: hotelDetailsList.first.hotelFacilities,

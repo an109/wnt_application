@@ -14,6 +14,7 @@ class RoomEntity extends Equatable {
   final bool isRefundable;
   final List<List<Map<String, dynamic>>> supplements;
   final bool withTransfers;
+  final String currency;
 
   const RoomEntity({
     required this.name,
@@ -29,6 +30,7 @@ class RoomEntity extends Equatable {
     required this.isRefundable,
     required this.supplements,
     required this.withTransfers,
+    required this.currency,
   });
 
   double get basePrice {
@@ -72,5 +74,6 @@ class RoomEntity extends Equatable {
     isRefundable,
     supplements,
     withTransfers,
+    currency
   ];
 }

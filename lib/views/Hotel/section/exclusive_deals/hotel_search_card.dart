@@ -7,7 +7,7 @@ import '../../../Hotel_Details/presentation/screens/widgets/room_config.dart';
 import '../../../Hotel_api/presentation/bloc/hotel_bloc.dart';
 import '../../../flight_destination/domain/entities/destination_entity.dart';
 import '../../../flight_destination/presentation/widget/destination_search_field.dart';
-import '../../Listing/hotel_listing.dart';
+import '../../../Hotel_api/presentation/screen/hotel_listing.dart';
 
 
 class HotelSearchCard extends StatefulWidget {

@@ -485,20 +485,8 @@ class _DestinationDetailSheet extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            margin: const EdgeInsets.only(top: 12),
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: Colors.grey.shade300,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          const SizedBox(height: 20),
-
-          // Destination Image
           ClipRRect(
-            borderRadius: BorderRadius.circular(16),
+            // borderRadius: BorderRadius.circular(16),
             child: destination.imageUrl.isNotEmpty
                 ? Image.network(
                     destination.imageUrl,
@@ -698,17 +686,31 @@ class _DestinationDetailSheet extends StatelessWidget {
                         color: Colors.grey.shade600,
                       ),
                     ),
-                    Text(
-                      destination.price.isNotEmpty
-                          ? destination.price
-                          : 'Contact for price',
-                      style: TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
-                        color: const Color(0xff005B7F),
+                    RichText(
+                      text: TextSpan(
+                        children: [
+                          TextSpan(
+                            text: destination.price.isNotEmpty
+                                ? destination.price.split('/')[0].trim()
+                                : 'Contact for price',
+                            style: TextStyle(
+                              fontSize: 28,
+                              fontWeight: FontWeight.bold,
+                              color: const Color(0xff005B7F),
+                            ),
+                          ),
+                          if (destination.price.contains('/'))
+                            TextSpan(
+                              text: '\n${destination.price.split('/')[1].trim()}',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.normal,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                        ],
                       ),
                     ),
-                    // Text('per person', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
                   ],
                 ),
                 ElevatedButton(

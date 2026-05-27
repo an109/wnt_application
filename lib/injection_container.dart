@@ -1,6 +1,12 @@
 import 'package:dio/dio.dart';
 import 'package:get_it/get_it.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:wander_nova/views/Exchange_rate/data/data_source/exchange_rate_api_service.dart';
+import 'package:wander_nova/views/Exchange_rate/data/repository/exchange_rate_repository_impl.dart';
+import 'package:wander_nova/views/Exchange_rate/domain/repository/exchange_rate_repository.dart';
+import 'package:wander_nova/views/Exchange_rate/domain/usecase/convert_currency_usecase.dart';
+import 'package:wander_nova/views/Exchange_rate/domain/usecase/get_exchange_rates_usecase.dart';
+import 'package:wander_nova/views/Exchange_rate/presentation/bloc/exchange_rate_bloc.dart';
 import 'package:wander_nova/views/ExclusiveDeals/data/data_source/exclusive_deals_api_service.dart';
 import 'package:wander_nova/views/ExclusiveDeals/data/repository/exclusive_deals_repository_impl.dart';
 import 'package:wander_nova/views/ExclusiveDeals/domain/repository/exclusive_deals_repository.dart';
@@ -197,6 +203,7 @@ Future<void> initializeDependencies() async {
   sl.registerFactory<VisaDestinationApiService>(() => VisaDestinationApiServiceImpl(sl<DioClient>().instance));
   sl.registerFactory<GeneralSettingsApiService>(() => GeneralSettingsApiServiceImpl(sl<DioClient>().instance));
   sl.registerFactory<HolidayApiService>(() => HolidayApiServiceImpl(sl<DioClient>().instance));
+  sl.registerFactory<ExchangeRateApiService>(() => ExchangeRateApiServiceImpl(sl<DioClient>().instance));
 
 
 
@@ -233,6 +240,8 @@ Future<void> initializeDependencies() async {
   sl.registerLazySingleton<VisaDestinationRepository>(() => VisaDestinationRepositoryImpl(sl<VisaDestinationApiService>()));
   sl.registerLazySingleton<GeneralSettingsRepository>(() => GeneralSettingsRepositoryImpl(sl<GeneralSettingsApiService>()));
   sl.registerLazySingleton<HolidayRepository>(() => HolidayRepositoryImpl(sl<HolidayApiService>()));
+  sl.registerLazySingleton<ExchangeRateRepository>(() => ExchangeRateRepositoryImpl(sl<ExchangeRateApiService>()));
+
 
 
 
@@ -270,6 +279,8 @@ Future<void> initializeDependencies() async {
   sl.registerLazySingleton<GetFaqListUsecase>(() => GetFaqListUsecase(sl<GeneralSettingsRepository>()));
   sl.registerLazySingleton<GetSectionHeroesUsecase>(() => GetSectionHeroesUsecase(sl<GeneralSettingsRepository>()));
   sl.registerLazySingleton<GetDestinationsUseCase>(() => GetDestinationsUseCase(sl<HolidayRepository>()));
+  sl.registerLazySingleton<GetExchangeRatesUseCase>(() => GetExchangeRatesUseCase(sl<ExchangeRateRepository>()));
+  sl.registerLazySingleton<ConvertCurrencyUseCase>(() => ConvertCurrencyUseCase(sl<ExchangeRateRepository>()));
 
 
 
@@ -308,6 +319,7 @@ Future<void> initializeDependencies() async {
       getSectionHeroesUsecase: sl<GetSectionHeroesUsecase>(),
       getFaqListUsecase: sl<GetFaqListUsecase>()));
   sl.registerFactory<HolidayBloc>(() => HolidayBloc(getPopularDestinationsUseCase: sl<GetDestinationsUseCase>()));
-
+  sl.registerFactory<ExchangeRateBloc>(() => ExchangeRateBloc(
+      getExchangeRatesUseCase: sl<GetExchangeRatesUseCase>(), convertCurrencyUseCase: sl<ConvertCurrencyUseCase>()));
 
 }

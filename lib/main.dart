@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:wander_nova/views/Exchange_rate/presentation/bloc/exchange_rate_bloc.dart';
+import 'package:wander_nova/views/Exchange_rate/presentation/bloc/exchange_rate_event.dart';
 import 'package:wander_nova/views/ExclusiveDeals/presentation/bloc/exclusive_deals_bloc.dart';
 import 'package:wander_nova/views/Holiday_destination/presentation/bloc/holiday_destination_bloc.dart';
 import 'package:wander_nova/views/MainApi/presentation/bloc/general_setting_bloc.dart';
@@ -28,11 +30,20 @@ import 'package:wander_nova/views/flight_ssr/presentation/bloc/ssr_bloc.dart';
 import 'package:wander_nova/views/travel_stories/presentation/bloc/travel_stories_bloc.dart';
 import 'package:wander_nova/views/trending_route/presentation/bloc/trending_routes_bloc.dart';
 
+import 'core/utils/storage/shared_preference.dart';
 import 'injection_container.dart' as di;
+import 'injection_container.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await di.initializeDependencies();
+
+  final prefs = sl<PreferencesManager>();
+  await prefs.remove('exchange_rates_cache');
+  await prefs.remove('exchange_rates_cache_time');
+  if (sl.isRegistered<ExchangeRateBloc>()) {
+    sl<ExchangeRateBloc>().add(const FetchExchangeRates());
+  }
   runApp(const MyApp());
 }
 
@@ -69,6 +80,7 @@ class MyApp extends StatelessWidget {
         BlocProvider(create: (_) => di.sl<VisaDestinationBloc>()),
         BlocProvider(create: (_) => di.sl<GeneralSettingsBloc>()),
         BlocProvider(create: (_) => di.sl<HolidayBloc>()),
+        BlocProvider(create: (_) => di.sl<ExchangeRateBloc>()),
       ],
 
       child: MaterialApp(

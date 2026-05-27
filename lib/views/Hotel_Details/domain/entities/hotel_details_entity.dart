@@ -25,6 +25,7 @@ class HotelDetailsEntity extends Equatable {
   final String checkOutTime;
   final HotelFeesEntity? hotelFees;
   final List<RoomEntity> searchRooms;
+  final String currency;
 
   const HotelDetailsEntity({
     required this.hotelCode,
@@ -50,6 +51,7 @@ class HotelDetailsEntity extends Equatable {
     required this.checkOutTime,
     this.hotelFees,
     required this.searchRooms,
+    required this.currency,
   });
 
   @override
@@ -76,7 +78,8 @@ class HotelDetailsEntity extends Equatable {
     checkInTime,
     checkOutTime,
     hotelFees,
-    searchRooms
+    searchRooms,
+    currency,
   ];
 }
 

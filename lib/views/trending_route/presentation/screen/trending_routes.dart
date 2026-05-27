@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
+import '../../../../UI_helper/currency_converter.dart';
+import '../../../../core/utils/storage/shared_preference.dart';
 import '../../../../injection_container.dart';
 import '../../../flight_search/presentation/screen/flight_search_screen.dart';
 import '../../domain/entities/trending_routes_entity.dart';
@@ -30,6 +32,7 @@ class TrendingPackagesView extends StatefulWidget {
 }
 
 class _TrendingPackagesViewState extends State<TrendingPackagesView> {
+
   @override
   void initState() {
     super.initState();
@@ -106,8 +109,32 @@ class _TrendingPackagesViewState extends State<TrendingPackagesView> {
     }
   }
 
-  String _formatPrice(num price, String currency) {
-    final priceStr = price.toStringAsFixed(0);
+  // String _formatPrice(num price, String currency) {
+  //   final priceStr = price.toStringAsFixed(0);
+  //   final buffer = StringBuffer();
+  //   final len = priceStr.length;
+  //
+  //   for (var i = 0; i < len; i++) {
+  //     if (i > 0 && (len - i) % 3 == 0) {
+  //       buffer.write(',');
+  //     }
+  //     buffer.write(priceStr[i]);
+  //   }
+  //
+  //   return '$currency $buffer';
+  // }
+  String _formatPrice(num price, String currency, {String? targetCurrency}) {
+    double finalPrice = price.toDouble();
+    if (targetCurrency != null) {
+      finalPrice = CurrencyConverter.convert(
+        amount: finalPrice,
+        fromCurrency: currency,
+        toCurrency: targetCurrency,
+      );
+      currency = targetCurrency;
+    }
+
+    final priceStr = finalPrice.toStringAsFixed(0);
     final buffer = StringBuffer();
     final len = priceStr.length;
 
@@ -118,17 +145,46 @@ class _TrendingPackagesViewState extends State<TrendingPackagesView> {
       buffer.write(priceStr[i]);
     }
 
-    return '$currency $buffer';
+    final symbols = {'INR': '₹', 'USD': '\$', 'AED': 'د.إ', 'EUR': '€', 'GBP': '£'};
+    final symbol = symbols[currency.toUpperCase()] ?? '$currency ';
+    return '$symbol$buffer';
   }
-
+  // Map<String, dynamic> _mapToRouteCard(TrendingRouteEntity entity) {
+  //   return {
+  //     'from': entity.from,
+  //     'to': entity.to,
+  //     'fromCode': entity.fromCode,
+  //     'toCode': entity.toCode,
+  //     'date': entity.date,
+  //     'price': _formatPrice(entity.price, entity.currency),
+  //     'image': entity.imageUrl,
+  //     'bgColor': Colors.blue.shade50,
+  //     'color': Colors.blue,
+  //     'type': 'Flights',
+  //     'icon': Icons.flight,
+  //     'time': '08:00 - 10:30',
+  //     'duration': '2h 30m',
+  //     'stops': 'Non-stop',
+  //     'airline': 'Air Arabia',
+  //     'rating': '4.5',
+  //     'originalPrice': _formatPrice((entity.price * 1.2).toInt(), entity.currency),
+  //     'discount': '20% OFF',
+  //     'busType': '',
+  //     'train': '',
+  //     'entity': entity, // Store the original entity for navigation
+  //   };
+  // }
   Map<String, dynamic> _mapToRouteCard(TrendingRouteEntity entity) {
+    final prefs = sl<PreferencesManager>();
+    final targetCurrency = prefs.getPreferredCurrency() ?? 'INR';
+
     return {
       'from': entity.from,
       'to': entity.to,
       'fromCode': entity.fromCode,
       'toCode': entity.toCode,
       'date': entity.date,
-      'price': _formatPrice(entity.price, entity.currency),
+      'price': _formatPrice(entity.price, entity.currency, targetCurrency: targetCurrency),
       'image': entity.imageUrl,
       'bgColor': Colors.blue.shade50,
       'color': Colors.blue,
@@ -139,14 +195,17 @@ class _TrendingPackagesViewState extends State<TrendingPackagesView> {
       'stops': 'Non-stop',
       'airline': 'Air Arabia',
       'rating': '4.5',
-      'originalPrice': _formatPrice((entity.price * 1.2).toInt(), entity.currency),
+      'originalPrice': _formatPrice(
+        (entity.price * 1.2).toInt(),
+        entity.currency,
+        targetCurrency: targetCurrency,
+      ),
       'discount': '20% OFF',
       'busType': '',
       'train': '',
-      'entity': entity, // Store the original entity for navigation
+      'entity': entity,
     };
   }
-
   @override
   Widget build(BuildContext context) {
     print('Building TrendingPackagesView');

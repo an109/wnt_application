@@ -21,6 +21,7 @@ class PhotoGallerySection extends StatefulWidget {
 
 class _PhotoGallerySectionState extends State<PhotoGallerySection> {
   int _selectedImageIndex = 0;
+  bool isFavorite = false;
 
   @override
   Widget build(BuildContext context) {
@@ -116,22 +117,29 @@ class _PhotoGallerySectionState extends State<PhotoGallerySection> {
               print('PhotoGallerySection: Heart button pressed');
               // Add to wishlist functionality
             },
-            child: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 4,
-                  ),
-                ],
-              ),
-              child: const Icon(
-                Icons.favorite_border,
-                color: Colors.black,
-                size: 20,
+            child: GestureDetector(
+              onTap: () {
+                setState(() {
+                  isFavorite = !isFavorite;
+                });
+              },
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 4,
+                    ),
+                  ],
+                ),
+                child:  Icon(
+                  isFavorite ? Icons.favorite : Icons.favorite_border,
+                  color: isFavorite ? Colors.red : Colors.black,
+                  size: 20,
+                ),
               ),
             ),
           ),

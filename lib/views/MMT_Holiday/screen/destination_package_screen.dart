@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import '../../../core/resources/app_colours.dart';
+import '../MMT_reviewDetails/screen/paackage_details_screen.dart';
 import '../sections/cutomize_trip_dialogue.dart';
 
 class DestinationPackagesScreen extends StatefulWidget {
@@ -555,7 +556,7 @@ class _DestinationPackagesScreenState extends State<DestinationPackagesScreen>
                     cursor: SystemMouseCursors.click,
                     child: GestureDetector(
                       onTap: () {
-                        _animateImageTap(context);
+                        _showPackageOptionsBottomSheet(context);
                       },
                       child: Stack(
                         children: [
@@ -626,6 +627,230 @@ class _DestinationPackagesScreenState extends State<DestinationPackagesScreen>
           ),
         );
       },
+    );
+  }
+
+
+  void _showPackageOptionsBottomSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black54,
+      builder: (context) {
+        return DraggableScrollableSheet(
+          initialChildSize: context.isMobile ? 0.42 : 0.36,
+          minChildSize: 0.30,
+          maxChildSize: 0.45,
+          expand: false,
+          builder: (context, scrollController) {
+            return Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(
+                  top: Radius.circular(context.borderRadiusLarge),
+                ),
+              ),
+              child: SingleChildScrollView(
+                controller: scrollController,
+                child: Padding(
+                  padding: EdgeInsets.all(context.wp(5)),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+
+
+                      SizedBox(height: context.gapSmall),
+
+                      /// TITLE + CLOSE
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              'Mystical Kashmir Trip with\nHouseboat Stay',
+                              style: TextStyle(
+                                fontSize: context.headlineSmall,
+                                fontWeight: FontWeight.w900,
+                                color: Colors.black,
+                              ),
+                            ),
+                          ),
+
+                          GestureDetector(
+                            onTap: () => Navigator.pop(context),
+                            child: Container(
+                              padding: EdgeInsets.all(context.gapSmall),
+                              decoration: BoxDecoration(
+                                color: Colors.grey.shade400,
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                Icons.close,
+                                size: context.iconSmall,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      SizedBox(height: context.gapLarge),
+
+                      Text(
+                        'Please select an option',
+                        style: TextStyle(
+                          fontSize: context.bodyLarge,
+                          color: Colors.grey.shade700,
+                        ),
+                      ),
+
+                      SizedBox(height: context.gapLarge),
+
+                      /// WITHOUT FLIGHT CARD
+                      _buildOptionCard(
+                        context,
+                        startFrom: 'Srinagar',
+                        title: 'Without Flight',
+                        oldPrice: '₹20,030',
+                        newPrice: '₹19,113',
+                      ),
+
+                      SizedBox(height: context.gapMedium),
+
+                      /// WITH FLIGHT CARD
+                      _buildOptionCard(
+                        context,
+                        startFrom: widget.origin ?? 'Agartala',
+                        title: 'With Flight',
+                        oldPrice: '₹52,478',
+                        newPrice: '₹50,139',
+                      ),
+
+                      SizedBox(height: context.hp(3)),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildOptionCard(
+      BuildContext context, {
+        required String startFrom,
+        required String title,
+        required String oldPrice,
+        required String newPrice,
+      }) {
+    return GestureDetector(
+      onTap: () {
+
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => PackageDetailsScreen(
+              packageData: {
+                'title': 'Most Wanted Goa Package',
+                'duration': '4N / 5D',
+                'location': 'Goa',
+                'price': 7084,
+              },
+            ),
+          ),
+        );
+
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 250),
+        padding: EdgeInsets.symmetric(horizontal: context.wp(4), vertical: context.wp(2.8)),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(
+            context.borderRadiusMedium,
+          ),
+          border: Border.all(
+            color: Colors.grey.shade300,
+          ),
+          color: Colors.white,
+        ),
+        child: Row(
+          children: [
+
+            /// LEFT SIDE
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+
+                  Text(
+                    'Starting from - $startFrom',
+                    style: TextStyle(
+                      fontSize: context.bodyMedium,
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+
+                  SizedBox(height: context.gapSmall),
+
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: context.titleLarge,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            /// RIGHT SIDE
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+
+                Text(
+                  oldPrice,
+                  style: TextStyle(
+                    fontSize: context.bodyMedium,
+                    color: Colors.red.shade300,
+                    decoration: TextDecoration.lineThrough,
+                  ),
+                ),
+
+                SizedBox(height: context.gapXXSmall),
+
+                Text(
+                  newPrice,
+                  style: TextStyle(
+                    fontSize: context.headlineSmall,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black,
+                  ),
+                ),
+
+                Text(
+                  'per person',
+                  style: TextStyle(
+                    fontSize: context.bodySmall,
+                    color: Colors.grey,
+                  ),
+                ),
+              ],
+            ),
+
+            SizedBox(width: context.gapMedium),
+
+            Icon(
+              Icons.arrow_forward_ios,
+              size: context.iconSmall,
+              color: Colors.blue,
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -859,13 +1084,6 @@ class _DestinationPackagesScreenState extends State<DestinationPackagesScreen>
           ),
         );
       },
-    );
-  }
-
-  void _animateImageTap(BuildContext context) {
-    // Add image tap animation
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('View package details'), duration: Duration(milliseconds: 500)),
     );
   }
 

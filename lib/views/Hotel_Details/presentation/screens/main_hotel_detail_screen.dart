@@ -439,42 +439,4 @@ class _HotelDetailsScreenState extends State<HotelDetailsScreen> {
       ),
     );
   }
-
-  Widget _buildChooseRoomButton() {
-    return Container(
-      margin: EdgeInsets.only(
-        bottom: context.bottomBarHeight + 8,
-        left: context.responsivePadding.left,
-        right: context.responsivePadding.right,
-      ),
-      child: ElevatedButton(
-        onPressed: () {
-          print('HotelDetailsScreen: Choose Room button pressed');
-          // Navigate to room selection or booking
-        },
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.red[700],
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              'Choose Room',
-              style: TextStyle(
-                fontSize: context.sp(16),
-                fontWeight: FontWeight.w600,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(width: 8),
-            const Icon(Icons.arrow_forward, color: Colors.white),
-          ],
-        ),
-      ),
-    );
-  }
 }
