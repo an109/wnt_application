@@ -16,7 +16,7 @@ class AddTravellerModal extends StatefulWidget {
 }
 
 class _AddTravellerModalState extends State<AddTravellerModal> {
-  final _formKey = GlobalKey<FormState>();
+  // final _formKey = GlobalKey<FormState>();
 
   // Controllers
   final _paxTypeController = TextEditingController(text: 'Adult');
@@ -30,6 +30,8 @@ class _AddTravellerModalState extends State<AddTravellerModal> {
   final _placeOfIssueController = TextEditingController();
   final _passportExpiryController = TextEditingController();
   final _issuingCountryController = TextEditingController(text: 'India');
+
+  late final GlobalKey<FormState> _formKey;
 
   bool _isLoading = false;
 
@@ -47,6 +49,14 @@ class _AddTravellerModalState extends State<AddTravellerModal> {
     _passportExpiryController.dispose();
     _issuingCountryController.dispose();
     super.dispose();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    // Create a unique key for each instance
+    _formKey = GlobalKey<FormState>(debugLabel: 'add_traveller_form_${hashCode}');
+
   }
 
   Future<void> _selectDate(

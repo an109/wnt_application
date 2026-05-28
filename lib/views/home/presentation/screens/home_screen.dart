@@ -147,6 +147,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
               const SliverToBoxAdapter(child: PopularDestinations()),
               const SliverToBoxAdapter(child: TrendingPackages()),
+              const SliverToBoxAdapter(child: TravelStoriesSection()),
               SliverToBoxAdapter(
                 child: BlocProvider(
                   create: (_) => sl<GeneralSettingsBloc>()
@@ -154,7 +155,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: const FAQSection(),
                 ),
               ),
-              const SliverToBoxAdapter(child: TravelStoriesSection()),
+
               const SliverToBoxAdapter(child: WhyChooseUs()),
 
               SliverToBoxAdapter(
@@ -486,20 +487,20 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildAdditionalServicesGrid(BuildContext context) {
     final services = [
       ServiceItem(
-        icon: Icons.directions_bus,
-        label: 'Transport',
-        color: const Color(0xFFFFA500),
+        icon: Icons.local_taxi,
+        label: 'Airport Cabs',
+        color: const Color(0xFF9B59B6),
         onTap: () => Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => const TransportBookingScreen()),
         ),
       ),
-      ServiceItem(
-        icon: Icons.local_taxi,
-        label: 'Airport Cabs',
-        color: const Color(0xFF9B59B6),
-        onTap: () => _showComingSoon(context, 'Airport Cabs'),
-      ),
+      // ServiceItem(
+      //   icon: Icons.local_taxi,
+      //   label: 'Airport Cabs',
+      //   color: const Color(0xFF9B59B6),
+      //   onTap: () => _showComingSoon(context, 'Airport Cabs'),
+      // ),
       ServiceItem(
         icon: Icons.home_work,
         label: 'Villas & Homestays',
@@ -509,21 +510,21 @@ class _HomeScreenState extends State<HomeScreen> {
           MaterialPageRoute(builder: (_) => const HotelBookingScreen()),
         ),
       ),
-      ServiceItem(
-        icon: Icons.directions_car,
-        label: 'Outstation Cabs',
-        color: const Color(0xFFE74C3C),
-        onTap: () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const TransportBookingScreen()),
-        ),
-      ),
-      ServiceItem(
-        icon: Icons.attach_money,
-        label: 'Forex Card',
-        color: const Color(0xFF34495E),
-        onTap: () => _showComingSoon(context, 'Forex Card'),
-      ),
+      // ServiceItem(
+      //   icon: Icons.directions_car,
+      //   label: 'Outstation Cabs',
+      //   color: const Color(0xFFE74C3C),
+      //   onTap: () => Navigator.push(
+      //     context,
+      //     MaterialPageRoute(builder: (_) => const TransportBookingScreen()),
+      //   ),
+      // ),
+      // ServiceItem(
+      //   icon: Icons.attach_money,
+      //   label: 'Forex Card',
+      //   color: const Color(0xFF34495E),
+      //   onTap: () => _showComingSoon(context, 'Forex Card'),
+      // ),
       ServiceItem(
         icon: Icons.emoji_events,
         label: 'Tours & Attractions',
@@ -540,12 +541,12 @@ class _HomeScreenState extends State<HomeScreen> {
           MaterialPageRoute(builder: (_) => const HotelBookingScreen()),
         ),
       ),
-      ServiceItem(
-        icon: Icons.shield_outlined,
-        label: 'Travel Insurance',
-        color: const Color(0xFF27AE60),
-        onTap: () => _showComingSoon(context, 'Travel Insurance'),
-      ),
+      // ServiceItem(
+      //   icon: Icons.shield_outlined,
+      //   label: 'Travel Insurance',
+      //   color: const Color(0xFF27AE60),
+      //   onTap: () => _showComingSoon(context, 'Travel Insurance'),
+      // ),
     ];
 
     return GridView.builder(

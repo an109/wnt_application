@@ -3,11 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:razorpay_flutter/razorpay_flutter.dart';
 import 'package:wander_nova/injection_container.dart' as di;
 import 'package:wander_nova/views/Hotel_Payment/hotel_confirmation_screen.dart';
+import '../../UI_helper/currency_converter.dart';
 import '../../UI_helper/responsive_layout.dart';
 import '../../common_widgets/logo.dart';
 import '../../core/constants/urls.dart';
 import '../../core/network/dio_client.dart';
 import '../../core/services/hotel_session_service.dart';
+import '../../core/utils/storage/shared_preference.dart';
 
 class HotelPaymentScreen extends StatefulWidget {
   final String bookingCode;
@@ -57,6 +59,8 @@ class _HotelPaymentScreenState extends State<HotelPaymentScreen> {
     _razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, _handlePaymentSuccess);
     _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _handlePaymentError);
     _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleExternalWallet);
+
+    print(' Payment Screen received - Amount: ${widget.totalFare}, Currency: ${widget.currency}');
   }
 
   @override
@@ -71,6 +75,72 @@ class _HotelPaymentScreenState extends State<HotelPaymentScreen> {
     if (_isCreatingOrder) return 'Creating payment order...';
     if (_isBooking) return 'Confirming your hotel booking...';
     return '';
+  }
+
+// Get user's preferred currency (default: INR)
+  String get _preferredCurrency {
+    try {
+      return di.sl<PreferencesManager>().getPreferredCurrency() ?? 'INR';
+    } catch (_) {
+      return 'INR'; // Default fallback
+    }
+  }
+
+  // 🔹 Convert amount for DISPLAY only (payment still in INR)
+  // Convert amount for DISPLAY only (payment still in INR)
+  double _getDisplayAmount(double inrAmount) {
+    final preferred = _preferredCurrency;
+    if (preferred.toUpperCase() == 'INR') return inrAmount;
+
+    try {
+      // Convert INR → user's preferred currency
+      return CurrencyConverter.convert(
+        amount: inrAmount,
+        fromCurrency: 'INR',
+        toCurrency: preferred,
+      );
+    } catch (_) {
+      // If conversion fails, return the original INR amount
+      print('Currency conversion failed for $preferred, falling back to INR');
+      return inrAmount;
+    }
+  }
+
+  //  Format amount with correct symbol + Indian commas for INR
+  String _formatDisplayAmount(double amount, String currency) {
+    final code = currency.toUpperCase();
+    final intAmount = amount.toInt();
+
+    if (code == 'INR') return '₹${_indianFormat(intAmount)}';
+    if (code == 'USD') return '\$${intAmount.toStringAsFixed(0)}';
+    if (code == 'EUR') return '€${intAmount.toStringAsFixed(0)}';
+    if (code == 'GBP') return '£${intAmount.toStringAsFixed(0)}';
+    if (code == 'AED') return 'د.إ ${intAmount.toStringAsFixed(0)}';
+
+    return '$code ${intAmount.toStringAsFixed(0)}';
+  }
+
+  //  Indian number formatting: 3,154 style
+  String _indianFormat(int num) {
+    if (num < 1000) return num.toString();
+    final str = num.toString();
+    final lastThree = str.substring(str.length - 3);
+    final remaining = str.substring(0, str.length - 3);
+    var formatted = '';
+    for (int i = 0; i < remaining.length; i++) {
+      if (i > 0 && (remaining.length - i) % 2 == 0) formatted += ',';
+      formatted += remaining[i];
+    }
+    return '$formatted,$lastThree';
+  }
+
+  //  Get currency symbol for display
+  String _getCurrencySymbol(String currency) {
+    const symbols = {
+      'INR': '₹', 'USD': '\$', 'EUR': '€', 'GBP': '£', 'AED': 'د.إ',
+      'JPY': '¥', 'AUD': 'A\$', 'CAD': 'C\$',
+    };
+    return symbols[currency.toUpperCase()] ?? '${currency.toUpperCase()} ';
   }
 
   Future<void> _initiatePayment() async {
@@ -388,6 +458,8 @@ class _HotelPaymentScreenState extends State<HotelPaymentScreen> {
   }
 
   Widget _buildFareCard(BuildContext context) {
+    final sym = CurrencyConverter.getSymbol(widget.currency);
+
     return _card(
       context,
       child: Column(
@@ -406,7 +478,7 @@ class _HotelPaymentScreenState extends State<HotelPaymentScreen> {
             children: [
               Text('Total Amount', style: TextStyle(fontSize: context.bodyLarge, fontWeight: FontWeight.bold)),
               Text(
-                '₹${widget.totalFare.toStringAsFixed(2)}',
+                '${widget.totalFare.toStringAsFixed(2)}', // ← Direct use
                 style: TextStyle(fontSize: context.bodyLarge, fontWeight: FontWeight.bold, color: const Color(0xFFE71D36)),
               ),
             ],
@@ -487,7 +559,33 @@ class _HotelPaymentScreenState extends State<HotelPaymentScreen> {
     );
   }
 
+  // Widget _buildPayButton(BuildContext context) {
+  //   return SizedBox(
+  //     width: double.infinity,
+  //     height: context.buttonHeight + 10,
+  //     child: ElevatedButton(
+  //       onPressed: _isProcessing ? null : _initiatePayment,
+  //       style: ElevatedButton.styleFrom(
+  //         backgroundColor: _isProcessing ? Colors.grey : const Color(0xFFE71D36),
+  //         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(context.borderRadius)),
+  //         elevation: 2,
+  //       ),
+  //       child: _isProcessing
+  //           ? const SizedBox(
+  //               width: 20,
+  //               height: 20,
+  //               child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation(Colors.white)),
+  //             )
+  //           : Text(
+  //               'Pay ₹${widget.totalFare.toStringAsFixed(2)}',
+  //               style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: context.bodyLarge),
+  //             ),
+  //     ),
+  //   );
+  // }
   Widget _buildPayButton(BuildContext context) {
+    final sym = CurrencyConverter.getSymbol(widget.currency);
+
     return SizedBox(
       width: double.infinity,
       height: context.buttonHeight + 10,
@@ -500,14 +598,14 @@ class _HotelPaymentScreenState extends State<HotelPaymentScreen> {
         ),
         child: _isProcessing
             ? const SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation(Colors.white)),
-              )
+          width: 20,
+          height: 20,
+          child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation(Colors.white)),
+        )
             : Text(
-                'Pay ₹${widget.totalFare.toStringAsFixed(2)}',
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: context.bodyLarge),
-              ),
+          'Pay  ${widget.totalFare.toStringAsFixed(2)}', // ← Direct use
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: context.bodyLarge),
+        ),
       ),
     );
   }

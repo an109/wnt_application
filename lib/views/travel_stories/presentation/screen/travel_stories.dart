@@ -6,6 +6,7 @@ import '../../domain/entities/travel_stories_entity.dart';
 import '../bloc/travel_stories_bloc.dart';
 import '../bloc/travel_stories_event.dart';
 import '../bloc/travel_stories_state.dart';
+import 'all_travel_stories.dart';
 
 
 class TravelStoriesSection extends StatefulWidget {
@@ -64,19 +65,25 @@ class _TravelStoriesSectionState extends State<TravelStoriesSection> {
                       color: Colors.black87,
                     ),
                   ),
-                  // TextButton(
-                  //   onPressed: () {
-                  //     print('View all travel stories tapped');
-                  //   },
-                  //   child: Text(
-                  //     "See All",
-                  //     style: TextStyle(
-                  //       fontSize: context.bodyMedium,
-                  //       color: Theme.of(context).primaryColor,
-                  //       fontWeight: FontWeight.w600,
-                  //     ),
-                  //   ),
-                  // ),
+                  TextButton(
+                    onPressed: () {
+                      print('View all travel stories tapped');
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const AllTravelStoriesScreen(),
+                          ),
+                        );
+                    },
+                    child: Text(
+                      "See All",
+                      style: TextStyle(
+                        fontSize: context.bodyMedium,
+                        color: Theme.of(context).primaryColor,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
                 ],
               ),
 

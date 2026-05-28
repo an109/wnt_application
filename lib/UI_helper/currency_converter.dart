@@ -48,4 +48,15 @@ class CurrencyConverter {
     }
     return '$symbol$buffer';
   }
+
+  static String getSymbol(String currency) {
+    final symbols = {
+      'INR': '₹',
+      'USD': '\$',
+      'AED': 'د.إ',
+      'EUR': '€',
+      'GBP': '£',
+    };
+    return symbols[currency.toUpperCase()] ?? '$currency ';
+  }
 }

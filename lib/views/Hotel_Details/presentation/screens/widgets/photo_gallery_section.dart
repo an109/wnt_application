@@ -124,7 +124,7 @@ class _PhotoGallerySectionState extends State<PhotoGallerySection> {
                 });
               },
               child: Container(
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.all(5),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   shape: BoxShape.circle,
@@ -138,7 +138,7 @@ class _PhotoGallerySectionState extends State<PhotoGallerySection> {
                 child:  Icon(
                   isFavorite ? Icons.favorite : Icons.favorite_border,
                   color: isFavorite ? Colors.red : Colors.black,
-                  size: 20,
+                  size: 21,
                 ),
               ),
             ),

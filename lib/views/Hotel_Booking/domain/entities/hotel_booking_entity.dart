@@ -55,6 +55,7 @@ class RoomEntity extends Equatable {
   final String mealType;
   final bool isRefundable;
   final List<String> amenities;
+  final List<List<DayRateEntity>> dayRates;
 
   const RoomEntity({
     required this.name,
@@ -68,6 +69,7 @@ class RoomEntity extends Equatable {
     required this.mealType,
     required this.isRefundable,
     required this.amenities,
+    required this.dayRates,
   });
 
   @override
@@ -83,7 +85,30 @@ class RoomEntity extends Equatable {
     mealType,
     isRefundable,
     amenities,
+    dayRates,
   ];
+}
+
+extension RoomEntityExtension on RoomEntity {
+  double get basePrice {
+    if (dayRates.isNotEmpty &&
+        dayRates.first.isNotEmpty &&
+        dayRates.first.first.basePrice != null) {
+      return dayRates.first.first.basePrice;
+    }
+    return totalFare; // fallback to totalFare if dayRates not available
+  }
+}
+
+class DayRateEntity extends Equatable {
+  final double basePrice;
+
+  const DayRateEntity({
+    required this.basePrice,
+  });
+
+  @override
+  List<Object?> get props => [basePrice];
 }
 
 class CancelPolicyEntity extends Equatable {

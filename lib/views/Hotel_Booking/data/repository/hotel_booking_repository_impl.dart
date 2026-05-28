@@ -77,11 +77,38 @@ class HotelBookingRepositoryImpl implements HotelBookingRepository {
               mealType: room.mealType,
               isRefundable: room.isRefundable,
               amenities: room.amenities,
+              dayRates: _parseDayRates(room.dayRates),
             );
           }).toList(),
           rateConditions: hotel.rateConditions,
         );
       }).toList(),
     );
+  }
+
+  List<List<DayRateEntity>> _parseDayRates(dynamic dayRatesData) {
+    if (dayRatesData == null) return [];
+
+    final List<List<DayRateEntity>> result = [];
+
+    try {
+      // dayRatesData should be List<dynamic>
+      final dayRatesList = dayRatesData as List;
+
+      for (var dayGroup in dayRatesList) {
+        final List<DayRateEntity> group = [];
+        final dayGroupList = dayGroup as List;
+
+        for (var dayRate in dayGroupList) {
+          final basePrice = (dayRate['BasePrice'] as num?)?.toDouble() ?? 0.0;
+          group.add(DayRateEntity(basePrice: basePrice));
+        }
+        result.add(group);
+      }
+    } catch (e) {
+      print('Error parsing DayRates: $e');
+    }
+
+    return result;
   }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
+import '../../../../common_widgets/logo.dart';
 import '../model/wallet_model.dart';
 import '../widget/balance_card.dart';
 import '../widget/notificartion_setting.dart';
@@ -174,25 +175,35 @@ class _WalletScreenState extends State<WalletScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(
+        title: const WanderNovaLogo(scaleFactor: 0.6),
+        backgroundColor: Colors.white,
+        actions: [
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Image.asset("assets/images/wander_nova_logo.jpg", height: 35),
+          )
+        ],
+      ),
       backgroundColor: Colors.blue.shade50,
       body: SafeArea(
         child: CustomScrollView(
           slivers: [
             // App Bar
-            SliverAppBar(
-              floating: true,
-              backgroundColor: Colors.white,
-              elevation: 0,
-              title: Text(
-                'My Wallet Balance',
-                style: TextStyle(
-                  fontSize: context.titleLarge,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
+            // SliverAppBar(
+            //   floating: true,
+            //   backgroundColor: Colors.white,
+            //   elevation: 0,
+            //   title: Text(
+            //     'My Wallet Balance',
+            //     style: TextStyle(
+            //       fontSize: context.titleLarge,
+            //       fontWeight: FontWeight.bold,
+            //     ),
+            //   ),
+            // ),
 
-            // Header Section
+            // Header Section - FIXED: Removed the nested SliverToBoxAdapter
             SliverToBoxAdapter(
               child: Padding(
                 padding: context.horizontalPadding,
@@ -215,7 +226,7 @@ class _WalletScreenState extends State<WalletScreen> {
                         color: Colors.grey.shade600,
                       ),
                     ),
-                    SizedBox(height: context.gapLarge),
+                    SizedBox(height: context.gapLarge), // Fixed: Just use SizedBox directly
                   ],
                 ),
               ),
@@ -233,7 +244,8 @@ class _WalletScreenState extends State<WalletScreen> {
               ),
             ),
 
-            SizedBox(height: context.gapLarge),
+            // Spacing
+            SliverToBoxAdapter(child: SizedBox(height: context.gapLarge)),
 
             // Info Card
             SliverToBoxAdapter(
@@ -269,7 +281,8 @@ class _WalletScreenState extends State<WalletScreen> {
               ),
             ),
 
-            SizedBox(height: context.gapXLarge),
+            // Spacing
+            SliverToBoxAdapter(child: SizedBox(height: context.gapXLarge)),
 
             // Transactions Section
             SliverToBoxAdapter(
@@ -285,7 +298,8 @@ class _WalletScreenState extends State<WalletScreen> {
               ),
             ),
 
-            SizedBox(height: context.gapMedium),
+            // Spacing
+            SliverToBoxAdapter(child: SizedBox(height: context.gapMedium)),
 
             // Transaction Filters
             SliverToBoxAdapter(
@@ -304,7 +318,6 @@ class _WalletScreenState extends State<WalletScreen> {
                   },
                   onSearch: (query) {
                     setState(() => _searchQuery = query);
-                    // Debounce search
                     Future.delayed(const Duration(milliseconds: 500), () {
                       if (_searchQuery == query) {
                         _fetchTransactions(reset: true);
@@ -315,7 +328,8 @@ class _WalletScreenState extends State<WalletScreen> {
               ),
             ),
 
-            SizedBox(height: context.gapMedium),
+            // Spacing
+            SliverToBoxAdapter(child: SizedBox(height: context.gapMedium)),
 
             // Transaction List
             SliverToBoxAdapter(
@@ -333,7 +347,8 @@ class _WalletScreenState extends State<WalletScreen> {
               ),
             ),
 
-            SizedBox(height: context.gapMedium),
+            // Spacing
+            SliverToBoxAdapter(child: SizedBox(height: context.gapMedium)),
 
             // Download Statement
             if (_transactions.isNotEmpty)
@@ -346,7 +361,7 @@ class _WalletScreenState extends State<WalletScreen> {
                       TextButton.icon(
                         onPressed: _downloadStatement,
                         icon: const Icon(Icons.download, size: 18),
-                        label: Text('Download statement'),
+                        label: const Text('Download statement'),
                         style: TextButton.styleFrom(
                           foregroundColor: Colors.grey.shade700,
                         ),
@@ -365,14 +380,15 @@ class _WalletScreenState extends State<WalletScreen> {
                             borderRadius: BorderRadius.circular(context.borderRadiusSmall),
                           ),
                         ),
-                        child: Text('Last 30 days'),
+                        child: const Text('Last 30 days'),
                       ),
                     ],
                   ),
                 ),
               ),
 
-            SizedBox(height: context.gapLarge),
+            // Spacing
+            SliverToBoxAdapter(child: SizedBox(height: context.gapLarge)),
 
             // Notification Settings
             SliverToBoxAdapter(
@@ -385,7 +401,8 @@ class _WalletScreenState extends State<WalletScreen> {
               ),
             ),
 
-            SizedBox(height: context.gapXXLarge),
+            // Bottom spacing
+            SliverToBoxAdapter(child: SizedBox(height: context.gapXXLarge)),
           ],
         ),
       ),

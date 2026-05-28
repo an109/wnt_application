@@ -7,7 +7,9 @@ import '../views/Dashboard/profile/screen/Profile_screen.dart';
 import '../views/Dashboard/screen/make_payment.dart';
 import '../views/Dashboard/screen/support_screen.dart';
 import '../views/Dashboard/screen/upcoming_trip.dart';
+import '../views/Dashboard/wallet/screen/wallet_screen.dart';
 import '../views/login/login.dart';
+import '../views/travel_stories/presentation/screen/all_travel_stories.dart';
 
 class CustomDrawer extends StatefulWidget {
   const CustomDrawer({super.key});
@@ -81,7 +83,7 @@ class _CustomDrawerState extends State<CustomDrawer>
               //     ).animate(_fadeAnimation),
               //     child: _buildHeader(context),
               //   ),
-              // ),
+              // ),fwa
 
               // Menu Items
               Expanded(
@@ -335,7 +337,7 @@ class _CustomDrawerState extends State<CustomDrawer>
         context,
         icon: Icons.account_balance_wallet_outlined,
         title: 'My Wallet Balance',
-        onTap: () => _navigateTo(context, '/wallet'),
+        onTap: () => _navigateTo(context, '/wallet_balance'),
         trailing: Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
@@ -729,6 +731,33 @@ class _CustomDrawerState extends State<CustomDrawer>
             context,
             MaterialPageRoute(
               builder: (_) => MakePaymentScreen(),
+            ),
+          );
+          break;
+
+        case '/wallet_balance':
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => WalletScreen(),
+            ),
+          );
+          break;
+
+        case '/help':
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => SupportScreen(),
+            ),
+          );
+          break;
+
+        case '/stories':
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => AllTravelStoriesScreen(),
             ),
           );
           break;
