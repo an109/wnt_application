@@ -5,7 +5,7 @@ import '../../../../UI_helper/navigation_queue.dart';
 import '../../../../injection_container.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_state.dart';
-import '../../../login/login.dart';
+import '../../../login/presentation/screen/login.dart';
 import '../../domain/entities/TPollSearchEntity.dart';
 
 class TpollVehicleCard extends StatelessWidget {

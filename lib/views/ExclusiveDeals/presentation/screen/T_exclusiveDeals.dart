@@ -169,46 +169,46 @@ class _TransportExclusiveDealsSectionState
 
           SizedBox(height: context.gapMedium),
 
-          /// ARROWS + VIEW ALL
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  _buildArrowButton(
-                    context,
-                    icon: Icons.arrow_back_ios_new,
-                    onTap: () {
-                      _carouselController.previousPage();
-                    },
-                  ),
-                  SizedBox(width: context.gapMedium),
-                  _buildArrowButton(
-                    context,
-                    icon: Icons.arrow_forward_ios,
-                    onTap: () {
-                      _carouselController.nextPage();
-                    },
-                  ),
-                ],
-              ),
-              GestureDetector(
-                onTap: () {
-                  debugPrint("View all clicked");
-                },
-                child: Text(
-                  "View All",
-                  style: TextStyle(
-                    fontSize: context.titleSmall,
-                    fontWeight: FontWeight.w700,
-                    color: const Color(0xff005B7F),
-                  ),
-                ),
-              ),
-            ],
-          ),
-
-          SizedBox(height: context.gapLarge),
+          // /// ARROWS + VIEW ALL
+          // Row(
+          //   mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          //   children: [
+          //     Row(
+          //       children: [
+          //         _buildArrowButton(
+          //           context,
+          //           icon: Icons.arrow_back_ios_new,
+          //           onTap: () {
+          //             _carouselController.previousPage();
+          //           },
+          //         ),
+          //         SizedBox(width: context.gapMedium),
+          //         _buildArrowButton(
+          //           context,
+          //           icon: Icons.arrow_forward_ios,
+          //           onTap: () {
+          //             _carouselController.nextPage();
+          //           },
+          //         ),
+          //       ],
+          //     ),
+          //     GestureDetector(
+          //       onTap: () {
+          //         debugPrint("View all clicked");
+          //       },
+          //       child: Text(
+          //         "View All",
+          //         style: TextStyle(
+          //           fontSize: context.titleSmall,
+          //           fontWeight: FontWeight.w700,
+          //           color: const Color(0xff005B7F),
+          //         ),
+          //       ),
+          //     ),
+          //   ],
+          // ),
+          //
+          // SizedBox(height: context.gapLarge),
 
           /// BLOC BUILDER FOR API DATA
           BlocBuilder<ExclusiveDealsBloc, ExclusiveDealsState>(

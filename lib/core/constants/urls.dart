@@ -52,4 +52,10 @@ class Urls {
   // static const String exchangeRatePrimary = 'https://v6.exchangerate-api.com/v6/5dff9de8575af8e0fcbeb0c5/latest/USD';
   static const String exchangeRatePrimary = 'https://open.er-api.com/v6/latest/USD';
   static const String exchangeRateFallback = 'https://open.er-api.com/v6/latest/USD';
+
+  static const String sendOtp = '$basesUrl/auth/send-otp/';
+  static const String verifyOtp = '$basesUrl/auth/verify-otp/';
+  static const String signup = '$basesUrl/auth/signup/';
+  static const String login = '$basesUrl/auth/login/';
+  static const String walletBalance = '$basesUrl/wallet/balance/';
 }

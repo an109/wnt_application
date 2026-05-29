@@ -16,7 +16,7 @@ class DestinationCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: context.wp(85),
+      // width: context.wp(80),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(context.borderRadius),
         color: Colors.white,

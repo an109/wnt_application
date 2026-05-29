@@ -7,8 +7,8 @@ import '../views/Dashboard/profile/screen/Profile_screen.dart';
 import '../views/Dashboard/screen/make_payment.dart';
 import '../views/Dashboard/screen/support_screen.dart';
 import '../views/Dashboard/screen/upcoming_trip.dart';
-import '../views/Dashboard/wallet/screen/wallet_screen.dart';
-import '../views/login/login.dart';
+import '../views/wallet/wallet/screen/wallet_screen.dart';
+import '../views/login/presentation/screen/login.dart';
 import '../views/travel_stories/presentation/screen/all_travel_stories.dart';
 
 class CustomDrawer extends StatefulWidget {

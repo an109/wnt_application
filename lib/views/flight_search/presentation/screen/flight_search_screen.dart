@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import '../../../../../injection_container.dart';
+import '../../../../UI_helper/currency_converter.dart';
 import '../../../../common_widgets/custom_bottom_nav.dart';
 import '../../../../common_widgets/loadingScreen.dart';
 import '../../../../common_widgets/logo.dart';
+import '../../../../core/utils/storage/shared_preference.dart';
 import '../../domain/entities/flight_entity.dart';
 import '../../domain/entities/flight_search_request_entity.dart';
 import '../bloc/flight_search_bloc.dart';
@@ -388,6 +390,54 @@ class _FlightSearchScreenState extends State<FlightSearchScreen>
     );
   }
 
+  String _convertFlightPrice(double amount, String? apiCurrency) {
+    try {
+      final prefs = sl<PreferencesManager>();
+      final targetCurrency = prefs.getPreferredCurrency() ?? 'INR';
+
+      // Default to INR if no currency provided
+      final fromCurrency = apiCurrency ?? 'INR';
+
+      // Skip conversion if same currency
+      if (fromCurrency.toUpperCase() == targetCurrency.toUpperCase()) {
+        return _formatPrice(amount.toInt());
+      }
+
+      // Convert using cached rates
+      final converted = CurrencyConverter.convert(
+        amount: amount,
+        fromCurrency: fromCurrency,
+        toCurrency: targetCurrency,
+      );
+
+      // Format based on target currency
+      if (targetCurrency.toUpperCase() == 'INR') {
+        return '₹${_formatIndianNumber(converted.toInt())}';
+      }
+
+      final symbol = CurrencyConverter.getSymbol(targetCurrency);
+      return '$symbol${converted.toStringAsFixed(0)}';
+
+    } catch (e) {
+      print('FlightSearchScreen: Price conversion error: $e');
+      return _formatPrice(amount.toInt());
+    }
+  }
+
+  String _formatIndianNumber(int num) {
+    if (num < 1000) return num.toString();
+    final str = num.toString();
+    final lastThree = str.substring(str.length - 3);
+    final remaining = str.substring(0, str.length - 3);
+    var formatted = '';
+    for (int i = 0; i < remaining.length; i++) {
+      if (i > 0 && (remaining.length - i) % 2 == 0) {
+        formatted += ',';
+      }
+      formatted += remaining[i];
+    }
+    return '$formatted,$lastThree';
+  }
 
   Widget _buildFilterPanel(List<FlightEntity> filteredFlights, List<FlightEntity> allFlights) {
     return Container(
@@ -854,8 +904,16 @@ class _FlightSearchScreenState extends State<FlightSearchScreen>
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
+                            // Text(
+                            //   "${flight.currency ?? '₹'} ${_formatPrice((flight.totalFare ?? 0).toInt())}",
+                            //   style: TextStyle(
+                            //     fontSize: context.titleLarge,
+                            //     fontWeight: FontWeight.bold,
+                            //     color: const Color(0xFFFF3B30),
+                            //   ),
+                            // ),
                             Text(
-                              "${flight.currency ?? '₹'} ${_formatPrice((flight.totalFare ?? 0).toInt())}",
+                              _convertFlightPrice((flight.totalFare ?? 0).toDouble(), flight.currency),
                               style: TextStyle(
                                 fontSize: context.titleLarge,
                                 fontWeight: FontWeight.bold,
@@ -927,7 +985,8 @@ class _FlightSearchScreenState extends State<FlightSearchScreen>
       traceId: flight.traceId,
       resultIndex: flight.resultIndex,
       duration: "${flight.duration ?? '--'} min",
-      price: _formatPrice((flight.totalFare ?? 0).toInt()),
+      // price: _formatPrice((flight.totalFare ?? 0).toInt()),
+      price: _convertFlightPrice((flight.totalFare ?? 0).toDouble(), flight.currency),
     );
   }
 

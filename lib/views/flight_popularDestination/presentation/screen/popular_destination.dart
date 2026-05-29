@@ -27,7 +27,7 @@ class _PopularDestinationsState extends State<PopularDestinations> {
   void initState() {
     super.initState();
     print('PopularDestinations: initState called');
-    _pageController = PageController(viewportFraction: 0.85);
+    _pageController = PageController(viewportFraction: 0.93);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         print(
@@ -435,7 +435,7 @@ class _PopularDestinationsState extends State<PopularDestinations> {
                 'PopularDestinations: Building card for ${destination.name}',
               );
               return Padding(
-                padding: EdgeInsets.symmetric(horizontal: context.wp(2)),
+                padding: EdgeInsets.symmetric(horizontal: context.wp(1.4)),
                 child: DestinationCard(
                   destination: destination,
                   onViewDetail: () {

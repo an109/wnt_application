@@ -4,7 +4,7 @@ import '../../../../UI_helper/navigation_queue.dart';
 import '../../../../UI_helper/responsive_layout.dart';
 import '../../../../core/utils/storage/shared_preference.dart';
 import '../../../VisaApplication/Screen/visa_Application_screen.dart';
-import '../../../login/login.dart';
+import '../../../login/presentation/screen/login.dart';
 import '../../domain/entity/visaDestin_Entity.dart';
 
 class VisaApplyPopup extends StatefulWidget {

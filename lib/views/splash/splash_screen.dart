@@ -5,7 +5,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 
 import '../../UI_helper/navigation_queue.dart';
 import '../home/presentation/screens/home_screen.dart';
-import '../login/login.dart';
+import '../login/presentation/screen/login.dart';
 import '../auth/presentation/bloc/auth_bloc.dart';
 import '../auth/presentation/bloc/auth_state.dart';
 

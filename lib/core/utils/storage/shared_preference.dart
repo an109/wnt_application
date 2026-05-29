@@ -150,6 +150,34 @@ class PreferencesManager {
     return true;
   }
 
+
+  Future<void> saveRefreshToken(String token) async {
+    await _prefs?.setString('refresh_token', token);
+  }
+
+  Future<void> saveUserId(int id) async {
+    await _prefs?.setInt('user_id', id);
+  }
+
+  Future<void> saveUserEmail(String email) async {
+    await _prefs?.setString('user_email', email);
+  }
+
+  Future<void> saveUserName(String name) async {
+    await _prefs?.setString('user_name', name);
+  }
+
+  String? getRefreshToken() => _prefs?.getString('refresh_token');
+  int? getUserId() => _prefs?.getInt('user_id');
+
+  Future<void> clearAuth() async {
+    await _prefs?.remove('access_token');
+    await _prefs?.remove('refresh_token');
+    await _prefs?.remove('user_id');
+    await _prefs?.remove('user_email');
+    await _prefs?.remove('user_name');
+  }
+
   String? getPreferredCurrency() => _prefs.getString(_preferredCurrencyKey);
 
   Future<bool> savePreferredCurrency(String currency) => _prefs.setString(_preferredCurrencyKey, currency);

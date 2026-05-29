@@ -1,10 +1,11 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import 'package:wander_nova/common_widgets/custom_drawer.dart';
-import 'package:wander_nova/core/resources/app_colours.dart';
 import '../../../../common_widgets/logo.dart';
 import '../../../../injection_container.dart';
 import '../../../ExclusiveDeals/presentation/bloc/exclusive_deals_bloc.dart';
@@ -34,7 +35,6 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-
   @override
   void initState() {
     super.initState();
@@ -70,7 +70,7 @@ class _HomeScreenState extends State<HomeScreen> {
               width: context.hp(4.5),
               fit: BoxFit.contain,
             ),
-          )
+          ),
         ],
       ),
       body: RefreshIndicator(
@@ -79,7 +79,9 @@ class _HomeScreenState extends State<HomeScreen> {
           final dealsBloc = context.read<ExclusiveDealsBloc>();
 
           generalBloc.add(const LoadFaqList(domain: 'thewandernova.com'));
-          generalBloc.add(const LoadGeneralSettings(domain: 'thewandernova.com'));
+          generalBloc.add(
+            const LoadGeneralSettings(domain: 'thewandernova.com'),
+          );
           dealsBloc.add(const LoadExclusiveDeals());
 
           // If PopularDestinations has a GlobalKey or you're using context
@@ -90,7 +92,6 @@ class _HomeScreenState extends State<HomeScreen> {
         color: const Color(0xff005B7F),
         backgroundColor: Colors.white,
         child: Container(
-
           color: const Color(0xFFF8F9FA),
           child: CustomScrollView(
             physics: context.scrollPhysics,
@@ -102,7 +103,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       //  BOLDER & LARGER TITLE
-
                       SizedBox(height: context.hp(2)),
 
                       // ================= HERO CARD =================
@@ -150,8 +150,9 @@ class _HomeScreenState extends State<HomeScreen> {
               const SliverToBoxAdapter(child: TravelStoriesSection()),
               SliverToBoxAdapter(
                 child: BlocProvider(
-                  create: (_) => sl<GeneralSettingsBloc>()
-                    ..add(const LoadFaqList(domain: 'thewandernova.com')),
+                  create: (_) =>
+                      sl<GeneralSettingsBloc>()
+                        ..add(const LoadFaqList(domain: 'thewandernova.com')),
                   child: const FAQSection(),
                 ),
               ),
@@ -161,7 +162,9 @@ class _HomeScreenState extends State<HomeScreen> {
               SliverToBoxAdapter(
                 child: BlocProvider(
                   create: (_) => sl<GeneralSettingsBloc>()
-                    ..add(const LoadGeneralSettings(domain: 'thewandernova.com')),
+                    ..add(
+                      const LoadGeneralSettings(domain: 'thewandernova.com'),
+                    ),
                   child: const AboutCompanySection(),
                 ),
               ),
@@ -169,7 +172,9 @@ class _HomeScreenState extends State<HomeScreen> {
               SliverToBoxAdapter(
                 child: BlocProvider(
                   create: (_) => sl<GeneralSettingsBloc>()
-                    ..add(const LoadGeneralSettings(domain: 'thewandernova.com')),
+                    ..add(
+                      const LoadGeneralSettings(domain: 'thewandernova.com'),
+                    ),
                   child: const ServicesInfoSection(),
                 ),
               ),
@@ -193,114 +198,216 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildHeroCard(BuildContext context) {
     return Container(
       width: double.infinity,
-
       padding: EdgeInsets.all(context.wp(5)),
-
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF1E293B), Color(0xFF334155)],
+          colors: [
+            Color(0xFF1E3C72), // Dark Blue
+            Color(0xFF2A5298), // Medium Blue
+            Color(0xFF7E8BA3), // Light Blue Grey
+          ],
         ),
-
-        borderRadius: BorderRadius.circular(26),
-
+        borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.12),
+            color: const Color(0xFF1E3C72).withOpacity(0.4),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
         ],
       ),
-
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Stack(
+        clipBehavior: Clip.none,
         children: [
-          Text(
-            "Discover Your Next Journey ✈",
-            style: TextStyle(
-              fontSize: context.titleLarge,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
+          // Animated Background Elements
+          Positioned(top: -20, right: -20, child: _buildAnimatedCloud(context)),
+          Positioned(
+            bottom: 40,
+            left: -30,
+            child: _buildAnimatedCloud(context, delay: 500),
           ),
+          Positioned(top: 100, right: 50, child: _buildAnimatedPlane(context)),
 
-          SizedBox(height: context.hp(1)),
-
-          Text(
-            "Flights, hotels, holidays and more in one place.",
-            style: TextStyle(
-              fontSize: context.bodyMedium,
-              color: Colors.white.withOpacity(0.75),
-              height: 1.4,
-            ),
-          ),
-
-          SizedBox(height: context.hp(2.2)),
-
-          GestureDetector(
-            onTap: () {
-              Navigator.push(context, MaterialPageRoute(builder: (_) => FlightScreen()));
-            },
-            child: Container(
-              padding: EdgeInsets.symmetric(
-                horizontal: context.wp(4),
-                vertical: context.hp(1.5),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                "Discover Your Next\nJourney ✈️",
+                style: TextStyle(
+                  fontSize: context.titleLarge * 1.3,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white,
+                  height: 1.2,
+                  shadows: [
+                    Shadow(
+                      color: Colors.black.withOpacity(0.3),
+                      blurRadius: 10,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
               ),
-
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.12),
-                borderRadius: BorderRadius.circular(50),
-                border: Border.all(color: Colors.white.withOpacity(0.1)),
+              SizedBox(height: context.hp(1.5)),
+              Text(
+                "Flights, hotels and more — all in one place.",
+                style: TextStyle(
+                  fontSize: context.bodyMedium,
+                  color: Colors.white.withOpacity(0.95),
+                  height: 1.4,
+                  shadows: [
+                    Shadow(
+                      color: Colors.black.withOpacity(0.2),
+                      blurRadius: 5,
+                      offset: const Offset(0, 1),
+                    ),
+                  ],
+                ),
               ),
+              SizedBox(height: context.hp(3)),
 
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.search_rounded,
-                    color: Colors.white.withOpacity(0.7),
-                  ),
-
-                  SizedBox(width: context.wp(2.5)),
-
-                  Expanded(
-                    child: Text(
-                      "Search destinations...",
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.7),
-                        fontWeight: FontWeight.w500,
+              // Search Bar with Animation
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(50),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.2),
+                      blurRadius: 15,
+                      offset: const Offset(0, 5),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        decoration: InputDecoration(
+                          hintText: "Search destinations or deals",
+                          hintStyle: TextStyle(
+                            color: Colors.grey.shade400,
+                            fontSize: context.bodyMedium,
+                          ),
+                          border: InputBorder.none,
+                          contentPadding: EdgeInsets.symmetric(
+                            horizontal: context.wp(5),
+                            vertical: context.hp(2),
+                          ),
+                          prefixIcon: Icon(
+                            Icons.search_rounded,
+                            color: const Color(0xFF2A5298),
+                            size: context.iconMedium,
+                          ),
+                        ),
+                        style: TextStyle(
+                          fontSize: context.bodyMedium,
+                          color: Colors.black87,
+                        ),
                       ),
                     ),
-                  ),
-
-                  Container(
-                    padding: const EdgeInsets.all(8),
-
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
+                    Container(
+                      margin: EdgeInsets.only(right: 4),
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [Color(0xFF1E3C72), Color(0xFF2A5298)],
+                        ),
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Color(0xFF1E3C72),
+                            blurRadius: 10,
+                            offset: Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const FlightScreen(),
+                              ),
+                            );
+                          },
+                          borderRadius: BorderRadius.circular(50),
+                          child: Padding(
+                            padding: EdgeInsets.all(context.wp(2.5)),
+                            child: Icon(
+                              Icons.arrow_forward_ios_rounded,
+                              color: Colors.white,
+                              size: context.iconSmall,
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
+                  ],
+                ),
+              ).animate().fadeIn(duration: 600.ms).slideX(begin: 0.1, end: 0),
+              SizedBox(height: context.hp(2)),
 
-                    child:  Icon(
-                      Icons.arrow_forward_ios_rounded,
-                      size: 14,
-                      color: AppColors.primary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+              // Animated Destination Chips
+            ],
           ),
         ],
       ),
     );
   }
 
+  Widget _buildAnimatedCloud(BuildContext context, {int delay = 0}) {
+    return TweenAnimationBuilder(
+      tween: Tween<double>(begin: 0, end: 1),
+      duration: const Duration(milliseconds: 1500),
+      curve: Curves.easeOut,
+      builder: (context, double value, child) {
+        return Transform.translate(
+          offset: Offset(-10 * (1 - value), 0),
+          child: Opacity(
+            opacity: value * 0.3,
+            child: Icon(
+              Icons.cloud_rounded,
+              color: Colors.white,
+              size: context.isMobile ? 60 : 80,
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildAnimatedPlane(BuildContext context) {
+    return TweenAnimationBuilder(
+      tween: Tween<double>(begin: 0, end: 1),
+      duration: const Duration(milliseconds: 2000),
+      curve: Curves.easeInOut,
+      builder: (context, double value, child) {
+        return Transform.translate(
+          offset: Offset(0, -5 * sin(value * 3.14159 * 2)),
+          child: Transform.rotate(
+            angle: sin(value * 3.14159 * 2) * 0.1,
+            child: Opacity(
+              opacity: 0.4,
+              child: Icon(
+                Icons.flight_rounded,
+                color: Colors.white,
+                size: context.isMobile ? 40 : 50,
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Widget _buildMainServicesGrid(BuildContext context) {
     final services = [
       ServiceItem(
-        icon: Icons.flight_takeoff,
+        assetIcon: 'assets/icons/flight.png',
+        // icon: Icons.flight_takeoff,
         label: 'Flights',
         color: const Color(0xFF4A90E2),
         onTap: () => Navigator.push(
@@ -309,7 +416,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
       ServiceItem(
-        icon: Icons.hotel,
+        assetIcon: 'assets/icons/hotel.png',
         label: 'Hotels',
         color: const Color(0xFF50C878),
         onTap: () => Navigator.push(
@@ -318,7 +425,8 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
       ServiceItem(
-        icon: Icons.assignment_turned_in,
+        // icon: Icons.assignment_turned_in,
+        assetIcon: 'assets/icons/visa.png',
         label: 'Visa',
         color: const Color(0xFF8E44AD),
         onTap: () => Navigator.push(
@@ -327,7 +435,8 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
       ServiceItem(
-        icon: Icons.beach_access,
+        // icon: Icons.beach_access,
+        assetIcon: 'assets/icons/holiday.png',
         label: 'Holidays',
         color: const Color(0xFFFF6B6B),
         onTap: () => Navigator.push(
@@ -346,7 +455,9 @@ class _HomeScreenState extends State<HomeScreen> {
           padding: EdgeInsets.zero,
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 4,
-            childAspectRatio: context.isMobile ? 0.75 : (context.isTablet ? 0.8 : 0.85),
+            childAspectRatio: context.isMobile
+                ? 0.75
+                : (context.isTablet ? 0.8 : 0.85),
             crossAxisSpacing: context.wp(1.5),
             mainAxisSpacing: context.hp(1),
           ),
@@ -375,14 +486,17 @@ class _HomeScreenState extends State<HomeScreen> {
               borderRadius: BorderRadius.circular(context.isMobile ? 16 : 18),
               splashColor: service.color.withOpacity(0.15),
               highlightColor: service.color.withOpacity(0.08),
-              child: Container(  // Changed from AnimatedContainer to Container
+              child: Container(
+                // Changed from AnimatedContainer to Container
                 padding: EdgeInsets.symmetric(
                   vertical: context.hp(2.2),
                   horizontal: context.gapSmall,
                 ),
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(context.isMobile ? 16 : 18),
+                  borderRadius: BorderRadius.circular(
+                    context.isMobile ? 16 : 18,
+                  ),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withOpacity(0.08),
@@ -410,14 +524,14 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
-                  mainAxisSize: MainAxisSize.min,  // Use min instead of max
+                  mainAxisSize: MainAxisSize.min, // Use min instead of max
                   children: [
                     Stack(
                       clipBehavior: Clip.none,
                       children: [
                         Positioned(
                           left: 3,
-                          top: 4,
+                          top: 3,
                           child: Icon(
                             service.icon,
                             color: service.color.withOpacity(0.2),
@@ -433,21 +547,28 @@ class _HomeScreenState extends State<HomeScreen> {
                             size: context.iconXLarge,
                           ),
                         ),
-                        ShaderMask(
-                          shaderCallback: (bounds) => LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              service.color,
-                              service.color.withOpacity(0.7),
-                            ],
-                          ).createShader(bounds),
-                          child: Icon(
-                            service.icon,
-                            color: Colors.white,
-                            size: context.iconXLarge,
-                          ),
-                        ),
+                        service.assetIcon != null
+                            ? Image.asset(
+                                service.assetIcon!,
+                                height: context.iconXLarge + 14,
+                                width: context.iconXLarge + 14,
+                                fit: BoxFit.contain,
+                              )
+                            : ShaderMask(
+                                shaderCallback: (bounds) => LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    service.iconColor,
+                                    service.iconColor.withOpacity(0.7),
+                                  ],
+                                ).createShader(bounds),
+                                child: Icon(
+                                  service.icon,
+                                  color: Colors.white,
+                                  size: context.iconXLarge,
+                                ),
+                              ),
                         Positioned(
                           left: -2,
                           top: -2,
@@ -483,70 +604,44 @@ class _HomeScreenState extends State<HomeScreen> {
       },
     );
   }
+
   // ===== ADDITIONAL SERVICES GRID =====
   Widget _buildAdditionalServicesGrid(BuildContext context) {
     final services = [
       ServiceItem(
-        icon: Icons.local_taxi,
+        icon: Icons.local_taxi_outlined,
         label: 'Airport Cabs',
-        color: const Color(0xFF9B59B6),
+        color: const Color(0xFF1E3C72),
         onTap: () => Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => const TransportBookingScreen()),
         ),
       ),
-      // ServiceItem(
-      //   icon: Icons.local_taxi,
-      //   label: 'Airport Cabs',
-      //   color: const Color(0xFF9B59B6),
-      //   onTap: () => _showComingSoon(context, 'Airport Cabs'),
-      // ),
       ServiceItem(
-        icon: Icons.home_work,
+        icon: Icons.home_work_outlined,
         label: 'Villas & Homestays',
-        color: const Color(0xFF1ABC9C),
+        color: const Color(0xFF1E3C72),
         onTap: () => Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => const HotelBookingScreen()),
         ),
       ),
-      // ServiceItem(
-      //   icon: Icons.directions_car,
-      //   label: 'Outstation Cabs',
-      //   color: const Color(0xFFE74C3C),
-      //   onTap: () => Navigator.push(
-      //     context,
-      //     MaterialPageRoute(builder: (_) => const TransportBookingScreen()),
-      //   ),
-      // ),
-      // ServiceItem(
-      //   icon: Icons.attach_money,
-      //   label: 'Forex Card',
-      //   color: const Color(0xFF34495E),
-      //   onTap: () => _showComingSoon(context, 'Forex Card'),
-      // ),
       ServiceItem(
-        icon: Icons.emoji_events,
+        icon: Icons.emoji_events_outlined,
         label: 'Tours & Attractions',
-        color: const Color(0xFFF39C12),
+        color: const Color(0xFF1E3C72),
         badge: 'NEW',
         onTap: () => _showComingSoon(context, 'Tours & Attractions'),
       ),
       ServiceItem(
-        icon: Icons.access_time,
+        icon: Icons.access_time_outlined,
         label: 'Hourly Stays',
-        color: const Color(0xFF16A085),
+        color: const Color(0xFF1E3C72),
         onTap: () => Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => const HotelBookingScreen()),
         ),
       ),
-      // ServiceItem(
-      //   icon: Icons.shield_outlined,
-      //   label: 'Travel Insurance',
-      //   color: const Color(0xFF27AE60),
-      //   onTap: () => _showComingSoon(context, 'Travel Insurance'),
-      // ),
     ];
 
     return GridView.builder(
@@ -555,7 +650,9 @@ class _HomeScreenState extends State<HomeScreen> {
       padding: EdgeInsets.zero,
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 4,
-        childAspectRatio: context.isMobile ? 0.85 : (context.isTablet ? 0.9 : 1.0),
+        childAspectRatio: context.isMobile
+            ? 0.85
+            : (context.isTablet ? 0.9 : 1.0),
         crossAxisSpacing: context.wp(2),
         mainAxisSpacing: context.hp(2),
       ),
@@ -593,7 +690,9 @@ class _HomeScreenState extends State<HomeScreen> {
                         setState(() {});
                       });
                     },
-                    borderRadius: BorderRadius.circular(context.isMobile ? 16 : 18),
+                    borderRadius: BorderRadius.circular(
+                      context.isMobile ? 16 : 18,
+                    ),
                     splashColor: service.color.withOpacity(0.15),
                     highlightColor: service.color.withOpacity(0.08),
                     child: AnimatedContainer(
@@ -602,7 +701,9 @@ class _HomeScreenState extends State<HomeScreen> {
                       padding: EdgeInsets.all(context.gapSmall),
                       decoration: BoxDecoration(
                         color: Colors.white,
-                        borderRadius: BorderRadius.circular(context.isMobile ? 16 : 18),
+                        borderRadius: BorderRadius.circular(
+                          context.isMobile ? 16 : 18,
+                        ),
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black.withOpacity(0.1),
@@ -695,20 +796,29 @@ class _HomeScreenState extends State<HomeScreen> {
                                           ),
                                           decoration: BoxDecoration(
                                             gradient: const LinearGradient(
-                                              colors: [Color(0xFFE74C3C), Color(0xFFC0392B)],
+                                              colors: [
+                                                Color(0xFFE74C3C),
+                                                Color(0xFFC0392B),
+                                              ],
                                               begin: Alignment.topLeft,
                                               end: Alignment.bottomRight,
                                             ),
-                                            borderRadius: BorderRadius.circular(10),
+                                            borderRadius: BorderRadius.circular(
+                                              10,
+                                            ),
                                             boxShadow: [
                                               BoxShadow(
-                                                color: Colors.red.withOpacity(0.4),
+                                                color: Colors.red.withOpacity(
+                                                  0.4,
+                                                ),
                                                 blurRadius: 6,
                                                 offset: const Offset(0, 2),
                                               ),
                                             ],
                                             border: Border.all(
-                                              color: Colors.white.withOpacity(0.5),
+                                              color: Colors.white.withOpacity(
+                                                0.5,
+                                              ),
                                               width: 1.5,
                                             ),
                                           ),
@@ -765,24 +875,29 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _showComingSoon(BuildContext context, String feature) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$feature coming soon!')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('$feature coming soon!')));
   }
 }
 
-// ===== SERVICE ITEM MODEL =====
 class ServiceItem {
-  final IconData icon;
+  final IconData? icon;
+  final String? assetIcon;
   final String label;
   final Color color;
+  final Color? backgroundColor;
   final String? badge;
   final VoidCallback onTap;
 
+  Color get iconColor => color ?? Colors.blue;
+
   ServiceItem({
-    required this.icon,
+    this.icon,
+    this.assetIcon,
     required this.label,
     required this.color,
+    this.backgroundColor,
     this.badge,
     required this.onTap,
   });
