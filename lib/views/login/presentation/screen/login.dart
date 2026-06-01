@@ -1,12 +1,14 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import 'package:wander_nova/core/resources/app_colours.dart';
 import 'package:wander_nova/injection_container.dart' as di;
 
 import '../../../../UI_helper/contact_type.dart';
 import '../../../../UI_helper/navigation_queue.dart';
+import '../../../../core/utils/storage/shared_preference.dart';
 import '../../../Send_otp/presentation/bloc/send_otp_bloc.dart';
 import '../../../Send_otp/presentation/bloc/send_otp_event.dart';
 import '../../../Send_otp/presentation/bloc/send_otp_state.dart';
@@ -16,7 +18,6 @@ import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_event.dart';
 import '../../../auth/presentation/bloc/auth_state.dart';
 import '../../../auth/presentation/sdk/google_sign_in_service.dart';
-
 
 class LoginSignupScreen extends StatefulWidget {
   const LoginSignupScreen({super.key});
@@ -146,6 +147,28 @@ class _LoginSignupScreenState extends State<LoginSignupScreen> {
             child: BlocListener<AuthBloc, AuthState>(
               listener: (context, state) {
                 if (state is AuthAuthenticated) {
+                  final accessToken = state
+                      .user
+                      ?.accessToken; // Check your AuthState class structure
+                  final refreshToken = state.user?.refreshToken;
+
+                  if (accessToken != null && accessToken.isNotEmpty) {
+                    SharedPreferences.getInstance().then((prefs) async {
+                      final prefManager = await PreferencesManager.create(
+                        prefs,
+                      );
+                      await prefManager.saveToken(accessToken);
+
+                      if (refreshToken != null && refreshToken.isNotEmpty) {
+                        await prefManager.saveRefreshToken(refreshToken);
+                      }
+
+                      print(' Token saved: ${prefManager.getToken()}');
+                    });
+                  } else {
+                    print(' No access token in AuthAuthenticated state');
+                    print('State user: ${state.user}');
+                  }
                   print('LoginScreen: Auth successful, navigating...');
 
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -403,51 +426,28 @@ class _LoginSignupScreenState extends State<LoginSignupScreen> {
                                     width: double.infinity,
                                     height: context.hp(6),
                                     child: ElevatedButton(
-                                      // onPressed: () {
-                                      //   final input = _emailController.text
-                                      //       .trim();
-                                      //   if (input.isEmpty) {
-                                      //     ScaffoldMessenger.of(
-                                      //       context,
-                                      //     ).showSnackBar(
-                                      //       const SnackBar(
-                                      //         content: Text(
-                                      //           'Please enter email or phone number',
-                                      //         ),
-                                      //       ),
-                                      //     );
-                                      //     return;
-                                      //   }
-                                      //
-                                      //   // Detect if input is email or phone
-                                      //   final isEmail = RegExp(
-                                      //     r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
-                                      //   ).hasMatch(input);
-                                      //   final contactType = isEmail
-                                      //       ? ContactType.email
-                                      //       : ContactType.phone;
-                                      //
-                                      //   // Trigger the BLoC event
-                                      //   context.read<SendOtpBloc>().add(
-                                      //     SendOtpRequested(
-                                      //       contact: input,
-                                      //       type: contactType,
-                                      //       purpose: 'signup',
-                                      //     ),
-                                      //   );
-                                      // },
-// BUTTON - onPressed section
                                       onPressed: () {
-                                        final input = _emailController.text.trim();
+                                        final input = _emailController.text
+                                            .trim();
                                         if (input.isEmpty) {
-                                          ScaffoldMessenger.of(context).showSnackBar(
-                                            const SnackBar(content: Text('Please enter email or phone number')),
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            const SnackBar(
+                                              content: Text(
+                                                'Please enter email or phone number',
+                                              ),
+                                            ),
                                           );
                                           return;
                                         }
 
-                                        final isEmail = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(input);
-                                        final contactType = isEmail ? ContactType.email : ContactType.phone;
+                                        final isEmail = RegExp(
+                                          r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                                        ).hasMatch(input);
+                                        final contactType = isEmail
+                                            ? ContactType.email
+                                            : ContactType.phone;
 
                                         // KEY CHANGE: Check if Login or Signup
                                         if (_isLogin) {
@@ -455,12 +455,13 @@ class _LoginSignupScreenState extends State<LoginSignupScreen> {
                                           showDialog(
                                             context: context,
                                             barrierDismissible: true,
-                                            builder: (dialogContext) => LoginPasswordPopup(
-                                              contact: input,
-                                              contactType: contactType,
-                                            ),
+                                            builder: (dialogContext) =>
+                                                LoginPasswordPopup(
+                                                  contact: input,
+                                                  contactType: contactType,
+                                                ),
                                           );
-                                        }  else {
+                                        } else {
                                           // SIGNUP FLOW: Send OTP
                                           context.read<SendOtpBloc>().add(
                                             SendOtpRequested(

@@ -5,7 +5,9 @@ import 'package:wander_nova/views/Exchange_rate/presentation/bloc/exchange_rate_
 import 'package:wander_nova/views/Exchange_rate/presentation/bloc/exchange_rate_event.dart';
 import 'package:wander_nova/views/ExclusiveDeals/presentation/bloc/exclusive_deals_bloc.dart';
 import 'package:wander_nova/views/Holiday_destination/presentation/bloc/holiday_destination_bloc.dart';
+import 'package:wander_nova/views/LogOut/presentation/bloc/logout_bloc.dart';
 import 'package:wander_nova/views/MainApi/presentation/bloc/general_setting_bloc.dart';
+import 'package:wander_nova/views/Profile/presentation/bloc/profile_bloc.dart';
 import 'package:wander_nova/views/TPoll_Search/presentation/bloc/TPoll_SearchBloc.dart';
 import 'package:wander_nova/views/TResevation/presentation/bloc/TReservation_bloc.dart';
 import 'package:wander_nova/views/TResult/presentation/bloc/TResult_bloc.dart';
@@ -91,6 +93,8 @@ class MyApp extends StatelessWidget {
         BlocProvider(create: (_) => di.sl<SignupBloc>()),
         BlocProvider(create: (_) => di.sl<LoginBloc>()),
         BlocProvider(create: (_) => di.sl<WalletBloc>()),
+        BlocProvider(create: (_) => di.sl<LogoutBloc>()),
+        BlocProvider(create: (_) => di.sl<ProfileBloc>()),
       ],
 
       child: MaterialApp(

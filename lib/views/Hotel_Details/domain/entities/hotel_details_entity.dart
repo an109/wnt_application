@@ -1,5 +1,6 @@
 import 'package:equatable/equatable.dart';
 import 'package:wander_nova/views/Hotel_Details/domain/entities/rooms_entity.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 class HotelDetailsEntity extends Equatable {
   final String hotelCode;
@@ -124,4 +125,23 @@ class HotelFeeEntity extends Equatable {
     chargeType,
     feesInclusion,
   ];
+}
+
+// lib/features/hotel_details/domain/entities/hotel_details_entity.dart
+extension HotelDetailsEntityExtension on HotelDetailsEntity {
+  LatLng? get hotelLatLng {
+    // Your API returns "latitude|longitude" format
+    final mapString = map; // e.g., "9.584293|76.422252"
+    if (mapString.isEmpty || !mapString.contains('|')) return null;
+
+    try {
+      final parts = mapString.split('|');
+      final lat = double.parse(parts[0].trim());
+      final lng = double.parse(parts[1].trim());
+      return LatLng(lat, lng);
+    } catch (e) {
+      print('Error parsing map coordinates: $e');
+      return null;
+    }
+  }
 }

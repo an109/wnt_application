@@ -2,11 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../UI_helper/responsive_layout.dart';
 import '../core/utils/storage/shared_preference.dart';
+import '../injection_container.dart';
 import '../views/Dashboard/dashboardScreen.dart';
 import '../views/Dashboard/profile/screen/Profile_screen.dart';
 import '../views/Dashboard/screen/make_payment.dart';
 import '../views/Dashboard/screen/support_screen.dart';
 import '../views/Dashboard/screen/upcoming_trip.dart';
+import '../views/LogOut/presentation/bloc/logout_bloc.dart';
+import '../views/LogOut/presentation/bloc/logout_event.dart';
+import '../views/LogOut/presentation/bloc/logout_state.dart';
 import '../views/wallet/wallet/screen/wallet_screen.dart';
 import '../views/login/presentation/screen/login.dart';
 import '../views/travel_stories/presentation/screen/all_travel_stories.dart';
@@ -838,18 +842,49 @@ class _CustomDrawerState extends State<CustomDrawer>
           ),
           ElevatedButton(
             onPressed: () async {
-              final prefs = await SharedPreferences.getInstance();
-              final prefManager = await PreferencesManager.create(prefs);
-              await prefManager.clearUserData();
-              if (mounted) {
-                Navigator.pop(ctx);
-                setState(() {
-                  _isLoggedIn = false;
-                  _userName = '';
-                  _userEmail = '';
-                  _userAvatar = null;
-                });
-              }
+              Navigator.pop(ctx); // Close dialog
+
+              final logoutBloc = sl<LogoutBloc>();
+
+              // Use firstWhere to handle only the first relevant state (avoids subscription reference issue)
+              logoutBloc.stream.firstWhere(
+                    (state) => state is LogoutSuccess || state is LogoutFailed,
+              ).then((state) {
+                if (state is LogoutSuccess) {
+                  print('Logout API successful: ${state.logoutEntity.message}');
+
+                  // Clear local user data only after successful API call
+                  SharedPreferences.getInstance().then((prefs) async {
+                    final prefManager = await PreferencesManager.create(prefs);
+                    await prefManager.clearUserData();
+
+                    if (mounted) {
+                      setState(() {
+                        _isLoggedIn = false;
+                        _userName = '';
+                        _userEmail = '';
+                        _userAvatar = null;
+                      });
+                    }
+                  });
+                }
+                else if (state is LogoutFailed) {
+                  print('Logout API failed: ${state.error.message}');
+
+                  // Optional: Show error message to user
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Logout failed: ${state.error.message ?? 'Please try again'}'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                }
+              });
+
+              // Trigger the logout API call
+              logoutBloc.add(LogoutRequested());
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red,

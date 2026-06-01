@@ -20,11 +20,22 @@ class GoogleAuthResponseModel {
   });
 
   factory GoogleAuthResponseModel.fromJson(Map<String, dynamic> json) {
+    Map<String, dynamic>? userWithTokens;
+
+    if (json['user'] != null) {
+      // Start with user data
+      userWithTokens = Map<String, dynamic>.from(json['user']);
+
+      // Add tokens to the same map
+      if (json['tokens'] != null) {
+        userWithTokens['tokens'] = json['tokens'];
+      }
+    }
+
     return GoogleAuthResponseModel(
       success: json['success'],
       message: json['message'],
-      // FIX: Look for 'user' field, not 'data'
-      user: json['user'] != null ? UserEntity.fromJson(json['user']) : null,
+      user: userWithTokens != null ? UserEntity.fromJson(userWithTokens) : null,
       error: json['error'],
       tokens: json['tokens'],
       created: json['created'],

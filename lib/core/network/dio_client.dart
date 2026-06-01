@@ -35,8 +35,28 @@ class DioClient {
           final _prefs = sl<PreferencesManager>();
           final token = _prefs.getToken();
 
+          if (options.path.contains('auth/logout')) {
+            print('LOGOUT DEBUG: token retrieved = ${token != null ? 'EXISTS' : 'NULL'}, isEmpty = ${token?.isEmpty ?? true}');
+            if (token != null && token.isNotEmpty) {
+              print('LOGOUT DEBUG: first 20 chars of token = ${token.substring(0, token.length > 20 ? 20 : token.length)}...');
+            }
+          }
+
+          if (options.path.contains('auth/')) {
+            final rawToken = _prefs.getString('auth_token');
+            print('AUTH DEBUG: path=${options.path}, tokenExists=${token != null}, rawTokenEmpty=${rawToken?.isEmpty}');
+          }
+
           if (token != null && token.isNotEmpty) {
             options.headers['Authorization'] = 'Bearer $token';
+
+            if (options.path.contains('auth/logout')) {
+              print('LOGOUT DEBUG: Authorization header set = true');
+            }
+          } else {
+            if (options.path.contains('auth/logout')) {
+              print('LOGOUT DEBUG: SKIPPED setting Authorization header - token missing');
+            }
           }
           return handler.next(options);
         },

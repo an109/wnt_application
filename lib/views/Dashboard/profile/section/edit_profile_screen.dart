@@ -1,10 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
+import 'package:wander_nova/views/Profile/presentation/bloc/profile_bloc.dart';
+import 'package:wander_nova/views/Profile/presentation/bloc/profile_event.dart';
 
+import '../../../Profile/domain/entities/ProfileEntity.dart';
+import '../../../Profile/presentation/bloc/profile_state.dart';
 import '../widgets/profile_dropdown_field.dart';
 import '../widgets/profile_phone_field.dart';
 import '../widgets/profile_section_title.dart';
 import '../widgets/profile_text_field.dart';
+
+import '../../../../injection_container.dart';
 
 class EditProfileScreen extends StatefulWidget {
   final Map<String, dynamic>? userData;
@@ -15,12 +22,12 @@ class EditProfileScreen extends StatefulWidget {
   });
 
   @override
-  State<EditProfileScreen> createState() =>
-      _EditProfileScreenState();
+  State<EditProfileScreen> createState() => _EditProfileScreenState();
 }
 
-class _EditProfileScreenState
-    extends State<EditProfileScreen> {
+class _EditProfileScreenState extends State<EditProfileScreen> {
+  late ProfileBloc _profileBloc;
+
   late TextEditingController firstNameController;
   late TextEditingController lastNameController;
   late TextEditingController addressController;
@@ -29,6 +36,10 @@ class _EditProfileScreenState
   late TextEditingController pinController;
   late TextEditingController phoneController;
   late TextEditingController dobController;
+  late TextEditingController emailController; // Added for clean disposal
+
+  bool newsletterSubscribed = true;
+  bool smsAlertsEnabled = false;
 
   String title = "Ms";
   String country = "India";
@@ -38,27 +49,19 @@ class _EditProfileScreenState
   void initState() {
     super.initState();
 
-    firstNameController = TextEditingController(
-      text: widget.userData?['name'] ?? '',
-    );
+    // Initialize BLoC and fetch profile
+    _profileBloc = sl<ProfileBloc>();
+    _profileBloc.add(const GetProfileEvent());
 
+    firstNameController = TextEditingController(text: widget.userData?['name'] ?? '');
     lastNameController = TextEditingController();
-
-    addressController = TextEditingController(
-      text: widget.userData?['address'] ?? '',
-    );
-
+    addressController = TextEditingController(text: widget.userData?['address'] ?? '');
     cityController = TextEditingController();
-
     stateController = TextEditingController();
-
     pinController = TextEditingController();
-
-    phoneController = TextEditingController(
-      text: widget.userData?['phone'] ?? '',
-    );
-
+    phoneController = TextEditingController(text: widget.userData?['phone'] ?? '');
     dobController = TextEditingController();
+    emailController = TextEditingController(text: widget.userData?['email'] ?? '');
   }
 
   @override
@@ -71,7 +74,52 @@ class _EditProfileScreenState
     pinController.dispose();
     phoneController.dispose();
     dobController.dispose();
+    emailController.dispose();
     super.dispose();
+  }
+
+  // Maps API response to UI state
+  void _populateProfile(ProfileEntity profile) {
+    setState(() {
+      title = profile.title.isEmpty ? "Ms" : profile.title;
+      firstNameController.text = profile.firstName;
+      lastNameController.text = profile.lastName;
+      emailController.text = profile.email ?? '';
+      phoneController.text = profile.phoneNumber;
+      dobController.text = profile.dob ?? '';
+      addressController.text = profile.address;
+      cityController.text = profile.city;
+      stateController.text = profile.state;
+      country = profile.country.isEmpty ? "India" : profile.country;
+      pinController.text = profile.pinCode;
+      newsletterSubscribed = profile.newsletter;
+      smsAlertsEnabled = profile.smsAlerts;
+    });
+  }
+
+  // Constructs entity and dispatches PATCH request
+  void _saveProfile() {
+    final profile = ProfileEntity(
+      id: _profileBloc.currentProfile?.id ?? 0,
+      title: title,
+      firstName: firstNameController.text.trim(),
+      lastName: lastNameController.text.trim(),
+      email: emailController.text.trim().isNotEmpty ? emailController.text.trim() : null,
+      phoneCode: '+91', // Adjust if your ProfilePhoneField exposes the selected code
+      phoneNumber: phoneController.text.trim(),
+      dob: dobController.text.trim().isNotEmpty ? dobController.text.trim() : null,
+      address: addressController.text.trim(),
+      city: cityController.text.trim(),
+      state: stateController.text.trim(),
+      country: country,
+      pinCode: pinController.text.trim(),
+      platform: _profileBloc.currentProfile?.platform ?? 'web',
+      newsletter: newsletterSubscribed,
+      smsAlerts: smsAlertsEnabled,
+      created: _profileBloc.currentProfile?.created ?? DateTime.now(),
+      updated: DateTime.now(),
+    );
+    _profileBloc.add(PatchProfileEvent(profile));
   }
 
   Future<void> _selectDate() async {
@@ -83,202 +131,193 @@ class _EditProfileScreenState
     );
 
     if (picked != null) {
-      dobController.text =
-      "${picked.day}-${picked.month}-${picked.year}";
+      dobController.text = "${picked.year}-${picked.month}-${picked.day}";
+      // dobController.text = "${picked.day}-${picked.month}-${picked.year}";
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
-
-      appBar: AppBar(
-        elevation: 0,
-        backgroundColor: Colors.white,
-
-        title: Text(
-          "Edit Profile",
-          style: TextStyle(
-            fontSize: context.titleMedium,
-            fontWeight: FontWeight.w700,
-            color: Colors.black87,
-          ),
-        ),
-
-        leading: IconButton(
-          onPressed: () {
-            Navigator.pop(context);
-          },
-          icon: Icon(
-            Icons.arrow_back_ios_new,
-            size: context.iconSmall,
-            color: Colors.black87,
-          ),
-        ),
-      ),
-
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: context.horizontalPadding.copyWith(
-            top: context.gapLarge,
-            bottom: context.gapXLarge,
-          ),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                maxWidth: context.isDesktop
-                    ? 1000
-                    : context.isTablet
-                    ? 800
-                    : double.infinity,
-              ),
-              child: Container(
-                padding: EdgeInsets.all(context.gapLarge),
-
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(
-                    context.borderRadiusLarge,
-                  ),
-
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.04),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-
-                child: Column(
-                  crossAxisAlignment:
-                  CrossAxisAlignment.start,
-                  children: [
-                    const ProfileSectionTitle(
-                      title: "Basic Information",
-                    ),
-
-                    SizedBox(height: context.gapLarge),
-
-                    _buildBasicInfoSection(),
-
-                    SizedBox(height: context.gapXLarge),
-
-                    const ProfileSectionTitle(
-                      title: "Contact Details",
-                    ),
-
-
-                    SizedBox(height: context.gapLarge),
-
-                    _buildAddressSection(),
-
-                    SizedBox(height: context.gapLarge),
-
-                    ProfilePhoneField(
-                      controller: phoneController,
-                    ),
-
-                    SizedBox(height: context.gapXLarge),
-
-                    const ProfileSectionTitle(
-                      title: "Personal Details",
-                    ),
-
-                    SizedBox(height: context.gapLarge),
-
-                    ProfileTextField(
-                      label: "DOB (Date of Birth)",
-                      hint: "dd-mm-yyyy",
-                      controller: dobController,
-
-                      suffixIcon: IconButton(
-                        onPressed: _selectDate,
-                        icon: const Icon(
-                          Icons.calendar_month_outlined,
-                        ),
-                      ),
-                    ),
-
-                    SizedBox(height: context.gapXLarge),
-
-                    CheckboxListTile(
-                      value: true,
-                      onChanged: (_) {},
-
-                      contentPadding: EdgeInsets.zero,
-
-                      title: Text(
-                        "Sign up for Monthly Newsletter, Promotions and Low fare alerts",
-                        style: TextStyle(
-                          fontSize: context.bodySmall,
-                        ),
-                      ),
-                    ),
-
-                    CheckboxListTile(
-                      value: false,
-                      onChanged: (_) {},
-
-                      contentPadding: EdgeInsets.zero,
-
-                      title: Text(
-                        "Sign up for free SMS alerts",
-                        style: TextStyle(
-                          fontSize: context.bodySmall,
-                        ),
-                      ),
-                    ),
-
-                    SizedBox(height: context.gapXLarge),
-
-                    Wrap(
-                      alignment: WrapAlignment.end,
-                      spacing: context.gapMedium,
-                      runSpacing: context.gapMedium,
-                      children: [
-                        OutlinedButton(
-                          onPressed: () {
-                            Navigator.pop(context);
-                          },
-
-                          style: OutlinedButton.styleFrom(
-                            padding: EdgeInsets.symmetric(
-                              horizontal:
-                              context.gapLarge,
-                              vertical:
-                              context.gapMedium,
-                            ),
-                          ),
-
-                          child: const Text("CANCEL"),
-                        ),
-
-                        ElevatedButton(
-                          onPressed: () {},
-
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.red,
-                            foregroundColor: Colors.white,
-
-                            padding: EdgeInsets.symmetric(
-                              horizontal:
-                              context.gapLarge,
-                              vertical:
-                              context.gapMedium,
-                            ),
-                          ),
-
-                          child: const Text("SAVE"),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
+    return BlocListener<ProfileBloc, ProfileState>(
+      bloc: _profileBloc,
+      listener: (context, state) {
+        if (state is ProfileLoaded) {
+          _populateProfile(state.profile);
+        } else if (state is ProfileUpdateSuccess) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Profile updated successfully')),
+          );
+        } else if (state is ProfileError) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(state.message)),
+          );
+        }
+      },
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF5F7FA),
+        appBar: AppBar(
+          elevation: 0,
+          backgroundColor: Colors.white,
+          title: Text(
+            "Edit Profile",
+            style: TextStyle(
+              fontSize: context.titleMedium,
+              fontWeight: FontWeight.w700,
+              color: Colors.black87,
             ),
           ),
+          leading: IconButton(
+            onPressed: () {
+              Navigator.pop(context);
+            },
+            icon: Icon(
+              Icons.arrow_back_ios_new,
+              size: context.iconSmall,
+              color: Colors.black87,
+            ),
+          ),
+        ),
+        body: BlocBuilder<ProfileBloc, ProfileState>(
+          bloc: _profileBloc,
+          builder: (context, state) {
+            if (state is ProfileLoading) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            final isUpdating = state is ProfileUpdateLoading;
+
+            return SafeArea(
+              child: SingleChildScrollView(
+                padding: context.horizontalPadding.copyWith(
+                  top: context.gapLarge,
+                  bottom: context.gapXLarge,
+                ),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxWidth: context.isDesktop
+                          ? 1000
+                          : context.isTablet
+                          ? 800
+                          : double.infinity,
+                    ),
+                    child: Container(
+                      padding: EdgeInsets.all(context.gapLarge),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(
+                          context.borderRadiusLarge,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.04),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const ProfileSectionTitle(title: "Basic Information"),
+                          SizedBox(height: context.gapLarge),
+                          _buildBasicInfoSection(),
+                          SizedBox(height: context.gapXLarge),
+                          const ProfileSectionTitle(title: "Contact Details"),
+                          SizedBox(height: context.gapLarge),
+                          _buildAddressSection(),
+                          SizedBox(height: context.gapLarge),
+                          ProfilePhoneField(controller: phoneController),
+                          SizedBox(height: context.gapXLarge),
+                          const ProfileSectionTitle(title: "Personal Details"),
+                          SizedBox(height: context.gapLarge),
+                          ProfileTextField(
+                            label: "DOB (Date of Birth)",
+                            hint: "dd-mm-yyyy",
+                            controller: dobController,
+                            suffixIcon: IconButton(
+                              onPressed: _selectDate,
+                              icon: const Icon(Icons.calendar_month_outlined),
+                            ),
+                          ),
+                          SizedBox(height: context.gapXLarge),
+                          CheckboxListTile(
+                            value: newsletterSubscribed,
+                            onChanged: isUpdating
+                                ? null
+                                : (value) {
+                              setState(() {
+                                newsletterSubscribed = value ?? false;
+                              });
+                            },
+                            contentPadding: EdgeInsets.zero,
+                            title: Text(
+                              "Sign up for Monthly Newsletter, Promotions and Low fare alerts",
+                              style: TextStyle(fontSize: context.bodySmall),
+                            ),
+                          ),
+                          CheckboxListTile(
+                            value: smsAlertsEnabled,
+                            onChanged: isUpdating
+                                ? null
+                                : (value) {
+                              setState(() {
+                                smsAlertsEnabled = value ?? false;
+                              });
+                            },
+                            contentPadding: EdgeInsets.zero,
+                            title: Text(
+                              "Sign up for free SMS alerts",
+                              style: TextStyle(fontSize: context.bodySmall),
+                            ),
+                          ),
+                          SizedBox(height: context.gapXLarge),
+                          Wrap(
+                            alignment: WrapAlignment.end,
+                            spacing: context.gapMedium,
+                            runSpacing: context.gapMedium,
+                            children: [
+                              OutlinedButton(
+                                onPressed: isUpdating ? null : () => Navigator.pop(context),
+                                style: OutlinedButton.styleFrom(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: context.gapLarge,
+                                    vertical: context.gapMedium,
+                                  ),
+                                ),
+                                child: const Text("CANCEL"),
+                              ),
+                              ElevatedButton(
+                                onPressed: isUpdating ? null : _saveProfile,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.red,
+                                  foregroundColor: Colors.white,
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: context.gapLarge,
+                                    vertical: context.gapMedium,
+                                  ),
+                                ),
+                                child: isUpdating
+                                    ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                                    : const Text("SAVE"),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
         ),
       ),
     );
@@ -298,39 +337,27 @@ class _EditProfileScreenState
               });
             },
           ),
-
           SizedBox(height: context.gapLarge),
-
           ProfileTextField(
             label: "First Name",
             hint: "First Name",
             controller: firstNameController,
           ),
-
           SizedBox(height: context.gapLarge),
-
           ProfileTextField(
             label: "Last Name",
             hint: "Last Name",
             controller: lastNameController,
           ),
-
           SizedBox(height: context.gapLarge),
-
           ProfileTextField(
             label: "Email",
             hint: "Email",
-            controller: TextEditingController(
-              text: widget.userData?['email'] ?? '',
-            ),
+            controller: emailController,
             keyboardType: TextInputType.emailAddress,
           ),
-
-          SizedBox(height: context.gapLarge),
-
-          ProfilePhoneField(
-            controller: phoneController,
-          ),
+          SizedBox(height: context.gapMedium),
+          // ProfilePhoneField(controller: phoneController),
         ],
       );
     }
@@ -352,9 +379,7 @@ class _EditProfileScreenState
                 },
               ),
             ),
-
             SizedBox(width: context.gapMedium),
-
             Expanded(
               flex: 2,
               child: ProfileTextField(
@@ -363,9 +388,7 @@ class _EditProfileScreenState
                 controller: firstNameController,
               ),
             ),
-
             SizedBox(width: context.gapMedium),
-
             Expanded(
               flex: 2,
               child: ProfileTextField(
@@ -376,28 +399,20 @@ class _EditProfileScreenState
             ),
           ],
         ),
-
         SizedBox(height: context.gapLarge),
-
         Row(
           children: [
             Expanded(
               child: ProfileTextField(
                 label: "Email",
                 hint: "Email",
-                controller: TextEditingController(
-                  text: widget.userData?['email'] ?? '',
-                ),
+                controller: emailController,
                 keyboardType: TextInputType.emailAddress,
               ),
             ),
-
             SizedBox(width: context.gapMedium),
-
             Expanded(
-              child: ProfilePhoneField(
-                controller: phoneController,
-              ),
+              child: ProfilePhoneField(controller: phoneController),
             ),
           ],
         ),
@@ -413,9 +428,7 @@ class _EditProfileScreenState
           hint: "Address",
           controller: addressController,
         ),
-
         SizedBox(height: context.gapLarge),
-
         context.isMobile
             ? Column(
           children: [
@@ -424,34 +437,24 @@ class _EditProfileScreenState
               hint: "City",
               controller: cityController,
             ),
-
             SizedBox(height: context.gapLarge),
-
             ProfileTextField(
               label: "State",
               hint: "State",
               controller: stateController,
             ),
-
             SizedBox(height: context.gapLarge),
-
             ProfileDropdownField(
               label: "Country",
               value: country,
-              items: const [
-                "India",
-                "USA",
-                "Canada",
-              ],
+              items: const ["India", "USA", "Canada"],
               onChanged: (value) {
                 setState(() {
                   country = value!;
                 });
               },
             ),
-
             SizedBox(height: context.gapLarge),
-
             ProfileTextField(
               label: "Pin Code",
               hint: "Pin Code",
@@ -469,9 +472,7 @@ class _EditProfileScreenState
                 controller: cityController,
               ),
             ),
-
             SizedBox(width: context.gapMedium),
-
             Expanded(
               child: ProfileTextField(
                 label: "State",
@@ -479,18 +480,12 @@ class _EditProfileScreenState
                 controller: stateController,
               ),
             ),
-
             SizedBox(width: context.gapMedium),
-
             Expanded(
               child: ProfileDropdownField(
                 label: "Country",
                 value: country,
-                items: const [
-                  "India",
-                  "USA",
-                  "Canada",
-                ],
+                items: const ["India", "USA", "Canada"],
                 onChanged: (value) {
                   setState(() {
                     country = value!;
@@ -498,9 +493,7 @@ class _EditProfileScreenState
                 },
               ),
             ),
-
             SizedBox(width: context.gapMedium),
-
             Expanded(
               child: ProfileTextField(
                 label: "Pin Code",
@@ -514,5 +507,4 @@ class _EditProfileScreenState
       ],
     );
   }
-
 }

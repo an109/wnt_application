@@ -325,9 +325,12 @@ class _LoginPasswordPopupState extends State<LoginPasswordPopup> {
   Future<void> _saveUserDataAndNavigate(loginEntity) async {
     final prefs = di.sl<PreferencesManager>();
 
+    print('LOGIN DEBUG: access token = ${loginEntity.tokens.access?.isNotEmpty == true ? 'EXISTS' : 'NULL/EMPTY'}');
+
     // Save tokens
     if (loginEntity.tokens.access != null) {
       await prefs.saveToken(loginEntity.tokens.access!);
+      print('LOGIN DEBUG: Token saved successfully');
     }
     if (loginEntity.tokens.refresh != null) {
       await prefs.saveRefreshToken(loginEntity.tokens.refresh!);

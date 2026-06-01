@@ -9,7 +9,7 @@ class GoogleSignInService {
     String? serverClientId,
   }) : _googleSignIn = GoogleSignIn(
     scopes: scopes,
-    // serverClientId: serverClientId,
+    serverClientId: serverClientId, // uncomment for ios google sign-in
   );
 
   Future<String?> signIn() async {

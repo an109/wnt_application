@@ -15,8 +15,8 @@ class ProfileSectionTitle extends StatelessWidget {
     return Text(
       title,
       style: TextStyle(
-        fontSize: context.bodyLarge,
-        fontWeight: FontWeight.w700,
+        fontSize: context.titleMedium,
+        fontWeight: FontWeight.w800,
         color: Colors.black87,
       ),
     );

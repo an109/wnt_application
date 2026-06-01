@@ -1,7 +1,7 @@
 class Urls {
-  static const String baseUrl = 'http://192.168.1.15:8000/api/';
+  static const String baseUrl = 'http://192.168.1.26:8000/api/';
   // static const String baseUrl = 'https://thewandernova.com/api/';
-  static const String basesUrl = 'http://192.168.1.15:8000/api';
+  static const String basesUrl = 'http://192.168.1.26:8000/api';
   // static const String basesUrl = 'https://thewandernova.com/api';
 
   static const String airports = '$basesUrl/flights/airports';
@@ -58,4 +58,8 @@ class Urls {
   static const String signup = '$basesUrl/auth/signup/';
   static const String login = '$basesUrl/auth/login/';
   static const String walletBalance = '$basesUrl/wallet/balance/';
+  static const String logout = '$basesUrl/auth/logout/';
+  static const String userProfile = '$basesUrl/user/profile/';
+  static const String updateUserProfile = '$basesUrl/user/profile/';
+
 }

@@ -32,6 +32,11 @@ import 'package:wander_nova/views/Hotel_api/data/repository/hotel_repository_imp
 import 'package:wander_nova/views/Hotel_api/domain/repository/hotel_repository.dart';
 import 'package:wander_nova/views/Hotel_api/domain/usecase/get_hotels_by_city_usecase.dart';
 import 'package:wander_nova/views/Hotel_api/presentation/bloc/hotel_bloc.dart';
+import 'package:wander_nova/views/LogOut/data/data_source/logout_api_service.dart';
+import 'package:wander_nova/views/LogOut/data/repository/logout_repository_impl.dart';
+import 'package:wander_nova/views/LogOut/domain/repository/logout_repository.dart';
+import 'package:wander_nova/views/LogOut/domain/usecase/logout_usecase.dart';
+import 'package:wander_nova/views/LogOut/presentation/bloc/logout_bloc.dart';
 import 'package:wander_nova/views/MainApi/data/data_source/general_setting_api_service.dart';
 import 'package:wander_nova/views/MainApi/data/respository/general_setting_repository_impl.dart';
 import 'package:wander_nova/views/MainApi/domain/repository/general_setting_repository.dart';
@@ -39,6 +44,14 @@ import 'package:wander_nova/views/MainApi/domain/usecase/get_faq_list_usecase.da
 import 'package:wander_nova/views/MainApi/domain/usecase/get_general_setting_usecase.dart';
 import 'package:wander_nova/views/MainApi/domain/usecase/get_section_heros_usecase.dart';
 import 'package:wander_nova/views/MainApi/presentation/bloc/general_setting_bloc.dart';
+import 'package:wander_nova/views/Profile/data/data_source/Profile_api_service.dart';
+import 'package:wander_nova/views/Profile/data/repository/Profile_repository_impl.dart';
+import 'package:wander_nova/views/Profile/domain/repository/Profile_repository.dart';
+
+import 'package:wander_nova/views/Profile/domain/usecase/get_profile_usecase.dart';
+import 'package:wander_nova/views/Profile/domain/usecase/patch_profile_usecase.dart';
+import 'package:wander_nova/views/Profile/domain/usecase/update_profile_usecase.dart';
+import 'package:wander_nova/views/Profile/presentation/bloc/profile_bloc.dart';
 import 'package:wander_nova/views/TPoll_Search/data/data_source/TPoll_Search_api-service.dart';
 import 'package:wander_nova/views/TPoll_Search/data/repository/TPoll_search_repository_impl.dart';
 import 'package:wander_nova/views/TPoll_Search/domain/repository/TPoll_Search_repository.dart';
@@ -234,6 +247,8 @@ Future<void> initializeDependencies() async {
   sl.registerFactory<SignupApiService>(() => SignupApiServiceImpl(sl<DioClient>().instance),);
   sl.registerFactory<LoginApiService>(() => LoginApiServiceImpl(sl<DioClient>().instance),);
   sl.registerFactory<WalletApiService>(() => WalletApiServiceImpl(sl<DioClient>().instance));
+  sl.registerFactory<LogoutApiService>(() => LogoutApiServiceImpl(sl<DioClient>().instance),);
+  sl.registerFactory<ProfileApiService>(() => ProfileApiServiceImpl(sl<DioClient>().instance));
 
 
 
@@ -275,7 +290,8 @@ Future<void> initializeDependencies() async {
   sl.registerLazySingleton<SignupRepository>(() => SignupRepositoryImpl(sl<SignupApiService>()),);
   sl.registerLazySingleton<LoginRepository>(() => LoginRepositoryImpl(sl<LoginApiService>()),);
   sl.registerLazySingleton<WalletRepository>(() => WalletRepositoryImpl(sl<WalletApiService>()));
-
+  sl.registerLazySingleton<LogoutRepository>(() => LogoutRepositoryImpl(sl<LogoutApiService>()),);
+  sl.registerLazySingleton<ProfileRepository>(() => ProfileRepositoryImpl(sl<ProfileApiService>()));
 
 
 
@@ -318,6 +334,10 @@ Future<void> initializeDependencies() async {
   sl.registerLazySingleton<SignupUseCase>(() => SignupUseCase(sl<SignupRepository>()));
   sl.registerLazySingleton<LoginUseCase>(() => LoginUseCase(sl<LoginRepository>()));
   sl.registerLazySingleton<GetWalletBalanceUseCase>(() => GetWalletBalanceUseCase(sl<WalletRepository>()));
+  sl.registerLazySingleton<LogoutUseCase>(() => LogoutUseCase(sl<LogoutRepository>()));
+  sl.registerLazySingleton<GetProfileUseCase>(() => GetProfileUseCase(sl()));
+  sl.registerLazySingleton<UpdateProfileUseCase>(() => UpdateProfileUseCase(sl()));
+  sl.registerLazySingleton<PatchProfileUseCase>(() => PatchProfileUseCase(sl()));
 
 
 
@@ -363,5 +383,10 @@ Future<void> initializeDependencies() async {
   sl.registerFactory<SignupBloc>(() => SignupBloc(signupUseCase: sl<SignupUseCase>()));
   sl.registerFactory<LoginBloc>(() => LoginBloc(loginUseCase: sl()),);
   sl.registerFactory<WalletBloc>(() => WalletBloc(getWalletBalanceUseCase: sl()));
+  sl.registerFactory<LogoutBloc>(() => LogoutBloc(logoutUseCase: sl<LogoutUseCase>()));
+  sl.registerFactory<ProfileBloc>(() => ProfileBloc(
+      getProfileUseCase: sl<GetProfileUseCase>(),
+      updateProfileUseCase: sl<UpdateProfileUseCase>(),
+      patchProfileUseCase: sl<PatchProfileUseCase>()));
 
 }

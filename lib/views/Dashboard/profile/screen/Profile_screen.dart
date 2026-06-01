@@ -1,7 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:wander_nova/views/Profile/presentation/bloc/profile_bloc.dart';
 
 import '../../../../core/utils/storage/shared_preference.dart';
+import '../../../../injection_container.dart';
+import '../../../Profile/domain/entities/ProfileEntity.dart';
+import '../../../Profile/presentation/bloc/profile_event.dart';
+import '../../../Profile/presentation/bloc/profile_state.dart';
 import '../../Section/add_traveller_popup.dart';
 import '../../../../UI_helper/responsive_layout.dart';
 import '../section/change_password_dialogue.dart';
@@ -15,6 +22,7 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
+  late ProfileBloc _profileBloc;
   PreferencesManager? _prefsManager;
 
   Map<String, dynamic>? _userData;
@@ -22,29 +30,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
   List<Map<String, dynamic>> _travellers = [];
 
   bool _isLoading = true;
+  bool _isRefreshing = false;
 
   @override
   void initState() {
     super.initState();
+    _profileBloc = sl<ProfileBloc>();
+    _profileBloc.add(const GetProfileEvent());
     _loadUserData();
   }
 
   Future<void> _loadUserData() async {
     final prefs = await SharedPreferences.getInstance();
-
     _prefsManager = await PreferencesManager.create(prefs);
 
     final userData = _prefsManager?.getUserData();
 
     setState(() {
-      _userData = userData;
+      if (userData != null) {
+        // Map the stored keys to what ProfileScreen expects
+        _userData = {
+          'name': '${userData['firstname'] ?? ''} ${userData['lastname'] ?? ''}'.trim(),
+          'email': userData['email'] ?? 'Not Available',
+          'phone': userData['phone_number'] ?? 'Not Available',
+          'address': userData['address'] ?? 'Not Available',
+          'travellers': userData['travellers'] ?? [],
+        };
 
-      _travellers =
-          (userData?['travellers'] as List<dynamic>?)
-              ?.map((e) => Map<String, dynamic>.from(e))
-              .toList() ??
-              [];
-
+        _travellers = List<Map<String, dynamic>>.from(_userData!['travellers'] ?? []);
+      }
       _isLoading = false;
     });
   }
@@ -70,6 +84,58 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
             _saveTravellers();
           },
+        );
+      },
+    );
+  }
+
+  //  Maps ProfileEntity to your screen's expected format
+  void _updateUserDataFromEntity(ProfileEntity profile) {
+    setState(() {
+      _userData = {
+        'name': '${profile.firstName} ${profile.lastName}'.trim(),
+        'email': profile.email ?? 'Not Available',
+        'phone': profile.phoneNumber,
+        'address': profile.address,
+        'travellers': _userData?['travellers'] ?? [], // Keep existing travellers
+      };
+      _isLoading = false;
+      _isRefreshing = false;
+    });
+  }
+
+//  Refresh handler for Pull-to-Refresh
+  Future<void> _refreshProfile() async {
+    setState(() => _isRefreshing = true);
+
+    // Listen for the next ProfileLoaded event
+    final completer = Completer<void>();
+    late final StreamSubscription<ProfileState> subscription;
+
+    subscription = _profileBloc.stream.listen((state) {
+      if (state is ProfileLoaded) {
+        _updateUserDataFromEntity(state.profile);
+        completer.complete();
+        subscription.cancel();
+      } else if (state is ProfileError) {
+        _isRefreshing = false;
+        setState(() {});
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(state.message)),
+        );
+        subscription.cancel();
+      }
+    });
+
+    // Dispatch event and wait max 10 seconds
+    _profileBloc.add(const GetProfileEvent());
+    await completer.future.timeout(
+      const Duration(seconds: 10),
+      onTimeout: () {
+        subscription.cancel();
+        setState(() => _isRefreshing = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Refresh timed out')),
         );
       },
     );
@@ -106,39 +172,38 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
       ),
 
-      body: _isLoading
-          ? const Center(
-        child: CircularProgressIndicator(),
-      )
-          : SafeArea(
-        child: SingleChildScrollView(
-          physics: context.scrollPhysics,
-          padding: context.horizontalPadding.copyWith(
-            top: context.gapMedium,
-            bottom: context.gapXLarge,
-          ),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                maxWidth: context.isDesktop
-                    ? 900
-                    : context.isTablet
-                    ? 700
-                    : double.infinity,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildProfileHeader(),
-
-                  SizedBox(height: context.gapLarge),
-
-                  _buildPersonalInfoCard(),
-
-                  SizedBox(height: context.gapLarge),
-
-                  _buildTravellerSection(),
-                ],
+      body: _isLoading && !_isRefreshing
+          ? const Center(child: CircularProgressIndicator())
+          : RefreshIndicator(
+        onRefresh: _refreshProfile,
+        color: const Color(0xFF0054A0),
+        backgroundColor: Colors.white,
+        child: SafeArea(
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(), // ✅ Required for pull-to-refresh
+            padding: context.horizontalPadding.copyWith(
+              top: context.gapMedium,
+              bottom: context.gapXLarge,
+            ),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: context.isDesktop
+                      ? 900
+                      : context.isTablet
+                      ? 700
+                      : double.infinity,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildProfileHeader(),
+                    SizedBox(height: context.gapLarge),
+                    _buildPersonalInfoCard(),
+                    SizedBox(height: context.gapLarge),
+                    _buildTravellerSection(),
+                  ],
+                ),
               ),
             ),
           ),
@@ -288,6 +353,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                     ),
                   );
+                  if (mounted) _refreshProfile();
                 },
 
                 icon: Icon(
