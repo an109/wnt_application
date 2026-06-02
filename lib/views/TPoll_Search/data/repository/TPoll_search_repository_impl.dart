@@ -43,13 +43,33 @@ class TpollSearchRepositoryImpl implements TpollSearchRepository {
         flightDatetime: model.search.flightDatetime,
         searchId: model.search.searchId,
         results: model.search.results.map((result) {
-          // Extract vehicle data from first step (main step)
-          final mainStep = result.steps.firstWhere(
+          print("Results count: ${model.search.results.length}");
+          for (int i = 0; i < model.search.results.length; i++) {
+            print("Result $i -> steps count: ${model.search.results[i].steps.length}");
+          }
+
+          // 1. Safely find the main step. If the list is empty, mainStep will be null.
+          final StepModel? mainStep = result.steps.isEmpty
+              ? null
+              : result.steps.firstWhere(
                 (step) => step.main,
-            orElse: () => result.steps.isNotEmpty ? result.steps.first : result.steps[0],
+            orElse: () => result.steps.first,
           );
-          final vehicle = mainStep.details.vehicle;
-          final amenities = mainStep.details.amenities.map((amenityModel) {
+
+          // 2. Provide safe fallback defaults if mainStep is null (e.g., during early polling)
+          final vehicle = mainStep?.details.vehicle ??
+              VehicleModel(
+                image: '',
+                make: '',
+                model: '',
+                vehicleType: VehicleTypeModel(key: 0, name: 'Unknown'),
+                maxBags: 0,
+                maxPassengers: 0,
+                category: VehicleCategoryModel(id: 0, name: 'Unknown'),
+              );
+
+          // 3. Safely map amenities, defaulting to an empty list if mainStep is null
+          final amenities = mainStep?.details.amenities.map((amenityModel) {
             return AmenityEntity(
               key: amenityModel.key,
               name: amenityModel.name,
@@ -65,7 +85,7 @@ class TpollSearchRepositoryImpl implements TpollSearchRepository {
               )
                   : null,
             );
-          }).toList();
+          }).toList() ?? [];
 
           return SearchResultEntity(
             resultId: result.resultId,
@@ -76,11 +96,9 @@ class TpollSearchRepositoryImpl implements TpollSearchRepository {
             totalPriceAmount: result.totalPriceAmount,
             totalPriceCurrency: result.totalPriceCurrency,
             bookable: result.bookable,
-            // Mapped from vehicle model
             vehicleImageUrl: vehicle.image,
             maxPassengers: vehicle.maxPassengers,
             maxBags: vehicle.maxBags,
-            // Mapped amenities list
             amenities: amenities,
           );
         }).toList(),

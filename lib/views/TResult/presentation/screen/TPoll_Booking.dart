@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import 'package:wander_nova/views/TResevation/presentation/screen/payment_screen.dart';
+import '../../../../UI_helper/currency_converter.dart';
 import '../../../../common_widgets/logo.dart';
 import '../../../../core/utils/storage/shared_preference.dart';
 import '../../../../injection_container.dart';
@@ -93,6 +94,52 @@ class _TPollBookingScreenState extends State<TPollBookingScreen> {
     return '$dayName, $monthName $day, $year, $hour:$minute';
   }
 
+  // Add this method to get user's preferred currency
+  String _getPreferredCurrency() {
+    final prefs = sl<PreferencesManager>();
+    return prefs.getPreferredCurrency() ?? 'USD';
+  }
+
+// Add this method to get converted price
+  double _getConvertedPrice(double amountInUSD) {
+    final prefs = sl<PreferencesManager>();
+    final preferredCurrency = _getPreferredCurrency();
+
+    if (preferredCurrency == 'USD') {
+      return amountInUSD;
+    }
+
+    final rates = prefs.getCachedExchangeRates();
+    if (rates == null) return amountInUSD;
+
+    final targetRate = rates[preferredCurrency];
+    if (targetRate == null) return amountInUSD;
+
+    // Convert USD to preferred currency
+    return amountInUSD * targetRate;
+  }
+
+// Add this method to get formatted price string
+  String _getFormattedPrice(double amountInUSD) {
+    final prefs = sl<PreferencesManager>();
+    final preferredCurrency = _getPreferredCurrency();
+
+    if (preferredCurrency == 'USD') {
+      final symbol = CurrencyConverter.getSymbol('USD');
+      return '$symbol${amountInUSD.toStringAsFixed(2)}';
+    }
+
+    final converted = _getConvertedPrice(amountInUSD);
+    return CurrencyConverter.format(converted, preferredCurrency);
+  }
+
+// Add this method to get currency symbol for display
+  String _getDisplayCurrencySymbol() {
+    final prefs = sl<PreferencesManager>();
+    final preferredCurrency = _getPreferredCurrency();
+    return CurrencyConverter.getSymbol(preferredCurrency);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -164,184 +211,78 @@ class _TPollBookingScreenState extends State<TPollBookingScreen> {
 
   void _proceedToPayment() {
     print('=== CONTINUE TO PAYMENT TAPPED ===');
-    print('Result ID: ${widget.resultId}');
-    print('Search ID: ${widget.searchId}');
-    print('User ID: $_userId');
 
-    // Build the reservation entity from form data
-    final nameParts = '${_firstNameController.text.trim()} ${_lastNameController.text.trim()}'.split(' ');
-    final firstName = nameParts[0];
-    final lastName = nameParts.length > 1 ? nameParts.sublist(1).join(' ') : '';
+    final displaySymbol = _getDisplayCurrencySymbol();
+    final convertedTotal = _totalPrice;
 
-    final reservationEntity = TransportReservationEntity(
-      searchId: widget.searchId,
-      resultId: widget.resultId,
-      firstName: firstName,
-      email: _emailController.text.trim(),
-      phoneNumber: _phoneController.text.trim(),
-      customerInfo: CustomerInfoEntity(
-        firstName: firstName,
-        lastName: lastName,
-        email: _emailController.text.trim(),
-        phoneNumber: _phoneController.text.trim(),
-      ),
-      passengers: [
-        PassengerEntity(
-          firstName: firstName,
-          lastName: lastName,
-          email: _emailController.text.trim(),
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => PaymentScreen(
+          searchId: widget.searchId,
+          resultId: widget.resultId,
+          vehicleType: widget.result.vehicleType,
+          vehicleName: widget.result.vehicleName,
+          providerName: widget.result.providerName,
+          pickupLocation: widget.startAddress.isNotEmpty
+              ? widget.startAddress
+              : widget.searchData.startLocation.city,
+          dropoffLocation: widget.endAddress.isNotEmpty
+              ? widget.endAddress
+              : widget.searchData.endLocation.city,
+          pickupDate: widget.pickupDate,
+          passengers: 1,
+          baseFare: _baseFare,
+          totalAmount: convertedTotal,  // Pass converted amount
+          passengerName: '${_firstNameController.text.trim()} ${_lastNameController.text.trim()}',
+          passengerEmail: _emailController.text.trim(),
+          passengerPhone: '91${_phoneController.text.trim()}',
+          userId: _userId,
         ),
-      ],
-      numPassengers: 1,
-      currency: '',
-      selectedCurrency: '',
-      displayCurrency: '',
-      displayTotalPrice: _totalPrice,
-      displayBasePrice: _baseFare,
-      displayRideBasePrice: _baseFare,
-      displayDiscountAmount: 0.00,
-      optionalAmenities: _selectedAmenities.toList(),
-      userId: _userId ?? 0,
-      guestReference: null,
-      tripStartAddress: widget.startAddress.isNotEmpty
-          ? widget.startAddress
-          : widget.searchData.startLocation.city,
-      tripEndAddress: widget.endAddress.isNotEmpty
-          ? widget.endAddress
-          : widget.searchData.endLocation.city,
-      tripPickupDatetime: widget.pickupDate.toIso8601String(),
-      tripPickupDatetimePretty: _formatDateTime(widget.pickupDate),
-      tripReturnPickupDatetime: '',
-      tripReturnPickupDatetimePretty: '',
-      tripType: '',
-      vehicleName: widget.result.vehicleName,
-      providerName: widget.result.providerName,
-      paidVia: '',
-      paymentGateway: '',
-      paymentReferenceId: '',
-      razorpayOrderId: '',
-      razorpayPaymentId: '',
-      specialInstructions: _specialRequestsController.text.trim(),
-      notes: '',
-      flightNumber: _flightNumberController.text.trim(),
-      airline: _airlineCodeController.text.trim(),
-      couponCode: _promoCodeApplied ? _appliedPromoCode : null,
-      extraPaxInfo: null,
-    );
-
-    print('Entity built, dispatching BLoC event...');
-
-    // Get BLoC instance and dispatch event
-    final bloc = sl<TransportReservationBloc>();
-
-    bloc.add(
-      CreateTransportReservationEvent(
-        searchId: reservationEntity.searchId,
-        resultId: reservationEntity.resultId,
-        firstName: reservationEntity.firstName,
-        email: reservationEntity.email,
-        phoneNumber: reservationEntity.phoneNumber,
-        customerInfo: reservationEntity.customerInfo,
-        passengers: reservationEntity.passengers,
-        numPassengers: reservationEntity.numPassengers,
-        currency: reservationEntity.currency,
-        selectedCurrency: reservationEntity.selectedCurrency,
-        displayCurrency: reservationEntity.displayCurrency,
-        displayTotalPrice: reservationEntity.displayTotalPrice,
-        displayBasePrice: reservationEntity.displayBasePrice,
-        displayRideBasePrice: reservationEntity.displayRideBasePrice,
-        displayDiscountAmount: reservationEntity.displayDiscountAmount,
-        optionalAmenities: reservationEntity.optionalAmenities,
-        tripStartAddress: reservationEntity.tripStartAddress,
-        tripEndAddress: reservationEntity.tripEndAddress,
-        tripPickupDatetime: reservationEntity.tripPickupDatetime,
-        tripType: reservationEntity.tripType,
-        vehicleName: reservationEntity.vehicleName,
-        providerName: reservationEntity.providerName,
-        paidVia: reservationEntity.paidVia,
-        paymentGateway: reservationEntity.paymentGateway,
-        paymentReferenceId: reservationEntity.paymentReferenceId,
-        razorpayOrderId: reservationEntity.razorpayOrderId,
-        razorpayPaymentId: reservationEntity.razorpayPaymentId,
-        specialInstructions: reservationEntity.specialInstructions,
-        notes: reservationEntity.notes,
-        flightNumber: reservationEntity.flightNumber,
-        airline: reservationEntity.airline,
-        couponCode: reservationEntity.couponCode,
-        extraPaxInfo: reservationEntity.extraPaxInfo,
       ),
     );
-
-    print('Event dispatched, listening for response...');
-
-    // Listen for BLoC state changes
-    bloc.stream.listen((state) {
-      if (state is TransportReservationLoading) {
-        print('Loading...');
-        // Optional: Show loading dialog
-      }
-      else if (state is TransportReservationSuccess) {
-        print('SUCCESS: Reservation created - ${state.reservation.resultId}');
-
-        // Navigate to PaymentScreen AFTER successful API call
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => PaymentScreen(
-              searchId: widget.searchId,
-              resultId: widget.resultId,
-              vehicleType: widget.result.vehicleType,
-              vehicleName: widget.result.vehicleName,
-              providerName: widget.result.providerName,
-              pickupLocation: widget.startAddress.isNotEmpty
-                  ? widget.startAddress
-                  : widget.searchData.startLocation.city,
-              dropoffLocation: widget.endAddress.isNotEmpty
-                  ? widget.endAddress
-                  : widget.searchData.endLocation.city,
-              pickupDate: widget.pickupDate,
-              passengers: 1,
-              baseFare: _baseFare,
-              totalAmount: _totalPrice,
-              passengerName: '${_firstNameController.text.trim()} ${_lastNameController.text.trim()}',
-              passengerEmail: _emailController.text.trim(),
-              passengerPhone: '91${_phoneController.text.trim()}',
-              userId: _userId,
-            ),
-          ),
-        );
-      }
-      else if (state is TransportReservationFailed) {
-        print('FAILED: ${state.dataState.error?.message}');
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: ${state.dataState.error?.message ?? 'Failed to create reservation'}'),
-            backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
-    });
   }
 
   void _initializePrices() {
-    _baseFare = double.tryParse(widget.result.totalPriceAmount) ?? 0;
+    final originalAmount = double.tryParse(widget.result.totalPriceAmount) ?? 0;
+
+    // Store converted prices
+    _baseFare = _getConvertedPrice(originalAmount);
 
     for (var amenity in widget.result.amenities) {
+      final amenityPriceUSD = double.tryParse(amenity.price?.value ?? '0') ?? 0;
+
       if (amenity.key == 'meet_and_greet') {
-        _meetAndGreetPrice = double.tryParse(amenity.price?.value ?? '0') ?? 0;
+        _meetAndGreetPrice = _getConvertedPrice(amenityPriceUSD);
       } else if (amenity.key == 'sms_notifications') {
-        _smsPrice = double.tryParse(amenity.price?.value ?? '0') ?? 0;
+        _smsPrice = _getConvertedPrice(amenityPriceUSD);
       }
     }
+
+    print('💰 Booking Screen - Prices converted:');
+    print('   Original: $originalAmount USD');
+    print('   Converted: $_baseFare ${_getPreferredCurrency()}');
   }
+
+  // double get _totalPrice {
+  //   double total = _baseFare;
+  //
+  //   for (var amenity in widget.result.amenities) {
+  //     if (_selectedAmenities.contains(amenity.key)) {
+  //       total += double.tryParse(amenity.price?.value ?? '0') ?? 0;
+  //     }
+  //   }
+  //
+  //   return total;
+  // }
 
   double get _totalPrice {
     double total = _baseFare;
 
     for (var amenity in widget.result.amenities) {
       if (_selectedAmenities.contains(amenity.key)) {
-        total += double.tryParse(amenity.price?.value ?? '0') ?? 0;
+        final amenityPriceUSD = double.tryParse(amenity.price?.value ?? '0') ?? 0;
+        total += _getConvertedPrice(amenityPriceUSD);
       }
     }
 
@@ -737,7 +678,7 @@ class _TPollBookingScreenState extends State<TPollBookingScreen> {
             const SizedBox(height: 12),
             _buildAmenityGrid(
               amenities: upgrades,
-              currencySymbol: currencySymbol,
+              // currencySymbol: currencySymbol,
               isIncludedSection: false,
             ),
             const SizedBox(height: 20),
@@ -757,7 +698,7 @@ class _TPollBookingScreenState extends State<TPollBookingScreen> {
             const SizedBox(height: 12),
             _buildAmenityGrid(
               amenities: included,
-              currencySymbol: currencySymbol,
+              // currencySymbol: currencySymbol,
               isIncludedSection: true,
             ),
             const SizedBox(height: 12),
@@ -779,6 +720,7 @@ class _TPollBookingScreenState extends State<TPollBookingScreen> {
     return _selectedAmenities.contains(key);
   }
 
+
   void _toggleAmenity(String key) {
     setState(() {
       if (_selectedAmenities.contains(key)) {
@@ -789,15 +731,25 @@ class _TPollBookingScreenState extends State<TPollBookingScreen> {
     });
   }
 
+// Helper to get amenity price in preferred currency
+  double _getAmenityPrice(AmenityEntity amenity) {
+    final priceUSD = double.tryParse(amenity.price?.value ?? '0') ?? 0;
+    return _getConvertedPrice(priceUSD);
+  }
+
+// Helper to get formatted amenity price
+  String _getFormattedAmenityPrice(AmenityEntity amenity) {
+    final priceUSD = double.tryParse(amenity.price?.value ?? '0') ?? 0;
+    return _getFormattedPrice(priceUSD);
+  }
+
   Widget _buildAmenityGrid({
     required List<AmenityEntity> amenities,
-    required String currencySymbol,
     required bool isIncludedSection,
   }) {
     return LayoutBuilder(
       builder: (context, constraints) {
         const spacing = 12.0;
-        // Calculate width for 2 cards per row
         final cardWidth = (constraints.maxWidth - spacing) / 2;
 
         return Wrap(
@@ -808,11 +760,10 @@ class _TPollBookingScreenState extends State<TPollBookingScreen> {
               width: cardWidth,
               child: _buildAmenityCard(
                 title: amenity.name,
-                price: amenity.price?.value ?? '0',
+                price: _getFormattedAmenityPrice(amenity),  // Use converted price
                 description: amenity.description,
                 isSelected: _getAmenitySelection(amenity.key),
                 isIncluded: amenity.included,
-                currencySymbol: currencySymbol,
                 onTap: () => _toggleAmenity(amenity.key),
               ),
             );
@@ -828,7 +779,6 @@ class _TPollBookingScreenState extends State<TPollBookingScreen> {
     required String description,
     required bool isSelected,
     required bool isIncluded,
-    required String currencySymbol,
     required VoidCallback onTap,
   }) {
     return Material(
@@ -889,7 +839,7 @@ class _TPollBookingScreenState extends State<TPollBookingScreen> {
                     )
                   else
                     Text(
-                      '$currencySymbol${double.tryParse(price)?.toStringAsFixed(2) ?? price}',
+                      price,  // Now shows converted price (e.g., ₹3,500)
                       style: TextStyle(
                         fontSize: context.bodySmall,
                         fontWeight: FontWeight.w700,
@@ -915,6 +865,7 @@ class _TPollBookingScreenState extends State<TPollBookingScreen> {
       ),
     );
   }
+
 
   Widget _buildPromoCodeSection() {
     return Container(
@@ -977,9 +928,9 @@ class _TPollBookingScreenState extends State<TPollBookingScreen> {
                   enabled: !_promoCodeApplied,
                 ),
               ),
-              SizedBox(width: context.wp(3)),
+              SizedBox(width: context.wp(1.5)),
               Expanded(
-                flex: 1,
+                flex: 2,
                 child: SizedBox(
                   height: context.formFieldHeight,
                   child: ElevatedButton(
@@ -1070,9 +1021,10 @@ class _TPollBookingScreenState extends State<TPollBookingScreen> {
     );
   }
 
+
   Widget _buildPriceSummaryBar() {
-    final currencyCode = widget.searchData.currencyInfo.code;
-    final currencySymbol = widget.searchData.currencyInfo.prefixSymbol;
+    final displaySymbol = _getDisplayCurrencySymbol();
+    final preferredCurrency = _getPreferredCurrency();
 
     return Container(
       padding: EdgeInsets.all(context.wp(4)),
@@ -1101,7 +1053,7 @@ class _TPollBookingScreenState extends State<TPollBookingScreen> {
                   ),
                 ),
                 Text(
-                  '$currencySymbol${_baseFare.toStringAsFixed(2)}',
+                  '$displaySymbol${_baseFare.toStringAsFixed(2)}',
                   style: TextStyle(
                     fontSize: context.bodyMedium,
                     color: Colors.grey.shade700,
@@ -1109,50 +1061,61 @@ class _TPollBookingScreenState extends State<TPollBookingScreen> {
                 ),
               ],
             ),
-            if (_meetAndGreetSelected) ...[
-              const SizedBox(height: 4),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Meet & Greet',
-                    style: TextStyle(
-                      fontSize: context.bodySmall,
-                      color: Colors.grey.shade600,
+            // Show original price for reference (optional)
+            // if (preferredCurrency != 'USD')
+            //   Padding(
+            //     padding: const EdgeInsets.only(top: 4),
+            //     child: Row(
+            //       mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            //       children: [
+            //         Text(
+            //           'Original (USD)',
+            //           style: TextStyle(
+            //             fontSize: context.labelSmall,
+            //             color: Colors.grey.shade400,
+            //           ),
+            //         ),
+            //         Text(
+            //           '\$${widget.result.totalPriceAmount}',
+            //           style: TextStyle(
+            //             fontSize: context.labelSmall,
+            //             color: Colors.grey.shade400,
+            //           ),
+            //         ),
+            //       ],
+            //     ),
+            //   ),
+
+            // Show selected amenities in price breakdown
+            ..._selectedAmenities.map((amenityKey) {
+              final amenity = widget.result.amenities.firstWhere(
+                    (a) => a.key == amenityKey,
+                orElse: () => widget.result.amenities.first,
+              );
+              final amenityPrice = _getAmenityPrice(amenity);
+              return Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      amenity.name,
+                      style: TextStyle(
+                        fontSize: context.bodySmall,
+                        color: Colors.grey.shade600,
+                      ),
                     ),
-                  ),
-                  Text(
-                    '+ $currencySymbol${_meetAndGreetPrice.toStringAsFixed(2)}',
-                    style: TextStyle(
-                      fontSize: context.bodySmall,
-                      color: Colors.grey.shade700,
+                    Text(
+                      '+ $displaySymbol${amenityPrice.toStringAsFixed(2)}',
+                      style: TextStyle(
+                        fontSize: context.bodySmall,
+                        color: Colors.grey.shade700,
+                      ),
                     ),
-                  ),
-                ],
-              ),
-            ],
-            if (_smsNotificationsSelected) ...[
-              const SizedBox(height: 4),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'SMS notifications',
-                    style: TextStyle(
-                      fontSize: context.bodySmall,
-                      color: Colors.grey.shade600,
-                    ),
-                  ),
-                  Text(
-                    '+ $currencySymbol${_smsPrice.toStringAsFixed(2)}',
-                    style: TextStyle(
-                      fontSize: context.bodySmall,
-                      color: Colors.grey.shade700,
-                    ),
-                  ),
-                ],
-              ),
-            ],
+                  ],
+                ),
+              );
+            }).toList(),
             const Divider(height: 24),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1166,7 +1129,7 @@ class _TPollBookingScreenState extends State<TPollBookingScreen> {
                   ),
                 ),
                 Text(
-                  '$currencySymbol${_totalPrice.toStringAsFixed(2)}',
+                  '$displaySymbol${_totalPrice.toStringAsFixed(2)}',
                   style: TextStyle(
                     fontSize: context.titleMedium,
                     fontWeight: FontWeight.w800,
@@ -1196,7 +1159,7 @@ class _TPollBookingScreenState extends State<TPollBookingScreen> {
                     ),
                   ),
                   Text(
-                    '$currencySymbol${_totalPrice.toStringAsFixed(2)}',
+                    '$displaySymbol${_totalPrice.toStringAsFixed(2)}',
                     style: TextStyle(
                       fontSize: context.bodyMedium,
                       fontWeight: FontWeight.w800,
@@ -1226,7 +1189,7 @@ class _TPollBookingScreenState extends State<TPollBookingScreen> {
                     const Icon(Icons.credit_card, size: 20),
                     const SizedBox(width: 8),
                     Text(
-                      'Continue to Payment',
+                      'Pay $displaySymbol${_totalPrice.toStringAsFixed(2)}',
                       style: TextStyle(
                         fontSize: context.bodyLarge,
                         fontWeight: FontWeight.w700,

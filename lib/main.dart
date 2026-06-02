@@ -36,6 +36,7 @@ import 'package:wander_nova/views/travel_stories/presentation/bloc/travel_storie
 import 'package:wander_nova/views/trending_route/presentation/bloc/trending_routes_bloc.dart';
 import 'package:wander_nova/views/wallet/presentation/bloc/wallet_bloc.dart';
 
+import 'core/services/exchange_rate_service.dart';
 import 'views/Send_otp/presentation/bloc/send_otp_bloc.dart';
 import 'core/utils/storage/shared_preference.dart';
 import 'injection_container.dart' as di;
@@ -48,6 +49,7 @@ void main() async {
   final prefs = sl<PreferencesManager>();
   await prefs.remove('exchange_rates_cache');
   await prefs.remove('exchange_rates_cache_time');
+  await ExchangeRateService.initializeUserCurrency();
   if (sl.isRegistered<ExchangeRateBloc>()) {
     sl<ExchangeRateBloc>().add(const FetchExchangeRates());
   }

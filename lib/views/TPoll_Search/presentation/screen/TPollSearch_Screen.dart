@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
+import '../../../../UI_helper/currency_converter.dart';
 import '../../../../common_widgets/logo.dart';
+import '../../../../core/utils/storage/shared_preference.dart';
 import '../../../../injection_container.dart';
 import '../../domain/entities/TPollSearchEntity.dart';
 import '../../../TResult/presentation/screen/TPoll_Booking.dart';
@@ -57,6 +59,34 @@ class _TpollSearchResultsPageState extends State<TpollSearchResultsPage> {
   void dispose() {
     _bloc.close();
     super.dispose();
+  }
+
+  String _getFormattedPrice(SearchResultEntity result) {
+    final prefs = sl<PreferencesManager>();
+    final preferredCurrency = prefs.getPreferredCurrency() ?? 'USD';
+
+
+    // Get the original currency from the result
+    final originalCurrency = result.totalPriceCurrency; // "USD", "EUR", etc.
+    final originalAmount = double.tryParse(result.totalPriceAmount) ?? 0.0;
+
+    // If already in preferred currency, just format it
+    if (originalCurrency == preferredCurrency) {
+      return CurrencyConverter.format(originalAmount, preferredCurrency);
+    }
+
+    print('>>>>>>>>>>>>>> FORMATTING PRICE:');
+    print('   Original: $originalAmount $originalCurrency');
+    print('   Preferred: $preferredCurrency');
+
+    // Convert from original currency to preferred currency
+    final convertedAmount = CurrencyConverter.convert(
+      amount: originalAmount,
+      fromCurrency: originalCurrency,  // Use actual source currency
+      toCurrency: preferredCurrency,
+    );
+
+    return CurrencyConverter.format(convertedAmount, preferredCurrency);
   }
 
   @override
@@ -172,6 +202,7 @@ class _TpollSearchResultsPageState extends State<TpollSearchResultsPage> {
                   currencySymbol: searchData.currencyInfo.prefixSymbol,
                   currencyCode: searchData.currencyInfo.code,
                   onTap: () => _handleBooking(context, result),
+                  formattedPrice: _getFormattedPrice(result),
                 );
               },
             ),
@@ -360,10 +391,51 @@ class _TpollSearchResultsPageState extends State<TpollSearchResultsPage> {
     );
   }
 
+  // Widget _sortChip(String value, String label) {
+  //   final selected = _sortBy == value;
+  //   return GestureDetector(
+  //     onTap: () => setState(() => _sortBy = value),
+  //     child: AnimatedContainer(
+  //       duration: const Duration(milliseconds: 200),
+  //       margin: EdgeInsets.only(right: context.wp(2)),
+  //       padding: EdgeInsets.symmetric(
+  //         horizontal: context.wp(3),
+  //         vertical: context.hp(0.8),
+  //       ),
+  //       decoration: BoxDecoration(
+  //         color: selected ? _primaryBlue.withOpacity(0.08) : Colors.transparent,
+  //         borderRadius: BorderRadius.circular(20),
+  //         border: Border.all(
+  //           color: selected ? _primaryBlue : Colors.grey.shade300,
+  //         ),
+  //       ),
+  //       child: Row(
+  //         mainAxisSize: MainAxisSize.min,
+  //         children: [
+  //           if (selected)
+  //             Padding(
+  //               padding: EdgeInsets.only(right: context.wp(1)),
+  //               child: Icon(Icons.check_circle, size: context.iconSmall, color: _primaryBlue),
+  //             ),
+  //           Text(
+  //             label,
+  //             style: TextStyle(
+  //               fontSize: context.bodySmall,
+  //               fontWeight: FontWeight.w600,
+  //               color: selected ? _primaryBlue : Colors.grey.shade700,
+  //             ),
+  //           ),
+  //         ],
+  //       ),
+  //     ),
+  //   );
+  // }
   Widget _sortChip(String value, String label) {
-    final selected = _sortBy == value;
+    final selected = _filters.sortBy == value;
     return GestureDetector(
-      onTap: () => setState(() => _sortBy = value),
+      onTap: () => setState(() {
+        _filters = _filters.copyWith(sortBy: value);
+      }),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         margin: EdgeInsets.only(right: context.wp(2)),

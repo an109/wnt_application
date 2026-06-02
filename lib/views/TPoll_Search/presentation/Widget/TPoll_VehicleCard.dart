@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
+import '../../../../UI_helper/currency_converter.dart';
 import '../../../../UI_helper/navigation_queue.dart';
+import '../../../../core/utils/storage/shared_preference.dart';
 import '../../../../injection_container.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_state.dart';
@@ -14,6 +16,7 @@ class TpollVehicleCard extends StatelessWidget {
   final String currencyCode;
   final VoidCallback onTap;
   final String searchId;
+  final String? formattedPrice;
 
   final Map<String, dynamic>? stepDetails;
 
@@ -31,10 +34,14 @@ class TpollVehicleCard extends StatelessWidget {
     required this.onTap,
     this.stepDetails,
     required this.searchId,
+    this.formattedPrice,
   });
 
   @override
   Widget build(BuildContext context) {
+    final displayPrice =
+        formattedPrice ??
+        '${CurrencyConverter.getSymbol(currencyCode)}${result.totalPriceAmount}';
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -123,7 +130,7 @@ class TpollVehicleCard extends StatelessWidget {
               border: Border.all(color: categoryColor.withOpacity(0.3)),
             ),
             child: Text(
-              result.vehicleType,  // ← From API: "Sedan", "Bus", etc.
+              result.vehicleType, // ← From API: "Sedan", "Bus", etc.
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
@@ -143,7 +150,7 @@ class TpollVehicleCard extends StatelessWidget {
                 border: Border.all(color: Colors.grey.shade200),
               ),
               child: Text(
-                result.vehicleName!,  // ← "Standard", "Luxury", etc.
+                result.vehicleName!, // ← "Standard", "Luxury", etc.
                 style: TextStyle(
                   fontSize: 10,
                   fontWeight: FontWeight.w500,
@@ -180,6 +187,7 @@ class TpollVehicleCard extends StatelessWidget {
       ),
     );
   }
+
   /// Vehicle image on left, details on right
   Widget _buildMainContent(BuildContext context) {
     return Row(
@@ -219,7 +227,6 @@ class TpollVehicleCard extends StatelessWidget {
     );
   }
 
-
   Widget _buildProviderRow(BuildContext context) {
     // Get rating from result or stepDetails
     final rating = stepDetails?['provider']?['rating']?.toDouble() ?? 5.0;
@@ -228,9 +235,10 @@ class TpollVehicleCard extends StatelessWidget {
     // Get vehicle make and model
     final vehicleMake = stepDetails?['vehicle']?['make'] ?? '';
     final vehicleModel = stepDetails?['vehicle']?['model'] ?? '';
-    final vehicleFullName = [vehicleMake, vehicleModel]
-        .where((s) => s.isNotEmpty)
-        .join(' ');
+    final vehicleFullName = [
+      vehicleMake,
+      vehicleModel,
+    ].where((s) => s.isNotEmpty).join(' ');
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -362,13 +370,12 @@ class TpollVehicleCard extends StatelessWidget {
     );
   }
 
-
   Widget _iconLabel(
-      BuildContext context, {
-        required IconData icon,
-        required String label,
-        Color? color,
-      }) {
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    Color? color,
+  }) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -403,7 +410,8 @@ class TpollVehicleCard extends StatelessWidget {
       runSpacing: 6,
       children: allToShow.map((amenity) {
         final isIncluded = amenity.included;
-        final hasPrice = amenity.price != null &&
+        final hasPrice =
+            amenity.price != null &&
             (amenity.price?.value?.isNotEmpty ?? false);
 
         return Container(
@@ -413,9 +421,7 @@ class TpollVehicleCard extends StatelessWidget {
                 ? _primaryBlue.withOpacity(0.08)
                 : Colors.grey.shade100,
             borderRadius: BorderRadius.circular(4),
-            border: isIncluded
-                ? null
-                : Border.all(color: Colors.grey.shade300),
+            border: isIncluded ? null : Border.all(color: Colors.grey.shade300),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -431,9 +437,7 @@ class TpollVehicleCard extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: isIncluded ? FontWeight.w600 : FontWeight.w400,
-                  color: isIncluded
-                      ? _primaryBlue
-                      : Colors.grey.shade600,
+                  color: isIncluded ? _primaryBlue : Colors.grey.shade600,
                 ),
               ),
             ],
@@ -477,12 +481,14 @@ class TpollVehicleCard extends StatelessWidget {
 
   Widget _buildSmsWithPrice(BuildContext context) {
     // Find SMS notification amenity
-    final smsAmenity = result.amenities
-        .firstWhere((a) => a.key == 'sms_notifications', orElse: () => result.amenities.first);
+    final smsAmenity = result.amenities.firstWhere(
+      (a) => a.key == 'sms_notifications',
+      orElse: () => result.amenities.first,
+    );
 
     //  Fixed: Check if price exists and access value properly
-    final hasSmsPrice = smsAmenity.price != null &&
-        smsAmenity.price!.value.isNotEmpty;
+    final hasSmsPrice =
+        smsAmenity.price != null && smsAmenity.price!.value.isNotEmpty;
     final smsPrice = hasSmsPrice ? smsAmenity.price!.value : '1.99';
 
     return Row(
@@ -504,10 +510,11 @@ class TpollVehicleCard extends StatelessWidget {
     );
   }
 
-  Widget _trustItem(
-      {required IconData icon,
-        required String label,
-        required Color color}) {
+  Widget _trustItem({
+    required IconData icon,
+    required String label,
+    required Color color,
+  }) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -527,10 +534,21 @@ class TpollVehicleCard extends StatelessWidget {
 
   /// Price display + Book Now button
   Widget _buildPriceAndBookRow(BuildContext context) {
-    print(' DEBUG: totalPriceAmount = "${result.totalPriceAmount}"');
+    print(' DEBUG: Original totalPriceAmount = "${result.totalPriceAmount}"');
+    print(' DEBUG: Original currencyCode = "$currencyCode"');
+    print(' DEBUG: formattedPrice from parent = "$formattedPrice"');
 
-    final price = double.tryParse(result.totalPriceAmount) ?? 0;
-    final formattedPrice = price > 0 ? price.toStringAsFixed(0) : result.totalPriceAmount;
+    // Get user's preferred currency
+    final prefs = sl<PreferencesManager>();
+    final preferredCurrency = prefs.getPreferredCurrency() ?? 'USD';
+    print(' DEBUG: Preferred currency = "$preferredCurrency"');
+
+    // USE the formattedPrice passed from parent - this already has the converted price with symbol
+    final displayPriceText = formattedPrice ??
+        '${CurrencyConverter.getSymbol(currencyCode)}${result.totalPriceAmount}';
+
+    print(' DEBUG: Final display price = "$displayPriceText"');
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
@@ -538,28 +556,15 @@ class TpollVehicleCard extends StatelessWidget {
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  currencyCode,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.grey.shade600,
-                  ),
-                ),
-                const SizedBox(width: 2),
-                Text(
-                  formattedPrice,
-                  style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w800,
-                    color: _darkNavy,
-                    height: 1.1,
-                  ),
-                ),
-              ],
+            //  FIXED: Use displayPriceText instead of hardcoding USD
+            Text(
+              displayPriceText,  // This now shows converted price (INR ₹10,020)
+              style: const TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.w800,
+                color: _darkNavy,
+                height: 1.1,
+              ),
             ),
             Text(
               'per trip',
@@ -571,56 +576,10 @@ class TpollVehicleCard extends StatelessWidget {
           ],
         ),
         const Spacer(),
-        // Book Now button
+        // Book Now button (keep your existing code - it's fine)
         SizedBox(
           height: 44,
           child: ElevatedButton(
-
-            // onPressed: result.bookable ? () {
-            //   print('BOOK NOW TAPPED');
-            //   print('Search ID: $searchId');
-            //   print('Result ID: ${result.resultId}');
-            //
-            //   // Check authentication state
-            //   final authState = sl<AuthBloc>().state;
-            //   if (authState is AuthAuthenticated) {
-            //     // User is logged in
-            //     onTap();
-            //   } else {
-            //     // User not logged in - queue navigation and show login
-            //     NavigationQueueService().setPendingNavigation(() {
-            //       if (context.mounted) {
-            //         onTap();
-            //       }
-            //     });
-            //
-            //     // Use showGeneralDialog exactly like RoomCard
-            //     showGeneralDialog(
-            //       context: context,
-            //       barrierDismissible: true,
-            //       barrierLabel: "Login",
-            //       barrierColor: Colors.black.withOpacity(0.15),
-            //       transitionDuration: const Duration(milliseconds: 300),
-            //       pageBuilder: (_, __, ___) {
-            //         return const LoginSignupScreen();
-            //       },
-            //       transitionBuilder: (_, animation, __, child) {
-            //         return FadeTransition(
-            //           opacity: animation,
-            //           child: ScaleTransition(
-            //             scale: Tween<double>(begin: 0.95, end: 1).animate(
-            //               CurvedAnimation(
-            //                 parent: animation,
-            //                 curve: Curves.easeOut,
-            //               ),
-            //             ),
-            //             child: child,
-            //           ),
-            //         );
-            //       },
-            //     );
-            //   }
-            // } : null,
             onPressed: result.bookable ? () {
               print('BOOK NOW TAPPED');
               print('Search ID: $searchId');
@@ -629,24 +588,13 @@ class TpollVehicleCard extends StatelessWidget {
               final authState = sl<AuthBloc>().state;
               final isLoggedIn = authState is AuthAuthenticated && authState.user != null;
 
-              if (authState is AuthAuthenticated) {
-                Future.delayed(const Duration(milliseconds: 100), () {
-                  if (context.mounted) {
-                    onTap();
-                  }
-                });
-              }
-
               if (isLoggedIn) {
                 print('User already logged in, proceeding directly');
                 onTap();
               } else {
                 print('User not logged in, showing login popup');
-
-                // Store the navigation for after login
                 NavigationQueueService().setPendingNavigation(() {
                   print('Executing pending navigation after login');
-                  // Wait a bit for auth state to update
                   Future.delayed(const Duration(milliseconds: 300), () {
                     if (context.mounted) {
                       onTap();
@@ -681,8 +629,7 @@ class TpollVehicleCard extends StatelessWidget {
               }
             } : null,
             style: ElevatedButton.styleFrom(
-              backgroundColor:
-              result.bookable ? _primaryOrange : Colors.grey.shade300,
+              backgroundColor: result.bookable ? _primaryOrange : Colors.grey.shade300,
               foregroundColor: Colors.white,
               elevation: 0,
               padding: EdgeInsets.symmetric(horizontal: context.wp(6)),

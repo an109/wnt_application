@@ -109,21 +109,83 @@ class SearchResultModel extends Equatable {
   });
 
   factory SearchResultModel.fromJson(Map<String, dynamic> json) {
+    // List<dynamic>? stepsJson = (json['raw_result']?['steps'] as List<dynamic>?) ??
+    //     (json['steps'] as List<dynamic>?);
+    // return SearchResultModel(
+    //   resultId: json['result_id'] ?? '',
+    //   vehicleId: json['vehicle_id'] ?? '',
+    //   totalPrice: TotalPriceModel.fromJson(json['total_price'] ?? {}),
+    //   providerName: json['provider_name'] ?? '',
+    //   vehicleType: json['vehicle_type'] ?? '',
+    //   vehicleName: json['vehicle_name'] ?? '',
+    //   bookable: json['bookable'] ?? false,
+    //   totalPriceAmount: json['total_price_amount'] ?? '0',
+    //   totalPriceCurrency: json['total_price_currency'] ?? 'USD',
+    //   // steps: (json['steps'] as List<dynamic>?)
+    //   //     ?.map((e) => StepModel.fromJson(e))
+    //   //     .toList() ??
+    //   //     [],
+    //   // steps: (json['raw_result']?['steps'] as List<dynamic>?)?.map((e) => StepModel.fromJson(e)).toList() ?? [],
+    //   steps: stepsJson?.map((e) => StepModel.fromJson(e)).toList() ?? [],
+    // );
+    // 1. Parse steps safely from either 'raw_result.steps' or root 'steps'
+    List<dynamic>? stepsJson = (json['raw_result']?['steps'] as List<dynamic>?) ??
+        (json['steps'] as List<dynamic>?);
+    List<StepModel> steps = stepsJson?.map((e) => StepModel.fromJson(e)).toList() ?? [];
+
+    // 2. Find the main step to use as a fallback for missing root fields
+    StepModel? mainStep = steps.isNotEmpty
+        ? steps.firstWhere((s) => s.main, orElse: () => steps.first)
+        : null;
+
+    // 3. Extract root fields with fallbacks to the main step's details
+    String providerName = (json['provider_name'] as String?) ?? '';
+    if (providerName.isEmpty && mainStep != null) {
+      providerName = mainStep.details.provider.name;
+    }
+
+    String vehicleType = (json['vehicle_type'] as String?) ?? '';
+    if (vehicleType.isEmpty && mainStep != null) {
+      vehicleType = mainStep.details.vehicle.vehicleType.name;
+    }
+
+    String vehicleName = (json['vehicle_name'] as String?) ?? '';
+    if (vehicleName.isEmpty && mainStep != null) {
+      vehicleName = mainStep.details.vehicle.category.name;
+    }
+
+    bool bookable = (json['bookable'] as bool?) ?? false;
+    if (!bookable && mainStep != null) {
+      bookable = mainStep.details.bookable;
+    }
+
+    // 4. Extract price with fallbacks
+    String totalPriceAmount = (json['total_price_amount'] as String?) ?? '0';
+    String totalPriceCurrency = (json['total_price_currency'] as String?) ?? 'USD';
+
+    // If root price is missing/default, try nested total_price object
+    if (totalPriceAmount == '0') {
+      totalPriceAmount = json['total_price']?['total_price']?['value'] as String? ?? '0';
+      totalPriceCurrency = json['total_price']?['total_price']?['currency'] as String? ?? 'USD';
+    }
+
+    // If still missing, try step details price
+    if (totalPriceAmount == '0' && mainStep != null) {
+      totalPriceAmount = mainStep.details.price.price.value;
+      totalPriceCurrency = mainStep.details.price.price.currency;
+    }
+
     return SearchResultModel(
       resultId: json['result_id'] ?? '',
       vehicleId: json['vehicle_id'] ?? '',
       totalPrice: TotalPriceModel.fromJson(json['total_price'] ?? {}),
-      providerName: json['provider_name'] ?? '',
-      vehicleType: json['vehicle_type'] ?? '',
-      vehicleName: json['vehicle_name'] ?? '',
-      bookable: json['bookable'] ?? false,
-      totalPriceAmount: json['total_price_amount'] ?? '0',
-      totalPriceCurrency: json['total_price_currency'] ?? 'USD',
-      // steps: (json['steps'] as List<dynamic>?)
-      //     ?.map((e) => StepModel.fromJson(e))
-      //     .toList() ??
-      //     [],
-      steps: (json['raw_result']?['steps'] as List<dynamic>?)?.map((e) => StepModel.fromJson(e)).toList() ?? [],
+      providerName: providerName,
+      vehicleType: vehicleType,
+      vehicleName: vehicleName,
+      bookable: bookable,
+      totalPriceAmount: totalPriceAmount,
+      totalPriceCurrency: totalPriceCurrency,
+      steps: steps,
     );
   }
 

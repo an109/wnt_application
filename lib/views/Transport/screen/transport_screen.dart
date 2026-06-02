@@ -73,7 +73,7 @@ class _TransportBookingScreenState
 
                   // BACKGROUND IMAGE
                   SizedBox(
-                    height: context.hp(84),
+                    height: context.hp(68),
                     width: double.infinity,
                     child: Image.network(
                       "https://images.unsplash.com/photo-1566073771259-6a8506099945?q=80&w=1200&auto=format&fit=crop",
@@ -85,14 +85,14 @@ class _TransportBookingScreenState
                   IgnorePointer(
                     ignoring: true,
                     child: Container(
-                      height: context.hp(72),
+                      height: context.hp(68),
                       color: Colors.white.withOpacity(0.15),
                     ),
                   ),
 
                   // TOP TEXT
                   Positioned(
-                    top: context.hp(6),
+                    top: context.hp(4),
                     left: context.wp(6),
                     right: context.wp(6),
                     child: Column(
@@ -101,9 +101,9 @@ class _TransportBookingScreenState
                       children: [
 
                         SizedBox(
-                          width: context.wp(75),
+                          width: context.wp(70),
                           child: Text(
-                            "Comfortable\nRides,\nOn Time, Every\nTime",
+                            "Comfortable Rides,\nOn Time, Every Time",
                             style: TextStyle(
                               fontSize: context.sp(24),
                               fontWeight: FontWeight.w800,
@@ -113,10 +113,10 @@ class _TransportBookingScreenState
                           ),
                         ),
 
-                        SizedBox(height: context.hp(2)),
+                        SizedBox(height: context.hp(1.4)),
 
                         Text(
-                          "Airport transfers, city rides,\nintercity travel and more.",
+                          "Airport transfers, city rides, intercity travel\nand more.",
                           style: TextStyle(
                             fontSize: context.bodyLarge,
                             color: const Color(0xff1F2A44),
@@ -131,7 +131,7 @@ class _TransportBookingScreenState
                   Positioned(
                     left: context.wp(4),
                     right: context.wp(4),
-                    bottom: -context.hp(10),
+                    bottom: -context.hp(-2),
 
                     child: TransportBookingCard(
                       isOneWay: isOneWay,
@@ -161,9 +161,6 @@ class _TransportBookingScreenState
               ),
             ),
 
-            SliverToBoxAdapter(
-              child: SizedBox(height: context.hp(12)),
-            ),
 
 
             const SliverToBoxAdapter(

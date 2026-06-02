@@ -49,6 +49,33 @@ class CurrencyConverter {
     return '$symbol$buffer';
   }
 
+  // Add to your existing CurrencyConverter class
+  static String getPreferredCurrency() {
+    final prefs = sl<PreferencesManager>();
+    return prefs.getPreferredCurrency() ?? 'USD';
+  }
+
+  static Future<void> setPreferredCurrency(String currency) async {
+    final prefs = sl<PreferencesManager>();
+    await prefs.savePreferredCurrency(currency);
+  }
+
+  static Future<double> convertAmountWithPreferredCurrency(double amountInUSD) async {
+    final prefs = sl<PreferencesManager>();
+    final targetCurrency = prefs.getPreferredCurrency() ?? 'USD';
+
+    if (targetCurrency == 'USD') return amountInUSD;
+
+    final rates = prefs.getCachedExchangeRates();
+    if (rates == null) return amountInUSD;
+
+    final targetRate = rates[targetCurrency];
+    if (targetRate == null) return amountInUSD;
+
+    // Convert USD to target currency
+    return amountInUSD * targetRate;
+  }
+
   static String getSymbol(String currency) {
     final symbols = {
       'INR': '₹',

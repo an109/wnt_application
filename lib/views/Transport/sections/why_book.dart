@@ -32,7 +32,7 @@ class WhyBookTransportSection extends StatelessWidget {
 
               /// TITLE
               Text(
-                "Why Book Ground\nTransport with Us?",
+                "Why Book Ground Transport\nwith Us?",
                 style: TextStyle(
                   fontSize: context.sp(22),
                   fontWeight: FontWeight.w800,
@@ -41,19 +41,7 @@ class WhyBookTransportSection extends StatelessWidget {
                 ),
               ),
 
-              SizedBox(height: context.hp(1)),
-
-              /// BLUE LINE
-              Container(
-                width: context.wp(7),
-                height: 3,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF2F80ED),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-              ),
-
-              SizedBox(height: context.hp(2.2)),
+              SizedBox(height: context.hp(1.2)),
 
               /// DESCRIPTION
               Text(
@@ -66,7 +54,7 @@ class WhyBookTransportSection extends StatelessWidget {
                 ),
               ),
 
-              SizedBox(height: context.hp(3)),
+              SizedBox(height: context.hp(1.7)),
 
               /// PRIVATE TRANSFERS
               const TransportCard(
@@ -78,7 +66,7 @@ class WhyBookTransportSection extends StatelessWidget {
                 "Exclusive vehicle just for you —\nno shared rides, no waiting.",
               ),
 
-              SizedBox(height: context.hp(2.5)),
+              SizedBox(height: context.hp(2)),
 
               /// SHARED SHUTTLES
               const TransportCard(
@@ -90,7 +78,7 @@ class WhyBookTransportSection extends StatelessWidget {
                 "Budget-friendly shared rides\nwith fixed pickup times.",
               ),
 
-              SizedBox(height: context.hp(2.5)),
+              SizedBox(height: context.hp(2)),
 
               /// MEET & GREET
               const TransportCard(
@@ -130,9 +118,9 @@ class TransportCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: double.infinity,
+      // width: double.infinity,
 
-      padding: EdgeInsets.all(context.wp(3)),
+      padding: EdgeInsets.all(context.wp(2.8)),
 
       decoration: BoxDecoration(
         color: Colors.white,
@@ -147,7 +135,7 @@ class TransportCard extends StatelessWidget {
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.03),
-            blurRadius: 16,
+            blurRadius: 18,
             offset: const Offset(0, 6),
           ),
         ],

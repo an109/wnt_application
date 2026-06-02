@@ -445,7 +445,7 @@ class _HotelDetailsScreenState extends State<HotelDetailsScreen> {
           ),
           const SizedBox(height: 12),
           Container(
-            height: 300,
+            height: 250,
             width: double.infinity,
             decoration: BoxDecoration(
               color: Colors.grey[200],
@@ -460,35 +460,26 @@ class _HotelDetailsScreenState extends State<HotelDetailsScreen> {
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(12),
-              child: GoogleMap(
-                key: const ValueKey('hotel_map'),
-                initialCameraPosition: CameraPosition(
-                  target: _cachedHotelPosition!,
-                  zoom: 14.0,
-                ),
-                markers: {
-                  Marker(
-                    markerId: const MarkerId('hotel_location'),
-                    position: _cachedHotelPosition!,
-                    infoWindow: InfoWindow(
-                      title: _cachedHotelName,
-                      snippet: _cachedAddress,
+                child: InkWell(
+                  onTap: _openInGoogleMaps,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      color: Colors.grey.shade200,
+                    ),
+                    child: Stack(
+                      children: [
+                        Center(
+                          child: Icon(
+                            Icons.location_on,
+                            size: 80,
+                            color: Colors.red,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                },
-                myLocationEnabled: true,
-                myLocationButtonEnabled: true,
-                mapType: MapType.normal,
-                zoomControlsEnabled: true,
-                zoomGesturesEnabled: true,
-                tiltGesturesEnabled: false,
-                onMapCreated: (GoogleMapController controller) {
-                  _mapController = controller;
-                },
-                onTap: (LatLng latLng) {
-                  print('Map tapped at: $latLng');
-                },
-              ),
+                )
             ),
           ),
           const SizedBox(height: 12),
