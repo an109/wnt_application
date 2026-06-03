@@ -28,7 +28,7 @@ class TicketVoucherScreen extends StatelessWidget {
         automaticallyImplyLeading: false,
         actions: [
           Padding(
-            padding: const EdgeInsets.all(8.0),
+            padding: EdgeInsets.all(context.w(8)),
             child: Image.asset('assets/images/wander_nova_logo.jpg', height: 35),
           ),
         ],
@@ -383,7 +383,7 @@ class TicketVoucherScreen extends StatelessWidget {
   Widget _card(BuildContext context, {required Widget child}) {
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.all(context.gapMedium),
+      padding: EdgeInsets.all(context.w(12)),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(context.borderRadius),

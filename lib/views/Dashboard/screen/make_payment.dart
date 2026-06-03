@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wander_nova/UI_helper/responsive_layout.dart';
 
 import '../../../common_widgets/logo.dart';
 
@@ -36,7 +37,7 @@ class _MakePaymentScreenState extends State<MakePaymentScreen> {
         title: const WanderNovaLogo(scaleFactor: 0.6),
         actions: [
           Padding(
-            padding: const EdgeInsets.all(8.0),
+            padding: EdgeInsets.all(context.w(8)),
             child: Image.asset(
               "assets/images/wander_nova_logo.jpg",
               height: 35,
@@ -788,8 +789,8 @@ class _MakePaymentScreenState extends State<MakePaymentScreen> {
               ),
               Text(
                 '₹${_netFare.toStringAsFixed(2)}',
-                style: const TextStyle(
-                  fontSize: 20,
+                style:  TextStyle(
+                  fontSize: context.fs(20),
                   fontWeight: FontWeight.bold,
                   color: Colors.black87,
                 ),

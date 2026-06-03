@@ -88,7 +88,7 @@ class FlightDetailsPopup extends StatelessWidget {
 
           /// TOP SECTION
           Padding(
-            padding: EdgeInsets.all(context.gapMedium),
+            padding: EdgeInsets.all(context.w(12)),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -96,7 +96,7 @@ class FlightDetailsPopup extends StatelessWidget {
                 /// PRICE BOX
                 Container(
                   width: context.isMobile ? 110 : 140,
-                  padding: EdgeInsets.all(context.gapMedium),
+                  padding: EdgeInsets.all(context.w(12)),
                   decoration: BoxDecoration(
                     color: const Color(0xFFE6FAEC),
                     borderRadius: BorderRadius.circular(14),
@@ -115,7 +115,7 @@ class FlightDetailsPopup extends StatelessWidget {
                       SizedBox(height: context.gapSmall),
 
                       Text(
-                        "₹$price",
+                        "$price",
                         style: TextStyle(
                           fontSize: context.titleLarge,
                           fontWeight: FontWeight.bold,
@@ -310,7 +310,7 @@ class FlightDetailsPopup extends StatelessWidget {
 
           /// MIDDLE SECTION
           Padding(
-            padding: EdgeInsets.all(context.gapMedium),
+            padding: EdgeInsets.all(context.w(12)),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -399,7 +399,7 @@ class FlightDetailsPopup extends StatelessWidget {
 
           /// BOTTOM
           Padding(
-            padding: EdgeInsets.all(context.gapMedium),
+            padding: EdgeInsets.all(context.w(12)),
             child: Row(
               children: [
 

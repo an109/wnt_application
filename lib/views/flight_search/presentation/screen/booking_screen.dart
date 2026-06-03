@@ -262,7 +262,7 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
           elevation: 0,
           actions: [
             Padding(
-              padding: const EdgeInsets.all(8.0),
+              padding: EdgeInsets.all(context.w(8)),
               child: Image.asset(
                 "assets/images/wander_nova_logo.jpg",
                 height: 35,
@@ -307,7 +307,7 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
     final route = _updatedRouteWithFareQuote ?? widget.routes.first;
 
     return Container(
-      padding: EdgeInsets.all(context.gapMedium),
+      padding: EdgeInsets.all(context.w(12)),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(context.borderRadius),
@@ -567,7 +567,7 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
     }
 
     return Container(
-      padding: EdgeInsets.all(context.gapMedium),
+      padding: EdgeInsets.all(context.w(12)),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(context.borderRadius),
@@ -680,7 +680,7 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
 
   Widget _buildLoadingCard(BuildContext context, String message) {
     return Container(
-      padding: EdgeInsets.all(context.gapMedium),
+      padding: EdgeInsets.all(context.w(12)),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(context.borderRadius),
@@ -714,7 +714,7 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
 
   Widget _buildErrorCard(BuildContext context, String message) {
     return Container(
-      padding: EdgeInsets.all(context.gapMedium),
+      padding: EdgeInsets.all(context.w(12)),
       decoration: BoxDecoration(
         color: Colors.orange.shade50,
         borderRadius: BorderRadius.circular(context.borderRadius),
@@ -744,7 +744,7 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
 
   Widget _buildLoginCard(BuildContext context) {
     return Container(
-      padding: EdgeInsets.all(context.gapMedium),
+      padding: EdgeInsets.all(context.w(12)),
       decoration: BoxDecoration(
         color: const Color(0xFFFFF8E8),
         borderRadius: BorderRadius.circular(context.borderRadius),

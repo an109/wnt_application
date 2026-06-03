@@ -535,8 +535,8 @@ class _DestinationDetailSheet extends StatelessWidget {
                         children: [
                           Text(
                             destination.name,
-                            style: const TextStyle(
-                              fontSize: 24,
+                            style:  TextStyle(
+                              fontSize: context.fs(24),
                               fontWeight: FontWeight.bold,
                             ),
                           ),

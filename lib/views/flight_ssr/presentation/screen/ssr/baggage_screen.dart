@@ -290,7 +290,7 @@ class _BaggageScreenState extends State<BaggageScreen> {
         context.gapMedium,
         0,
       ),
-      padding: EdgeInsets.all(context.gapMedium),
+      padding: EdgeInsets.all(context.w(12)),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(context.borderRadius),
@@ -447,7 +447,7 @@ class _BaggageScreenState extends State<BaggageScreen> {
           onTap: onTap,
           borderRadius: BorderRadius.circular(context.borderRadius),
           child: Container(
-            padding: EdgeInsets.all(context.gapMedium),
+            padding: EdgeInsets.all(context.w(12)),
             decoration: BoxDecoration(
               color: isSelected ? Colors.blue.shade50 : Colors.white,
               borderRadius: BorderRadius.circular(context.borderRadius),

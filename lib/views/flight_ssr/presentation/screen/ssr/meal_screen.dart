@@ -258,7 +258,7 @@
 //         context.gapMedium,
 //         0,
 //       ),
-//       padding: EdgeInsets.all(context.gapMedium),
+//       padding: EdgeInsets.all(context.w(12)),
 //       decoration: BoxDecoration(
 //         color: Colors.white,
 //         borderRadius: BorderRadius.circular(context.borderRadius),
@@ -415,7 +415,7 @@
 //           onTap: onTap,
 //           borderRadius: BorderRadius.circular(context.borderRadius),
 //           child: Container(
-//             padding: EdgeInsets.all(context.gapMedium),
+//             padding: EdgeInsets.all(context.w(12)),
 //             decoration: BoxDecoration(
 //               color: isSelected ? Colors.orange.shade50 : Colors.white,
 //               borderRadius: BorderRadius.circular(context.borderRadius),
@@ -822,7 +822,7 @@ class _MealScreenState extends State<MealScreen> {
           child: availableMeals.isEmpty
               ? _buildEmptyState()
               : ListView.builder(
-            padding: EdgeInsets.all(context.gapMedium),
+            padding: EdgeInsets.all(context.w(12)),
             itemCount: availableMeals.length,
             itemBuilder: (context, index) {
               final option = availableMeals[index];
@@ -849,7 +849,7 @@ class _MealScreenState extends State<MealScreen> {
         context.gapMedium,
         0,
       ),
-      padding: EdgeInsets.all(context.gapMedium),
+      padding: EdgeInsets.all(context.w(12)),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(context.borderRadius),
@@ -1007,7 +1007,7 @@ class _MealScreenState extends State<MealScreen> {
           onTap: onTap,
           borderRadius: BorderRadius.circular(context.borderRadius),
           child: Container(
-            padding: EdgeInsets.all(context.gapMedium),
+            padding: EdgeInsets.all(context.w(12)),
             decoration: BoxDecoration(
               color: isSelected ? Colors.orange.shade50 : Colors.white,
               borderRadius: BorderRadius.circular(context.borderRadius),

@@ -8,10 +8,7 @@ import '../../../../../UI_helper/responsive_layout.dart';
 class DealDetailsScreen extends StatelessWidget {
   final ExclusiveDealEntity deal;
 
-  const DealDetailsScreen({
-    super.key,
-    required this.deal,
-  });
+  const DealDetailsScreen({super.key, required this.deal});
 
   @override
   Widget build(BuildContext context) {
@@ -29,7 +26,7 @@ class DealDetailsScreen extends StatelessWidget {
               "assets/images/wander_nova_logo.jpg",
               height: context.hp(4.5),
             ),
-          )
+          ),
         ],
       ),
       body: SingleChildScrollView(
@@ -47,50 +44,12 @@ class DealDetailsScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  //
-                  // // Discount Text
-                  // if (deal.discountText.isNotEmpty)
-                  //   Container(
-                  //     padding: EdgeInsets.symmetric(
-                  //       horizontal: context.gapMedium,
-                  //       vertical: context.gapSmall,
-                  //     ),
-                  //     decoration: BoxDecoration(
-                  //       color: Colors.red.shade50,
-                  //       borderRadius: BorderRadius.circular(
-                  //         context.borderRadiusMedium,
-                  //       ),
-                  //       border: Border.all(
-                  //         color: Colors.red.shade200,
-                  //         width: 2,
-                  //       ),
-                  //     ),
-                  //     child: Text(
-                  //       deal.discountText,
-                  //       style: TextStyle(
-                  //         fontSize: context.responsiveFontSize(20, 18, 16),
-                  //         fontWeight: FontWeight.w700,
-                  //         color: Colors.red.shade700,
-                  //       ),
-                  //       textAlign: TextAlign.center,
-                  //     ),
-                  //   ),
-
-                  // SizedBox(height: context.gapXLarge),
-
-                  // Coupon Code Card
                   _buildCouponCodeCard(context),
 
                   SizedBox(height: context.gapMedium),
 
                   // Terms & Conditions
-                  TermsAndConditionsSection(
-                    termsText:
-                    // deal.termsAndConditions.isNotEmpty
-                    //     ? deal.termsAndConditions
-                    //     :
-                    _getDefaultTerms(),
-                  ),
+                  TermsAndConditionsSection(termsText: _getDefaultTerms()),
 
                   SizedBox(height: context.gapXLarge),
 
@@ -104,7 +63,6 @@ class DealDetailsScreen extends StatelessWidget {
           ],
         ),
       ),
-
     );
   }
 
@@ -121,7 +79,7 @@ class DealDetailsScreen extends StatelessWidget {
           image: deal.imageUrl.isNotEmpty
               ? NetworkImage(deal.imageUrl)
               : const AssetImage('assets/images/placeholder_deal.png')
-          as ImageProvider,
+                    as ImageProvider,
           fit: BoxFit.cover,
         ),
       ),
@@ -132,10 +90,7 @@ class DealDetailsScreen extends StatelessWidget {
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [
-                  Colors.transparent,
-                  Colors.black.withOpacity(0.3),
-                ],
+                colors: [Colors.transparent, Colors.black.withOpacity(0.3)],
               ),
             ),
           ),
@@ -160,12 +115,7 @@ class DealDetailsScreen extends StatelessWidget {
       ),
       child: Column(
         children: [
-          // Coupon Icon
-          // Icon(
-          //   Icons.local_offer_outlined,
-          //   size: context.responsiveFontSize(40, 36, 32),
-          //   color: const Color(0xff005B7F),
-          // ),
+
           Image.asset(
             'assets/images/scissor.png',
             width: context.wp(15),
@@ -389,7 +339,7 @@ class DealDetailsScreen extends StatelessWidget {
   }
 
   String _getDefaultTerms() {
-    return '''**Terms & Conditions**
+    return '''
 
 Instant discounts are applicable on Economy, Premium Economy, Business & First Class.
 

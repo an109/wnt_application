@@ -100,7 +100,7 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
                       ),
                     ),
                     Padding(
-                      padding: EdgeInsets.all(context.gapMedium),
+                      padding: EdgeInsets.all(context.w(12)),
                       child: TextButton.icon(
                         onPressed: tempRooms.length < 5
                             ? () {
@@ -129,7 +129,7 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
 
   Widget _buildModalHeader(VoidCallback onApply) {
     return Container(
-      padding: EdgeInsets.all(context.gapMedium),
+      padding: EdgeInsets.all(context.w(12)),
       decoration: BoxDecoration(
         border: Border(
           bottom: BorderSide(color: Colors.grey.shade200),
@@ -176,7 +176,7 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
         horizontal: context.gapMedium,
         vertical: context.gapSmall,
       ),
-      padding: EdgeInsets.all(context.gapMedium),
+      padding: EdgeInsets.all(context.w(12)),
       decoration: BoxDecoration(
         border: Border.all(color: Colors.grey.shade300),
         borderRadius: BorderRadius.circular(context.borderRadiusMedium),
@@ -501,7 +501,7 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.all(context.gapMedium),
+      padding: EdgeInsets.all(context.w(12)),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(context.borderRadius),
@@ -804,7 +804,7 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Padding(
-                padding: EdgeInsets.all(context.gapMedium),
+                padding: EdgeInsets.all(context.w(12)),
                 child: Text(
                   'Select Nationality',
                   style: TextStyle(

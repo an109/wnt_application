@@ -73,7 +73,7 @@ class _CitySearchScreenState extends State<CitySearchScreen> {
             Padding(
               padding: EdgeInsets.all(context.wp(4)),
               child: Container(
-                height: context.hp(8),
+                height: context.h(65),
                 decoration: BoxDecoration(
                   color: const Color(0xFFF1F7FD),
                   borderRadius: BorderRadius.circular(18),

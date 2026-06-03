@@ -65,10 +65,10 @@ class _FlightScreenState extends State<FlightScreen> {
           backgroundColor: Colors.white,
           actions: [
             Padding(
-              padding: EdgeInsets.all(context.wp(2)),
+              padding: EdgeInsets.all(context.w(8)),
               child: Image.asset(
                 "assets/images/wander_nova_logo.jpg",
-                height: context.hp(4.5),
+                height: context.h(36),
               ),
             )
           ],
@@ -84,7 +84,7 @@ class _FlightScreenState extends State<FlightScreen> {
                   children: [
                     // BACKGROUND IMAGE - Dynamic from API with fallback
                     SizedBox(
-                      height: context.isMobile ? context.hp(62) : context.hp(67),
+                      height: context.isMobile ? context.h(500) : context.h(540),
                       width: double.infinity,
                       child: _flightHeroImage != null && _flightHeroImage!.isNotEmpty
                           ? Image.network(
@@ -120,15 +120,15 @@ class _FlightScreenState extends State<FlightScreen> {
                     IgnorePointer(
                       ignoring: true,
                       child: Container(
-                        height: context.isMobile ? context.hp(62) : context.hp(67),
+                        height: context.isMobile ? context.h(500) : context.h(540),
                         color: Colors.black.withOpacity(0.30),
                       ),
                     ),
 
                     Positioned(
-                      left: context.wp(1.2),
-                      right: context.wp(1.5),
-                      bottom: -context.hp(-4),
+                      left: context.w(4),
+                      right: context.w(6),
+                      bottom: -context.h(-32),
                       child: Material(
                         color: Colors.transparent,
                         child: SearchCard(),
@@ -138,8 +138,8 @@ class _FlightScreenState extends State<FlightScreen> {
                 ),
               ),
 
-              const SliverToBoxAdapter(
-                child: SizedBox(height: 18),
+               SliverToBoxAdapter(
+                child: SizedBox(height: context.h(18)),
               ),
 
               SliverToBoxAdapter(
@@ -162,7 +162,7 @@ class _FlightScreenState extends State<FlightScreen> {
               const SliverToBoxAdapter(child: WhyChooseUs()),
 
               SliverToBoxAdapter(
-                child: SizedBox(height: context.hp(5)),
+                child: SizedBox(height: context.h(40)),
               ),
             ],
           ),

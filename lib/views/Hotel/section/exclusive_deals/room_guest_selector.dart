@@ -63,7 +63,7 @@ class _RoomGuestSelectorState extends State<RoomGuestSelector> {
       child: Column(
         children: [
           Padding(
-            padding: EdgeInsets.all(context.gapMedium),
+            padding: EdgeInsets.all(context.w(12)),
             child: Column(
               children: List.generate(
                 rooms.length,
@@ -80,7 +80,7 @@ class _RoomGuestSelectorState extends State<RoomGuestSelector> {
           InkWell(
             onTap: _addRoom,
             child: Padding(
-              padding: EdgeInsets.all(context.gapMedium),
+              padding: EdgeInsets.all(context.w(12)),
               child: Row(
                 children: [
                   Text(
@@ -97,7 +97,7 @@ class _RoomGuestSelectorState extends State<RoomGuestSelector> {
           ),
 
           Padding(
-            padding: EdgeInsets.all(context.gapMedium),
+            padding: EdgeInsets.all(context.w(12)),
             child: SizedBox(
               width: double.infinity,
               height: context.buttonHeight + 8,
@@ -134,7 +134,7 @@ class _RoomGuestSelectorState extends State<RoomGuestSelector> {
 
     return Container(
       margin: EdgeInsets.only(bottom: context.gapMedium),
-      padding: EdgeInsets.all(context.gapMedium),
+      padding: EdgeInsets.all(context.w(12)),
       decoration: BoxDecoration(
         color: index != rooms.length - 1
             ? Colors.grey.shade100

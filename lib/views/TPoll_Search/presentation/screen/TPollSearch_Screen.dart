@@ -89,6 +89,38 @@ class _TpollSearchResultsPageState extends State<TpollSearchResultsPage> {
     return CurrencyConverter.format(convertedAmount, preferredCurrency);
   }
 
+  Map<String, String> _getFormattedAmenityPrices(SearchResultEntity result) {
+    final prefs = sl<PreferencesManager>();
+    final preferredCurrency = prefs.getPreferredCurrency() ?? 'USD';
+    final Map<String, String> formattedPrices = {};
+
+    for (var amenity in result.amenities) {
+      if (amenity.price != null && amenity.price!.value.isNotEmpty) {
+        final originalCurrency = result.totalPriceCurrency; // Use same currency as total price
+        final originalAmount = double.tryParse(amenity.price!.value) ?? 0.0;
+
+        String formattedPrice;
+        if (originalCurrency == preferredCurrency) {
+          formattedPrice = CurrencyConverter.format(originalAmount, preferredCurrency);
+        } else {
+          final convertedAmount = CurrencyConverter.convert(
+            amount: originalAmount,
+            fromCurrency: originalCurrency,
+            toCurrency: preferredCurrency,
+          );
+          formattedPrice = CurrencyConverter.format(convertedAmount, preferredCurrency);
+        }
+
+        // Store by both key and name for easy lookup
+        formattedPrices[amenity.key] = formattedPrice;
+        formattedPrices[amenity.name] = formattedPrice;
+      }
+    }
+
+    return formattedPrices;
+  }
+
+
   @override
   Widget build(BuildContext context) {
     return BlocProvider.value(
@@ -203,6 +235,7 @@ class _TpollSearchResultsPageState extends State<TpollSearchResultsPage> {
                   currencyCode: searchData.currencyInfo.code,
                   onTap: () => _handleBooking(context, result),
                   formattedPrice: _getFormattedPrice(result),
+                  formattedAmenityPrices: _getFormattedAmenityPrices(result),
                 );
               },
             ),

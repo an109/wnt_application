@@ -268,7 +268,7 @@ class _HotelListingScreenState extends State<HotelListingScreen> {
         elevation: 0,
         actions: [
           Padding(
-            padding: const EdgeInsets.all(8.0),
+            padding: EdgeInsets.all(context.w(8)),
             child: Image.asset(
               "assets/images/wander_nova_logo.jpg",
               height: 35,
@@ -587,7 +587,7 @@ class HotelCard extends StatelessWidget {
           ),
 
           Padding(
-            padding: EdgeInsets.all(context.gapMedium),
+            padding: EdgeInsets.all(context.w(12)),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [

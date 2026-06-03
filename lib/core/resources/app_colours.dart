@@ -11,6 +11,7 @@ class AppColors {
   static const textLight = Color(0xFF999999);
   static const divider = Color(0xFFE0E0E0);
   static const shadow = Color(0x1A000000);
+  static const OrangeColor = Color(0xFFFF7200);
 
   static const chipGradient = LinearGradient(
     colors: [Color(0xFF5B86E5), Color(0xFF36D1DC)],

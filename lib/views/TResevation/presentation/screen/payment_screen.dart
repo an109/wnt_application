@@ -139,7 +139,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
         backgroundColor: Colors.white,
         actions: [
           Padding(
-            padding: const EdgeInsets.all(8.0),
+            padding: EdgeInsets.all(context.w(8)),
             child: Image.asset("assets/images/wander_nova_logo.jpg", height: 35),
           )
         ],

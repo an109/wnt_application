@@ -212,7 +212,7 @@ class _FareRulePopupState extends State<FareRulePopup>
   /// Cancellation Process Tab - NOW USING ACTUAL API DATA
   Widget _buildCancellationTab(BuildContext context) {
     return SingleChildScrollView(
-      padding: EdgeInsets.all(context.gapMedium),
+      padding: EdgeInsets.all(context.w(12)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -237,7 +237,7 @@ class _FareRulePopupState extends State<FareRulePopup>
 
     return Container(
       margin: EdgeInsets.only(bottom: context.gapMedium),
-      padding: EdgeInsets.all(context.gapMedium),
+      padding: EdgeInsets.all(context.w(12)),
       decoration: BoxDecoration(
         color: Colors.grey.shade50,
         borderRadius: BorderRadius.circular(context.borderRadius - 4),
@@ -330,7 +330,7 @@ class _FareRulePopupState extends State<FareRulePopup>
   /// Fare Segment Tab - Table with CITY NAMES, Airline Names, and Amount
   Widget _buildSegmentTab(BuildContext context) {
     return SingleChildScrollView(
-      padding: EdgeInsets.all(context.gapMedium),
+      padding: EdgeInsets.all(context.w(12)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -356,7 +356,7 @@ class _FareRulePopupState extends State<FareRulePopup>
 
   Widget _buildTableHeader(BuildContext context) {
     return Container(
-      padding: EdgeInsets.symmetric(vertical: context.gapSmall),
+      padding: EdgeInsets.symmetric(vertical: context.h(8)),
       decoration: BoxDecoration(
         border: Border(
           bottom: BorderSide(color: Colors.grey.shade300, width: 1),
@@ -417,7 +417,7 @@ class _FareRulePopupState extends State<FareRulePopup>
     final fareDisplay = widget.price ?? 'N/A';
 
     return Container(
-      padding: EdgeInsets.symmetric(vertical: context.gapSmall),
+      padding: EdgeInsets.symmetric(vertical: context.h(8)),
       decoration: BoxDecoration(
         border: Border(
           bottom: BorderSide(color: Colors.grey.shade100, width: 1),
@@ -512,7 +512,7 @@ class _FareRulePopupState extends State<FareRulePopup>
   /// Fare Detail Tab - Clean bullet points without HTML tags
   Widget _buildDetailTab(BuildContext context) {
     return SingleChildScrollView(
-      padding: EdgeInsets.all(context.gapMedium),
+      padding: EdgeInsets.all(context.w(12)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -536,7 +536,7 @@ class _FareRulePopupState extends State<FareRulePopup>
 
     return Container(
       margin: EdgeInsets.only(bottom: context.gapMedium),
-      padding: EdgeInsets.all(context.gapMedium),
+      padding: EdgeInsets.all(context.w(12)),
       decoration: BoxDecoration(
         color: Colors.grey.shade50,
         borderRadius: BorderRadius.circular(context.borderRadius - 4),

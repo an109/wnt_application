@@ -259,9 +259,9 @@ class _VisaDestinationDetailPageState
                     /// COUNTRY
                     Text(
                       "${widget.destination.name} Visa",
-                      style: const TextStyle(
+                      style:  TextStyle(
                         color: Colors.white,
-                        fontSize: 24,
+                        fontSize: context.fs(24),
                         fontWeight: FontWeight.w800,
                         height: 1.1,
                       ),

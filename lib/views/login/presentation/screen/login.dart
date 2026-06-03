@@ -147,10 +147,9 @@ class _LoginSignupScreenState extends State<LoginSignupScreen> {
             child: BlocListener<AuthBloc, AuthState>(
               listener: (context, state) {
                 if (state is AuthAuthenticated) {
-                  final accessToken = state
-                      .user
-                      ?.accessToken; // Check your AuthState class structure
+                  final accessToken = state.user?.accessToken;
                   final refreshToken = state.user?.refreshToken;
+                  final userId = state.user?.id;
 
                   if (accessToken != null && accessToken.isNotEmpty) {
                     SharedPreferences.getInstance().then((prefs) async {
@@ -161,6 +160,11 @@ class _LoginSignupScreenState extends State<LoginSignupScreen> {
 
                       if (refreshToken != null && refreshToken.isNotEmpty) {
                         await prefManager.saveRefreshToken(refreshToken);
+                      }
+
+                      if (userId != null) {
+                        await prefManager.saveUserId(int.parse(userId.toString()));
+                        print(' User ID saved: ${prefManager.getUserId()}');
                       }
 
                       print(' Token saved: ${prefManager.getToken()}');

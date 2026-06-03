@@ -150,7 +150,7 @@ class _TravellerInformationSectionState extends State<TravellerInformationSectio
             onTap: () => _toggleExpansion(index),
             borderRadius: BorderRadius.circular(context.borderRadius),
             child: Container(
-              padding: EdgeInsets.all(context.gapMedium),
+              padding: EdgeInsets.all(context.w(12)),
               child: Row(
                 children: [
                   Expanded(
@@ -182,7 +182,7 @@ class _TravellerInformationSectionState extends State<TravellerInformationSectio
             alignment: Alignment.topCenter,
             child: isExpanded
                 ? Container(
-              padding: EdgeInsets.all(context.gapMedium),
+              padding: EdgeInsets.all(context.w(12)),
               child: _buildTravellerForm(context, index),
             )
                 : const SizedBox.shrink(),

@@ -109,7 +109,7 @@ class _VisaApplicationScreenState extends State<VisaApplicationScreen> with Tick
             children: [
               Text(
                 widget.destinationName,
-                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: Color(0xff0D1B3D)),
+                style:  TextStyle(fontSize: context.fs(20), fontWeight: FontWeight.w700, color: Color(0xff0D1B3D)),
               ),
               const SizedBox(width: 8),
               Container(

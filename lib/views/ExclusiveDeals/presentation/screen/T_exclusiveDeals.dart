@@ -113,7 +113,7 @@ class _TransportExclusiveDealsSectionState
 
           /// TABS
           SizedBox(
-            height: context.hp(3.7),
+            height: context.h(30),
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
               itemCount: 4,
@@ -149,7 +149,7 @@ class _TransportExclusiveDealsSectionState
                         AnimatedContainer(
                           duration: const Duration(milliseconds: 250),
                           height: context.dividerMedium,
-                          width: context.wp(17),
+                          width: context.w(64),
                           decoration: BoxDecoration(
                             color: isSelected
                                 ? const Color(0xff005B7F)
@@ -168,47 +168,6 @@ class _TransportExclusiveDealsSectionState
           Divider(color: Colors.grey.shade300, thickness: context.dividerThin),
 
           SizedBox(height: context.gapMedium),
-
-          // /// ARROWS + VIEW ALL
-          // Row(
-          //   mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          //   children: [
-          //     Row(
-          //       children: [
-          //         _buildArrowButton(
-          //           context,
-          //           icon: Icons.arrow_back_ios_new,
-          //           onTap: () {
-          //             _carouselController.previousPage();
-          //           },
-          //         ),
-          //         SizedBox(width: context.gapMedium),
-          //         _buildArrowButton(
-          //           context,
-          //           icon: Icons.arrow_forward_ios,
-          //           onTap: () {
-          //             _carouselController.nextPage();
-          //           },
-          //         ),
-          //       ],
-          //     ),
-          //     GestureDetector(
-          //       onTap: () {
-          //         debugPrint("View all clicked");
-          //       },
-          //       child: Text(
-          //         "View All",
-          //         style: TextStyle(
-          //           fontSize: context.titleSmall,
-          //           fontWeight: FontWeight.w700,
-          //           color: const Color(0xff005B7F),
-          //         ),
-          //       ),
-          //     ),
-          //   ],
-          // ),
-          //
-          // SizedBox(height: context.gapLarge),
 
           /// BLOC BUILDER FOR API DATA
           BlocBuilder<ExclusiveDealsBloc, ExclusiveDealsState>(
@@ -256,9 +215,9 @@ class _TransportExclusiveDealsSectionState
                         horizontal: context.gapXXSmall, // Use consistent gap
                       ),
                       width: currentIndex == index
-                          ? context.wp(5.5)
-                          : context.wp(2), // Responsive (22px or 8px on 400px)
-                      height: context.hp(1), // 8px on 800px
+                          ? context.w(20)
+                          : context.w(8), // Responsive (22px or 8px on 400px)
+                      height: context.h(8), // 8px on 800px
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(
                           context.borderRadiusLarge,
@@ -306,7 +265,7 @@ class _TransportExclusiveDealsSectionState
               width: context.hp(5),
               child: CircularProgressIndicator(
                 color: const Color(0xff005B7F),
-                strokeWidth: context.dividerMedium, // Responsive stroke
+                strokeWidth: context.h(1.5), // Responsive stroke
               ),
             ),
           ),
@@ -314,8 +273,8 @@ class _TransportExclusiveDealsSectionState
       },
       options: CarouselOptions(
         height: context.isMobile
-            ? context.hp(20)
-            : (context.isTablet ? context.hp(25) : context.hp(30)),
+            ? context.h(160)
+            : (context.isTablet ? context.h(200) : context.h(240)),
         viewportFraction: 1,
         autoPlay: false,
         enlargeCenterPage: false,
@@ -328,8 +287,8 @@ class _TransportExclusiveDealsSectionState
     return Container(
       width: double.infinity,
       height: context.isMobile
-          ? context.hp(16)
-          : (context.isTablet ? context.hp(20) : context.hp(24)),
+          ? context.hp(130)
+          : (context.isTablet ? context.h(160) : context.h(190)),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(context.borderRadius),
         color: Colors.red.shade50,
@@ -400,8 +359,8 @@ class _TransportExclusiveDealsSectionState
       },
       options: CarouselOptions(
         height: context.isMobile
-            ? context.hp(24)
-            : (context.isTablet ? context.hp(29) : context.hp(34)),
+            ? context.h(190)
+            : (context.isTablet ? context.h(230) : context.h(270)),
         viewportFraction: context.isMobile
             ? 1
             : (context.isTablet ? 0.9 : 0.8), // Better on larger screens
@@ -412,33 +371,6 @@ class _TransportExclusiveDealsSectionState
             currentIndex = index;
           });
         },
-      ),
-    );
-  }
-
-  Widget _buildArrowButton(
-    BuildContext context, {
-    required IconData icon,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(100),
-      onTap: onTap,
-      child: Container(
-        height: context.hp(4.5),
-        width: context.hp(4.5),
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          border: Border.all(
-            color: Colors.grey.shade300,
-            width: context.dividerThin,
-          ),
-        ),
-        child: Icon(
-          icon,
-          size: context.iconMedium,
-          color: Colors.grey.shade600,
-        ),
       ),
     );
   }

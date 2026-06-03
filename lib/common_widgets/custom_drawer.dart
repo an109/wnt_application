@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../UI_helper/responsive_layout.dart';
 import '../core/utils/storage/shared_preference.dart';
 import '../injection_container.dart';
+import '../views/MyBookings/presentation/screen/MyBooking_Screen.dart';
 import '../views/Dashboard/dashboardScreen.dart';
 import '../views/Dashboard/profile/screen/Profile_screen.dart';
 import '../views/Dashboard/screen/make_payment.dart';
@@ -28,6 +30,7 @@ class _CustomDrawerState extends State<CustomDrawer>
   String _userName = '';
   String _userEmail = '';
   String? _userAvatar;
+  String _appVersion = '';
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
 
@@ -35,6 +38,7 @@ class _CustomDrawerState extends State<CustomDrawer>
   void initState() {
     super.initState();
     _loadUserData();
+    _loadAppVersion();
     _animationController = AnimationController(
       duration: const Duration(milliseconds: 400),
       vsync: this,
@@ -44,6 +48,20 @@ class _CustomDrawerState extends State<CustomDrawer>
       curve: Curves.easeOutCubic,
     );
     _animationController.forward();
+  }
+
+  Future<void> _loadAppVersion() async {
+    try {
+      final packageInfo = await PackageInfo.fromPlatform();
+      setState(() {
+        _appVersion = 'v${packageInfo.version}';
+      });
+    } catch (e) {
+      // Fallback for development
+      setState(() {
+        _appVersion = '_';
+      });
+    }
   }
 
   @override
@@ -132,103 +150,6 @@ class _CustomDrawerState extends State<CustomDrawer>
     );
   }
 
-
-  Widget _buildDefaultAvatar(BuildContext context) {
-    return Container(
-      color: Colors.grey.shade300,
-      child: Icon(Icons.person_rounded, size: 40, color: Colors.grey.shade600),
-    );
-  }
-
-  // List<Widget> _buildLoggedInMenu(BuildContext context) {
-  //   return [
-  //     SizedBox(height: context.gapMedium),
-  //     _buildMenuSection(context, 'MAIN MENU'),
-  //     _buildMenuItem(
-  //       context,
-  //       icon: Icons.dashboard_outlined,
-  //       title: 'Dashboard',
-  //       onTap: () => _navigateTo(context, '/dashboard'),
-  //     ),
-  //     _buildMenuItem(
-  //       context,
-  //       icon: Icons.book_online_outlined,
-  //       title: 'My Bookings',
-  //       onTap: () => _navigateTo(context, '/bookings'),
-  //       subtitle: 'View all your reservations',
-  //     ),
-  //     _buildMenuItem(
-  //       context,
-  //       icon: Icons.flight_takeoff,
-  //       title: 'Upcoming Trips',
-  //       onTap: () => _navigateTo(context, '/trips'),
-  //       subtitle: 'Plan your journey',
-  //     ),
-  //     _buildMenuItem(
-  //       context,
-  //       icon: Icons.person_outline,
-  //       title: 'My Profile',
-  //       onTap: () => _navigateTo(context, '/profile'),
-  //       subtitle: 'Manage your account',
-  //     ),
-  //
-  //     _buildDivider(context),
-  //     _buildMenuSection(context, 'WALLET & REWARDS'),
-  //     _buildMenuItem(
-  //       context,
-  //       icon: Icons.account_balance_wallet_outlined,
-  //       title: 'My Wallet Balance',
-  //       onTap: () => _navigateTo(context, '/wallet_balance'),
-  //       trailing: Container(
-  //         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-  //         decoration: BoxDecoration(
-  //           color: Colors.green.shade50,
-  //           borderRadius: BorderRadius.circular(12),
-  //           border: Border.all(color: Colors.green.shade200),
-  //         ),
-  //         child: Text(
-  //           '₹0',
-  //           style: TextStyle(
-  //             fontSize: context.labelSmall,
-  //             fontWeight: FontWeight.w600,
-  //             color: Colors.green.shade700,
-  //           ),
-  //         ),
-  //       ),
-  //     ),
-  //
-  //     _buildDivider(context),
-  //     _buildMenuSection(context, 'MANAGE'),
-  //     _buildMenuItem(
-  //       context,
-  //       icon: Icons.cancel_outlined,
-  //       title: 'View Cancellations',
-  //       onTap: () => _navigateTo(context, '/cancellations'),
-  //     ),
-  //     _buildMenuItem(
-  //       context,
-  //       icon: Icons.people_outline,
-  //       title: 'Travellers',
-  //       onTap: () => _navigateTo(context, '/travellers'),
-  //       subtitle: 'Added family & friends',
-  //     ),
-  //     _buildMenuItem(
-  //       context,
-  //       icon: Icons.travel_explore_outlined,
-  //       title: 'Travel Stories',
-  //       onTap: () => _navigateTo(context, '/stories'),
-  //     ),
-  //
-  //     _buildDivider(context),
-  //     _buildMenuSection(context, 'SUPPORT'),
-  //     _buildMenuItem(
-  //       context,
-  //       icon: Icons.help_outline,
-  //       title: 'Help Center',
-  //       onTap: () => _navigateTo(context, '/help'),
-  //     ),
-  //   ];
-  // }
   List<Widget> _buildLoggedInMenu(BuildContext context) {
     return [
       const SizedBox(height: 8),
@@ -310,93 +231,37 @@ class _CustomDrawerState extends State<CustomDrawer>
           _buildMenuSection(context, 'MANAGE'),
           _buildMenuItem(
             context,
-            icon: Icons.cancel_outlined,
-            title: 'View Cancellations',
-            onTap: () => _navigateTo(context, '/cancellations'),
-          ),
-          _buildMenuItem(
-            context,
-            icon: Icons.people_outline,
-            title: 'Travellers',
-            onTap: () => _navigateTo(context, '/travellers'),
-            subtitle: 'Added family & friends',
-          ),
-          _buildMenuItem(
-            context,
             icon: Icons.travel_explore_outlined,
             title: 'Travel Stories',
             onTap: () => _navigateTo(context, '/stories'),
           ),
-        ],
-      ),
-
-      /// SUPPORT
-      _buildSectionContainer(
-        context: context,
-        children: [
-          _buildMenuSection(context, 'SUPPORT'),
           _buildMenuItem(
             context,
-            icon: Icons.help_outline,
-            title: 'Help Center',
-            onTap: () => _navigateTo(context, '/help'),
+            icon: Icons.travel_explore_outlined,
+            title: 'About',
+            onTap: () => _navigateTo(context, '/about'),
           ),
         ],
       ),
+
+      // /// SUPPORT
+      // _buildSectionContainer(
+      //   context: context,
+      //   children: [
+      //     _buildMenuSection(context, 'SUPPORT'),
+      //     _buildMenuItem(
+      //       context,
+      //       icon: Icons.help_outline,
+      //       title: 'About',
+      //       onTap: () => _navigateTo(context, '/about'),
+      //     ),
+      //   ],
+      // ),
 
       const SizedBox(height: 8),
     ];
   }
 
-  // List<Widget> _buildGuestMenu(BuildContext context) {
-  //   return [
-  //     SizedBox(height: context.gapMedium),
-  //     _buildMenuItem(
-  //       context,
-  //       icon: Icons.flight_takeoff,
-  //       title: 'Search Flights',
-  //       onTap: () => _navigateTo(context, '/search'),
-  //       subtitle: 'Find best deals',
-  //       isHighlighted: true,
-  //     ),
-  //     _buildMenuItem(
-  //       context,
-  //       icon: Icons.beach_access_outlined,
-  //       title: 'My Bookings',
-  //       onTap: () => _navigateTo(context, '/bookings'),
-  //     ),
-  //
-  //     _buildDivider(context),
-  //     _buildMenuSection(context, 'EXPLORE'),
-  //     _buildMenuItem(
-  //       context,
-  //       icon: Icons.star_outline,
-  //       title: 'Travel Stories',
-  //       onTap: () => _navigateTo(context, '/stories'),
-  //     ),
-  //     _buildMenuItem(
-  //       context,
-  //       icon: Icons.article_outlined,
-  //       title: 'Make Payment',
-  //       onTap: () => _navigateTo(context, '/payment'),
-  //     ),
-  //
-  //     _buildDivider(context),
-  //     _buildMenuSection(context, 'HELP'),
-  //     // _buildMenuItem(
-  //     //   context,
-  //     //   icon: Icons.help_outline,
-  //     //   title: 'FAQs',
-  //     //   onTap: () => _navigateTo(context, '/faq'),
-  //     // ),
-  //     _buildMenuItem(
-  //       context,
-  //       icon: Icons.support_agent,
-  //       title: 'Contact Support',
-  //       onTap: () => _navigateTo(context, '/support'),
-  //     ),
-  //   ];
-  // }
   List<Widget> _buildGuestMenu(BuildContext context) {
     return [
       const SizedBox(height: 8),
@@ -620,9 +485,28 @@ class _CustomDrawerState extends State<CustomDrawer>
       ),
       child: SafeArea(
         top: false,
-        child: _isLoggedIn
-            ? _buildLogoutButton(context)
-            : _buildLoginButton(context),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _isLoggedIn
+                ? _buildLogoutButton(context)
+                : _buildLoginButton(context),
+
+            // Version text
+            SizedBox(height: context.gapSmall),
+            Center(
+              child: Text(
+                _appVersion,
+                style: TextStyle(
+                  fontSize: context.labelSmall,
+                  color: Colors.grey.shade400,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ),
+            SizedBox(height: context.gapSmall),
+          ],
+        ),
       ),
     );
   }
@@ -756,20 +640,20 @@ class _CustomDrawerState extends State<CustomDrawer>
           );
           break;
 
+        case '/bookings':
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => MyBookingScreen(),
+            ),
+          );
+          break;
+
         case '/wallet_balance':
           Navigator.push(
             context,
             MaterialPageRoute(
               builder: (_) => WalletScreen(),
-            ),
-          );
-          break;
-
-        case '/help':
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => SupportScreen(),
             ),
           );
           break;

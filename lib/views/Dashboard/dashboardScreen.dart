@@ -6,6 +6,8 @@ import 'package:wander_nova/views/Dashboard/screen/support_screen.dart';
 import 'package:wander_nova/views/Dashboard/screen/upcoming_trip.dart';
 import 'package:wander_nova/views/wallet/wallet/screen/wallet_screen.dart';
 
+import '../MyBookings/presentation/screen/MyBooking_Screen.dart';
+
 class DashboardScreen extends StatefulWidget {
   final String userEmail;
   final String userName;
@@ -76,6 +78,15 @@ class _DashboardScreenState extends State<DashboardScreen>
           builder: (_) => ProfileScreen(
 
           ),
+        ),
+      );
+    }
+    // My Booking SCREEN
+    else if (feature == 'My Booking') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => MyBookingScreen(),
         ),
       );
     }

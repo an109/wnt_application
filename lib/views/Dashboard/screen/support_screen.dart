@@ -479,7 +479,7 @@ class _SupportScreenState extends State<SupportScreen> with SingleTickerProvider
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeInOut,
-      margin: EdgeInsets.only(bottom: context.gapSmall),
+      margin: EdgeInsets.only(bottom: context.h(8)),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(context.borderRadiusSmall),
@@ -505,7 +505,7 @@ class _SupportScreenState extends State<SupportScreen> with SingleTickerProvider
               onTap: () => _toggleExpand(index),
               borderRadius: BorderRadius.circular(context.borderRadiusSmall),
               child: Padding(
-                padding: EdgeInsets.all(context.gapMedium),
+                padding: EdgeInsets.all(context.w(12)),
                 child: Row(
                   children: [
                     Expanded(

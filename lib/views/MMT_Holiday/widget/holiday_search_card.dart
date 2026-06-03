@@ -192,7 +192,7 @@ class _HolidaySearchCardState extends State<HolidaySearchCard> {
 
                 // Content with padding all around
                 Padding(
-                  padding: EdgeInsets.all(context.gapMedium), // Consistent padding all around
+                  padding: EdgeInsets.all(context.w(12)), // Consistent padding all around
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -242,7 +242,7 @@ class _HolidaySearchCardState extends State<HolidaySearchCard> {
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(context.borderRadiusSmall),
                               ),
-                              padding: EdgeInsets.symmetric(vertical: context.gapSmall),
+                              padding: EdgeInsets.symmetric(vertical: context.h(8)),
                             ),
                           ),
                         ),
@@ -267,7 +267,7 @@ class _HolidaySearchCardState extends State<HolidaySearchCard> {
     VoidCallback? onRemove,
   }) {
     return Container(
-      padding: EdgeInsets.all(context.gapMedium),
+      padding: EdgeInsets.all(context.w(12)),
       decoration: BoxDecoration(
         color: AppColors.white,
         border: Border.all(color: AppColors.divider),

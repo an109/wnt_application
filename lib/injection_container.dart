@@ -44,6 +44,11 @@ import 'package:wander_nova/views/MainApi/domain/usecase/get_faq_list_usecase.da
 import 'package:wander_nova/views/MainApi/domain/usecase/get_general_setting_usecase.dart';
 import 'package:wander_nova/views/MainApi/domain/usecase/get_section_heros_usecase.dart';
 import 'package:wander_nova/views/MainApi/presentation/bloc/general_setting_bloc.dart';
+import 'package:wander_nova/views/MyBookings/data/data_source/MyBookng_api_Service.dart';
+import 'package:wander_nova/views/MyBookings/data/repository/MyBooking_repository_impl.dart';
+import 'package:wander_nova/views/MyBookings/domain/repository/MyBooking_repository.dart';
+import 'package:wander_nova/views/MyBookings/domain/usecase/get_bookings_usecase.dart';
+import 'package:wander_nova/views/MyBookings/presentation/bloc/MyBooking_bloc.dart';
 import 'package:wander_nova/views/Profile/data/data_source/Profile_api_service.dart';
 import 'package:wander_nova/views/Profile/data/repository/Profile_repository_impl.dart';
 import 'package:wander_nova/views/Profile/domain/repository/Profile_repository.dart';
@@ -249,6 +254,7 @@ Future<void> initializeDependencies() async {
   sl.registerFactory<WalletApiService>(() => WalletApiServiceImpl(sl<DioClient>().instance));
   sl.registerFactory<LogoutApiService>(() => LogoutApiServiceImpl(sl<DioClient>().instance),);
   sl.registerFactory<ProfileApiService>(() => ProfileApiServiceImpl(sl<DioClient>().instance));
+  sl.registerFactory<MyBookingApiService>(() => MyBookingApiServiceImpl(sl<DioClient>().instance));
 
 
 
@@ -292,6 +298,9 @@ Future<void> initializeDependencies() async {
   sl.registerLazySingleton<WalletRepository>(() => WalletRepositoryImpl(sl<WalletApiService>()));
   sl.registerLazySingleton<LogoutRepository>(() => LogoutRepositoryImpl(sl<LogoutApiService>()),);
   sl.registerLazySingleton<ProfileRepository>(() => ProfileRepositoryImpl(sl<ProfileApiService>()));
+  sl.registerLazySingleton<MyBookingRepository>(() => MyBookingRepositoryImpl(sl<MyBookingApiService>(), sl<PreferencesManager>()));
+
+
 
 
 
@@ -338,6 +347,7 @@ Future<void> initializeDependencies() async {
   sl.registerLazySingleton<GetProfileUseCase>(() => GetProfileUseCase(sl()));
   sl.registerLazySingleton<UpdateProfileUseCase>(() => UpdateProfileUseCase(sl()));
   sl.registerLazySingleton<PatchProfileUseCase>(() => PatchProfileUseCase(sl()));
+  sl.registerLazySingleton<GetBookingsUseCase>(() => GetBookingsUseCase(sl<MyBookingRepository>()));
 
 
 
@@ -388,5 +398,6 @@ Future<void> initializeDependencies() async {
       getProfileUseCase: sl<GetProfileUseCase>(),
       updateProfileUseCase: sl<UpdateProfileUseCase>(),
       patchProfileUseCase: sl<PatchProfileUseCase>()));
+  sl.registerFactory(() => MyBookingBloc(sl<GetBookingsUseCase>()));
 
 }

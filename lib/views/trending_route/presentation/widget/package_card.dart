@@ -34,7 +34,7 @@ class RouteCard extends StatelessWidget {
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.05),
-              blurRadius: 8,
+              blurRadius: context.gapSmall,
               offset: const Offset(0, 2),
             ),
           ],
@@ -184,11 +184,11 @@ class RouteDetailSheet extends StatelessWidget {
               borderRadius: BorderRadius.circular(2),
             ),
           ),
-          const SizedBox(height: 20),
+          SizedBox(height: context.gapLarge),
 
           // Header
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
+            padding: context.horizontalPadding,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -197,8 +197,8 @@ class RouteDetailSheet extends StatelessWidget {
                   children: [
                     Text(
                       '${route['from']} to ${route['to']}',
-                      style: const TextStyle(
-                        fontSize: 22,
+                      style:  TextStyle(
+                        fontSize: context.titleLarge,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -216,7 +216,7 @@ class RouteDetailSheet extends StatelessWidget {
                           Text(
                             route['type'],
                             style: TextStyle(
-                              fontSize: 12,
+                              fontSize: context.labelMedium,
                               color: route['color'],
                               fontWeight: FontWeight.w600,
                             ),
@@ -227,14 +227,14 @@ class RouteDetailSheet extends StatelessWidget {
                   ],
                 ),
                 Container(
-                  padding: const EdgeInsets.all(12),
+                  padding: EdgeInsets.all(context.w(12)),
                   decoration: BoxDecoration(
                     color: route['bgColor'],
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
                     Icons.trending_up,
-                    size: 32,
+                    size: context.iconLarge,
                     color: route['color'],
                   ),
                 ),
@@ -242,13 +242,13 @@ class RouteDetailSheet extends StatelessWidget {
             ),
           ),
 
-          const SizedBox(height: 20),
+          SizedBox(height: context.gapLarge),
 
           // Journey Details
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
+            padding: context.horizontalPadding,
             child: Container(
-              padding: const EdgeInsets.all(16),
+              padding: EdgeInsets.all(context.gapLarge),
               decoration: BoxDecoration(
                 color: Colors.grey[50],
                 borderRadius: BorderRadius.circular(16),
@@ -266,10 +266,10 @@ class RouteDetailSheet extends StatelessWidget {
                           color: Colors.grey,
                         ),
                       ),
-                      const Text(
+                       Text(
                         'Arrival',
                         style: TextStyle(
-                          fontSize: 12,
+                          fontSize: context.labelMedium,
                           color: Colors.grey,
                         ),
                       ),
@@ -281,16 +281,16 @@ class RouteDetailSheet extends StatelessWidget {
                     children: [
                       Text(
                         route['time'].split(' - ')[0],
-                        style: const TextStyle(
-                          fontSize: 16,
+                        style:  TextStyle(
+                          fontSize: context.bodyLarge,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                       const Icon(Icons.arrow_forward, size: 20, color: Colors.grey),
                       Text(
                         route['time'].split(' - ')[1],
-                        style: const TextStyle(
-                          fontSize: 16,
+                        style:  TextStyle(
+                          fontSize: context.bodyLarge,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -304,15 +304,15 @@ class RouteDetailSheet extends StatelessWidget {
                         children: [
                           Text(
                             route['fromCode'],
-                            style: const TextStyle(
-                              fontSize: 14,
+                            style:  TextStyle(
+                              fontSize: context.bodyMedium,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
                           Text(
                             route['from'],
                             style: TextStyle(
-                              fontSize: 11,
+                              fontSize: context.labelSmall,
                               color: Colors.grey[600],
                             ),
                           ),
@@ -322,15 +322,15 @@ class RouteDetailSheet extends StatelessWidget {
                         children: [
                           Text(
                             route['duration'],
-                            style: const TextStyle(
-                              fontSize: 12,
+                            style:  TextStyle(
+                              fontSize: context.labelMedium,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
                           Text(
                             route['stops'],
                             style: TextStyle(
-                              fontSize: 11,
+                              fontSize: context.labelSmall,
                               color: Colors.grey[600],
                             ),
                           ),
@@ -340,15 +340,15 @@ class RouteDetailSheet extends StatelessWidget {
                         children: [
                           Text(
                             route['toCode'],
-                            style: const TextStyle(
-                              fontSize: 14,
+                            style:  TextStyle(
+                              fontSize: context.bodyMedium,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
                           Text(
                             route['to'],
                             style: TextStyle(
-                              fontSize: 11,
+                              fontSize: context.labelSmall,
                               color: Colors.grey[600],
                             ),
                           ),
@@ -361,13 +361,13 @@ class RouteDetailSheet extends StatelessWidget {
             ),
           ),
 
-          const SizedBox(height: 20),
+          SizedBox(height: context.gapLarge),
 
           // Operator Details
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
+            padding: context.horizontalPadding,
             child: Container(
-              padding: const EdgeInsets.all(12),
+              padding: EdgeInsets.all(context.w(12)),
               decoration: BoxDecoration(
                 color: Colors.blue.shade50,
                 borderRadius: BorderRadius.circular(12),
@@ -386,15 +386,15 @@ class RouteDetailSheet extends StatelessWidget {
                               : route['type'] == 'Trains'
                               ? route['train']
                               : route['busType'],
-                          style: const TextStyle(
+                          style:  TextStyle(
                             fontWeight: FontWeight.w600,
-                            fontSize: 14,
+                              fontSize: context.bodyMedium,
                           ),
                         ),
                         Text(
                           'Operator • ${route['type']}',
                           style: TextStyle(
-                            fontSize: 12,
+                            fontSize: context.labelMedium,
                             color: Colors.grey[600],
                           ),
                         ),
@@ -403,7 +403,7 @@ class RouteDetailSheet extends StatelessWidget {
                   ),
                   Row(
                     children: [
-                      const Icon(Icons.star, size: 16, color: Colors.amber),
+                       Icon(Icons.star, size: context.iconSmall, color: Colors.amber),
                       const SizedBox(width: 4),
                       Text(
                         '${route['rating']}',
@@ -418,7 +418,7 @@ class RouteDetailSheet extends StatelessWidget {
             ),
           ),
 
-          const SizedBox(height: 20),
+          SizedBox(height: context.gapLarge),
 
           // Price and Book Button
           Padding(
@@ -429,16 +429,16 @@ class RouteDetailSheet extends StatelessWidget {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                     Text(
                       'Total Price',
-                      style: TextStyle(fontSize: 12, color: Colors.grey),
+                      style: TextStyle(fontSize: context.labelMedium, color: Colors.grey),
                     ),
                     Row(
                       children: [
                         Text(
                           route['originalPrice'],
-                          style: const TextStyle(
-                            fontSize: 16,
+                          style:  TextStyle(
+                            fontSize: context.bodyLarge,
                             decoration: TextDecoration.lineThrough,
                             color: Colors.grey,
                           ),
@@ -447,7 +447,7 @@ class RouteDetailSheet extends StatelessWidget {
                         Text(
                           route['price'],
                           style: TextStyle(
-                            fontSize: 22,
+                            fontSize: context.titleLarge,
                             fontWeight: FontWeight.bold,
                             color: route['color'],
                           ),
@@ -456,8 +456,8 @@ class RouteDetailSheet extends StatelessWidget {
                     ),
                     Text(
                       'Save ${route['discount']}',
-                      style: const TextStyle(
-                        fontSize: 12,
+                      style:  TextStyle(
+                        fontSize: context.labelMedium,
                         color: Colors.green,
                         fontWeight: FontWeight.w600,
                       ),
@@ -478,21 +478,24 @@ class RouteDetailSheet extends StatelessWidget {
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: route['color'],
-                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                    padding: EdgeInsets.symmetric(
+                      horizontal: context.wp(8),
+                      vertical: context.hp(2),
+                    ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(30),
                     ),
                   ),
-                  child: const Text(
+                  child:  Text(
                     'Book Now',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    style: TextStyle(fontSize: context.bodyLarge, fontWeight: FontWeight.bold),
                   ),
                 ),
               ],
             ),
           ),
 
-          const SizedBox(height: 20),
+          SizedBox(height: context.gapLarge),
         ],
       ),
     );

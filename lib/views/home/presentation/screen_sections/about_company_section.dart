@@ -366,7 +366,7 @@ class _AboutCompanySectionState extends State<AboutCompanySection> {
     if (context.isDesktop) {
       // Card style for desktop
       return Container(
-        padding: EdgeInsets.all(context.gapMedium),
+        padding: EdgeInsets.all(context.w(12)),
         decoration: BoxDecoration(
           color: Colors.grey.shade50,
           borderRadius: BorderRadius.circular(context.borderRadiusMedium),
@@ -454,7 +454,7 @@ class _AboutCompanySectionState extends State<AboutCompanySection> {
           // Section Header
           Container(
             width: double.infinity,
-            padding: EdgeInsets.symmetric(vertical: context.gapSmall),
+            padding: EdgeInsets.symmetric(vertical: context.h(8)),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -591,7 +591,7 @@ class _AboutCompanySectionState extends State<AboutCompanySection> {
 
   Widget _buildLoadingCard(BuildContext context) {
     return Container(
-      padding: EdgeInsets.all(context.gapMedium),
+      padding: EdgeInsets.all(context.w(12)),
       decoration: BoxDecoration(
         color: Colors.grey.shade50,
         borderRadius: BorderRadius.circular(context.borderRadiusMedium),

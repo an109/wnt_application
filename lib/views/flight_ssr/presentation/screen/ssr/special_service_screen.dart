@@ -276,7 +276,7 @@ class _SpecialServiceScreenState extends State<SpecialServiceScreen> {
           onTap: onToggle,
           borderRadius: BorderRadius.circular(context.borderRadius),
           child: Container(
-            padding: EdgeInsets.all(context.gapMedium),
+            padding: EdgeInsets.all(context.w(12)),
             decoration: BoxDecoration(
               color: isSelected ? Colors.green.shade50 : Colors.white,
               borderRadius: BorderRadius.circular(context.borderRadius),
@@ -418,7 +418,7 @@ class _SpecialServiceScreenState extends State<SpecialServiceScreen> {
         context.gapMedium,
         context.gapMedium,
       ),
-      padding: EdgeInsets.all(context.gapMedium),
+      padding: EdgeInsets.all(context.w(12)),
       decoration: BoxDecoration(
         color: Colors.green.shade50,
         borderRadius: BorderRadius.circular(context.borderRadius),

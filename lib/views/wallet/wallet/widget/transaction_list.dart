@@ -208,7 +208,7 @@ class TransactionList extends StatelessWidget {
         itemBuilder: (context, index) {
           if (index == transactions.length) {
             return Padding(
-              padding: EdgeInsets.all(context.gapMedium),
+              padding: EdgeInsets.all(context.w(12)),
               child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
             );
           }

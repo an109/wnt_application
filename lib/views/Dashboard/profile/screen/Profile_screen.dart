@@ -441,7 +441,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }) {
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.all(context.gapMedium),
+      padding: EdgeInsets.all(context.w(12)),
       decoration: BoxDecoration(
         color: Colors.grey.shade50,
         borderRadius: BorderRadius.circular(
@@ -710,7 +710,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             "${traveller['firstName'] ?? ''} ${traveller['lastName'] ?? ''}";
 
         return Container(
-          padding: EdgeInsets.all(context.gapMedium),
+          padding: EdgeInsets.all(context.w(12)),
 
           decoration: BoxDecoration(
             color: Colors.grey.shade50,

@@ -1,6 +1,7 @@
 // flight_filter_drawer.dart
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:wander_nova/UI_helper/responsive_layout.dart';
 
 class FlightFilterDrawer extends StatefulWidget {
   const FlightFilterDrawer({super.key});
@@ -140,10 +141,10 @@ class _FlightFilterDrawerState extends State<FlightFilterDrawer> {
       decoration: const BoxDecoration(
         color: Colors.white,
       ),
-      child: const Text(
+      child:  Text(
         "Filters",
         style: TextStyle(
-          fontSize: 20,
+          fontSize: context.fs(20),
           fontWeight: FontWeight.bold,
         ),
       ),

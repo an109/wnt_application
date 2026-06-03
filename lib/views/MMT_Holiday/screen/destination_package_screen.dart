@@ -421,7 +421,7 @@ class _DestinationPackagesScreenState extends State<DestinationPackagesScreen>
       color: AppColors.lightBg,
       padding: EdgeInsets.symmetric(vertical: context.gapMedium),
       child: SizedBox(
-        height: context.hp(8),
+          height: context.h(65),
         child: ListView(
           scrollDirection: Axis.horizontal,
           padding: EdgeInsets.symmetric(horizontal: context.wp(4)),

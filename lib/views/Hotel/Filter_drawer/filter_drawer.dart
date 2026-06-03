@@ -183,7 +183,7 @@ class _HotelFilterDrawerState extends State<HotelFilterDrawer> {
 
   Widget _buildPriceRangeFilter() {
     return Container(
-      padding: EdgeInsets.all(context.gapMedium),
+      padding: EdgeInsets.all(context.w(12)),
       decoration: BoxDecoration(
         border: Border.all(color: Colors.grey.shade200),
         borderRadius: BorderRadius.circular(context.borderRadius),
@@ -274,7 +274,7 @@ class _HotelFilterDrawerState extends State<HotelFilterDrawer> {
 
   Widget _buildRefundableFilter() {
     return Container(
-      padding: EdgeInsets.all(context.gapMedium),
+      padding: EdgeInsets.all(context.w(12)),
       decoration: BoxDecoration(
         border: Border.all(color: Colors.grey.shade200),
         borderRadius: BorderRadius.circular(context.borderRadius),
@@ -328,7 +328,7 @@ class _HotelFilterDrawerState extends State<HotelFilterDrawer> {
             },
             borderRadius: BorderRadius.circular(8),
             child: Container(
-              padding: EdgeInsets.all(context.gapMedium),
+              padding: EdgeInsets.all(context.w(12)),
               decoration: BoxDecoration(
                 border: Border.all(
                   color: isSelected

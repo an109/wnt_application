@@ -187,7 +187,7 @@ class _HotelConfirmationScreenState extends State<HotelConfirmationScreen> {
           automaticallyImplyLeading: false,
           actions: [
             Padding(
-              padding: const EdgeInsets.all(8.0),
+              padding: EdgeInsets.all(context.w(8)),
               child: Image.asset(
                 'assets/images/wander_nova_logo.jpg',
                 height: 35,
@@ -321,7 +321,7 @@ class _HotelConfirmationScreenState extends State<HotelConfirmationScreen> {
   Widget _buildHcnPendingCard(BuildContext context) {
     final isPolling = _hcnStatus == 'polling';
     return Container(
-      padding: EdgeInsets.all(context.gapMedium),
+      padding: EdgeInsets.all(context.w(12)),
       decoration: BoxDecoration(
         color: Colors.blue.shade50,
         borderRadius: BorderRadius.circular(context.borderRadius),
@@ -357,7 +357,7 @@ class _HotelConfirmationScreenState extends State<HotelConfirmationScreen> {
 
   Widget _buildHcnEscalateCard(BuildContext context) {
     return Container(
-      padding: EdgeInsets.all(context.gapMedium),
+      padding: EdgeInsets.all(context.w(12)),
       decoration: BoxDecoration(
         color: Colors.orange.shade50,
         borderRadius: BorderRadius.circular(context.borderRadius),
@@ -490,7 +490,7 @@ class _HotelConfirmationScreenState extends State<HotelConfirmationScreen> {
 
   Widget _buildEmailNotice(BuildContext context) {
     return Container(
-      padding: EdgeInsets.all(context.gapMedium),
+      padding: EdgeInsets.all(context.w(12)),
       decoration: BoxDecoration(
         color: Colors.blue.shade50,
         borderRadius: BorderRadius.circular(context.borderRadius),
@@ -543,7 +543,7 @@ class _HotelConfirmationScreenState extends State<HotelConfirmationScreen> {
   Widget _card(BuildContext context, {required Widget child}) {
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.all(context.gapMedium),
+      padding: EdgeInsets.all(context.w(12)),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(context.borderRadius),

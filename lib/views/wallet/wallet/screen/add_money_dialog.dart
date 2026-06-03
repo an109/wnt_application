@@ -418,7 +418,7 @@ class _AddMoneyDialogState extends State<AddMoneyDialog> {
   Widget _buildPaymentMethodCard() {
     return Container(
       key: const ValueKey('payment_method_card'), // Unique key for this card
-      padding: EdgeInsets.all(context.gapMedium),
+      padding: EdgeInsets.all(context.w(12)),
       decoration: BoxDecoration(
         border: Border.all(color: Colors.red.shade200),
         borderRadius: BorderRadius.circular(context.borderRadiusMedium),

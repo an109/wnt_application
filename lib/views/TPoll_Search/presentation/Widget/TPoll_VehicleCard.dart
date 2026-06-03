@@ -17,6 +17,8 @@ class TpollVehicleCard extends StatelessWidget {
   final VoidCallback onTap;
   final String searchId;
   final String? formattedPrice;
+  final Map<String, String>? formattedAmenityPrices;
+  final String? formattedWaitingPrice;
 
   final Map<String, dynamic>? stepDetails;
 
@@ -35,6 +37,8 @@ class TpollVehicleCard extends StatelessWidget {
     this.stepDetails,
     required this.searchId,
     this.formattedPrice,
+    this.formattedAmenityPrices,
+    this.formattedWaitingPrice
   });
 
   @override
@@ -331,7 +335,6 @@ class TpollVehicleCard extends StatelessWidget {
   }
 
   Widget _buildTravelTimeRow(BuildContext context) {
-    // Get time from stepDetails or use default
     final time = stepDetails?['time'] ?? 25;
     final waitTimeData = stepDetails?['wait_time'];
     final minutesIncluded = waitTimeData?['minutes_included'] ?? 60;
@@ -354,7 +357,9 @@ class TpollVehicleCard extends StatelessWidget {
             context,
             icon: Icons.hourglass_bottom_outlined,
             label: waitingPrice != null
-                ? '$minutesIncluded min included, then $currencySymbol$waitingPrice/min'
+                ? formattedWaitingPrice != null
+                ? '$minutesIncluded min included, then $formattedWaitingPrice/min'
+                : '$minutesIncluded min included, then $currencySymbol$waitingPrice/min'
                 : '$minutesIncluded min included',
             color: Colors.grey.shade500,
           ),
@@ -410,9 +415,18 @@ class TpollVehicleCard extends StatelessWidget {
       runSpacing: 6,
       children: allToShow.map((amenity) {
         final isIncluded = amenity.included;
-        final hasPrice =
-            amenity.price != null &&
-            (amenity.price?.value?.isNotEmpty ?? false);
+        final hasPrice = amenity.price != null && (amenity.price?.value?.isNotEmpty ?? false);
+
+        // Get formatted price if available, otherwise use original
+        String? displayPrice;
+        if (hasPrice && formattedAmenityPrices != null) {
+          // Try to get formatted price from the map using amenity key or name
+          displayPrice = formattedAmenityPrices![amenity.key] ??
+              formattedAmenityPrices![amenity.name] ??
+              amenity.price?.value;
+        } else if (hasPrice) {
+          displayPrice = amenity.price?.value;
+        }
 
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -433,7 +447,9 @@ class TpollVehicleCard extends StatelessWidget {
               Text(
                 isIncluded
                     ? amenity.name
-                    : '${amenity.name} +$currencySymbol${amenity.price?.value ?? '0'}',
+                    : displayPrice != null
+                    ? '${amenity.name}  $displayPrice'
+                    : '${amenity.name}  $currencySymbol${amenity.price?.value ?? '0'}',
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: isIncluded ? FontWeight.w600 : FontWeight.w400,
@@ -479,17 +495,56 @@ class TpollVehicleCard extends StatelessWidget {
     );
   }
 
+  // Widget _buildSmsWithPrice(BuildContext context) {
+  //   // Find SMS notification amenity
+  //   final smsAmenity = result.amenities.firstWhere(
+  //     (a) => a.key == 'sms_notifications',
+  //     orElse: () => result.amenities.first,
+  //   );
+  //
+  //   //  Fixed: Check if price exists and access value properly
+  //   final hasSmsPrice =
+  //       smsAmenity.price != null && smsAmenity.price!.value.isNotEmpty;
+  //   final smsPrice = hasSmsPrice ? smsAmenity.price!.value : '1.99';
+  //
+  //   return Row(
+  //     mainAxisSize: MainAxisSize.min,
+  //     children: [
+  //       Icon(Icons.sms_outlined, size: 13, color: Colors.grey.shade600),
+  //       const SizedBox(width: 4),
+  //       Text(
+  //         hasSmsPrice
+  //             ? 'SMS notifications $currencySymbol$smsPrice'
+  //             : 'SMS notifications',
+  //         style: TextStyle(
+  //           fontSize: 12,
+  //           color: Colors.grey.shade600,
+  //           fontWeight: FontWeight.w500,
+  //         ),
+  //       ),
+  //     ],
+  //   );
+  // }
   Widget _buildSmsWithPrice(BuildContext context) {
     // Find SMS notification amenity
     final smsAmenity = result.amenities.firstWhere(
-      (a) => a.key == 'sms_notifications',
+          (a) => a.key == 'sms_notifications',
       orElse: () => result.amenities.first,
     );
 
-    //  Fixed: Check if price exists and access value properly
-    final hasSmsPrice =
-        smsAmenity.price != null && smsAmenity.price!.value.isNotEmpty;
-    final smsPrice = hasSmsPrice ? smsAmenity.price!.value : '1.99';
+    final hasSmsPrice = smsAmenity.price != null && smsAmenity.price!.value.isNotEmpty;
+
+    // Get formatted price if available
+    String smsPriceDisplay;
+    if (hasSmsPrice && formattedAmenityPrices != null) {
+      smsPriceDisplay = formattedAmenityPrices![smsAmenity.key] ??
+          formattedAmenityPrices![smsAmenity.name] ??
+          smsAmenity.price!.value;
+    } else if (hasSmsPrice) {
+      smsPriceDisplay = smsAmenity.price!.value;
+    } else {
+      smsPriceDisplay = '1.99';
+    }
 
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -498,7 +553,7 @@ class TpollVehicleCard extends StatelessWidget {
         const SizedBox(width: 4),
         Text(
           hasSmsPrice
-              ? 'SMS notifications $currencySymbol$smsPrice'
+              ? 'SMS notifications $smsPriceDisplay'
               : 'SMS notifications',
           style: TextStyle(
             fontSize: 12,
@@ -559,8 +614,8 @@ class TpollVehicleCard extends StatelessWidget {
             //  FIXED: Use displayPriceText instead of hardcoding USD
             Text(
               displayPriceText,  // This now shows converted price (INR ₹10,020)
-              style: const TextStyle(
-                fontSize: 24,
+              style:  TextStyle(
+                fontSize: context.fs(24),
                 fontWeight: FontWeight.w800,
                 color: _darkNavy,
                 height: 1.1,
@@ -593,14 +648,15 @@ class TpollVehicleCard extends StatelessWidget {
                 onTap();
               } else {
                 print('User not logged in, showing login popup');
-                NavigationQueueService().setPendingNavigation(() {
-                  print('Executing pending navigation after login');
-                  Future.delayed(const Duration(milliseconds: 300), () {
-                    if (context.mounted) {
-                      onTap();
-                    }
-                  });
-                });
+                onTap();
+                // NavigationQueueService().setPendingNavigation(() {
+                //   print('Executing pending navigation after login');
+                //   Future.delayed(const Duration(milliseconds: 300), () {
+                //     if (context.mounted) {
+                //       onTap();
+                //     }
+                //   });
+                // });
 
                 showGeneralDialog(
                   context: context,

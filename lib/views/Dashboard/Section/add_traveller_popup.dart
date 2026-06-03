@@ -397,7 +397,7 @@ class _AddTravellerModalState extends State<AddTravellerModal> {
       }) {
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.all(context.gapMedium),
+      padding: EdgeInsets.all(context.w(12)),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius:
