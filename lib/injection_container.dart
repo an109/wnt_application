@@ -82,6 +82,11 @@ import 'package:wander_nova/views/T_location/data/repository/T_location_reposito
 import 'package:wander_nova/views/T_location/domain/repository/T_location_repository.dart';
 import 'package:wander_nova/views/T_location/domain/usecase/get_location_usecase.dart';
 import 'package:wander_nova/views/T_location/presentation/bloc/T_locationBloc.dart';
+import 'package:wander_nova/views/UpcomingTrips/data/data_source/upcomingTrip_api_service.dart';
+import 'package:wander_nova/views/UpcomingTrips/data/repository/upcomingTrip_repository_impl.dart';
+import 'package:wander_nova/views/UpcomingTrips/domain/repository/upcomingTrip_repository.dart';
+import 'package:wander_nova/views/UpcomingTrips/domain/usecase/get_upcomingTrip_usecase.dart';
+import 'package:wander_nova/views/UpcomingTrips/presentation/bloc/upcomingTrip_bloc.dart';
 import 'package:wander_nova/views/Verify_otp/data/data_source/verify_otp_api_service.dart';
 import 'package:wander_nova/views/Verify_otp/data/repository/verify_otp_repository_impl.dart';
 import 'package:wander_nova/views/Verify_otp/domain/repository/verify_otp_repository.dart';
@@ -255,6 +260,7 @@ Future<void> initializeDependencies() async {
   sl.registerFactory<LogoutApiService>(() => LogoutApiServiceImpl(sl<DioClient>().instance),);
   sl.registerFactory<ProfileApiService>(() => ProfileApiServiceImpl(sl<DioClient>().instance));
   sl.registerFactory<MyBookingApiService>(() => MyBookingApiServiceImpl(sl<DioClient>().instance));
+  sl.registerFactory<UpcomingTripApiService>(() => UpcomingTripApiServiceImpl(sl<DioClient>().instance));
 
 
 
@@ -299,6 +305,7 @@ Future<void> initializeDependencies() async {
   sl.registerLazySingleton<LogoutRepository>(() => LogoutRepositoryImpl(sl<LogoutApiService>()),);
   sl.registerLazySingleton<ProfileRepository>(() => ProfileRepositoryImpl(sl<ProfileApiService>()));
   sl.registerLazySingleton<MyBookingRepository>(() => MyBookingRepositoryImpl(sl<MyBookingApiService>(), sl<PreferencesManager>()));
+  sl.registerLazySingleton<UpcomingTripRepository>(() => UpcomingTripRepositoryImpl(apiService: sl<UpcomingTripApiService>()));
 
 
 
@@ -348,6 +355,7 @@ Future<void> initializeDependencies() async {
   sl.registerLazySingleton<UpdateProfileUseCase>(() => UpdateProfileUseCase(sl()));
   sl.registerLazySingleton<PatchProfileUseCase>(() => PatchProfileUseCase(sl()));
   sl.registerLazySingleton<GetBookingsUseCase>(() => GetBookingsUseCase(sl<MyBookingRepository>()));
+  sl.registerLazySingleton<GetUpcomingTripsUseCase>(() => GetUpcomingTripsUseCase(sl<UpcomingTripRepository>()));
 
 
 
@@ -399,5 +407,6 @@ Future<void> initializeDependencies() async {
       updateProfileUseCase: sl<UpdateProfileUseCase>(),
       patchProfileUseCase: sl<PatchProfileUseCase>()));
   sl.registerFactory(() => MyBookingBloc(sl<GetBookingsUseCase>()));
+  sl.registerFactory<UpcomingTripBloc>(() => UpcomingTripBloc(getUpcomingTripsUseCase: sl<GetUpcomingTripsUseCase>()));
 
 }

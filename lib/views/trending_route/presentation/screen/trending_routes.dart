@@ -62,7 +62,7 @@ class _TrendingPackagesViewState extends State<TrendingPackagesView> {
     print('Price: ${route.price} ${route.currency}');
 
     // Parse date from API format "DD/MM/YYYY" to DateTime
-    final parsedDate = _parseDate(route.date);
+    final parsedDate = DateTime.now();
 
     Navigator.push(
       context,
@@ -149,31 +149,14 @@ class _TrendingPackagesViewState extends State<TrendingPackagesView> {
     final symbol = symbols[currency.toUpperCase()] ?? '$currency ';
     return '$symbol$buffer';
   }
-  // Map<String, dynamic> _mapToRouteCard(TrendingRouteEntity entity) {
-  //   return {
-  //     'from': entity.from,
-  //     'to': entity.to,
-  //     'fromCode': entity.fromCode,
-  //     'toCode': entity.toCode,
-  //     'date': entity.date,
-  //     'price': _formatPrice(entity.price, entity.currency),
-  //     'image': entity.imageUrl,
-  //     'bgColor': Colors.blue.shade50,
-  //     'color': Colors.blue,
-  //     'type': 'Flights',
-  //     'icon': Icons.flight,
-  //     'time': '08:00 - 10:30',
-  //     'duration': '2h 30m',
-  //     'stops': 'Non-stop',
-  //     'airline': 'Air Arabia',
-  //     'rating': '4.5',
-  //     'originalPrice': _formatPrice((entity.price * 1.2).toInt(), entity.currency),
-  //     'discount': '20% OFF',
-  //     'busType': '',
-  //     'train': '',
-  //     'entity': entity, // Store the original entity for navigation
-  //   };
-  // }
+
+  String getCurrentDate() {
+    final now = DateTime.now();
+    return '${now.day.toString().padLeft(2, '0')}/'
+        '${now.month.toString().padLeft(2, '0')}/'
+        '${now.year}';
+  }
+
   Map<String, dynamic> _mapToRouteCard(TrendingRouteEntity entity) {
     final prefs = sl<PreferencesManager>();
     final targetCurrency = prefs.getPreferredCurrency() ?? 'INR';
@@ -183,7 +166,7 @@ class _TrendingPackagesViewState extends State<TrendingPackagesView> {
       'to': entity.to,
       'fromCode': entity.fromCode,
       'toCode': entity.toCode,
-      'date': entity.date,
+      'date': getCurrentDate(),
       'price': _formatPrice(entity.price, entity.currency, targetCurrency: targetCurrency),
       'image': entity.imageUrl,
       'bgColor': Colors.blue.shade50,

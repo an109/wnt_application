@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import 'package:wander_nova/common_widgets/custom_drawer.dart';
+import 'package:wander_nova/core/resources/app_colours.dart';
 import '../../../../common_widgets/logo.dart';
 import '../../../../injection_container.dart';
 import '../../../ExclusiveDeals/presentation/bloc/exclusive_deals_bloc.dart';
@@ -25,6 +26,7 @@ import '../../../trending_route/presentation/screen/trending_routes.dart';
 import '../screen_sections/service_info_section.dart';
 import '../screen_sections/why_choose_us/why_choose_us.dart';
 import '../../flight/flight_screen.dart';
+import 'package:animated_text_kit/animated_text_kit.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -190,7 +192,6 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
       ),
-      // bottomNavigationBar: const NewBottomNav(currentIndex: 0),
     );
   }
 
@@ -264,95 +265,166 @@ class _HomeScreenState extends State<HomeScreen> {
                   ],
                 ),
               ),
-              SizedBox(height: context.hp(3)),
+              SizedBox(height: context.hp(1)),
 
               // Search Bar with Animation
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(50),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.2),
-                      blurRadius: 15,
-                      offset: const Offset(0, 5),
-                    ),
-                  ],
-                ),
+              // Container(
+              //   decoration: BoxDecoration(
+              //     color: Colors.white,
+              //     borderRadius: BorderRadius.circular(50),
+              //     boxShadow: [
+              //       BoxShadow(
+              //         color: Colors.black.withOpacity(0.2),
+              //         blurRadius: 15,
+              //         offset: const Offset(0, 5),
+              //       ),
+              //     ],
+              //   ),
+              //   child: Row(
+              //     children: [
+              //       Expanded(
+              //         child: TextField(
+              //           decoration: InputDecoration(
+              //             hintText: "Search destinations or deals",
+              //             hintStyle: TextStyle(
+              //               color: Colors.grey.shade400,
+              //               fontSize: context.bodyMedium,
+              //             ),
+              //             border: InputBorder.none,
+              //             contentPadding: EdgeInsets.symmetric(
+              //               horizontal: context.wp(5),
+              //               vertical: context.hp(2),
+              //             ),
+              //             prefixIcon: Icon(
+              //               Icons.search_rounded,
+              //               color: const Color(0xFF2A5298),
+              //               size: context.iconMedium,
+              //             ),
+              //           ),
+              //           style: TextStyle(
+              //             fontSize: context.bodyMedium,
+              //             color: Colors.black87,
+              //           ),
+              //         ),
+              //       ),
+              //       Container(
+              //         margin: EdgeInsets.only(right: 4),
+              //         decoration: const BoxDecoration(
+              //           gradient: LinearGradient(
+              //             colors: [Color(0xFF1E3C72), Color(0xFF2A5298)],
+              //           ),
+              //           shape: BoxShape.circle,
+              //           boxShadow: [
+              //             BoxShadow(
+              //               color: Color(0xFF1E3C72),
+              //               blurRadius: 10,
+              //               offset: Offset(0, 4),
+              //             ),
+              //           ],
+              //         ),
+              //         child: Material(
+              //           color: Colors.transparent,
+              //           child: InkWell(
+              //             onTap: () {
+              //               Navigator.push(
+              //                 context,
+              //                 MaterialPageRoute(
+              //                   builder: (_) => const FlightScreen(),
+              //                 ),
+              //               );
+              //             },
+              //             borderRadius: BorderRadius.circular(50),
+              //             child: Padding(
+              //               padding: EdgeInsets.all(context.wp(2.5)),
+              //               child: Icon(
+              //                 Icons.arrow_forward_ios_rounded,
+              //                 color: Colors.white,
+              //                 size: context.iconSmall,
+              //               ),
+              //             ),
+              //           ),
+              //         ),
+              //       ),
+              //     ],
+              //   ),
+              // ).animate().fadeIn(duration: 600.ms).slideX(begin: 0.1, end: 0),
+
+              InkWell(
+                onTap: () {},
+                borderRadius: BorderRadius.circular(50),
                 child: Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Expanded(
-                      child: TextField(
-                        decoration: InputDecoration(
-                          hintText: "Search destinations or deals",
-                          hintStyle: TextStyle(
-                            color: Colors.grey.shade400,
-                            fontSize: context.bodyMedium,
-                          ),
-                          border: InputBorder.none,
-                          contentPadding: EdgeInsets.symmetric(
-                            horizontal: context.wp(5),
-                            vertical: context.hp(2),
-                          ),
-                          prefixIcon: Icon(
-                            Icons.search_rounded,
-                            color: const Color(0xFF2A5298),
-                            size: context.iconMedium,
+                    AnimatedTextKit(
+                      repeatForever: true,
+                      animatedTexts: [
+                        TypewriterAnimatedText(
+                          "Book now and save big",
+                          speed: const Duration(milliseconds: 70),
+                          textStyle: GoogleFonts.aBeeZee(
+                            color: AppColors.lightBg,
+                            fontSize: context.bodyLarge,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
-                        style: TextStyle(
-                          fontSize: context.bodyMedium,
-                          color: Colors.black87,
-                        ),
-                      ),
+                      ],
                     ),
-                    Container(
-                      margin: EdgeInsets.only(right: 4),
-                      decoration: const BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [Color(0xFF1E3C72), Color(0xFF2A5298)],
-                        ),
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Color(0xFF1E3C72),
-                            blurRadius: 10,
-                            offset: Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const FlightScreen(),
-                              ),
-                            );
-                          },
-                          borderRadius: BorderRadius.circular(50),
-                          child: Padding(
-                            padding: EdgeInsets.all(context.wp(2.5)),
-                            child: Icon(
-                              Icons.arrow_forward_ios_rounded,
-                              color: Colors.white,
-                              size: context.iconSmall,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
+                    // SizedBox(width: context.wp(1)),
+                    // const Icon(
+                    //   Icons.arrow_forward_rounded,
+                    //   color: Colors.white,
+                    //   size: 18,
+                    // ),
                   ],
                 ),
-              ).animate().fadeIn(duration: 600.ms).slideX(begin: 0.1, end: 0),
-              SizedBox(height: context.hp(2)),
+              ),
+              SizedBox(height: context.hp(1)),
 
               // Animated Destination Chips
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _heroActionItem(
+      BuildContext context,
+      IconData icon,
+      String label,
+      VoidCallback onTap,
+      ) {
+    return Expanded(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: EdgeInsets.symmetric(
+            vertical: context.hp(0.5),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                color: Colors.white,
+                size: context.iconMedium,
+              ),
+              SizedBox(height: context.hp(0.5)),
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: context.bodySmall,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -377,6 +449,7 @@ class _HomeScreenState extends State<HomeScreen> {
       },
     );
   }
+
 
   Widget _buildAnimatedPlane(BuildContext context) {
     return TweenAnimationBuilder(

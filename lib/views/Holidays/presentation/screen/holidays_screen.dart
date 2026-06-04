@@ -58,7 +58,6 @@ class _HolidaysScreenState extends State<HolidaysScreen> {
       },
       child: Scaffold(
         drawer: const CustomDrawer(),
-
         appBar: AppBar(
           title: WanderNovaLogo(
             scaleFactor: context.isMobile
@@ -77,13 +76,10 @@ class _HolidaysScreenState extends State<HolidaysScreen> {
             ),
           ],
         ),
-
         body: Container(
           color: const Color(0xFFF8F9FA),
-
           child: CustomScrollView(
             physics: context.scrollPhysics,
-
             slivers: [
               /// HERO SECTION
               SliverToBoxAdapter(
@@ -93,66 +89,62 @@ class _HolidaysScreenState extends State<HolidaysScreen> {
                     /// BACKGROUND IMAGE
                     SizedBox(
                       height: context.isMobile
-                          ? context.hp(65)
-                          : context.hp(70),
+                          ? context.hp(63)
+                          : context.hp(68),
                       width: double.infinity,
                       child:
-                          _holidayHeroImage != null &&
-                              _holidayHeroImage!.isNotEmpty
+                      _holidayHeroImage != null &&
+                          _holidayHeroImage!.isNotEmpty
                           ? Image.network(
-                              _holidayHeroImage!,
-                              fit: BoxFit.cover,
-                              loadingBuilder:
-                                  (context, child, loadingProgress) {
-                                    if (loadingProgress == null) return child;
-                                    return Container(
-                                      color: const Color(0xFFE0E0E0),
-                                      child: Center(
-                                        child: CircularProgressIndicator(
-                                          value:
-                                              loadingProgress
-                                                      .expectedTotalBytes !=
-                                                  null
-                                              ? loadingProgress
-                                                        .cumulativeBytesLoaded /
-                                                    loadingProgress
-                                                        .expectedTotalBytes!
-                                              : null,
-                                        ),
-                                      ),
-                                    );
-                                  },
-                              errorBuilder: (context, error, stackTrace) {
-                                return Container(
-                                  color: const Color(0xFFE0E0E0),
-                                );
-                              },
-                            )
+                        _holidayHeroImage!,
+                        fit: BoxFit.cover,
+                        loadingBuilder:
+                            (context, child, loadingProgress) {
+                          if (loadingProgress == null) return child;
+                          return Container(
+                            color: const Color(0xFFE0E0E0),
+                            child: Center(
+                              child: CircularProgressIndicator(
+                                value:
+                                loadingProgress
+                                    .expectedTotalBytes !=
+                                    null
+                                    ? loadingProgress
+                                    .cumulativeBytesLoaded /
+                                    loadingProgress
+                                        .expectedTotalBytes!
+                                    : null,
+                              ),
+                            ),
+                          );
+                        },
+                        errorBuilder: (context, error, stackTrace) {
+                          return Container(
+                            color: const Color(0xFFE0E0E0),
+                          );
+                        },
+                      )
                           : Container(color: const Color(0xFFE0E0E0)),
                     ),
 
                     /// DARK OVERLAY
                     IgnorePointer(
                       ignoring: true,
-
                       child: Container(
                         height: context.isMobile
-                            ? context.hp(65)
-                            : context.hp(70),
-
+                            ? context.hp(63)
+                            : context.hp(68),
                         color: Colors.black.withOpacity(0.35),
                       ),
                     ),
 
                     /// TITLE
                     Positioned(
-                      top: context.hp(15),
+                      top: context.hp(6),
                       left: context.wp(5),
-
                       child: Row(
                         children: [
                           SizedBox(width: context.wp(2.2)),
-
                           Text(
                             "Holiday Packages",
                             style: TextStyle(
@@ -169,8 +161,7 @@ class _HolidaysScreenState extends State<HolidaysScreen> {
                     Positioned(
                       left: context.wp(4.7),
                       right: context.wp(4.7),
-                      bottom: -context.hp(4),
-
+                      bottom: -context.hp(-9),
                       child: const Material(
                         color: Colors.transparent,
                         child: HolidaysSearchCard(),
@@ -180,7 +171,7 @@ class _HolidaysScreenState extends State<HolidaysScreen> {
                 ),
               ),
 
-              const SliverToBoxAdapter(child: SizedBox(height: 55)),
+              const SliverToBoxAdapter(child: SizedBox(height: 20)),
               SliverToBoxAdapter(
                 child: BlocProvider<ExclusiveDealsBloc>(
                   create: (context) => sl<ExclusiveDealsBloc>(),
@@ -209,7 +200,6 @@ class _HolidaysScreenState extends State<HolidaysScreen> {
             ],
           ),
         ),
-
         bottomNavigationBar: const CustomBottomNav(currentIndex: 3),
       ),
     );

@@ -14,6 +14,7 @@ import 'package:wander_nova/views/TResevation/presentation/bloc/TReservation_blo
 import 'package:wander_nova/views/TResult/presentation/bloc/TResult_bloc.dart';
 import 'package:wander_nova/views/T_Search/presentation/bloc/T_SearchBloc.dart';
 import 'package:wander_nova/views/T_location/presentation/bloc/T_locationBloc.dart';
+import 'package:wander_nova/views/UpcomingTrips/presentation/bloc/upcomingTrip_bloc.dart';
 import 'package:wander_nova/views/Verify_otp/presentation/bloc/verify_otp_bloc.dart';
 import 'package:wander_nova/views/VisaDestination/presentation/bloc/visaDestin_bloc.dart';
 import 'package:wander_nova/views/Visa_popularDestinaton/presentation/bloc/visa_destination_bloc.dart';
@@ -99,6 +100,7 @@ class MyApp extends StatelessWidget {
         BlocProvider(create: (_) => di.sl<LogoutBloc>()),
         BlocProvider(create: (_) => di.sl<ProfileBloc>()),
         BlocProvider(create: (_) => di.sl<MyBookingBloc>()),
+        BlocProvider(create: (_) => di.sl<UpcomingTripBloc>()),
       ],
 
       child: MaterialApp(

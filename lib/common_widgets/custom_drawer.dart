@@ -9,7 +9,7 @@ import '../views/Dashboard/dashboardScreen.dart';
 import '../views/Dashboard/profile/screen/Profile_screen.dart';
 import '../views/Dashboard/screen/make_payment.dart';
 import '../views/Dashboard/screen/support_screen.dart';
-import '../views/Dashboard/screen/upcoming_trip.dart';
+import '../views/UpcomingTrips/presentation/screen/upcoming_trip.dart';
 import '../views/LogOut/presentation/bloc/logout_bloc.dart';
 import '../views/LogOut/presentation/bloc/logout_event.dart';
 import '../views/LogOut/presentation/bloc/logout_state.dart';
