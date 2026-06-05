@@ -26,7 +26,7 @@ class VisaScreen extends StatelessWidget {
           Padding(
             padding: EdgeInsets.all(context.wp(2)),
             child: Image.asset(
-              "assets/images/wander_nova_logo.jpg",
+              "assets/images/wander_nova_logo.png",
               height: context.hp(4.5),
             ),
           )

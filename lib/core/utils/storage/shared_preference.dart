@@ -103,6 +103,7 @@ class PreferencesManager {
 
   String? getRefreshToken() => _prefs?.getString('refresh_token');
   int? getUserId() => _prefs?.getInt('user_id');
+  String? getUserEmail() => _prefs?.getString('user_email');
 
   Future<void> clearAuth() async {
     await _prefs?.remove('access_token');

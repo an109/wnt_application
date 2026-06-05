@@ -343,66 +343,66 @@ class _TravellerInformationSectionState extends State<TravellerInformationSectio
 
           SizedBox(height: context.gapLarge),
 
-          // Travel Details Section (from parent)
-          Text(
-            "Travel Details",
-            style: TextStyle(
-              fontWeight: FontWeight.w600,
-              fontSize: context.bodyLarge,
-            ),
-          ),
-          SizedBox(height: context.gapMedium),
-
-          Row(
-            children: [
-              Expanded(
-                child: _buildDateField(
-                  context,
-                  label: "Departure Date *",
-                  value: widget.departureDate,
-                  onTap: widget.onDepartureDateTap,
-                ),
-              ),
-              SizedBox(width: context.gapMedium),
-              Expanded(
-                child: _buildDateField(
-                  context,
-                  label: "Return Date *",
-                  value: widget.returnDate,
-                  onTap: widget.onReturnDateTap,
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: context.gapLarge),
-
-          Text(
-            "Destination Details",
-            style: TextStyle(
-              fontWeight: FontWeight.w600,
-              fontSize: context.bodyLarge,
-            ),
-          ),
-          SizedBox(height: context.gapMedium),
-
-          _buildTextField(
-            context,
-            controller: _destinationController,
-            label: "Destination City/Country *",
-            hintText: "Dubai, UAE",
-            isRequired: true,
-            validator: (value) => value?.isEmpty ?? true ? 'Destination is required' : null,
-          ),
-          SizedBox(height: context.gapMedium),
-
-          _buildTextField(
-            context,
-            controller: _hotelController,
-            label: "Hotel/Resort Preference",
-            hintText: "Optional",
-            isRequired: false,
-            validator: null,
-          ),
+          // // Travel Details Section (from parent)
+          // Text(
+          //   "Travel Details",
+          //   style: TextStyle(
+          //     fontWeight: FontWeight.w600,
+          //     fontSize: context.bodyLarge,
+          //   ),
+          // ),
+          // SizedBox(height: context.gapMedium),
+          //
+          // Row(
+          //   children: [
+          //     Expanded(
+          //       child: _buildDateField(
+          //         context,
+          //         label: "Departure Date *",
+          //         value: widget.departureDate,
+          //         onTap: widget.onDepartureDateTap,
+          //       ),
+          //     ),
+          //     SizedBox(width: context.gapMedium),
+          //     Expanded(
+          //       child: _buildDateField(
+          //         context,
+          //         label: "Return Date *",
+          //         value: widget.returnDate,
+          //         onTap: widget.onReturnDateTap,
+          //       ),
+          //     ),
+          //   ],
+          // ),
+          // SizedBox(height: context.gapLarge),
+          //
+          // Text(
+          //   "Destination Details",
+          //   style: TextStyle(
+          //     fontWeight: FontWeight.w600,
+          //     fontSize: context.bodyLarge,
+          //   ),
+          // ),
+          // SizedBox(height: context.gapMedium),
+          //
+          // _buildTextField(
+          //   context,
+          //   controller: _destinationController,
+          //   label: "Destination City/Country *",
+          //   hintText: "Dubai, UAE",
+          //   isRequired: true,
+          //   validator: (value) => value?.isEmpty ?? true ? 'Destination is required' : null,
+          // ),
+          // SizedBox(height: context.gapMedium),
+          //
+          // _buildTextField(
+          //   context,
+          //   controller: _hotelController,
+          //   label: "Hotel/Resort Preference",
+          //   hintText: "Optional",
+          //   isRequired: false,
+          //   validator: null,
+          // ),
         ],
       ),
     );

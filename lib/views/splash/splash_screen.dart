@@ -91,7 +91,7 @@
 //               child: Opacity(
 //                 opacity: (1.0 - (_controller.value * 0.6)).clamp(0.0, 1.0),
 //                 child: Image.asset(
-//                   'assets/images/wander_nova_logo.jpg',
+//                   'assets/images/wander_nova_logo.png',
 //                   height: 180,
 //                   fit: BoxFit.contain,
 //                   filterQuality: FilterQuality.high,
@@ -261,7 +261,7 @@ class _SplashScreenState extends State<SplashScreen>
               child: Opacity(
                 opacity: (1.0 - (_controller.value * 0.6)).clamp(0.0, 1.0),
                 child: Image.asset(
-                  'assets/images/wander_nova_logo.jpg',
+                  'assets/images/wander_nova_logo.png',
                   height: context.h(180), // 180px on design
                   fit: BoxFit.contain,
                   filterQuality: FilterQuality.high,

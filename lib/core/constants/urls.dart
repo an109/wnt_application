@@ -1,20 +1,21 @@
 class Urls {
-  // static const String baseUrl = 'http://192.168.1.37:8000/api/';
-  static const String baseUrl = 'https://thewandernova.com/api/';
-  // static const String basesUrl = 'http://192.168.1.37:8000/api';
-  static const String basesUrl = 'https://thewandernova.com/api';
+  static const String baseUrl = 'http://192.168.29.79:8000/api/';
+  // static const String baseUrl = 'https://thewandernova.com/api/';
+  static const String basesUrl = 'http://192.168.29.79:8000/api';
+  // static const String basesUrl = 'https://thewandernova.com/api';
 
   static const String airports = '$basesUrl/flights/airports';
   static const String flightSearch = '$basesUrl/tbo/Search/';
   static const String fareRule = '$basesUrl/tbo/FareRule/';
   static const String fareQuote = '$basesUrl/tbo/FareQuote/';
-  static const String googleAuth = '/auth/google/';
+
   static const String ssr = '$basesUrl/tbo/SSR/';
   static const String book = '$basesUrl/tbo/Book/';
   static const String ticket = '$basesUrl/tbo/Ticket/';
   static const String getBookingDetails = '$basesUrl/tbo/GetBookingDetails/';
   static const String razorpayCreateOrder = '${baseUrl}payments/razorpay/create-order/';
   static const String razorpayVerify = '${baseUrl}payments/razorpay/verify/';
+
   static const String hotelsByCity = '$basesUrl/tbo-hotel/hotels-by-city/';
   static const String hotelDetails = '$basesUrl/tbo-hotel/hotel-details/';
   static const String hotelPrebook = '$basesUrl/tbo-hotel/prebook/';
@@ -37,6 +38,9 @@ class Urls {
   static const String trendingRoutes = '$basesUrl/trending-routes/live/';
   static const String travelStories = '$basesUrl/travel-stories/';
   static const String footerSettings = '${baseUrl}settings/footer/';
+
+  static const String googleAuth = '/auth/google/';
+
 
   // ----- VISA -----
   static const String visaPopularDestinations = '$basesUrl/visa-popular-destinations/';

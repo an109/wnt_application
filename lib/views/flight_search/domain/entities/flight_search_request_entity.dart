@@ -7,6 +7,7 @@ class FlightSearchRequestEntity extends Equatable {
   final int infantCount;
   final int journeyType;
   final List<FlightSegmentEntity> segments;
+  final int BookingMode;
 
   const FlightSearchRequestEntity({
     required this.endUserIp,
@@ -15,6 +16,7 @@ class FlightSearchRequestEntity extends Equatable {
     required this.infantCount,
     required this.journeyType,
     required this.segments,
+    required this.BookingMode
   });
 
   @override
@@ -25,6 +27,7 @@ class FlightSearchRequestEntity extends Equatable {
     infantCount,
     journeyType,
     segments,
+    BookingMode
   ];
 }
 

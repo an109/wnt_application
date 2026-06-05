@@ -82,6 +82,7 @@ class _TrendingPackagesViewState extends State<TrendingPackagesView> {
           travelClass: 'Economy',
           isRoundTrip: false,
           returnDate: null,
+          BookingMode: 5,
         ),
       ),
     );
@@ -109,20 +110,6 @@ class _TrendingPackagesViewState extends State<TrendingPackagesView> {
     }
   }
 
-  // String _formatPrice(num price, String currency) {
-  //   final priceStr = price.toStringAsFixed(0);
-  //   final buffer = StringBuffer();
-  //   final len = priceStr.length;
-  //
-  //   for (var i = 0; i < len; i++) {
-  //     if (i > 0 && (len - i) % 3 == 0) {
-  //       buffer.write(',');
-  //     }
-  //     buffer.write(priceStr[i]);
-  //   }
-  //
-  //   return '$currency $buffer';
-  // }
   String _formatPrice(num price, String currency, {String? targetCurrency}) {
     double finalPrice = price.toDouble();
     if (targetCurrency != null) {
@@ -189,6 +176,7 @@ class _TrendingPackagesViewState extends State<TrendingPackagesView> {
       'entity': entity,
     };
   }
+
   @override
   Widget build(BuildContext context) {
     print('Building TrendingPackagesView');
@@ -199,8 +187,8 @@ class _TrendingPackagesViewState extends State<TrendingPackagesView> {
       children: [
         Padding(
           padding: EdgeInsets.symmetric(
-              horizontal: context.wp(4),
-              vertical: context.hp(1.5)
+            horizontal: context.w(16), // 16px on design
+            vertical: context.h(12),   // 12px on design
           ),
           child: Text(
             "Trending Routes With Best Prices",
@@ -212,7 +200,11 @@ class _TrendingPackagesViewState extends State<TrendingPackagesView> {
         ),
 
         SizedBox(
-          height: context.isMobile ? context.hp(24) : (context.isTablet ? context.hp(28) : context.hp(32)),
+          height: context.isMobile
+              ? context.h(192)  // 192px on design
+              : (context.isTablet
+              ? context.h(224)  // 224px on design
+              : context.h(256)), // 256px on design
           child: BlocBuilder<TrendingRoutesBloc, TrendingRoutesState>(
             builder: (context, state) {
               print('BLoC State: ${state.runtimeType}');
@@ -221,7 +213,7 @@ class _TrendingPackagesViewState extends State<TrendingPackagesView> {
                 print('Showing loading indicator');
                 return Center(
                   child: CircularProgressIndicator(
-                    strokeWidth: context.wp(0.8),
+                    strokeWidth: context.w(3), // 3px on design
                   ),
                 );
               }
@@ -230,7 +222,7 @@ class _TrendingPackagesViewState extends State<TrendingPackagesView> {
                 print('Showing error state: ${state.message}');
                 return Center(
                   child: Padding(
-                    padding: EdgeInsets.symmetric(horizontal: context.wp(8)),
+                    padding: EdgeInsets.symmetric(horizontal: context.w(32)), // 32px on design
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
@@ -255,8 +247,8 @@ class _TrendingPackagesViewState extends State<TrendingPackagesView> {
                           label: Text('Retry', style: TextStyle(fontSize: context.bodySmall)),
                           style: ElevatedButton.styleFrom(
                             padding: EdgeInsets.symmetric(
-                              horizontal: context.wp(6),
-                              vertical: context.hp(1.5),
+                              horizontal: context.w(24), // 24px on design
+                              vertical: context.h(12),   // 12px on design
                             ),
                           ),
                         ),
@@ -290,7 +282,7 @@ class _TrendingPackagesViewState extends State<TrendingPackagesView> {
                   },
                   child: ListView.builder(
                     scrollDirection: Axis.horizontal,
-                    padding: EdgeInsets.symmetric(horizontal: context.wp(3)),
+                    padding: EdgeInsets.symmetric(horizontal: context.w(12)), // 12px on design
                     physics: context.scrollPhysics,
                     itemCount: (routeCards.length / 2).ceil(),
                     itemBuilder: (context, index) {

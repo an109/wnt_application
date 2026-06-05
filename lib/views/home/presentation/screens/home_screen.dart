@@ -64,11 +64,11 @@ class _HomeScreenState extends State<HomeScreen> {
         elevation: 0,
         actions: [
           Padding(
-            padding: EdgeInsets.all(context.wp(2)),
+            padding: EdgeInsets.all(context.w(8)), // 8px on design
             child: Image.asset(
-              "assets/images/wander_nova_logo.jpg",
-              height: context.hp(4.5),
-              width: context.hp(4.5),
+              "assets/images/wander_nova_logo.png",
+              height: context.h(36), // 36px on design
+              width: context.h(36),  // 36px on design
               fit: BoxFit.contain,
             ),
           ),
@@ -85,7 +85,6 @@ class _HomeScreenState extends State<HomeScreen> {
           );
           dealsBloc.add(const LoadExclusiveDeals());
 
-          // If PopularDestinations has a GlobalKey or you're using context
           await Future.wait([
             Future.delayed(const Duration(milliseconds: 500)),
           ]);
@@ -99,36 +98,32 @@ class _HomeScreenState extends State<HomeScreen> {
             slivers: [
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: context.wp(3.5)),
+                  padding: EdgeInsets.symmetric(horizontal: context.w(14)), // 14px on design
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      //  BOLDER & LARGER TITLE
-                      SizedBox(height: context.hp(2)),
+                      SizedBox(height: context.h(16)), // 16px on design
 
                       // ================= HERO CARD =================
-                      _buildHeroCard(
-                        context,
-                      ).animate().fadeIn(duration: 500.ms).slideY(begin: -0.15),
+                      _buildHeroCard(context).animate().fadeIn(duration: 500.ms).slideY(begin: -0.15),
 
-                      SizedBox(height: context.hp(3)),
+                      SizedBox(height: context.h(24)), // 24px on design
 
                       // Main Services (Top Row - 4 items)
                       _buildMainServicesGrid(context),
 
-                      SizedBox(height: context.hp(0.7)),
+                      SizedBox(height: context.h(6)), // 6px on design
 
-                      //  BOLDER & LARGER SUBTITLE
                       Text(
                         'More Services',
                         style: TextStyle(
-                          fontSize: context.titleLarge, // Use responsive font
+                          fontSize: context.titleLarge,
                           fontWeight: FontWeight.w800,
                           color: Colors.black87,
                           letterSpacing: context.letterSpacingTight,
                         ),
                       ),
-                      SizedBox(height: context.hp(2)),
+                      SizedBox(height: context.h(16)), // 16px on design
 
                       _buildAdditionalServicesGrid(context),
                     ],
@@ -136,9 +131,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
 
-              const SliverToBoxAdapter(child: SizedBox(height: 20)),
+              SliverToBoxAdapter(child: SizedBox(height: context.h(20))), // 20px on design
 
-              // ===== EXISTING SECTIONS =====
               SliverToBoxAdapter(
                 child: BlocProvider<ExclusiveDealsBloc>(
                   create: (context) => sl<ExclusiveDealsBloc>(),
@@ -152,8 +146,8 @@ class _HomeScreenState extends State<HomeScreen> {
               SliverToBoxAdapter(
                 child: BlocProvider(
                   create: (_) =>
-                      sl<GeneralSettingsBloc>()
-                        ..add(const LoadFaqList(domain: 'thewandernova.com')),
+                  sl<GeneralSettingsBloc>()
+                    ..add(const LoadFaqList(domain: 'thewandernova.com')),
                   child: const FAQSection(),
                 ),
               ),
@@ -183,11 +177,11 @@ class _HomeScreenState extends State<HomeScreen> {
               SliverToBoxAdapter(
                 child: FooterBannerWidget(
                   domain: 'thewandernova.com',
-                  height: context.hp(18),
+                  height: context.h(144), // 144px on design (18% of 800)
                 ),
               ),
 
-              SliverToBoxAdapter(child: SizedBox(height: context.hp(5))),
+              SliverToBoxAdapter(child: SizedBox(height: context.h(40))), // 40px on design
             ],
           ),
         ),
@@ -198,30 +192,29 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildHeroCard(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.all(context.wp(5)),
+      padding: EdgeInsets.all(context.w(20)), // 20px on design
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            Color(0xFF1E3C72), // Dark Blue
-            Color(0xFF2A5298), // Medium Blue
-            Color(0xFF7E8BA3), // Light Blue Grey
+            Color(0xFF1E3C72),
+            Color(0xFF2A5298),
+            Color(0xFF7E8BA3),
           ],
         ),
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(context.r(24)),
         boxShadow: [
           BoxShadow(
             color: const Color(0xFF1E3C72).withOpacity(0.4),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
+            blurRadius: context.h(20),
+            offset: Offset(0, context.h(10)),
           ),
         ],
       ),
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          // Animated Background Elements
           Positioned(top: -20, right: -20, child: _buildAnimatedCloud(context)),
           Positioned(
             bottom: 40,
@@ -236,20 +229,20 @@ class _HomeScreenState extends State<HomeScreen> {
               Text(
                 "Discover Your Next\nJourney ✈️",
                 style: TextStyle(
-                  fontSize: context.titleLarge * 1.3,
+                  fontSize: context.fs(31), // 24 * 1.3 = 31.2
                   fontWeight: FontWeight.w800,
                   color: Colors.white,
                   height: 1.2,
                   shadows: [
                     Shadow(
                       color: Colors.black.withOpacity(0.3),
-                      blurRadius: 10,
-                      offset: const Offset(0, 2),
+                      blurRadius: context.h(10),
+                      offset: Offset(0, context.h(2)),
                     ),
                   ],
                 ),
               ),
-              SizedBox(height: context.hp(1.5)),
+              SizedBox(height: context.h(12)), // 12px on design
               Text(
                 "Flights, hotels and more — all in one place.",
                 style: TextStyle(
@@ -259,99 +252,17 @@ class _HomeScreenState extends State<HomeScreen> {
                   shadows: [
                     Shadow(
                       color: Colors.black.withOpacity(0.2),
-                      blurRadius: 5,
-                      offset: const Offset(0, 1),
+                      blurRadius: context.h(5),
+                      offset: Offset(0, context.h(1)),
                     ),
                   ],
                 ),
               ),
-              SizedBox(height: context.hp(1)),
-
-              // Search Bar with Animation
-              // Container(
-              //   decoration: BoxDecoration(
-              //     color: Colors.white,
-              //     borderRadius: BorderRadius.circular(50),
-              //     boxShadow: [
-              //       BoxShadow(
-              //         color: Colors.black.withOpacity(0.2),
-              //         blurRadius: 15,
-              //         offset: const Offset(0, 5),
-              //       ),
-              //     ],
-              //   ),
-              //   child: Row(
-              //     children: [
-              //       Expanded(
-              //         child: TextField(
-              //           decoration: InputDecoration(
-              //             hintText: "Search destinations or deals",
-              //             hintStyle: TextStyle(
-              //               color: Colors.grey.shade400,
-              //               fontSize: context.bodyMedium,
-              //             ),
-              //             border: InputBorder.none,
-              //             contentPadding: EdgeInsets.symmetric(
-              //               horizontal: context.wp(5),
-              //               vertical: context.hp(2),
-              //             ),
-              //             prefixIcon: Icon(
-              //               Icons.search_rounded,
-              //               color: const Color(0xFF2A5298),
-              //               size: context.iconMedium,
-              //             ),
-              //           ),
-              //           style: TextStyle(
-              //             fontSize: context.bodyMedium,
-              //             color: Colors.black87,
-              //           ),
-              //         ),
-              //       ),
-              //       Container(
-              //         margin: EdgeInsets.only(right: 4),
-              //         decoration: const BoxDecoration(
-              //           gradient: LinearGradient(
-              //             colors: [Color(0xFF1E3C72), Color(0xFF2A5298)],
-              //           ),
-              //           shape: BoxShape.circle,
-              //           boxShadow: [
-              //             BoxShadow(
-              //               color: Color(0xFF1E3C72),
-              //               blurRadius: 10,
-              //               offset: Offset(0, 4),
-              //             ),
-              //           ],
-              //         ),
-              //         child: Material(
-              //           color: Colors.transparent,
-              //           child: InkWell(
-              //             onTap: () {
-              //               Navigator.push(
-              //                 context,
-              //                 MaterialPageRoute(
-              //                   builder: (_) => const FlightScreen(),
-              //                 ),
-              //               );
-              //             },
-              //             borderRadius: BorderRadius.circular(50),
-              //             child: Padding(
-              //               padding: EdgeInsets.all(context.wp(2.5)),
-              //               child: Icon(
-              //                 Icons.arrow_forward_ios_rounded,
-              //                 color: Colors.white,
-              //                 size: context.iconSmall,
-              //               ),
-              //             ),
-              //           ),
-              //         ),
-              //       ),
-              //     ],
-              //   ),
-              // ).animate().fadeIn(duration: 600.ms).slideX(begin: 0.1, end: 0),
+              SizedBox(height: context.h(8)), // 8px on design
 
               InkWell(
                 onTap: () {},
-                borderRadius: BorderRadius.circular(50),
+                borderRadius: BorderRadius.circular(context.r(50)),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -369,62 +280,13 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ],
                     ),
-                    // SizedBox(width: context.wp(1)),
-                    // const Icon(
-                    //   Icons.arrow_forward_rounded,
-                    //   color: Colors.white,
-                    //   size: 18,
-                    // ),
                   ],
                 ),
               ),
-              SizedBox(height: context.hp(1)),
-
-              // Animated Destination Chips
+              SizedBox(height: context.h(8)), // 8px on design
             ],
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _heroActionItem(
-      BuildContext context,
-      IconData icon,
-      String label,
-      VoidCallback onTap,
-      ) {
-    return Expanded(
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: EdgeInsets.symmetric(
-            vertical: context.hp(0.5),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                icon,
-                color: Colors.white,
-                size: context.iconMedium,
-              ),
-              SizedBox(height: context.hp(0.5)),
-              Text(
-                label,
-                textAlign: TextAlign.center,
-                overflow: TextOverflow.ellipsis,
-                maxLines: 1,
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: context.bodySmall,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }
@@ -442,14 +304,13 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Icon(
               Icons.cloud_rounded,
               color: Colors.white,
-              size: context.isMobile ? 60 : 80,
+              size: context.isMobile ? context.w(60) : context.w(80),
             ),
           ),
         );
       },
     );
   }
-
 
   Widget _buildAnimatedPlane(BuildContext context) {
     return TweenAnimationBuilder(
@@ -466,7 +327,7 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Icon(
                 Icons.flight_rounded,
                 color: Colors.white,
-                size: context.isMobile ? 40 : 50,
+                size: context.isMobile ? context.w(40) : context.w(50),
               ),
             ),
           ),
@@ -479,7 +340,6 @@ class _HomeScreenState extends State<HomeScreen> {
     final services = [
       ServiceItem(
         assetIcon: 'assets/icons/flight.png',
-        // icon: Icons.flight_takeoff,
         label: 'Flights',
         color: const Color(0xFF4A90E2),
         onTap: () => Navigator.push(
@@ -497,7 +357,6 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
       ServiceItem(
-        // icon: Icons.assignment_turned_in,
         assetIcon: 'assets/icons/visa.png',
         label: 'Visa',
         color: const Color(0xFF8E44AD),
@@ -507,14 +366,12 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
       ServiceItem(
-        // icon: Icons.beach_access,
         assetIcon: 'assets/icons/holiday.png',
         label: 'Holidays',
         color: const Color(0xFFFF6B6B),
         onTap: () => Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => const NewHolidayScreen()),
-          // MaterialPageRoute(builder: (_) => const HolidaysScreen()),
         ),
       ),
     ];
@@ -530,16 +387,15 @@ class _HomeScreenState extends State<HomeScreen> {
             childAspectRatio: context.isMobile
                 ? 0.75
                 : (context.isTablet ? 0.8 : 0.85),
-            crossAxisSpacing: context.wp(1.5),
-            mainAxisSpacing: context.hp(1),
+            crossAxisSpacing: context.w(6), // 6px on design
+            mainAxisSpacing: context.h(8),  // 8px on design
           ),
           itemCount: services.length,
           itemBuilder: (context, index) {
-            // Use the MAIN service icon builder with larger Google Fonts text
             return _buildMainServiceIcon(context, services[index]);
           },
         ),
-        SizedBox(height: context.hp(1.5)),
+        SizedBox(height: context.h(12)), // 12px on design
       ],
     );
   }
@@ -555,35 +411,32 @@ class _HomeScreenState extends State<HomeScreen> {
             color: Colors.transparent,
             child: InkWell(
               onTap: service.onTap,
-              borderRadius: BorderRadius.circular(context.isMobile ? 16 : 18),
+              borderRadius: BorderRadius.circular(context.isMobile ? context.r(16) : context.r(18)),
               splashColor: service.color.withOpacity(0.15),
               highlightColor: service.color.withOpacity(0.08),
               child: Container(
-                // Changed from AnimatedContainer to Container
                 padding: EdgeInsets.symmetric(
-                  vertical: context.hp(2.2),
+                  vertical: context.h(18), // 18px on design
                   horizontal: context.gapSmall,
                 ),
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(
-                    context.isMobile ? 16 : 18,
-                  ),
+                  borderRadius: BorderRadius.circular(context.isMobile ? context.r(16) : context.r(18)),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withOpacity(0.08),
-                      blurRadius: 14,
-                      offset: const Offset(0, 6),
+                      blurRadius: context.h(14),
+                      offset: Offset(0, context.h(6)),
                     ),
                     BoxShadow(
                       color: Colors.black.withOpacity(0.04),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
+                      blurRadius: context.h(4),
+                      offset: Offset(0, context.h(2)),
                     ),
                   ],
                   border: Border.all(
                     color: Colors.grey.withOpacity(0.12),
-                    width: 1.2,
+                    width: context.w(1.2),
                   ),
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
@@ -596,14 +449,14 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
-                  mainAxisSize: MainAxisSize.min, // Use min instead of max
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Stack(
                       clipBehavior: Clip.none,
                       children: [
                         Positioned(
-                          left: 3,
-                          top: 3,
+                          left: context.w(3),
+                          top: context.h(3),
                           child: Icon(
                             service.icon,
                             color: service.color.withOpacity(0.2),
@@ -611,8 +464,8 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         ),
                         Positioned(
-                          left: 1,
-                          top: 2,
+                          left: context.w(1),
+                          top: context.h(2),
                           child: Icon(
                             service.icon,
                             color: service.color.withOpacity(0.15),
@@ -621,39 +474,38 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                         service.assetIcon != null
                             ? Image.asset(
-                                service.assetIcon!,
-                                height: context.iconXLarge + 14,
-                                width: context.iconXLarge + 14,
-                                fit: BoxFit.contain,
-                              )
+                          service.assetIcon!,
+                          height: context.iconXLarge + context.w(14),
+                          width: context.iconXLarge + context.w(14),
+                          fit: BoxFit.contain,
+                        )
                             : ShaderMask(
-                                shaderCallback: (bounds) => LinearGradient(
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                  colors: [
-                                    service.iconColor,
-                                    service.iconColor.withOpacity(0.7),
-                                  ],
-                                ).createShader(bounds),
-                                child: Icon(
-                                  service.icon,
-                                  color: Colors.white,
-                                  size: context.iconXLarge,
-                                ),
-                              ),
+                          shaderCallback: (bounds) => LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              service.iconColor,
+                              service.iconColor.withOpacity(0.7),
+                            ],
+                          ).createShader(bounds),
+                          child: Icon(
+                            service.icon,
+                            color: Colors.white,
+                            size: context.iconXLarge,
+                          ),
+                        ),
                         Positioned(
-                          left: -2,
-                          top: -2,
+                          left: context.w(-2),
+                          top: context.h(-2),
                           child: Icon(
                             service.icon,
                             color: Colors.white.withOpacity(0.15),
-                            size: context.iconXLarge - 2,
+                            size: context.iconXLarge - context.w(2),
                           ),
                         ),
                       ],
                     ),
                     SizedBox(height: context.gapSmall),
-                    // REMOVED Expanded widget from here
                     Text(
                       service.label,
                       textAlign: TextAlign.center,
@@ -677,7 +529,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // ===== ADDITIONAL SERVICES GRID =====
   Widget _buildAdditionalServicesGrid(BuildContext context) {
     final services = [
       ServiceItem(
@@ -725,8 +576,8 @@ class _HomeScreenState extends State<HomeScreen> {
         childAspectRatio: context.isMobile
             ? 0.85
             : (context.isTablet ? 0.9 : 1.0),
-        crossAxisSpacing: context.wp(2),
-        mainAxisSpacing: context.hp(2),
+        crossAxisSpacing: context.w(8), // 8px on design
+        mainAxisSpacing: context.h(16),  // 16px on design
       ),
       itemCount: services.length,
       itemBuilder: (context, index) {
@@ -743,15 +594,13 @@ class _HomeScreenState extends State<HomeScreen> {
           duration: const Duration(milliseconds: 300),
           builder: (context, double value, child) {
             return Transform.scale(
-              scale: 1 - (value * 0.02), // Subtle scale on animation
+              scale: 1 - (value * 0.02),
               child: Transform.translate(
                 offset: Offset(0, -2 * value),
                 child: Material(
                   color: Colors.transparent,
                   child: InkWell(
                     onTap: () {
-                      // Add haptic feedback (optional)
-                      // HapticFeedback.lightImpact();
                       service.onTap();
                     },
                     onTapDown: (_) {
@@ -762,9 +611,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         setState(() {});
                       });
                     },
-                    borderRadius: BorderRadius.circular(
-                      context.isMobile ? 16 : 18,
-                    ),
+                    borderRadius: BorderRadius.circular(context.isMobile ? context.r(16) : context.r(18)),
                     splashColor: service.color.withOpacity(0.15),
                     highlightColor: service.color.withOpacity(0.08),
                     child: AnimatedContainer(
@@ -773,24 +620,22 @@ class _HomeScreenState extends State<HomeScreen> {
                       padding: EdgeInsets.all(context.gapSmall),
                       decoration: BoxDecoration(
                         color: Colors.white,
-                        borderRadius: BorderRadius.circular(
-                          context.isMobile ? 16 : 18,
-                        ),
+                        borderRadius: BorderRadius.circular(context.isMobile ? context.r(16) : context.r(18)),
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black.withOpacity(0.1),
-                            blurRadius: 12,
-                            offset: const Offset(0, 6),
+                            blurRadius: context.h(12),
+                            offset: Offset(0, context.h(6)),
                           ),
                           BoxShadow(
                             color: Colors.black.withOpacity(0.04),
-                            blurRadius: 4,
-                            offset: const Offset(0, 2),
+                            blurRadius: context.h(4),
+                            offset: Offset(0, context.h(2)),
                           ),
                         ],
                         border: Border.all(
                           color: Colors.grey.withOpacity(0.12),
-                          width: 1.2,
+                          width: context.w(1.2),
                         ),
                         gradient: LinearGradient(
                           begin: Alignment.topLeft,
@@ -809,8 +654,8 @@ class _HomeScreenState extends State<HomeScreen> {
                             clipBehavior: Clip.none,
                             children: [
                               Positioned(
-                                left: 3,
-                                top: 4,
+                                left: context.w(3),
+                                top: context.h(4),
                                 child: Icon(
                                   service.icon,
                                   color: service.color.withOpacity(0.2),
@@ -818,8 +663,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ),
                               ),
                               Positioned(
-                                left: 1,
-                                top: 2,
+                                left: context.w(1),
+                                top: context.h(2),
                                 child: Icon(
                                   service.icon,
                                   color: service.color.withOpacity(0.15),
@@ -842,12 +687,12 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ),
                               ),
                               Positioned(
-                                left: -2,
-                                top: -2,
+                                left: context.w(-2),
+                                top: context.h(-2),
                                 child: Icon(
                                   service.icon,
                                   color: Colors.white.withOpacity(0.15),
-                                  size: context.iconXLarge - 2,
+                                  size: context.iconXLarge - context.w(2),
                                 ),
                               ),
                               if (service.badge != null)
@@ -862,9 +707,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                       return Transform.scale(
                                         scale: scale,
                                         child: Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 6,
-                                            vertical: 3,
+                                          padding: EdgeInsets.symmetric(
+                                            horizontal: context.w(6),
+                                            vertical: context.h(3),
                                           ),
                                           decoration: BoxDecoration(
                                             gradient: const LinearGradient(
@@ -875,23 +720,17 @@ class _HomeScreenState extends State<HomeScreen> {
                                               begin: Alignment.topLeft,
                                               end: Alignment.bottomRight,
                                             ),
-                                            borderRadius: BorderRadius.circular(
-                                              10,
-                                            ),
+                                            borderRadius: BorderRadius.circular(context.r(10)),
                                             boxShadow: [
                                               BoxShadow(
-                                                color: Colors.red.withOpacity(
-                                                  0.4,
-                                                ),
-                                                blurRadius: 6,
-                                                offset: const Offset(0, 2),
+                                                color: Colors.red.withOpacity(0.4),
+                                                blurRadius: context.h(6),
+                                                offset: Offset(0, context.h(2)),
                                               ),
                                             ],
                                             border: Border.all(
-                                              color: Colors.white.withOpacity(
-                                                0.5,
-                                              ),
-                                              width: 1.5,
+                                              color: Colors.white.withOpacity(0.5),
+                                              width: context.w(1.5),
                                             ),
                                           ),
                                           child: Text(
@@ -924,8 +763,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                 shadows: [
                                   Shadow(
                                     color: Colors.black.withOpacity(0.05),
-                                    blurRadius: 2,
-                                    offset: const Offset(0, 1),
+                                    blurRadius: context.h(2),
+                                    offset: Offset(0, context.h(1)),
                                   ),
                                 ],
                               ),
@@ -947,9 +786,9 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _showComingSoon(BuildContext context, String feature) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('$feature coming soon!')));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('$feature coming soon!')),
+    );
   }
 }
 

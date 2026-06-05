@@ -4,6 +4,8 @@ import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import 'package:wander_nova/views/flight_search/presentation/screen/filter_drawer.dart';
 import 'package:wander_nova/views/flight_search/presentation/screen/traveller_info_card.dart';
 
+
+import '../../../../UI_helper/currency_converter.dart';
 import '../../../../common_widgets/custom_bottom_nav.dart';
 import '../../../../common_widgets/logo.dart';
 import '../../../../core/utils/storage/shared_preference.dart';
@@ -14,6 +16,8 @@ import '../../../fare_quote/presentation/bloc/fare_quote_event.dart';
 import '../../../fare_quote/presentation/bloc/fare_quote_state.dart';
 import '../../../fare_rule/presentation/screen/fare_rules_popup.dart';
 import '../../../flight_ssr/presentation/screen/ssr/main_screen.dart';
+import '../../../login/presentation/screen/login.dart';
+import 'ContactINFO.dart';
 
 class FlightRouteSegment {
   final String from;
@@ -183,6 +187,21 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
     }
   }
 
+  String _formatPrice(double amount, String sourceCurrency) {
+    final preferredCurrency = CurrencyConverter.getPreferredCurrency();
+
+    final convertedAmount = CurrencyConverter.convert(
+      amount: amount,
+      fromCurrency: sourceCurrency,
+      toCurrency: preferredCurrency,
+    );
+
+    return CurrencyConverter.format(
+      convertedAmount,
+      preferredCurrency,
+    );
+  }
+
   void _fetchFareQuote() {
     print('FlightBookingScreen: Fetching FareQuote');
 
@@ -264,7 +283,7 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
             Padding(
               padding: EdgeInsets.all(context.w(8)),
               child: Image.asset(
-                "assets/images/wander_nova_logo.jpg",
+                "assets/images/wander_nova_logo.png",
                 height: 35,
               ),
             ),
@@ -292,6 +311,10 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
                 returnDate: _returnDate,
               ),
 
+              SizedBox(height: context.hp(3)),
+              ContactInfoSection(
+                userEmail: di.sl<PreferencesManager>().getUserEmail() ?? '',
+              ),
               SizedBox(height: context.hp(3)),
               _buildContinueButton(context),
               SizedBox(height: context.hp(2)),
@@ -604,27 +627,27 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
             _fareRow(
               context,
               'Base Fare',
-              '${fare.currency} ${fare.baseFare.toStringAsFixed(2)}',
+              _formatPrice(fare.baseFare, fare.currency),
             ),
             SizedBox(height: context.gapSmall),
             _fareRow(
               context,
               'Taxes & Fees',
-              '${fare.currency} ${fare.tax.toStringAsFixed(2)}',
+              _formatPrice(fare.tax, fare.currency),
             ),
             if (fare.serviceFee > 0) ...[
               SizedBox(height: context.gapSmall),
               _fareRow(
                 context,
                 'Service Fee',
-                '${fare.currency} ${fare.serviceFee.toStringAsFixed(2)}',
+                _formatPrice(fare.serviceFee, fare.currency),
               ),
             ],
             Divider(height: context.gapLarge, color: Colors.grey.shade200),
             _fareRow(
               context,
               'Total Fare',
-              '${fare.currency} ${fare.total.toStringAsFixed(2)}',
+              _formatPrice(fare.total, fare.currency),
               isTotal: true,
             ),
           ] else ...[
@@ -769,6 +792,7 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
           ),
           TextButton(
             onPressed: () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => LoginSignupScreen()));
               print('FlightBookingScreen: Login tapped');
             },
             child: const Text("Login"),
@@ -778,56 +802,6 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
     );
   }
 
-  // Widget _buildContinueButton(BuildContext context) {
-  //   return SizedBox(
-  //     width: double.infinity,
-  //     height: context.buttonHeight + 10,
-  //     child: ElevatedButton(
-  //       onPressed: _isLoadingFareQuote
-  //           ? null
-  //           : () {
-  //               print('FlightBookingScreen: Continue booking pressed');
-  //               _validateAndProceed();
-  //             },
-  //       style: ElevatedButton.styleFrom(
-  //         backgroundColor: _isLoadingFareQuote
-  //             ? Colors.grey
-  //             : const Color(0xFFE71D36),
-  //         shape: RoundedRectangleBorder(
-  //           borderRadius: BorderRadius.circular(context.borderRadius),
-  //         ),
-  //         elevation: 2,
-  //       ),
-  //       child: _isLoadingFareQuote
-  //           ? SizedBox(
-  //               width: 20,
-  //               height: 20,
-  //               child: CircularProgressIndicator(
-  //                 strokeWidth: 2,
-  //                 valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-  //               ),
-  //             )
-  //           : GestureDetector(
-  //               onTap: () {
-  //                 Navigator.push(context, MaterialPageRoute(builder: (_) => SSRMainScreen(
-  //                   endUserIp: '::1',
-  //                   traceId: widget.traceId ?? '',
-  //                   tokenId: '',
-  //                   resultIndex: widget.resultIndex ?? '',
-  //                 )));
-  //               },
-  //               child: Text(
-  //                 "Continue",
-  //                 style: TextStyle(
-  //                   color: Colors.white,
-  //                   fontWeight: FontWeight.bold,
-  //                   fontSize: context.bodyLarge,
-  //                 ),
-  //               ),
-  //             ),
-  //     ),
-  //   );
-  // }
   Widget _buildContinueButton(BuildContext context) {
     return SizedBox(
       width: double.infinity,

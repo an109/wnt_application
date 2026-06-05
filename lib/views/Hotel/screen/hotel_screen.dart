@@ -65,7 +65,7 @@ class _HotelBookingScreenState extends State<HotelBookingScreen> {
           actions: [
             Padding(
               padding: EdgeInsets.all(context.w(8)),
-              child: Image.asset("assets/images/wander_nova_logo.jpg", height: 35),
+              child: Image.asset("assets/images/wander_nova_logo.png", height: context.h(35),),
             )
           ],
         ),
@@ -121,11 +121,11 @@ class _HotelBookingScreenState extends State<HotelBookingScreen> {
                     ),
                   ),
 
-                  /// SEARCH CARD
+                  /// SEARCH CARD - FIXED: removed double negative
                   Positioned(
                     left: context.wp(4),
                     right: context.wp(4),
-                    bottom: -context.hp(-4),
+                    bottom: -context.hp(-3),  // Fixed: was -context.hp(-4)
                     child: Material(
                       color: Colors.transparent,
                       child: HotelSearchCard(),

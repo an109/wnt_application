@@ -57,7 +57,6 @@ class _CustomDrawerState extends State<CustomDrawer>
         _appVersion = 'v${packageInfo.version}';
       });
     } catch (e) {
-      // Fallback for development
       setState(() {
         _appVersion = '_';
       });
@@ -75,16 +74,16 @@ class _CustomDrawerState extends State<CustomDrawer>
     required List<Widget> children,
   }) {
     return Container(
-      margin: const EdgeInsets.symmetric(
-        horizontal: 8,
-        vertical: 4,
+      margin: EdgeInsets.symmetric(
+        horizontal: context.w(8), // 8px on design
+        vertical: context.h(4),   // 4px on design
       ),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(context.r(12)),
         border: Border.all(
           color: Colors.grey.shade200,
-          width: 1,
+          width: context.w(1),
         ),
       ),
       child: Column(
@@ -113,14 +112,12 @@ class _CustomDrawerState extends State<CustomDrawer>
   Widget build(BuildContext context) {
     return Drawer(
       elevation: 0,
-      width: context.isMobile ? null : 320,
+      width: context.isMobile ? null : context.w(320), // 320px on design
       child: Container(
         color: Colors.white,
         child: SafeArea(
           child: Column(
             children: [
-
-              // Menu Items
               Expanded(
                 child: ListView(
                   padding: EdgeInsets.zero,
@@ -131,8 +128,6 @@ class _CustomDrawerState extends State<CustomDrawer>
                   ],
                 ),
               ),
-
-              // Footer Section
               FadeTransition(
                 opacity: _fadeAnimation,
                 child: SlideTransition(
@@ -152,9 +147,8 @@ class _CustomDrawerState extends State<CustomDrawer>
 
   List<Widget> _buildLoggedInMenu(BuildContext context) {
     return [
-      const SizedBox(height: 8),
+      SizedBox(height: context.h(8)), // 8px on design
 
-      /// MAIN MENU
       _buildSectionContainer(
         context: context,
         children: [
@@ -189,7 +183,6 @@ class _CustomDrawerState extends State<CustomDrawer>
         ],
       ),
 
-      /// WALLET
       _buildSectionContainer(
         context: context,
         children: [
@@ -200,13 +193,13 @@ class _CustomDrawerState extends State<CustomDrawer>
             title: 'My Wallet Balance',
             onTap: () => _navigateTo(context, '/wallet_balance'),
             trailing: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 8,
-                vertical: 4,
+              padding: EdgeInsets.symmetric(
+                horizontal: context.w(8), // 8px on design
+                vertical: context.h(4),   // 4px on design
               ),
               decoration: BoxDecoration(
                 color: Colors.green.shade50,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(context.r(12)),
                 border: Border.all(
                   color: Colors.green.shade200,
                 ),
@@ -224,7 +217,6 @@ class _CustomDrawerState extends State<CustomDrawer>
         ],
       ),
 
-      /// MANAGE
       _buildSectionContainer(
         context: context,
         children: [
@@ -244,29 +236,14 @@ class _CustomDrawerState extends State<CustomDrawer>
         ],
       ),
 
-      // /// SUPPORT
-      // _buildSectionContainer(
-      //   context: context,
-      //   children: [
-      //     _buildMenuSection(context, 'SUPPORT'),
-      //     _buildMenuItem(
-      //       context,
-      //       icon: Icons.help_outline,
-      //       title: 'About',
-      //       onTap: () => _navigateTo(context, '/about'),
-      //     ),
-      //   ],
-      // ),
-
-      const SizedBox(height: 8),
+      SizedBox(height: context.h(8)), // 8px on design
     ];
   }
 
   List<Widget> _buildGuestMenu(BuildContext context) {
     return [
-      const SizedBox(height: 8),
+      SizedBox(height: context.h(8)), // 8px on design
 
-      /// MAIN
       _buildSectionContainer(
         context: context,
         children: [
@@ -287,7 +264,6 @@ class _CustomDrawerState extends State<CustomDrawer>
         ],
       ),
 
-      /// EXPLORE
       _buildSectionContainer(
         context: context,
         children: [
@@ -307,7 +283,6 @@ class _CustomDrawerState extends State<CustomDrawer>
         ],
       ),
 
-      /// HELP
       _buildSectionContainer(
         context: context,
         children: [
@@ -321,7 +296,7 @@ class _CustomDrawerState extends State<CustomDrawer>
         ],
       ),
 
-      const SizedBox(height: 8),
+      SizedBox(height: context.h(8)), // 8px on design
     ];
   }
 
@@ -338,7 +313,7 @@ class _CustomDrawerState extends State<CustomDrawer>
           fontSize: context.labelMedium,
           fontWeight: FontWeight.w700,
           color: Colors.grey.shade500,
-          letterSpacing: 0.8,
+          letterSpacing: context.w(0.8),
         ),
       ),
     );
@@ -358,33 +333,32 @@ class _CustomDrawerState extends State<CustomDrawer>
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(context.r(12)),
         child: Container(
           margin: EdgeInsets.symmetric(
-            horizontal: context.horizontalPadding.left - 4,
-            vertical: 2,
+            horizontal: context.horizontalPadding.left - context.w(4),
+            vertical: context.h(2),
           ),
           decoration: BoxDecoration(
             color: isHighlighted
                 ? Colors.blue.shade50.withOpacity(0.3)
                 : Colors.transparent,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(context.r(12)),
           ),
           child: Padding(
             padding: EdgeInsets.symmetric(
-              horizontal: context.horizontalPadding.left - 8,
+              horizontal: context.horizontalPadding.left - context.w(8),
               vertical: context.gapSmall,
             ),
             child: Row(
               children: [
-                // Icon Container
                 Container(
-                  padding: const EdgeInsets.all(8),
+                  padding: EdgeInsets.all(context.w(8)), // 8px on design
                   decoration: BoxDecoration(
                     color: isHighlighted
                         ? Colors.blue.shade100
                         : Colors.grey.shade100,
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(context.r(12)),
                   ),
                   child: Icon(
                     icon,
@@ -396,7 +370,6 @@ class _CustomDrawerState extends State<CustomDrawer>
                 ),
                 SizedBox(width: context.gapMedium),
 
-                // Title and Subtitle
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -428,18 +401,17 @@ class _CustomDrawerState extends State<CustomDrawer>
                   ),
                 ),
 
-                // Badge or Trailing
                 if (badgeCount != null && badgeCount > 0)
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 6,
-                      vertical: 2,
+                    padding: EdgeInsets.symmetric(
+                      horizontal: context.w(6),
+                      vertical: context.h(2),
                     ),
                     decoration: BoxDecoration(
                       gradient: const LinearGradient(
                         colors: [Colors.red, Colors.redAccent],
                       ),
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(context.r(10)),
                     ),
                     child: Text(
                       '$badgeCount',
@@ -452,7 +424,6 @@ class _CustomDrawerState extends State<CustomDrawer>
                   ),
                 if (trailing != null) trailing,
 
-                // Chevron
                 Icon(
                   Icons.chevron_right,
                   size: context.iconSmall,
@@ -472,7 +443,11 @@ class _CustomDrawerState extends State<CustomDrawer>
         horizontal: context.horizontalPadding.left,
         vertical: context.gapMedium,
       ),
-      child: Divider(color: Colors.grey.shade200, thickness: 1, height: 1),
+      child: Divider(
+        color: Colors.grey.shade200,
+        thickness: context.h(1),
+        height: context.h(1),
+      ),
     );
   }
 
@@ -481,7 +456,12 @@ class _CustomDrawerState extends State<CustomDrawer>
       padding: EdgeInsets.all(context.responsivePadding.right),
       decoration: BoxDecoration(
         color: Colors.white,
-        border: Border(top: BorderSide(color: Colors.grey.shade200, width: 1)),
+        border: Border(
+          top: BorderSide(
+            color: Colors.grey.shade200,
+            width: context.h(1),
+          ),
+        ),
       ),
       child: SafeArea(
         top: false,
@@ -492,7 +472,6 @@ class _CustomDrawerState extends State<CustomDrawer>
                 ? _buildLogoutButton(context)
                 : _buildLoginButton(context),
 
-            // Version text
             SizedBox(height: context.gapSmall),
             Center(
               child: Text(
@@ -500,7 +479,7 @@ class _CustomDrawerState extends State<CustomDrawer>
                 style: TextStyle(
                   fontSize: context.labelSmall,
                   color: Colors.grey.shade400,
-                  letterSpacing: 0.5,
+                  letterSpacing: context.w(0.5),
                 ),
               ),
             ),
@@ -513,16 +492,16 @@ class _CustomDrawerState extends State<CustomDrawer>
 
   Widget _buildLogoutButton(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 4),
+      margin: EdgeInsets.symmetric(horizontal: context.w(4)), // 4px on design
       decoration: BoxDecoration(
         color: Colors.red.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(context.r(14)),
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           onTap: () => _showLogoutDialog(context),
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(context.r(14)),
           child: Padding(
             padding: EdgeInsets.symmetric(
               horizontal: context.horizontalPadding.left,
@@ -532,7 +511,7 @@ class _CustomDrawerState extends State<CustomDrawer>
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Container(
-                  padding: const EdgeInsets.all(2),
+                  padding: EdgeInsets.all(context.w(2)), // 2px on design
                   decoration: BoxDecoration(
                     color: Colors.red.withOpacity(0.1),
                     shape: BoxShape.circle,
@@ -562,7 +541,7 @@ class _CustomDrawerState extends State<CustomDrawer>
 
   Widget _buildLoginButton(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 4),
+      margin: EdgeInsets.symmetric(horizontal: context.w(4)), // 4px on design
       child: ElevatedButton(
         onPressed: () {
           Navigator.push(
@@ -575,7 +554,7 @@ class _CustomDrawerState extends State<CustomDrawer>
           foregroundColor: Colors.white,
           minimumSize: Size(double.infinity, context.buttonHeight),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(context.r(14)),
           ),
           elevation: 0,
         ),
@@ -600,7 +579,7 @@ class _CustomDrawerState extends State<CustomDrawer>
   }
 
   void _navigateTo(BuildContext context, String route) {
-    Navigator.pop(context); // Close drawer first
+    Navigator.pop(context);
 
     Future.delayed(const Duration(milliseconds: 100), () {
       switch (route) {
@@ -613,8 +592,7 @@ class _CustomDrawerState extends State<CustomDrawer>
               transitionsBuilder:
                   (context, animation, secondaryAnimation, child) {
                 return SlideTransition(
-                  position:
-                  Tween<Offset>(
+                  position: Tween<Offset>(
                     begin: const Offset(0.1, 0),
                     end: Offset.zero,
                   ).animate(
@@ -689,8 +667,6 @@ class _CustomDrawerState extends State<CustomDrawer>
             MaterialPageRoute(builder: (_) => SupportScreen()),
           );
           break;
-
-      // Add more cases as needed
       }
     });
   }
@@ -706,14 +682,14 @@ class _CustomDrawerState extends State<CustomDrawer>
         title: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(8),
+              padding: EdgeInsets.all(context.w(8)), // 8px on design
               decoration: BoxDecoration(
                 color: Colors.red.withOpacity(0.1),
                 shape: BoxShape.circle,
               ),
               child: const Icon(Icons.logout_rounded, color: Colors.red),
             ),
-            const SizedBox(width: 12),
+            SizedBox(width: context.w(12)), // 12px on design
             Text(
               'Sign Out',
               style: TextStyle(
@@ -743,18 +719,16 @@ class _CustomDrawerState extends State<CustomDrawer>
           ),
           ElevatedButton(
             onPressed: () async {
-              Navigator.pop(ctx); // Close dialog
+              Navigator.pop(ctx);
 
               final logoutBloc = sl<LogoutBloc>();
 
-              // Use firstWhere to handle only the first relevant state (avoids subscription reference issue)
               logoutBloc.stream.firstWhere(
                     (state) => state is LogoutSuccess || state is LogoutFailed,
               ).then((state) {
                 if (state is LogoutSuccess) {
                   print('Logout API successful: ${state.logoutEntity.message}');
 
-                  // Clear local user data only after successful API call
                   SharedPreferences.getInstance().then((prefs) async {
                     final prefManager = await PreferencesManager.create(prefs);
                     await prefManager.clearUserData();
@@ -768,11 +742,9 @@ class _CustomDrawerState extends State<CustomDrawer>
                       });
                     }
                   });
-                }
-                else if (state is LogoutFailed) {
+                } else if (state is LogoutFailed) {
                   print('Logout API failed: ${state.error.message}');
 
-                  // Optional: Show error message to user
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
@@ -784,14 +756,13 @@ class _CustomDrawerState extends State<CustomDrawer>
                 }
               });
 
-              // Trigger the logout API call
               logoutBloc.add(LogoutRequested());
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red,
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(context.r(8)),
               ),
             ),
             child: Text(

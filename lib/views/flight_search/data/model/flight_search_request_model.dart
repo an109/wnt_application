@@ -8,6 +8,7 @@ class FlightSearchRequestModel extends FlightSearchRequestEntity {
     required int infantCount,
     required int journeyType,
     required List<FlightSegmentModel> segments,
+    required int BookingMode,
   }) : super(
     endUserIp: endUserIp,
     adultCount: adultCount,
@@ -15,6 +16,7 @@ class FlightSearchRequestModel extends FlightSearchRequestEntity {
     infantCount: infantCount,
     journeyType: journeyType,
     segments: segments,
+    BookingMode: BookingMode,
   );
 
   Map<String, dynamic> toJson() {
@@ -24,6 +26,7 @@ class FlightSearchRequestModel extends FlightSearchRequestEntity {
       'ChildCount': childCount,
       'InfantCount': infantCount,
       'JourneyType': journeyType,
+      'BookingMode': BookingMode,
       'Segments': (segments as List<FlightSegmentModel>)
           .map((segment) => segment.toJson())
           .toList(),
@@ -37,6 +40,7 @@ class FlightSearchRequestModel extends FlightSearchRequestEntity {
       childCount: entity.childCount,
       infantCount: entity.infantCount,
       journeyType: entity.journeyType,
+      BookingMode: entity.BookingMode,
       segments: entity.segments
           .map((segment) => FlightSegmentModel.fromEntity(segment))
           .toList(),

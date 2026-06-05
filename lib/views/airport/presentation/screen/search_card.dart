@@ -84,6 +84,7 @@ class _SearchCardState extends State<SearchCard> {
             travelClass: travelClass,
             isRoundTrip: isRoundTrip,
             returnDate: returnDate,
+            BookingMode: 5,
           ),
         ),
       );

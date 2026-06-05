@@ -26,12 +26,11 @@ class FlightScreen extends StatefulWidget {
 
 class _FlightScreenState extends State<FlightScreen> {
   int currentIndex = 0;
-  String? _flightHeroImage; // Store the flights hero image from API
+  String? _flightHeroImage;
 
   @override
   void initState() {
     super.initState();
-    // Load section heroes data when screen initializes
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         context.read<GeneralSettingsBloc>()
@@ -44,7 +43,6 @@ class _FlightScreenState extends State<FlightScreen> {
   Widget build(BuildContext context) {
     return BlocListener<GeneralSettingsBloc, GeneralSettingsState>(
       listener: (context, state) {
-        // Listen for SectionHeroesLoaded state to update background image
         if (state is SectionHeroesLoaded) {
           setState(() {
             _flightHeroImage = state.sectionHeroes.flights;
@@ -67,7 +65,7 @@ class _FlightScreenState extends State<FlightScreen> {
             Padding(
               padding: EdgeInsets.all(context.w(8)),
               child: Image.asset(
-                "assets/images/wander_nova_logo.jpg",
+                "assets/images/wander_nova_logo.png",
                 height: context.h(36),
               ),
             )
@@ -82,7 +80,6 @@ class _FlightScreenState extends State<FlightScreen> {
                 child: Stack(
                   clipBehavior: Clip.none,
                   children: [
-                    // BACKGROUND IMAGE - Dynamic from API with fallback
                     SizedBox(
                       height: context.isMobile ? context.h(500) : context.h(540),
                       width: double.infinity,
@@ -105,18 +102,16 @@ class _FlightScreenState extends State<FlightScreen> {
                           );
                         },
                         errorBuilder: (context, error, stackTrace) {
-
                           return Container(
                             color: const Color(0xFFE0E0E0),
                           );
                         },
                       )
-                      : Container(
+                          : Container(
                         color: const Color(0xFFE0E0E0),
                       ),
                     ),
 
-                    // DARK OVERLAY
                     IgnorePointer(
                       ignoring: true,
                       child: Container(
@@ -126,9 +121,9 @@ class _FlightScreenState extends State<FlightScreen> {
                     ),
 
                     Positioned(
-                      left: context.w(4),
-                      right: context.w(6),
-                      bottom: -context.h(-32),
+                      left: context.wp(2.8),
+                      right: context.wp(2.8),
+                      bottom: -context.hp(-4),
                       child: Material(
                         color: Colors.transparent,
                         child: SearchCard(),
@@ -138,8 +133,8 @@ class _FlightScreenState extends State<FlightScreen> {
                 ),
               ),
 
-               SliverToBoxAdapter(
-                child: SizedBox(height: context.h(18)),
+              SliverToBoxAdapter(
+                child: SizedBox(height: context.hp(2.25)),
               ),
 
               SliverToBoxAdapter(
@@ -162,7 +157,7 @@ class _FlightScreenState extends State<FlightScreen> {
               const SliverToBoxAdapter(child: WhyChooseUs()),
 
               SliverToBoxAdapter(
-                child: SizedBox(height: context.h(40)),
+                child: SizedBox(height: context.hp(5)),
               ),
             ],
           ),

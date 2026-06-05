@@ -227,7 +227,7 @@
 //           actions: [
 //             Padding(
 //               padding: EdgeInsets.all(context.w(8)),
-//               child: Image.asset("assets/images/wander_nova_logo.jpg", height: context.h(35)),
+//               child: Image.asset("assets/images/wander_nova_logo.png", height: context.h(35)),
 //             )
 //           ],
 //         ),
@@ -1678,7 +1678,7 @@ import '../../domain/entities/flight_search_request_entity.dart';
 import '../bloc/flight_search_bloc.dart';
 import '../bloc/flight_search_event.dart';
 import '../bloc/flight_search_state.dart';
-import 'detail_popup.dart';
+import 'booking_screen.dart';
 import 'filter_drawer.dart';
 
 class FlightSearchScreen extends StatefulWidget {
@@ -1696,6 +1696,7 @@ class FlightSearchScreen extends StatefulWidget {
   final String travelClass;
   final bool isRoundTrip;
   final DateTime? returnDate;
+  final int BookingMode;
 
   const FlightSearchScreen({
     super.key,
@@ -1704,6 +1705,7 @@ class FlightSearchScreen extends StatefulWidget {
     required this.travellers, required this.adults, required this.children,
     required this.infants, required this.travelClass, required this.isRoundTrip,
     this.returnDate,
+    required this.BookingMode,
   });
 
   @override
@@ -1770,8 +1772,11 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> with SingleTick
 
     final updatedRequest = FlightSearchRequestEntity(
       endUserIp: '203.0.113.10',
-      adultCount: widget.adults, childCount: widget.children, infantCount: widget.infants,
+      adultCount: widget.adults,
+      childCount: widget.children,
+      infantCount: widget.infants,
       journeyType: widget.isRoundTrip ? 2 : 1,
+      BookingMode: 5,
       segments: [
         FlightSegmentEntity(
           origin: widget.fromCode, destination: widget.toCode,
@@ -1818,6 +1823,7 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> with SingleTick
       endUserIp: '203.0.113.10', adultCount: widget.adults,
       childCount: widget.children, infantCount: widget.infants,
       journeyType: widget.isRoundTrip ? 2 : 1, segments: segments,
+      BookingMode: 5,
     );
   }
 
@@ -1843,7 +1849,7 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> with SingleTick
           actions: [
             Padding(
               padding: EdgeInsets.all(context.w(8)),
-              child: Image.asset("assets/images/wander_nova_logo.jpg", height: context.h(35)),
+              child: Image.asset("assets/images/wander_nova_logo.png", height: context.h(35)),
             )
           ],
         ),
@@ -2099,15 +2105,14 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> with SingleTick
 
   Widget _buildEnhancedFlightCard(FlightEntity flight) {
     final bool isRoundTrip = flight.isRoundTrip;
-    final Color accentColor = isRoundTrip ? const Color(0xFF1976D2) : const Color(0xFFFF3B30);
-
     return Container(
       margin: EdgeInsets.only(bottom: context.h(12)),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(context.r(12)),
-        border: isRoundTrip ? Border.all(color: accentColor.withOpacity(0.4), width: context.w(1.5)) : null,
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: context.w(8), offset: Offset(0, context.h(2)))],
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.07), blurRadius: context.w(10), offset: Offset(0, context.h(3))),
+        ],
       ),
       child: Material(
         color: Colors.transparent,
@@ -2117,124 +2122,149 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> with SingleTick
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (isRoundTrip)
-                Container(
-                  width: double.infinity,
-                  padding: EdgeInsets.symmetric(horizontal: context.w(12), vertical: context.h(6)),
-                  decoration: BoxDecoration(
-                    color: accentColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.only(topLeft: Radius.circular(context.r(12)), topRight: Radius.circular(context.r(12))),
-                  ),
+              // ── Airline header row ──────────────────────────────────────
+              Padding(
+                padding: EdgeInsets.fromLTRB(context.w(14), context.h(14), context.w(14), context.h(8)),
+                child: Row(
+                  children: [
+                    // Airline logo box
+                    Container(
+                      width: context.w(38),
+                      height: context.w(38),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF0F4FF),
+                        borderRadius: BorderRadius.circular(context.r(8)),
+                        border: Border.all(color: const Color(0xFFDDE5FF), width: context.w(1)),
+                      ),
+                      child: Center(
+                        child: Text(
+                          (flight.airlineCode ?? 'AI').substring(0, (flight.airlineCode ?? 'AI').length.clamp(0, 2)).toUpperCase(),
+                          style: TextStyle(fontSize: context.fs(13), fontWeight: FontWeight.bold, color: const Color(0xFF1A3C8F)),
+                        ),
+                      ),
+                    ),
+                    SizedBox(width: context.w(10)),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            flight.airlineName ?? 'Airline',
+                            style: TextStyle(fontSize: context.fs(13), fontWeight: FontWeight.w700, color: Colors.black87),
+                          ),
+                          Text(
+                            'Flight ${flight.flightNumber ?? ''} • ${widget.travelClass}',
+                            style: TextStyle(fontSize: context.fs(11), color: Colors.grey.shade500),
+                          ),
+                        ],
+                      ),
+                    ),
+                    // Price
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          _convertFlightPrice((flight.totalFare ?? 0).toDouble(), flight.currency),
+                          style: TextStyle(fontSize: context.fs(20), fontWeight: FontWeight.bold, color: const Color(0xFF0A2463)),
+                        ),
+                        Text(
+                          'per person',
+                          style: TextStyle(fontSize: context.fs(10), color: Colors.grey.shade500),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+
+              Divider(height: context.h(1), color: Colors.grey.shade100, indent: context.w(14), endIndent: context.w(14)),
+
+              // ── Outbound leg ────────────────────────────────────────────
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: context.w(14), vertical: context.h(12)),
+                child: _buildLegRow(
+                  depTime: flight.departureTime,
+                  arrTime: flight.arrivalTime,
+                  origin: flight.origin ?? '',
+                  destination: flight.destination ?? '',
+                  duration: flight.duration,
+                  isReturn: false,
+                ),
+              ),
+
+              // ── Return leg (round trip only) ────────────────────────────
+              if (isRoundTrip) ...[
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: context.w(14)),
                   child: Row(
                     children: [
-                      Icon(Icons.sync_alt, size: context.w(14), color: accentColor),
-                      SizedBox(width: context.w(6)),
-                      Text('Round Trip', style: TextStyle(fontSize: context.fs(12), fontWeight: FontWeight.w600, color: accentColor)),
-                    ],
-                  ),
-                ),
-              Padding(
-                padding: EdgeInsets.fromLTRB(context.w(12), context.h(12), context.w(12), context.h(12)),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          width: context.w(36), height: context.w(36),
+                      Expanded(child: Divider(height: context.h(1), color: Colors.grey.shade200)),
+                      Padding(
+                        padding: EdgeInsets.symmetric(horizontal: context.w(8)),
+                        child: Container(
+                          padding: EdgeInsets.symmetric(horizontal: context.w(8), vertical: context.h(3)),
                           decoration: BoxDecoration(
-                            gradient: LinearGradient(colors: [accentColor.withOpacity(0.2), accentColor.withOpacity(0.05)]),
-                            borderRadius: BorderRadius.circular(context.r(8)),
+                            color: const Color(0xFFE8F1FF),
+                            borderRadius: BorderRadius.circular(context.r(20)),
                           ),
-                          child: Center(child: Text(flight.airlineCode?.substring(0, 2).toUpperCase() ?? 'AI', style: TextStyle(fontSize: context.fs(14), fontWeight: FontWeight.bold, color: accentColor))),
-                        ),
-                        SizedBox(width: context.w(10)),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
                             children: [
-                              Text(flight.airlineName ?? 'Airline', style: TextStyle(fontWeight: FontWeight.w600, fontSize: context.fs(15), color: Colors.black87)),
-                              Text('Flight ${flight.flightNumber ?? ''}', style: TextStyle(fontSize: context.fs(12), color: Colors.grey.shade600)),
+                              Icon(Icons.sync_alt, size: context.w(11), color: const Color(0xFF1A3C8F)),
+                              SizedBox(width: context.w(4)),
+                              Text('Return', style: TextStyle(fontSize: context.fs(10), fontWeight: FontWeight.w600, color: const Color(0xFF1A3C8F))),
                             ],
                           ),
                         ),
-                        Text(_convertFlightPrice((flight.totalFare ?? 0).toDouble(), flight.currency), style: TextStyle(fontSize: context.fs(20), fontWeight: FontWeight.bold, color: const Color(0xFF0A2463))),
-                      ],
-                    ),
-                    SizedBox(height: context.h(12)),
-                    LayoutBuilder(
-                      builder: (context, constraints) {
-                        bool isSmallScreen = constraints.maxWidth < 350;
-                        return Row(
-                          children: [
-                            Expanded(flex: 2, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                              Text(_formatTime(flight.departureTime), style: TextStyle(fontSize: context.fs(isSmallScreen ? 20 : 24), fontWeight: FontWeight.bold, color: Colors.black87)),
-                              SizedBox(height: context.h(2)),
-                              Text(flight.originName ?? flight.origin ?? '', style: TextStyle(fontSize: context.fs(isSmallScreen ? 11 : 13), color: Colors.grey.shade600, fontWeight: FontWeight.w500), maxLines: 1, overflow: TextOverflow.ellipsis),
-                            ])),
-                            Expanded(flex: isSmallScreen ? 3 : 2, child: Column(children: [
-                              Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                                Container(width: context.w(6), height: context.h(6), decoration: BoxDecoration(color: accentColor, shape: BoxShape.circle)),
-                                Expanded(child: Container(height: context.h(2), decoration: BoxDecoration(gradient: LinearGradient(colors: [accentColor.withOpacity(0.3), accentColor.withOpacity(0.6)])))),
-                                Icon(Icons.flight, size: context.w(isSmallScreen ? 14 : 16), color: accentColor),
-                                Expanded(child: Container(height: context.h(2), decoration: BoxDecoration(gradient: LinearGradient(colors: [accentColor.withOpacity(0.6), accentColor.withOpacity(0.3)])))),
-                                Container(width: context.w(6), height: context.h(6), decoration: BoxDecoration(color: accentColor, shape: BoxShape.circle)),
-                              ]),
-                              SizedBox(height: context.h(4)),
-                              Text(_formatDuration(flight.duration != null ? int.tryParse(flight.duration!) : null), style: TextStyle(fontSize: context.fs(isSmallScreen ? 11 : 12), color: Colors.grey.shade700, fontWeight: FontWeight.w600)),
-                              Text('Non-stop', style: TextStyle(fontSize: context.fs(isSmallScreen ? 10 : 11), color: Colors.green.shade600, fontWeight: FontWeight.w500)),
-                            ])),
-                            Expanded(flex: 2, child: Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                              Text(_formatTime(flight.arrivalTime), style: TextStyle(fontSize: context.fs(isSmallScreen ? 20 : 24), fontWeight: FontWeight.bold, color: Colors.black87)),
-                              SizedBox(height: context.h(2)),
-                              Text(flight.destinationName ?? flight.destination ?? '', style: TextStyle(fontSize: context.fs(isSmallScreen ? 11 : 13), color: Colors.grey.shade600, fontWeight: FontWeight.w500), maxLines: 1, overflow: TextOverflow.ellipsis),
-                            ])),
-                          ],
-                        );
-                      },
-                    ),
-                    if (isRoundTrip) ...[
-                      SizedBox(height: context.h(12)),
-                      Divider(height: 1, color: Colors.grey.shade200),
-                      SizedBox(height: context.h(12)),
-                      Row(
-                        children: [
-                          Container(padding: EdgeInsets.all(context.w(4)), decoration: BoxDecoration(color: accentColor.withOpacity(0.1), shape: BoxShape.circle), child: Icon(Icons.flight_land, size: context.w(14), color: accentColor)),
-                          SizedBox(width: context.w(8)),
-                          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                            Text('Return: ${_formatTime(flight.returnDepartureTime)} - ${_formatTime(flight.returnArrivalTime)}', style: TextStyle(fontSize: context.fs(13), fontWeight: FontWeight.w600, color: Colors.black87)),
-                            Text('${flight.returnOriginName ?? flight.returnOrigin ?? ''} to ${flight.returnDestinationName ?? flight.returnDestination ?? ''} • ${flight.returnDuration != null ? _formatDuration(int.tryParse(flight.returnDuration!)) : ''}', style: TextStyle(fontSize: context.fs(11), color: Colors.grey.shade600), maxLines: 1, overflow: TextOverflow.ellipsis),
-                          ])),
-                        ],
                       ),
+                      Expanded(child: Divider(height: context.h(1), color: Colors.grey.shade200)),
                     ],
-                    SizedBox(height: context.h(12)),
-                    Container(
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(colors: [accentColor.withOpacity(0.1), accentColor.withOpacity(0.05)]),
-                        borderRadius: BorderRadius.circular(context.r(8)),
-                        border: Border.all(color: accentColor.withOpacity(0.3), width: context.w(1)),
-                      ),
-                      child: Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          onTap: () => _showFlightDetails(flight),
+                  ),
+                ),
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: context.w(14), vertical: context.h(12)),
+                  child: _buildLegRow(
+                    depTime: flight.returnDepartureTime,
+                    arrTime: flight.returnArrivalTime,
+                    origin: flight.returnOrigin ?? '',
+                    destination: flight.returnDestination ?? '',
+                    duration: flight.returnDuration,
+                    isReturn: true,
+                  ),
+                ),
+              ],
+
+              // ── Bottom bar: tags + Book button ──────────────────────────
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade50,
+                  borderRadius: BorderRadius.only(
+                    bottomLeft: Radius.circular(context.r(12)),
+                    bottomRight: Radius.circular(context.r(12)),
+                  ),
+                  border: Border(top: BorderSide(color: Colors.grey.shade100, width: context.w(1))),
+                ),
+                padding: EdgeInsets.symmetric(horizontal: context.w(14), vertical: context.h(10)),
+                child: Row(
+                  children: [
+                    // Refundable tag
+                    _buildTag('Non-refundable', const Color(0xFFFFF3E0), const Color(0xFFE65100)),
+                    SizedBox(width: context.w(6)),
+                    // Fare type tag
+                    _buildTag(isRoundTrip ? 'Round Trip' : 'One Way', const Color(0xFFE8F5E9), const Color(0xFF2E7D32)),
+                    const Spacer(),
+                    // Book Now button
+                    GestureDetector(
+                      onTap: () => _showFlightDetails(flight),
+                      child: Container(
+                        padding: EdgeInsets.symmetric(horizontal: context.w(18), vertical: context.h(8)),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF0A2463),
                           borderRadius: BorderRadius.circular(context.r(8)),
-                          child: Padding(
-                            padding: EdgeInsets.symmetric(vertical: context.h(10)),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.lock_outline, size: context.w(16), color: accentColor),
-                                SizedBox(width: context.w(8)),
-                                Text('View Price Detail', style: TextStyle(fontSize: context.fs(13), fontWeight: FontWeight.w600, color: accentColor)),
-                                SizedBox(width: context.w(8)),
-                                Icon(Icons.arrow_forward_ios, size: context.w(12), color: accentColor),
-                              ],
-                            ),
-                          ),
+                        ),
+                        child: Text(
+                          'Book',
+                          style: TextStyle(fontSize: context.fs(13), fontWeight: FontWeight.w700, color: Colors.white),
                         ),
                       ),
                     ),
@@ -2248,20 +2278,157 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> with SingleTick
     );
   }
 
+  Widget _buildLegRow({
+    required String? depTime,
+    required String? arrTime,
+    required String origin,
+    required String destination,
+    required String? duration,
+    required bool isReturn,
+  }) {
+    final int? durationMins = duration != null ? int.tryParse(duration) : null;
+    return Row(
+      children: [
+        // Departure
+        SizedBox(
+          width: context.w(72),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                _formatTime(depTime),
+                style: TextStyle(fontSize: context.fs(22), fontWeight: FontWeight.bold, color: Colors.black87),
+              ),
+              Text(
+                origin,
+                style: TextStyle(fontSize: context.fs(12), color: Colors.grey.shade500, fontWeight: FontWeight.w500),
+              ),
+            ],
+          ),
+        ),
+
+        // Centre: line + duration + stops
+        Expanded(
+          child: Column(
+            children: [
+              // Duration label
+              Text(
+                _formatDuration(durationMins),
+                style: TextStyle(fontSize: context.fs(11), color: Colors.grey.shade600, fontWeight: FontWeight.w600),
+              ),
+              SizedBox(height: context.h(4)),
+              // Flight line
+              Row(
+                children: [
+                  Container(
+                    width: context.w(7), height: context.w(7),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.grey.shade400, width: context.w(1.5)),
+                    ),
+                  ),
+                  Expanded(
+                    child: Container(
+                      height: context.h(1.5),
+                      color: Colors.grey.shade300,
+                    ),
+                  ),
+                  Transform.rotate(
+                    angle: isReturn ? 3.14159 : 0,
+                    child: Icon(Icons.flight, size: context.w(16), color: const Color(0xFF0A2463)),
+                  ),
+                  Expanded(
+                    child: Container(
+                      height: context.h(1.5),
+                      color: Colors.grey.shade300,
+                    ),
+                  ),
+                  Container(
+                    width: context.w(7), height: context.w(7),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: const Color(0xFF0A2463),
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: context.h(4)),
+              // Non-stop label
+              Text(
+                'Non-stop',
+                style: TextStyle(fontSize: context.fs(10), color: Colors.green.shade600, fontWeight: FontWeight.w500),
+              ),
+            ],
+          ),
+        ),
+
+        // Arrival
+        SizedBox(
+          width: context.w(72),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                _formatTime(arrTime),
+                style: TextStyle(fontSize: context.fs(22), fontWeight: FontWeight.bold, color: Colors.black87),
+              ),
+              Text(
+                destination,
+                style: TextStyle(fontSize: context.fs(12), color: Colors.grey.shade500, fontWeight: FontWeight.w500),
+                textAlign: TextAlign.end,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTag(String label, Color bg, Color fg) {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: context.w(8), vertical: context.h(4)),
+      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(context.r(6))),
+      child: Text(label, style: TextStyle(fontSize: context.fs(10), fontWeight: FontWeight.w600, color: fg)),
+    );
+  }
+
   void _showFlightDetails(FlightEntity flight) {
-    FlightDetailsPopup.show(
+    final prefs = sl<PreferencesManager>();
+    final isLoggedIn = prefs.isLoggedIn();
+    Navigator.push(
       context,
-      airlineName: flight.airlineName ?? "Unknown",
-      airlineCode: flight.airlineName ?? "--",
-      flightNumber: flight.flightNumber ?? "--",
-      fromCode: flight.origin ?? "--",
-      toCode: flight.destination ?? "--",
-      departureTime: _formatTime(flight.departureTime),
-      arrivalTime: _formatTime(flight.arrivalTime),
-      traceId: flight.traceId,
-      resultIndex: flight.resultIndex,
-      duration: "${flight.duration ?? '--'} min",
-      price: _convertFlightPrice((flight.totalFare ?? 0).toDouble(), flight.currency),
+      MaterialPageRoute(
+        builder: (_) => FlightBookingScreen(
+          routes: [
+
+            FlightRouteSegment(
+
+              from: flight.origin ?? "--",
+              price: _convertFlightPrice((flight.totalFare ?? 0).toDouble(), flight.currency),
+              to: flight.destination ?? "--",
+              traceId:  flight.traceId,
+              resultIndex: flight.resultIndex,
+
+              departureTime: _formatTime(flight.departureTime),
+              arrivalTime: _formatTime(flight.arrivalTime),
+
+              duration: "${flight.duration ?? '--'} min",
+
+              airline: flight.airlineName ?? "Unknown",
+
+              flightNo: flight.flightNumber ?? "--",
+            ),
+
+          ],
+
+          totalPrice: _convertFlightPrice((flight.totalFare ?? 0).toDouble(), flight.currency),
+          traceId: flight.traceId,
+          resultIndex: flight.resultIndex,
+          price: _convertFlightPrice((flight.totalFare ?? 0).toDouble(), flight.currency),
+
+          isLoggedIn: isLoggedIn,
+        ),
+      ),
     );
   }
 

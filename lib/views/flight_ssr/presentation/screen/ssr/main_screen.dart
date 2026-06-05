@@ -159,7 +159,7 @@ class _SSRMainScreenState extends State<SSRMainScreen> {
             Padding(
               padding: EdgeInsets.all(context.w(8)),
               child: Image.asset(
-                "assets/images/wander_nova_logo.jpg",
+                "assets/images/wander_nova_logo.png",
                 height: 35,
               ),
             )
