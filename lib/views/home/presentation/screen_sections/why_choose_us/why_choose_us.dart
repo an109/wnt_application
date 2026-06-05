@@ -7,7 +7,7 @@ class WhyChooseUs extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.symmetric(vertical: context.hp(3)),
+      padding: EdgeInsets.symmetric(vertical: context.h(24)),
       child: Column(
         children: [
           Text(
@@ -21,7 +21,7 @@ class WhyChooseUs extends StatelessWidget {
           SizedBox(height: context.gapMedium),
 
           Padding(
-            padding: EdgeInsets.symmetric(horizontal: context.wp(6)),
+            padding: EdgeInsets.symmetric(horizontal: context.w(24)), // 24px on design
             child: Text(
               "Your trusted partner for flights, hotels, holidays & visa — with great prices and support every step of the way.",
               textAlign: TextAlign.center,
@@ -32,7 +32,7 @@ class WhyChooseUs extends StatelessWidget {
             ),
           ),
 
-          SizedBox(height: context.gapLarge * 1.5),
+          SizedBox(height: context.h(24)),
 
           LayoutBuilder(
             builder: (context, constraints) {
@@ -95,15 +95,15 @@ class _Item extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.all(context.wp(4)),
+      padding: EdgeInsets.all(context.w(16)), // 16px on design
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(context.borderRadius),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.06),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+            blurRadius: context.h(12),
+            offset: Offset(0, context.h(4)),
           )
         ],
       ),
@@ -111,7 +111,7 @@ class _Item extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
-            padding: EdgeInsets.all(context.wp(3.5)),
+            padding: EdgeInsets.all(context.w(14)), // 14px on design
             decoration: BoxDecoration(
               color: Colors.red.withOpacity(0.1),
               shape: BoxShape.circle,
@@ -131,7 +131,7 @@ class _Item extends StatelessWidget {
             style: TextStyle(
               fontSize: context.labelLarge,
               fontWeight: FontWeight.bold,
-              letterSpacing: 0.5,
+              letterSpacing: context.letterSpacingNormal,
             ),
           ),
 
@@ -143,7 +143,7 @@ class _Item extends StatelessWidget {
             style: TextStyle(
               fontSize: context.bodySmall,
               color: Colors.grey[600],
-              height: 1.5,
+              height: context.isMobile ? 1.4 : (context.isTablet ? 1.5 : 1.6),
             ),
           ),
         ],

@@ -9,7 +9,6 @@ import '../../../flight_destination/domain/entities/destination_entity.dart';
 import '../../../flight_destination/presentation/widget/destination_search_field.dart';
 import '../../../Hotel_api/presentation/screen/hotel_listing.dart';
 
-
 class HotelSearchCard extends StatefulWidget {
   const HotelSearchCard({super.key});
 
@@ -24,7 +23,6 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
   String _guestNationality = 'India';
 
   List<RoomConfig> _rooms = [RoomConfig()];
-
 
   final FocusNode _destinationFocusNode = FocusNode();
   final FocusNode _nationalityFocusNode = FocusNode();
@@ -67,8 +65,8 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
           builder: (context, setModalState) {
             return Dialog(
               insetPadding: EdgeInsets.symmetric(
-                horizontal: context.wp(5),
-                vertical: context.hp(2),
+                horizontal: context.w(20),
+                vertical: context.h(16),
               ),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(context.borderRadiusLarge),
@@ -76,7 +74,7 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
               child: Container(
                 width: double.infinity,
                 constraints: BoxConstraints(
-                  maxHeight: context.hp(60),
+                  maxHeight: context.h(480),
                 ),
                 child: Column(
                   children: [
@@ -154,7 +152,7 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.redAccent,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(context.r(8)),
               ),
             ),
             child: Text('Apply', style: TextStyle(color: Colors.white)),
@@ -262,7 +260,7 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
                         value: room.childAges[childIndex],
                         decoration: InputDecoration(
                           border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(context.r(8)),
                           ),
                           contentPadding: EdgeInsets.symmetric(
                             horizontal: context.gapSmall,
@@ -328,11 +326,11 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
             GestureDetector(
               onTap: onDecrement,
               child: Container(
-                width: context.wp(8),
-                height: context.wp(8),
+                width: context.w(32), // 32px on design
+                height: context.w(32), // 32px on design
                 decoration: BoxDecoration(
                   border: Border.all(color: Colors.grey.shade300),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(context.r(8)),
                 ),
                 child: Icon(Icons.remove, size: context.iconSmall),
               ),
@@ -349,11 +347,11 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
             GestureDetector(
               onTap: onIncrement,
               child: Container(
-                width: context.wp(8),
-                height: context.wp(8),
+                width: context.w(32), // 32px on design
+                height: context.w(32), // 32px on design
                 decoration: BoxDecoration(
                   color: Colors.redAccent,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(context.r(8)),
                 ),
                 child: Icon(
                   Icons.add,
@@ -449,7 +447,6 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
     print('Destination Type: ${_selectedDestination?.type}');
     print('Check-in: $_checkInDate');
     print('Check-out: $_checkOutDate');
-    // print('Guests: $_room adults, $_children children');
     int totalAdults = _rooms.fold(0, (sum, room) => sum + room.adults);
     int totalChildren = _rooms.fold(0, (sum, room) => sum + room.children);
     print('Guests: $totalAdults adults, $totalChildren children');
@@ -462,7 +459,6 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
     // Get the city code based on destination type
     String cityCode;
     if (_selectedDestination!.type == DestinationType.hotel) {
-
       cityCode = _selectedDestination!.cityCode ?? '';
       print('Hotel selected - using cityCode: $cityCode');
     } else {
@@ -486,7 +482,7 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
         builder: (_) => BlocProvider(
           create: (context) => sl<HotelBloc>(),
           child: HotelListingScreen(
-            cityCode: cityCode,  // Now this will have the correct city code
+            cityCode: cityCode,
             checkIn: checkInFormatted,
             checkOut: checkOutFormatted,
             guestNationality: 'IN',
@@ -501,15 +497,15 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.all(context.w(12)),
+      padding: EdgeInsets.all(context.w(12)), // 12px on design
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(context.borderRadius),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.12),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+            blurRadius: context.h(12), // 12px on design
+            offset: Offset(0, context.h(4)), // 4px on design
           ),
         ],
       ),
@@ -522,8 +518,8 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
                 child: _buildNationalityField(context),
               ),
               Container(
-                width: 1,
-                height: context.hp(12),
+                width: context.dividerThin,
+                height: context.h(96), // 96px on design
                 color: Colors.grey.shade300,
               ),
               Expanded(
@@ -602,7 +598,7 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
               SizedBox(width: context.gapMedium),
               Expanded(
                 child: SizedBox(
-                  height: context.buttonHeight + 10,
+                  height: context.buttonHeight + context.h(10), // 10px extra
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.redAccent,
@@ -804,7 +800,7 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Padding(
-                padding: EdgeInsets.all(context.w(12)),
+                padding: EdgeInsets.all(context.w(12)), // 12px on design
                 child: Text(
                   'Select Nationality',
                   style: TextStyle(

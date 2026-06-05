@@ -102,15 +102,15 @@ class _SearchCardState extends State<SearchCard> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: EdgeInsets.symmetric(horizontal: context.wp(3.5)),
-      padding: EdgeInsets.all(context.wp(3.5)),
+      margin: EdgeInsets.symmetric(horizontal: context.w(14)),
+      padding: EdgeInsets.all(context.w(14)),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(context.borderRadiusLarge),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.08),
-            blurRadius: context.wp(5),
+            blurRadius: context.w(20), // 20px on design
             offset: context.shadowOffsetMedium,
           ),
         ],
@@ -277,7 +277,7 @@ class _SearchCardState extends State<SearchCard> {
                   onTap: () => _pickDate(isReturn: false),
                 ),
               ),
-              SizedBox(width: context.wp(2.5)),
+              SizedBox(width: context.w(10)),
               Expanded(
                 child: _clickableDateTile(
                   context,
@@ -345,7 +345,7 @@ class _SearchCardState extends State<SearchCard> {
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 250),
-        padding: EdgeInsets.symmetric(vertical: context.hp(1.3)),
+        padding: EdgeInsets.symmetric(vertical: context.h(10)), // 10px on design
         decoration: BoxDecoration(
           color: selected ? const Color(0xff1663F7) : Colors.transparent,
           borderRadius: BorderRadius.circular(context.borderRadiusLarge),
@@ -383,8 +383,8 @@ class _SearchCardState extends State<SearchCard> {
           onTap: onTap,
           child: Container(
             padding: EdgeInsets.symmetric(
-              horizontal: context.wp(3),
-              vertical: context.hp(1.8),
+              horizontal: context.w(12),
+              vertical: context.h(14),
             ),
             decoration: BoxDecoration(
               border: Border.all(color: Colors.grey.shade300, width: context.dividerThin),
@@ -421,7 +421,7 @@ class _SearchCardState extends State<SearchCard> {
                     fontSize: context.bodyLarge,
                     fontWeight: FontWeight.w700,
                     color: date != null ? const Color(0xff0D1B3D) : Colors.grey.shade500,
-                    height: 1.3,
+                    height: context.isMobile ? 1.2 : (context.isTablet ? 1.3 : 1.4),
                     letterSpacing: context.letterSpacingNormal,
                   ),
                 ),
@@ -446,8 +446,8 @@ class _SearchCardState extends State<SearchCard> {
       onTap: onTap,
       child: Container(
         padding: EdgeInsets.symmetric(
-          horizontal: context.wp(3),
-          vertical: context.hp(1.3),
+          horizontal: context.w(12), // 12px on design
+          vertical: context.h(10), // 10px on design
         ),
         decoration: BoxDecoration(
           border: Border.all(color: Colors.grey.shade300, width: context.dividerThin),
@@ -515,8 +515,8 @@ class _SearchCardState extends State<SearchCard> {
           builder: (context, setDialogState) {
             return AlertDialog(
               insetPadding: EdgeInsets.symmetric(
-                horizontal: context.wp(5),
-                vertical: context.hp(1),
+                horizontal: context.w(20), // 20px on design
+                vertical: context.h(8), // 8px on design
               ),
               contentPadding: EdgeInsets.all(context.dialogContentPadding),
               shape: RoundedRectangleBorder(
@@ -648,8 +648,8 @@ class _SearchCardState extends State<SearchCard> {
                       borderRadius: BorderRadius.circular(context.borderRadiusMedium),
                     ),
                     padding: EdgeInsets.symmetric(
-                      horizontal: context.wp(6),
-                      vertical: context.hp(1.5),
+                      horizontal: context.w(24), // 24px on design
+                      vertical: context.h(12), // 12px on design
                     ),
                   ),
                   child: Text(
@@ -713,8 +713,8 @@ class _SearchCardState extends State<SearchCard> {
                 (index) => GestureDetector(
               onTap: () => onSelected(index),
               child: Container(
-                width: context.wp(7.5), // 30px on 400px
-                height: context.hp(3.25), // 26px on 800px
+                width: context.w(30), // 30px on design
+                height: context.h(30), // 30px on design (square circle)
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: selectedValue == index

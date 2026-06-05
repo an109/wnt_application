@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
-
 import '../../../common_widgets/custom_bottom_nav.dart';
 import '../../../common_widgets/custom_drawer.dart';
 import '../../../common_widgets/logo.dart';
@@ -13,11 +12,11 @@ import '../../MainApi/presentation/bloc/general_settings_event.dart';
 import '../../MainApi/presentation/bloc/general_settings_state.dart';
 import '../../home/presentation/screen_sections/about_company_section.dart';
 import '../../home/presentation/screen_sections/service_info_section.dart';
+import '../../home/presentation/screen_sections/why_choose_us/why_choose_us.dart';
 import '../section/exclusive_deals/hotel_info.dart';
 import '../section/exclusive_deals/hotel_search_card.dart';
 import '../section/exclusive_deals/popular_destination.dart';
 import '../../travel_stories/presentation/screen/travel_stories.dart';
-import '../section/exclusive_deals/why_choose.dart';
 
 
 class HotelBookingScreen extends StatefulWidget {
@@ -161,7 +160,7 @@ class _HotelBookingScreenState extends State<HotelBookingScreen> {
             ),
 
             const SliverToBoxAdapter(
-              child: WhyChooseWanderNova(),
+              child: WhyChooseUs(),
             ),
 
             SliverToBoxAdapter(
