@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:wander_nova/views/VisaDestination/domain/entity/visaDestin_Entity.dart';
+import '../../domain/entity/visaDestin_Entity.dart';
 import 'package:wander_nova/views/VisaDestination/presentation/section/visa_apply_screen.dart';
+import '../../../../UI_helper/currency_converter.dart';
 import '../../../../UI_helper/responsive_layout.dart';
 import '../../../../common_widgets/logo.dart';
+import '../../../../core/services/currency_service.dart';
 
 class VisaDestinationDetailPage extends StatefulWidget {
   final VisaDestinationEntity destination;
@@ -22,6 +24,51 @@ class _VisaDestinationDetailPageState
 
   int selectedTab = 0;
 
+  // Currency state
+  String _preferredSymbol = '₹';
+  double _conversionRate = 1.0;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCurrency();
+  }
+
+  Future<void> _loadCurrency() async {
+    final preferred = CurrencyConverter.getPreferredCurrency();
+    if (!mounted) return;
+    // Use the actual fees_currency from the first visa type (e.g. "USD"),
+    // falling back to priceCurrency then 'USD'.
+    final sourceCurrency = widget.destination.visaTypes.isNotEmpty
+        ? widget.destination.visaTypes.first.feesCurrency
+        : (widget.destination.priceCurrency.isNotEmpty
+            ? widget.destination.priceCurrency
+            : 'USD');
+    final rate = await CurrencyService.instance.getRate(sourceCurrency, preferred);
+    if (!mounted) return;
+    setState(() {
+      _preferredSymbol = CurrencyConverter.getSymbol(preferred);
+      _conversionRate = rate;
+    });
+  }
+
+  /// Convert a fee (in its feesCurrency) to the user's preferred currency.
+  String _formatVisaPrice(num amount, {String? sourceCurrency}) {
+    double converted;
+    if (sourceCurrency != null) {
+      // Per-visa-type currency — use cached rates for a synchronous conversion.
+      converted = CurrencyConverter.convert(
+        amount: amount.toDouble(),
+        fromCurrency: sourceCurrency,
+        toCurrency: CurrencyConverter.getPreferredCurrency(),
+      );
+    } else {
+      converted = amount.toDouble() * _conversionRate;
+    }
+    final formatted = converted.toStringAsFixed(converted % 1 == 0 ? 0 : 2);
+    return '$_preferredSymbol$formatted';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -37,7 +84,7 @@ class _VisaDestinationDetailPageState
           Padding(
             padding: EdgeInsets.all(context.wp(2)),
             child: Image.asset(
-              "assets/images/wander_nova_logo.jpg",
+              "assets/images/wander_logo.png",
               height: context.hp(4.5),
             ),
           )
@@ -46,7 +93,7 @@ class _VisaDestinationDetailPageState
 
       /// ================= BOTTOM BUTTON =================
       bottomNavigationBar: Container(
-        padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+        padding: EdgeInsets.fromLTRB(context.w(12), context.h(8), context.w(12), context.h(12)),
         decoration: const BoxDecoration(
           color: Colors.white,
           boxShadow: [
@@ -227,14 +274,14 @@ class _VisaDestinationDetailPageState
 
               /// IMAGE
               SizedBox(
-                height: 210,
+                height: context.isMobile ? context.h(210) : context.h(260),
                 width: double.infinity,
                 child: _safeNetworkImage(image),
               ),
 
               /// DARK OVERLAY
               Container(
-                height: 210,
+                height: context.isMobile ? context.h(210) : context.h(260),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
@@ -299,8 +346,9 @@ class _VisaDestinationDetailPageState
                           child: _heroMiniCard(
                             icon: Icons.payments_outlined,
                             title: "Starting From",
-                            value:
-                            "${widget.destination.priceCurrency} ${widget.destination.price}",
+                            value: _formatVisaPrice(
+                              double.tryParse(widget.destination.price) ?? 0,
+                            ),
                           ),
                         ),
                       ],
@@ -594,11 +642,11 @@ class _VisaDestinationDetailPageState
 
               Expanded(
                 child: Text(
-                  "${widget.destination.priceCurrency} ${visa.feesInr}",
-                  style: const TextStyle(
-                    fontSize: 16,
+                  _formatVisaPrice(visa.feesInr, sourceCurrency: visa.feesCurrency),
+                  style: TextStyle(
+                    fontSize: context.fs(16),
                     fontWeight: FontWeight.w800,
-                    color: Color(0xffFF6B00),
+                    color: const Color(0xffFF6B00),
                   ),
                 ),
               ),

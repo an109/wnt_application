@@ -2,11 +2,13 @@
 
 import 'package:dio/dio.dart';
 import '../../../../core/constants/urls.dart';
+import '../model/apple_auth_request_model.dart';
 import '../model/google_auth_request_model.dart';
 import '../model/google_auth_response_model.dart';
 
 abstract class AuthApiService {
   Future<GoogleAuthResponseModel> googleLogin(GoogleAuthRequestModel request);
+  Future<GoogleAuthResponseModel> appleLogin(AppleAuthRequestModel request);
 }
 
 class AuthApiServiceImpl implements AuthApiService {
@@ -34,6 +36,29 @@ class AuthApiServiceImpl implements AuthApiService {
       rethrow;
     } catch (e) {
       print(' Unknown error in googleLogin: $e');
+      rethrow;
+    }
+  }
+
+  @override
+  Future<GoogleAuthResponseModel> appleLogin(AppleAuthRequestModel request) async {
+    try {
+      final response = await dio.post(
+        Urls.appleAuth,
+        data: request.toJson(),
+      );
+
+      return GoogleAuthResponseModel.fromJson(response.data);
+    } on DioException catch (e) {
+      print(' DioException in appleLogin: ${e.message}');
+      print(' Response: ${e.response?.data}');
+
+      if (e.response?.data != null) {
+        return GoogleAuthResponseModel.fromJson(e.response!.data);
+      }
+      rethrow;
+    } catch (e) {
+      print(' Unknown error in appleLogin: $e');
       rethrow;
     }
   }

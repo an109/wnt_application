@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:wander_nova/UI_helper/responsive_layout.dart';
 
 class BookingHeaderSection extends StatelessWidget {
   final String hotelImage;
@@ -12,6 +11,9 @@ class BookingHeaderSection extends StatelessWidget {
   final int children;
   final String roomName;
   final bool isRefundable;
+  static const _navy = Color(0xFF071638);
+  static const _border = Color(0xFFE2E7F0);
+  static const _muted = Color(0xFF6B7280);
 
   const BookingHeaderSection({
     super.key,
@@ -32,12 +34,13 @@ class BookingHeaderSection extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(context.borderRadius),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: _border),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
+            color: _navy.withValues(alpha: 0.06),
+            blurRadius: 24,
+            offset: const Offset(0, 14),
           ),
         ],
       ),
@@ -45,7 +48,7 @@ class BookingHeaderSection extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildHotelInfo(context),
-          const Divider(height: 1),
+          const Divider(height: 1, color: _border),
           _buildBookingDetails(context),
         ],
       ),
@@ -54,36 +57,46 @@ class BookingHeaderSection extends StatelessWidget {
 
   Widget _buildHotelInfo(BuildContext context) {
     return Padding(
-      padding: context.responsivePadding,
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              Expanded(
+              SizedBox(
+                width: MediaQuery.sizeOf(context).width - 110,
                 child: Text(
                   hotelName,
-                  style: TextStyle(
-                    fontSize: context.headlineSmall,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
+                  style: const TextStyle(
+                    fontSize: 25,
+                    fontWeight: FontWeight.w800,
+                    color: _navy,
+                    height: 1.18,
                   ),
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
               if (!isRefundable)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.red[50],
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.red[200]!),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 7,
                   ),
-                  child: Text(
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFF0F0),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFFFB3B3)),
+                  ),
+                  child: const Text(
                     'Non-Refundable',
                     style: TextStyle(
-                      color: Colors.red[700],
-                      fontSize: context.sp(12),
-                      fontWeight: FontWeight.w600,
+                      color: Color(0xFFD92D20),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
                 ),
@@ -95,17 +108,20 @@ class BookingHeaderSection extends StatelessWidget {
               _buildStarRating(context, hotelRating),
               const SizedBox(width: 8),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.amber,
-                  borderRadius: BorderRadius.circular(4),
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
                   '$hotelRating Star',
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: Colors.white,
-                    fontSize: context.sp(12),
-                    fontWeight: FontWeight.w600,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
               ),
@@ -113,23 +129,28 @@ class BookingHeaderSection extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(Icons.location_on, size: context.sp(16), color: Colors.grey[600]),
-              const SizedBox(width: 4),
+              const Icon(Icons.location_on, size: 18, color: _muted),
+              const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   address,
-                  style: TextStyle(
-                    fontSize: context.sp(14),
-                    color: Colors.grey[700],
+                  style: const TextStyle(
+                    fontSize: 15,
+                    color: _muted,
+                    height: 1.35,
+                    fontWeight: FontWeight.w600,
                   ),
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
           ),
           const SizedBox(height: 16),
           ClipRRect(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(16),
             child: Image.network(
               hotelImage,
               height: 150,
@@ -151,7 +172,7 @@ class BookingHeaderSection extends StatelessWidget {
                     child: CircularProgressIndicator(
                       value: loadingProgress.expectedTotalBytes != null
                           ? loadingProgress.cumulativeBytesLoaded /
-                          loadingProgress.expectedTotalBytes!
+                                loadingProgress.expectedTotalBytes!
                           : null,
                     ),
                   ),
@@ -170,7 +191,7 @@ class BookingHeaderSection extends StatelessWidget {
         return Icon(
           index < rating ? Icons.star : Icons.star_border,
           color: Colors.amber,
-          size: context.sp(16),
+          size: 17,
         );
       }),
     );
@@ -178,100 +199,78 @@ class BookingHeaderSection extends StatelessWidget {
 
   Widget _buildBookingDetails(BuildContext context) {
     return Padding(
-      padding: context.responsivePadding,
+      padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: Colors.grey[100],
-          borderRadius: BorderRadius.circular(8),
+          color: const Color(0xFFF8FAFE),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: _border),
         ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'CHECK-IN',
-                    style: TextStyle(
-                      fontSize: context.sp(10),
-                      color: Colors.grey[600],
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    checkIn,
-                    style: TextStyle(
-                      fontSize: context.sp(16),
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
-                    ),
-                  ),
-                ],
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final items = [
+              _InfoItem(label: 'Check-in', value: checkIn),
+              _InfoItem(label: 'Check-out', value: checkOut),
+              _InfoItem(
+                label: 'Guests',
+                value:
+                    '$adults Adult${adults > 1 ? 's' : ''}${children > 0 ? ', $children Child${children > 1 ? 'ren' : ''}' : ''}',
               ),
-            ),
-            Container(
-              width: 1,
-              height: 40,
-              color: Colors.grey[300],
-            ),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'CHECK-OUT',
-                    style: TextStyle(
-                      fontSize: context.sp(10),
-                      color: Colors.grey[600],
-                      fontWeight: FontWeight.w600,
+            ];
+            return Wrap(
+              spacing: 10,
+              runSpacing: 12,
+              children: items
+                  .map(
+                    (item) => SizedBox(
+                      width: constraints.maxWidth < 390
+                          ? (constraints.maxWidth - 10) / 2
+                          : (constraints.maxWidth - 20) / 3,
+                      child: item,
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    checkOut,
-                    style: TextStyle(
-                      fontSize: context.sp(16),
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Container(
-              width: 1,
-              height: 40,
-              color: Colors.grey[300],
-            ),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'ROOMS & GUESTS',
-                    style: TextStyle(
-                      fontSize: context.sp(10),
-                      color: Colors.grey[600],
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '1 Room $adults Adult${adults > 1 ? 's' : ''}${children > 0 ? ', $children Child${children > 1 ? 'ren' : ''}' : ''}',
-                    style: TextStyle(
-                      fontSize: context.sp(14),
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
+                  )
+                  .toList(),
+            );
+          },
         ),
       ),
+    );
+  }
+}
+
+class _InfoItem extends StatelessWidget {
+  final String label;
+  final String value;
+
+  const _InfoItem({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label.toUpperCase(),
+          style: const TextStyle(
+            fontSize: 11,
+            color: BookingHeaderSection._muted,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          value,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            fontSize: 15,
+            color: BookingHeaderSection._navy,
+            fontWeight: FontWeight.w800,
+            height: 1.2,
+          ),
+        ),
+      ],
     );
   }
 }

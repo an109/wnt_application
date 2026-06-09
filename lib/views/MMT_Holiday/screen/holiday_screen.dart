@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 
+import '../../../common_widgets/custom_bottom_nav.dart';
 import '../../../core/resources/app_colours.dart';
 import '../sections/book_now_pay_later.dart';
 import '../sections/cutomize_trip_dialogue.dart';
@@ -167,6 +168,7 @@ class _NewHolidayScreenState extends State<NewHolidayScreen> {
         ),
       ),
       floatingActionButton: _buildCustomiseTripButton(),
+      bottomNavigationBar: const CustomBottomNav(currentIndex: 3),
     );
   }
 

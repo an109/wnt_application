@@ -60,6 +60,7 @@ class VisaTypeEntity extends Equatable {
   final bool popular;
   final String validity;
   final String processing;
+  final String feesCurrency;
 
   const VisaTypeEntity({
     required this.stay,
@@ -69,6 +70,7 @@ class VisaTypeEntity extends Equatable {
     required this.popular,
     required this.validity,
     required this.processing,
+    this.feesCurrency = 'USD',
   });
 
   @override
@@ -80,5 +82,6 @@ class VisaTypeEntity extends Equatable {
     popular,
     validity,
     processing,
+    feesCurrency,
   ];
 }

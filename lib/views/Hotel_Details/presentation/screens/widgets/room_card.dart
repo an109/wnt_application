@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
+import 'package:wander_nova/core/resources/app_colours.dart';
 import '../../../../../UI_helper/currency_converter.dart';
 import '../../../../../core/utils/storage/shared_preference.dart';
 import '../../../../../injection_container.dart';
@@ -26,21 +27,27 @@ class RoomCard extends StatefulWidget {
 }
 
 class _RoomCardState extends State<RoomCard> {
+  static const _blue = Color(0xFF1769F6);
+  static const _navy = Color(0xFF071638);
+  static const _muted = Color(0xFF6B7280);
+  static const _border = Color(0xFFE2E7F0);
 
   @override
   Widget build(BuildContext context) {
-    print('RoomCard: Building - ${widget.room.roomDisplayName}, Fare: ${widget.room.totalFare}');
+    print(
+      'RoomCard: Building - ${widget.room.roomDisplayName}, Fare: ${widget.room.totalFare}',
+    );
 
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(ResponsiveExtension(context).borderRadius),
-        border: Border.all(color: Colors.grey[200]!, width: 1),
+        borderRadius: BorderRadius.circular(context.r(14)),
+        border: Border.all(color: _border, width: 1),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
+            color: _navy.withValues(alpha: 0.06),
+            blurRadius: context.r(16),
+            offset: Offset(0, context.h(10)),
           ),
         ],
       ),
@@ -49,7 +56,12 @@ class _RoomCardState extends State<RoomCard> {
         children: [
           _buildRoomHeader(context),
           Padding(
-            padding: ResponsiveExtension(context).responsivePadding,
+            padding: EdgeInsets.fromLTRB(
+              context.w(14),
+              context.h(12),
+              context.w(14),
+              context.h(14),
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -73,7 +85,9 @@ class _RoomCardState extends State<RoomCard> {
   String _formatPrice(double amount, String apiCurrency) {
     try {
       // 🔹 Use currency passed from parent (more reliable than entity field)
-      final currency = apiCurrency.isNotEmpty ? apiCurrency : widget.roomCurrency;
+      final currency = apiCurrency.isNotEmpty
+          ? apiCurrency
+          : widget.roomCurrency;
 
       double finalAmount = amount;
       String displayCurrency = currency;
@@ -86,7 +100,6 @@ class _RoomCardState extends State<RoomCard> {
       if (currency.isNotEmpty &&
           targetCurrency.isNotEmpty &&
           currency.toUpperCase() != targetCurrency.toUpperCase()) {
-
         finalAmount = CurrencyConverter.convert(
           amount: amount,
           fromCurrency: currency,
@@ -95,29 +108,18 @@ class _RoomCardState extends State<RoomCard> {
         displayCurrency = targetCurrency;
       }
 
-      // Format with symbol based on DISPLAY currency (after conversion)
+      // Display amount without any currency sign
       final code = displayCurrency.toUpperCase();
       final intAmount = finalAmount.toInt();
 
       if (code == 'INR') {
-        return '₹${_formatIndianNumber(intAmount)}';
-      } else if (code == 'USD') {
-        return '\$${intAmount.toStringAsFixed(0)}';
-      } else if (code == 'EUR') {
-        return '€${intAmount.toStringAsFixed(0)}';
-      } else if (code == 'GBP') {
-        return '£${intAmount.toStringAsFixed(0)}';
-      } else if (code == 'AED') {
-        return 'د.إ ${intAmount.toStringAsFixed(0)}';
+        return _formatIndianNumber(intAmount);
       }
-      // Fallback: show code + amount
-      return '$code ${intAmount.toStringAsFixed(0)}';
-
+      return intAmount.toStringAsFixed(0);
     } catch (e) {
       print('RoomCard: Price format error: $e');
-      // Safe fallback: show original amount with passed currency
-      final code = apiCurrency.isNotEmpty ? apiCurrency : widget.roomCurrency;
-      return '$code ${amount.toStringAsFixed(0)}';
+      // Safe fallback: show original amount without sign
+      return amount.toStringAsFixed(0);
     }
   }
 
@@ -139,22 +141,18 @@ class _RoomCardState extends State<RoomCard> {
 
   Widget _buildRoomHeader(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: const BoxDecoration(
-        color: Color(0xFFF9F9F9),
+      padding: EdgeInsets.all(context.w(14)),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFE),
         borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(12),
-          topRight: Radius.circular(12),
+          topLeft: Radius.circular(context.r(14)),
+          topRight: Radius.circular(context.r(14)),
         ),
       ),
       child: Row(
         children: [
-          Icon(
-            Icons.meeting_room,
-            color: Colors.blue,
-            size: ResponsiveExtension(context).sp(20),
-          ),
-          const SizedBox(width: 8),
+          Icon(Icons.meeting_room_outlined, color: _blue, size: context.w(20)),
+          SizedBox(width: context.w(10)),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -162,35 +160,44 @@ class _RoomCardState extends State<RoomCard> {
                 Text(
                   widget.room.roomDisplayName,
                   style: TextStyle(
-                    fontSize: ResponsiveExtension(context).sp(16),
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
+                    fontSize: context.fs(15),
+                    fontWeight: FontWeight.w800,
+                    color: _navy,
+                    height: 1.25,
                   ),
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
                 ),
                 Text(
                   widget.room.bedInfo,
                   style: TextStyle(
-                    fontSize: ResponsiveExtension(context).sp(12),
-                    color: Colors.grey[600],
+                    fontSize: context.fs(12),
+                    color: _muted,
+                    fontWeight: FontWeight.w600,
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
           ),
           if (!widget.room.isRefundable)
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.red[50],
-                borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: Colors.red[200]!),
+              padding: EdgeInsets.symmetric(
+                horizontal: context.w(9),
+                vertical: context.h(6),
               ),
+              // decoration: BoxDecoration(
+              //   color: const Color(0xFFFFF0F0),
+              //   borderRadius: BorderRadius.circular(context.r(10)),
+              //   border: Border.all(color: const Color(0xFFFFB3B3)),
+              // ),
               child: Text(
                 'Non-Refundable',
                 style: TextStyle(
-                  color: Colors.red[700],
-                  fontSize: ResponsiveExtension(context).sp(10),
-                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFFD92D20),
+                  fontSize: context.fs(10),
+                  fontWeight: FontWeight.w800,
                 ),
               ),
             ),
@@ -205,28 +212,30 @@ class _RoomCardState extends State<RoomCard> {
       children: [
         Row(
           children: [
-            Icon(Icons.people, size: ResponsiveExtension(context).sp(16), color: Colors.grey[600]),
-            const SizedBox(width: 4),
+            Icon(Icons.people_outline, size: context.w(15), color: _muted),
+            SizedBox(width: context.w(4)),
             Text(
               '${widget.adults} Guest${widget.adults > 1 ? 's' : ''}${widget.children > 0 ? ', ${widget.children} Child${widget.children > 1 ? 'ren' : ''}' : ''}',
               style: TextStyle(
-                fontSize: ResponsiveExtension(context).sp(14),
-                color: Colors.grey[700],
+                fontSize: context.fs(12),
+                color: _muted,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ],
         ),
         if (widget.room.withTransfers) ...[
-          const SizedBox(height: 8),
+          SizedBox(height: context.h(8)),
           Row(
             children: [
-              Icon(Icons.airport_shuttle, size: ResponsiveExtension(context).sp(16), color: Colors.grey[600]),
-              const SizedBox(width: 4),
+              Icon(Icons.airport_shuttle, size: context.w(15), color: _muted),
+              SizedBox(width: context.w(4)),
               Text(
                 'Free beach transfer included',
                 style: TextStyle(
-                  fontSize: ResponsiveExtension(context).sp(14),
-                  color: Colors.grey[700],
+                  fontSize: context.fs(12),
+                  color: _muted,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ],
@@ -237,30 +246,38 @@ class _RoomCardState extends State<RoomCard> {
   }
 
   Widget _buildInclusions(BuildContext context) {
-    final inclusions = widget.room.inclusion.split(',').map((i) => i.trim()).where((i) => i.isNotEmpty).toList();
+    final inclusions = widget.room.inclusion
+        .split(',')
+        .map((i) => i.trim())
+        .where((i) => i.isNotEmpty)
+        .toList();
 
     if (inclusions.isEmpty) return const SizedBox.shrink();
 
     return Wrap(
-      spacing: 8,
-      runSpacing: 8,
+      spacing: context.w(8),
+      runSpacing: context.h(8),
       children: inclusions.map((inclusion) {
         return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          padding: EdgeInsets.symmetric(
+            horizontal: context.w(8),
+            vertical: context.h(4),
+          ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
                 Icons.check,
-                size: ResponsiveExtension(context).sp(12),
+                size: context.w(11),
                 color: Colors.green[700],
               ),
-              const SizedBox(width: 4),
+              SizedBox(width: context.w(4)),
               Text(
                 inclusion,
                 style: TextStyle(
-                  fontSize: ResponsiveExtension(context).sp(12),
+                  fontSize: context.fs(11),
                   color: Colors.green[700],
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ],
@@ -331,64 +348,99 @@ class _RoomCardState extends State<RoomCard> {
 
   Widget _buildPriceAndButton(BuildContext context) {
     // 🔹 Pass the currency from parent widget
-    final formattedFare = _formatPrice(widget.room.totalFare, widget.roomCurrency);
-    final formattedTax = _formatPrice(widget.room.totalTax, widget.roomCurrency);
+    final formattedFare = _formatPrice(
+      widget.room.totalFare,
+      widget.roomCurrency,
+    );
+    final formattedTax = _formatPrice(
+      widget.room.totalTax,
+      widget.roomCurrency,
+    );
 
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Column(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final stack = constraints.maxWidth < 360;
+        final price = Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               crossAxisAlignment: CrossAxisAlignment.baseline,
               textBaseline: TextBaseline.alphabetic,
               children: [
-                Text(
-                  formattedFare,
-                  style: TextStyle(
-                    fontSize: ResponsiveExtension(context).sp(24),
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
+                Flexible(
+                  child: Text(
+                    formattedFare,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: context.fs(20),
+                      fontWeight: FontWeight.w900,
+                      color: _navy,
+                    ),
                   ),
                 ),
+                SizedBox(width: context.w(5)),
                 Text(
-                  ' / night',
+                  '/ night',
                   style: TextStyle(
-                    fontSize: ResponsiveExtension(context).sp(14),
-                    color: Colors.grey[600],
+                    fontSize: context.fs(12),
+                    color: _muted,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ],
             ),
+            SizedBox(height: context.h(3)),
             Text(
               '+ $formattedTax taxes',
               style: TextStyle(
-                fontSize: ResponsiveExtension(context).sp(12),
-                color: Colors.grey[600],
+                fontSize: context.fs(11),
+                color: _muted,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ],
-        ),
-        ElevatedButton(
-          onPressed: () => widget.onSelect(),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.red[700],
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
+        );
+
+        final button = SizedBox(
+          height: context.h(44),
+          width: stack ? double.infinity : context.w(150),
+          child: ElevatedButton(
+            onPressed: () => widget.onSelect(),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(context.r(12)),
+              ),
+            ),
+            child: Text(
+              'Book Room',
+              style: TextStyle(
+                fontSize: context.fs(13),
+                fontWeight: FontWeight.w800,
+                color: Colors.white,
+              ),
             ),
           ),
-          child: Text(
-            'Book Room',
-            style: TextStyle(
-              fontSize: ResponsiveExtension(context).sp(14),
-              fontWeight: FontWeight.w600,
-              color: Colors.white,
-            ),
-          ),
-        ),
-      ],
+        );
+
+        if (stack) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [price, SizedBox(height: context.h(12)), button],
+          );
+        }
+
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Expanded(child: price),
+            SizedBox(width: context.w(14)),
+            button,
+          ],
+        );
+      },
     );
   }
 }
@@ -398,7 +450,7 @@ extension NumberFormatting on num {
   String toLocaleString() {
     return toStringAsFixed(0).replaceAllMapped(
       RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-          (Match m) => '${m[1]},',
+      (Match m) => '${m[1]},',
     );
   }
 }

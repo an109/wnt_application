@@ -406,7 +406,7 @@ class _HolidaysSearchCardState extends State<HolidaysSearchCard> {
       width: double.infinity,
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(context.r(16)),
+        borderRadius: BorderRadius.circular(context.r(8)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.05),

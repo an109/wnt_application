@@ -2,6 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 
+import '../../../../core/constants/urls.dart';
+import '../../../../core/utils/storage/shared_preference.dart';
+import '../../../../injection_container.dart' as di;
+import '../../../flight_payment/data/ccavenue_service.dart';
+import '../../../flight_payment/presentation/screen/ccavenue_payment_page.dart';
+
 class AddMoneyDialog extends StatefulWidget {
   final Function(double amount, String paymentMethod) onConfirm;
 
@@ -19,6 +25,9 @@ class _AddMoneyDialogState extends State<AddMoneyDialog> {
   late final TextEditingController _amountController;
   String _selectedPaymentMethod = 'CCavenue';
   double? _selectedQuickAmount;
+
+  final CCAvenueService _ccavenueService = CCAvenueService();
+  bool _isProcessing = false;
 
   final List<double> _quickAmounts = [500, 1000, 2000, 5000];
 
@@ -198,11 +207,8 @@ class _AddMoneyDialogState extends State<AddMoneyDialog> {
                   Expanded(
                     flex: 2,
                     child: ElevatedButton(
-                      onPressed: amount > 0
-                          ? () {
-                        widget.onConfirm(amount, _selectedPaymentMethod);
-                        Navigator.pop(context);
-                      }
+                      onPressed: (amount > 0 && !_isProcessing)
+                          ? () => _pay(amount)
                           : null,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.red.shade600,
@@ -213,13 +219,23 @@ class _AddMoneyDialogState extends State<AddMoneyDialog> {
                         ),
                         elevation: 0,
                       ),
-                      child: Text(
-                        'Pay ₹${amount.toStringAsFixed(2)}',
-                        style: TextStyle(
-                          fontSize: context.bodyMedium,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
+                      child: _isProcessing
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor:
+                                    AlwaysStoppedAnimation(Colors.white),
+                              ),
+                            )
+                          : Text(
+                              'Pay ₹${amount.toStringAsFixed(2)}',
+                              style: TextStyle(
+                                fontSize: context.bodyMedium,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
                     ),
                   ),
                 ],
@@ -414,6 +430,106 @@ class _AddMoneyDialogState extends State<AddMoneyDialog> {
   //     ),
   //   );
   // }
+
+  void _snack(String message, {Color color = Colors.red}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: color,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  /// Recharges the wallet via the CCAvenue hosted gateway. On success the
+  /// parent's [onConfirm] runs (refreshes balance) and the dialog closes.
+  Future<void> _pay(double amount) async {
+    final prefs = di.sl<PreferencesManager>();
+
+    // Adding money to the wallet requires a logged-in user.
+    if (!prefs.isLoggedIn()) {
+      _snack('Please log in to add money to your wallet.');
+      return;
+    }
+
+    setState(() => _isProcessing = true);
+    try {
+      // Backend requires a short order_id (CCAvenue limits length ~30 chars).
+      final orderId = 'WTXW${DateTime.now().millisecondsSinceEpoch}';
+      final payable = double.parse(amount.toStringAsFixed(2));
+
+      final userData = prefs.getUserData() ?? {};
+      final fullName = (userData['userName'] ??
+              userData['name'] ??
+              userData['first_name'] ??
+              prefs.getString('user_name') ??
+              '')
+          .toString()
+          .trim();
+      final parts = fullName.isEmpty ? <String>[] : fullName.split(' ');
+      final firstName = parts.isNotEmpty ? parts.first : '';
+      final lastName = parts.length > 1 ? parts.sublist(1).join(' ') : '';
+      final email = (userData['email'] ?? prefs.getString('user_email') ?? '')
+          .toString();
+      final phone = (userData['phone'] ??
+              userData['mobile'] ??
+              userData['phone_number'] ??
+              '')
+          .toString()
+          .replaceAll(RegExp(r'[^0-9]'), '');
+
+      final session = await _ccavenueService.createCheckout(
+        orderId: orderId,
+        amount: payable,
+        currency: 'INR',
+        transactionType: 'wallet',
+        userId: prefs.getUserId(),
+        firstName: firstName,
+        lastName: lastName,
+        email: email,
+        phone: phone,
+        successUrl: Urls.ccavenueSuccessUrl,
+        failureUrl: Urls.ccavenueFailureUrl,
+      );
+
+      if (!mounted) return;
+      setState(() => _isProcessing = false);
+
+      final result = await Navigator.of(context).push<PaymentResult>(
+        MaterialPageRoute(
+          builder: (_) => CCAvenuePaymentPage(
+            service: _ccavenueService,
+            session: session,
+          ),
+        ),
+      );
+
+      if (!mounted) return;
+      switch (result) {
+        case PaymentResult.success:
+          // Let the parent record the top-up / refresh the balance, then close.
+          widget.onConfirm(payable, _selectedPaymentMethod);
+          Navigator.pop(context);
+          break;
+        case PaymentResult.failure:
+          _snack('Payment failed. Please try again.');
+          break;
+        case PaymentResult.cancelled:
+        case null:
+          _snack('Payment cancelled.', color: Colors.grey.shade700);
+          break;
+      }
+    } on CCAvenueException catch (e) {
+      if (!mounted) return;
+      setState(() => _isProcessing = false);
+      _snack(e.message);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isProcessing = false);
+      _snack('Could not start payment. Please try again.');
+    }
+  }
 
   Widget _buildPaymentMethodCard() {
     return Container(

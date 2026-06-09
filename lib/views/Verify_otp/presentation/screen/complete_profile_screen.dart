@@ -461,12 +461,19 @@ class _CompleteProfilePopupState extends State<CompleteProfilePopup> {
         return;
       }
 
-      // Parse phone number to extract phone_code and phone_number
-      String phoneCode = '+91'; // default
-      String phoneNumber = widget.contact;
+      // Build signup payload depending on whether the user registered with an
+      // email or a phone number. Backend accepts email OR phone (never the
+      // email value stuffed into the phone field).
+      String? email;
+      String? phoneNumber;
+      String? phoneCode;
 
-      if (widget.contactType == ContactType.phone && widget.contact.isNotEmpty) {
-        // If contact is like "+918595557189", split code and number
+      if (widget.contactType == ContactType.email) {
+        email = widget.contact.trim();
+      } else {
+        // Phone signup — split country code and number, e.g. "+918595557189"
+        phoneCode = '+91';
+        phoneNumber = widget.contact;
         final match = RegExp(r'^(\+\d+)(\d+)$').firstMatch(widget.contact);
         if (match != null) {
           phoneCode = match.group(1) ?? '+91';
@@ -480,6 +487,7 @@ class _CompleteProfilePopupState extends State<CompleteProfilePopup> {
           firstname: _firstNameController.text.trim(),
           lastname: _lastNameController.text.trim(),
           password: _passwordController.text,
+          email: email,
           phone: phoneNumber,
           phoneCode: phoneCode,
         ),

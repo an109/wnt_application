@@ -15,14 +15,16 @@ class SignupRepositoryImpl implements SignupRepository {
     required String firstname,
     required String lastname,
     required String password,
-    required String phone,
-    required String phoneCode,
+    String? email,
+    String? phone,
+    String? phoneCode,
   }) async {
     try {
       final response = await apiService.signup(
         firstname: firstname,
         lastname: lastname,
         password: password,
+        email: email,
         phone: phone,
         phoneCode: phoneCode,
       );

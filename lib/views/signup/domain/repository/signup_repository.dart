@@ -6,7 +6,8 @@ abstract class SignupRepository {
     required String firstname,
     required String lastname,
     required String password,
-    required String phone,
-    required String phoneCode,
+    String? email,
+    String? phone,
+    String? phoneCode,
   });
 }

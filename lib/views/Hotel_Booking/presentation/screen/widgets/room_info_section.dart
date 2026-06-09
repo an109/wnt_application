@@ -54,10 +54,8 @@ class RoomInfoSection extends StatelessWidget {
             if (room.inclusion.isNotEmpty) ...[
               _buildSectionTitle(context, 'INCLUSIONS'),
               ...room.inclusion.split(',').map((inclusion) => _buildInclusionItem(context, inclusion.trim())),
-              const SizedBox(height: 16),
+              const SizedBox(height: 14),
             ],
-            _buildSectionTitle(context, 'MANDATORY FEES AT PROPERTY'),
-            _buildMandatoryFee(context),
           ],
         ),
       ),
@@ -158,68 +156,68 @@ class RoomInfoSection extends StatelessWidget {
     );
   }
 
-  Widget _buildMandatoryFee(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.amber[50],
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.amber[200]!),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Text(
-                      'City Tax',
-                      style: TextStyle(
-                        fontSize: context.sp(14),
-                        fontWeight: FontWeight.w600,
-                        color: Colors.amber[900],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: Colors.amber[100],
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        'Paid at property',
-                        style: TextStyle(
-                          fontSize: context.sp(11),
-                          color: Colors.amber[800],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'These charges are collected directly at the property and are not included in the room price.',
-                  style: TextStyle(
-                    fontSize: context.sp(12),
-                    color: Colors.amber[900],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Text(
-            'AED 10',
-            style: TextStyle(
-              fontSize: context.sp(14),
-              fontWeight: FontWeight.bold,
-              color: Colors.amber[900],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  // Widget _buildMandatoryFee(BuildContext context) {
+  //   return Container(
+  //     padding: const EdgeInsets.all(12),
+  //     decoration: BoxDecoration(
+  //       color: Colors.amber[50],
+  //       borderRadius: BorderRadius.circular(8),
+  //       border: Border.all(color: Colors.amber[200]!),
+  //     ),
+  //     child: Row(
+  //       children: [
+  //         Expanded(
+  //           child: Column(
+  //             crossAxisAlignment: CrossAxisAlignment.start,
+  //             children: [
+  //               Row(
+  //                 children: [
+  //                   Text(
+  //                     'City Tax',
+  //                     style: TextStyle(
+  //                       fontSize: context.sp(14),
+  //                       fontWeight: FontWeight.w600,
+  //                       color: Colors.amber[900],
+  //                     ),
+  //                   ),
+  //                   const SizedBox(width: 8),
+  //                   Container(
+  //                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+  //                     decoration: BoxDecoration(
+  //                       color: Colors.amber[100],
+  //                       borderRadius: BorderRadius.circular(4),
+  //                     ),
+  //                     child: Text(
+  //                       'Paid at property',
+  //                       style: TextStyle(
+  //                         fontSize: context.sp(11),
+  //                         color: Colors.amber[800],
+  //                       ),
+  //                     ),
+  //                   ),
+  //                 ],
+  //               ),
+  //               const SizedBox(height: 4),
+  //               Text(
+  //                 'These charges are collected directly at the property and are not included in the room price.',
+  //                 style: TextStyle(
+  //                   fontSize: context.sp(12),
+  //                   color: Colors.amber[900],
+  //                 ),
+  //               ),
+  //             ],
+  //           ),
+  //         ),
+  //         Text(
+  //           'AED 10',
+  //           style: TextStyle(
+  //             fontSize: context.sp(14),
+  //             fontWeight: FontWeight.bold,
+  //             color: Colors.amber[900],
+  //           ),
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
 }

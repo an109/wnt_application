@@ -16,6 +16,23 @@ class GoogleLoginRequested extends AuthEvent {
   List<Object?> get props => [idToken];
 }
 
+class AppleLoginRequested extends AuthEvent {
+  final String token;
+  final String? firstName;
+  final String? lastName;
+  final String? email;
+
+  const AppleLoginRequested({
+    required this.token,
+    this.firstName,
+    this.lastName,
+    this.email,
+  });
+
+  @override
+  List<Object?> get props => [token, firstName, lastName, email];
+}
+
 class AuthCheckStatusRequested extends AuthEvent {
   const AuthCheckStatusRequested();
 }

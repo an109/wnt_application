@@ -99,7 +99,6 @@
 //   }
 // }
 
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
@@ -117,32 +116,41 @@ import '../bloc/visa_destination_state.dart';
 class PopularVisaDestinations extends StatelessWidget {
   const PopularVisaDestinations({super.key});
 
+  static const _primaryBlue = Color(0xFF1769F6);
+  static const _textDark = Color(0xFF071638);
+
   @override
   Widget build(BuildContext context) {
     print('PopularVisaDestinations: Widget build called');
 
     return BlocProvider<VisaPopularDestinationBloc>(
-      create: (context) => di.sl<VisaPopularDestinationBloc>()
-        ..add(const LoadVisaDestinations(domain: 'thewandernova.com')),
-      child: BlocBuilder<VisaPopularDestinationBloc, VisaPopularDestinationState>(
-        builder: (context, state) {
-          print('PopularVisaDestinations: State changed - ${state.runtimeType}');
+      create: (context) =>
+          di.sl<VisaPopularDestinationBloc>()
+            ..add(const LoadVisaDestinations(domain: 'thewandernova.com')),
+      child:
+          BlocBuilder<VisaPopularDestinationBloc, VisaPopularDestinationState>(
+            builder: (context, state) {
+              print(
+                'PopularVisaDestinations: State changed - ${state.runtimeType}',
+              );
 
-          if (state is VisaDestinationLoading) {
-            return _buildLoading(context);
-          } else if (state is VisaDestinationLoaded) {
-            return _buildDestinationsList(context, state.destinations);
-          } else if (state is VisaDestinationError) {
-            print('PopularVisaDestinations: Error state - ${state.message}');
-            return _buildError(context, state.message);
-          } else if (state is VisaDestinationInitial) {
-            return _buildLoading(context);
-          }
+              if (state is VisaDestinationLoading) {
+                return _buildLoading(context);
+              } else if (state is VisaDestinationLoaded) {
+                return _buildDestinationsList(context, state.destinations);
+              } else if (state is VisaDestinationError) {
+                print(
+                  'PopularVisaDestinations: Error state - ${state.message}',
+                );
+                return _buildError(context, state.message);
+              } else if (state is VisaDestinationInitial) {
+                return _buildLoading(context);
+              }
 
-          print('PopularVisaDestinations: Unknown state, showing error');
-          return _buildError(context, 'Unable to load destinations');
-        },
-      ),
+              print('PopularVisaDestinations: Unknown state, showing error');
+              return _buildError(context, 'Unable to load destinations');
+            },
+          ),
     );
   }
 
@@ -157,16 +165,17 @@ class PopularVisaDestinations extends StatelessWidget {
           Text(
             "Popular Destinations",
             style: TextStyle(
-              fontSize: context.titleLarge,
-              fontWeight: FontWeight.w700,
+              fontSize: context.fs(24),
+              fontWeight: FontWeight.w800,
+              color: _textDark,
             ),
           ),
-          SizedBox(height: context.gapLarge),
+          SizedBox(height: context.h(14)),
           SizedBox(
-            height: context.isMobile ? 310 : 360,
+            height: context.isMobile ? context.h(282) : context.h(330),
             child: Center(
               child: CircularProgressIndicator(
-                color: const Color(0xff21409A),
+                color: _primaryBlue,
                 strokeWidth: 2,
               ),
             ),
@@ -187,13 +196,14 @@ class PopularVisaDestinations extends StatelessWidget {
           Text(
             "Popular Destinations",
             style: TextStyle(
-              fontSize: context.titleLarge,
-              fontWeight: FontWeight.w700,
+              fontSize: context.fs(24),
+              fontWeight: FontWeight.w800,
+              color: _textDark,
             ),
           ),
-          SizedBox(height: context.gapLarge),
+          SizedBox(height: context.h(14)),
           SizedBox(
-            height: context.isMobile ? 310 : 360,
+            height: context.isMobile ? context.h(282) : context.h(330),
             child: Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -232,15 +242,22 @@ class PopularVisaDestinations extends StatelessWidget {
     );
   }
 
-  Widget _buildDestinationsList(BuildContext context, List<VisaPopularDestinationEntity> destinations) {
-    print('PopularVisaDestinations: Building list with ${destinations.length} total destinations');
+  Widget _buildDestinationsList(
+    BuildContext context,
+    List<VisaPopularDestinationEntity> destinations,
+  ) {
+    print(
+      'PopularVisaDestinations: Building list with ${destinations.length} total destinations',
+    );
 
     // Filter only popular and active destinations for this section
     final popularDestinations = destinations
         .where((d) => d.showInPopular && d.isActive)
         .toList();
 
-    print('PopularVisaDestinations: Filtered to ${popularDestinations.length} popular destinations');
+    print(
+      'PopularVisaDestinations: Filtered to ${popularDestinations.length} popular destinations',
+    );
 
     return Padding(
       padding: context.horizontalPadding,
@@ -250,73 +267,80 @@ class PopularVisaDestinations extends StatelessWidget {
           Text(
             "Popular Destinations",
             style: TextStyle(
-              fontSize: context.titleLarge,
-              fontWeight: FontWeight.w700,
+              fontSize: context.fs(24),
+              fontWeight: FontWeight.w800,
+              color: _textDark,
             ),
           ),
-          SizedBox(height: context.gapLarge),
+          SizedBox(height: context.h(14)),
           SizedBox(
-            height: context.isMobile ? 310 : 360,
+            height: context.isMobile ? context.h(282) : context.h(330),
             child: popularDestinations.isEmpty
                 ? Center(
-              child: Text(
-                'No popular destinations available',
-                style: TextStyle(
-                  fontSize: context.bodyMedium,
-                  color: Colors.black54,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            )
-                : ListView.separated(
-              scrollDirection: Axis.horizontal,
-              physics: context.scrollPhysics,
-              itemCount: popularDestinations.length,
-              separatorBuilder: (_, __) => SizedBox(width: context.gapMedium),
-              itemBuilder: (context, index) {
-                final destination = popularDestinations[index];
-                print('PopularVisaDestinations: Building card #$index for ${destination.name}');
-
-                // Format price with currency symbol
-                // final formattedPrice = _formatPrice(
-                //   destination.price,
-                //   destination.priceCurrency,
-                // );
-
-                final prefs = di.sl<PreferencesManager>();
-                final targetCurrency = prefs.getPreferredCurrency() ?? 'INR';
-
-                final formattedPrice = _formatPrice(
-                  destination.price,
-                  destination.priceCurrency,
-                  targetCurrency: targetCurrency, // 🔹 Pass target currency
-                );
-
-                // Get image URL - prefer imageUrl, fallback to img field
-                final imageUrl = _getImageUrl(destination);
-
-                // Get processing time - use first visa type's processing if available
-                final processingTime = _getProcessingTime(destination);
-
-                return DestinationCard(
-                  image: imageUrl,
-                  country: destination.name,
-                  type: destination.region,
-                  price: formattedPrice,
-                  processing: processingTime,
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => VisaDestinationDetailPage(
-                          destination: _convertToDestinationEntity(destination),
-                        ),
+                    child: Text(
+                      'No popular destinations available',
+                      style: TextStyle(
+                        fontSize: context.bodyMedium,
+                        color: Colors.black54,
+                        fontWeight: FontWeight.w500,
                       ),
-                    );
-                  },
-                );
-              },
-            ),
+                    ),
+                  )
+                : ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    physics: context.scrollPhysics,
+                    itemCount: popularDestinations.length,
+                    separatorBuilder: (_, __) => SizedBox(width: context.w(14)),
+                    itemBuilder: (context, index) {
+                      final destination = popularDestinations[index];
+                      print(
+                        'PopularVisaDestinations: Building card #$index for ${destination.name}',
+                      );
+
+                      // Format price with currency symbol
+                      // final formattedPrice = _formatPrice(
+                      //   destination.price,
+                      //   destination.priceCurrency,
+                      // );
+
+                      final prefs = di.sl<PreferencesManager>();
+                      final targetCurrency =
+                          prefs.getPreferredCurrency() ?? 'INR';
+
+                      final formattedPrice = _formatPrice(
+                        destination.price,
+                        destination.priceCurrency,
+                        targetCurrency:
+                            targetCurrency, // 🔹 Pass target currency
+                      );
+
+                      // Get image URL - prefer imageUrl, fallback to img field
+                      final imageUrl = _getImageUrl(destination);
+
+                      // Get processing time - use first visa type's processing if available
+                      final processingTime = _getProcessingTime(destination);
+
+                      return DestinationCard(
+                        image: imageUrl,
+                        country: destination.name,
+                        type: destination.region,
+                        price: formattedPrice,
+                        processing: processingTime,
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => VisaDestinationDetailPage(
+                                destination: _convertToDestinationEntity(
+                                  destination,
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      );
+                    },
+                  ),
           ),
         ],
       ),
@@ -385,7 +409,8 @@ class PopularVisaDestinations extends StatelessWidget {
       double priceValue = double.tryParse(price) ?? 0.0;
 
       // 🔹 MINIMAL CHANGE: Convert if target currency specified
-      if (targetCurrency != null && currency.toUpperCase() != targetCurrency.toUpperCase()) {
+      if (targetCurrency != null &&
+          currency.toUpperCase() != targetCurrency.toUpperCase()) {
         priceValue = CurrencyConverter.convert(
           amount: priceValue,
           fromCurrency: currency,
@@ -411,7 +436,6 @@ class PopularVisaDestinations extends StatelessWidget {
 
       // Default: show currency code + price
       return '$currencyCode ${priceValue.toStringAsFixed(0)}';
-
     } catch (e) {
       print('PopularVisaDestinations: Price formatting error: $e');
       return '$price $currency'; // Fallback
@@ -438,16 +462,22 @@ class PopularVisaDestinations extends StatelessWidget {
     return '$formatted,$lastThree';
   }
 
-  VisaDestinationEntity _convertToDestinationEntity(VisaPopularDestinationEntity popular) {
-    final convertedVisaTypes = popular.visaTypes.map((visaType) => VisaTypeEntity(
-      stay: visaType.stay,
-      entry: visaType.entry,
-      title: visaType.title,
-      feesInr: visaType.feesInr,
-      popular: visaType.popular,
-      validity: visaType.validity,
-      processing: visaType.processing,
-    )).toList();
+  VisaDestinationEntity _convertToDestinationEntity(
+    VisaPopularDestinationEntity popular,
+  ) {
+    final convertedVisaTypes = popular.visaTypes
+        .map(
+          (visaType) => VisaTypeEntity(
+            stay: visaType.stay,
+            entry: visaType.entry,
+            title: visaType.title,
+            feesInr: visaType.feesInr,
+            popular: visaType.popular,
+            validity: visaType.validity,
+            processing: visaType.processing,
+          ),
+        )
+        .toList();
 
     return VisaDestinationEntity(
       id: popular.id,

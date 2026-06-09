@@ -31,8 +31,8 @@ class _HotelPopularDestinationsSectionState
           Text(
             "Popular Destinations",
             style: TextStyle(
-              fontSize: context.titleMedium,
-              fontWeight: FontWeight.w700,
+              fontSize: context.titleLarge,
+              fontWeight: FontWeight.w800,
               color: Colors.black87,
             ),
           ),
@@ -72,8 +72,8 @@ class _HotelPopularDestinationsSectionState
                     child: Text(
                       filters[index],
                       style: TextStyle(
-                        fontSize: context.titleSmall,
-                        fontWeight: FontWeight.w700,
+                        fontSize: context.bodyMedium,
+                        fontWeight: FontWeight.w500,
                         color: isSelected
                             ? const Color(0xffD62828)
                             : Colors.black87,
@@ -90,15 +90,15 @@ class _HotelPopularDestinationsSectionState
           /// EMPTY STATE
           Container(
             width: double.infinity,
-            padding: EdgeInsets.all(context.gapLarge),
+            padding: EdgeInsets.all(context.gapSmall),
             decoration: BoxDecoration(
               color: Colors.grey.shade50,
-              borderRadius: BorderRadius.circular(
-                context.borderRadius,
-              ),
-              border: Border.all(
-                color: Colors.grey.shade200,
-              ),
+              // borderRadius: BorderRadius.circular(
+              //   context.borderRadius,
+              // ),
+              // border: Border.all(
+              //   color: Colors.grey.shade200,
+              // ),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -109,7 +109,7 @@ class _HotelPopularDestinationsSectionState
                 Text(
                   _getEmptyTitle(),
                   style: TextStyle(
-                    fontSize: context.titleLarge,
+                    fontSize: context.titleMedium,
                     fontWeight: FontWeight.w700,
                     color: Colors.black87,
                   ),
@@ -120,18 +120,18 @@ class _HotelPopularDestinationsSectionState
                 Text(
                   _getDescription(),
                   style: TextStyle(
-                    fontSize: context.bodyLarge,
+                    fontSize: context.bodySmall,
                     color: Colors.blueGrey,
                     height: 1.6,
                   ),
                 ),
 
-                SizedBox(height: context.gapLarge),
+                SizedBox(height: context.gapSmall),
               ],
             ),
           ),
 
-          SizedBox(height: context.hp(3)),
+          // SizedBox(height: context.hp(3)),
         ],
       ),
     );

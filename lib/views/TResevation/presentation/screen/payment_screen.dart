@@ -2,6 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 
 import '../../../../common_widgets/logo.dart';
+import '../../../../core/constants/urls.dart';
+import '../../../../core/utils/storage/shared_preference.dart';
+import '../../../../injection_container.dart' as di;
+import '../../../flight_payment/data/ccavenue_service.dart';
+import '../../../flight_payment/presentation/screen/ccavenue_payment_page.dart';
+import '../../../wallet/data/data_source/wallet_api_service.dart';
 import '../../domain/entities/TReservation-entity.dart';
 
 
@@ -47,6 +53,12 @@ class PaymentScreen extends StatefulWidget {
 
 class _PaymentScreenState extends State<PaymentScreen> {
   String? _selectedPaymentMethod;
+  final CCAvenueService _ccavenueService = CCAvenueService();
+  bool _isProcessing = false;
+
+  // Trip type chosen by the user — drives TransportReservationEntity.tripType.
+  String _tripType = 'one_way'; // 'one_way' | 'round_trip'
+  DateTime? _returnDate; // required when _tripType == 'round_trip'
 
   // Color constants
   static const _primaryBlue = Color(0xff1663F7);
@@ -102,13 +114,18 @@ class _PaymentScreenState extends State<PaymentScreen> {
       tripEndAddress: widget.dropoffLocation,
       tripPickupDatetime: widget.pickupDate.toIso8601String(),
       tripPickupDatetimePretty: _formatDateTime(widget.pickupDate),
-      tripReturnPickupDatetime: '',
-      tripReturnPickupDatetimePretty: '',
-      tripType: 'one_way',
+      tripReturnPickupDatetime: _tripType == 'round_trip' && _returnDate != null
+          ? _returnDate!.toIso8601String()
+          : '',
+      tripReturnPickupDatetimePretty:
+          _tripType == 'round_trip' && _returnDate != null
+          ? _formatDateTime(_returnDate!)
+          : '',
+      tripType: _tripType,
       vehicleName: widget.vehicleName,
       providerName: widget.providerName,
-      paidVia: _selectedPaymentMethod ?? 'razorpay',
-      paymentGateway: _selectedPaymentMethod ?? 'razorpay',
+      paidVia: _selectedPaymentMethod ?? '',
+      paymentGateway: _selectedPaymentMethod ?? '',
       paymentReferenceId: '',
       razorpayOrderId: '',
       razorpayPaymentId: '',
@@ -140,7 +157,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
         actions: [
           Padding(
             padding: EdgeInsets.all(context.w(8)),
-            child: Image.asset("assets/images/wander_nova_logo.jpg", height: 35),
+            child: Image.asset("assets/images/wander_logo.png", height: 35),
           )
         ],
       ),
@@ -149,6 +166,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
         child: Column(
           children: [
             _buildTripDetailsSection(),
+            const SizedBox(height: 16),
+            _buildTripTypeSection(),
             const SizedBox(height: 16),
             _buildPaymentMethodSection(),
             const SizedBox(height: 100),
@@ -317,6 +336,196 @@ class _PaymentScreenState extends State<PaymentScreen> {
             overflow: TextOverflow.ellipsis,
           ),
         ],
+      ),
+    );
+  }
+
+  Future<void> _pickReturnDateTime() async {
+    final base = _returnDate ??
+        widget.pickupDate.add(const Duration(hours: 2));
+    final initial = base.isBefore(widget.pickupDate) ? widget.pickupDate : base;
+
+    final date = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: widget.pickupDate,
+      lastDate: widget.pickupDate.add(const Duration(days: 365)),
+    );
+    if (date == null || !mounted) return;
+
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(initial),
+    );
+    if (time == null || !mounted) return;
+
+    setState(() {
+      _returnDate = DateTime(
+        date.year,
+        date.month,
+        date.day,
+        time.hour,
+        time.minute,
+      );
+    });
+  }
+
+  Widget _buildTripTypeSection() {
+    return Container(
+      margin: EdgeInsets.symmetric(
+        horizontal: context.wp(4),
+        vertical: context.hp(2),
+      ),
+      padding: EdgeInsets.all(context.wp(4)),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(context.borderRadius),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Trip Type',
+            style: TextStyle(
+              fontSize: context.titleMedium,
+              fontWeight: FontWeight.w700,
+              color: _darkNavy,
+            ),
+          ),
+          SizedBox(height: context.hp(1.5)),
+          Row(
+            children: [
+              Expanded(
+                child: _buildTripTypeOption(
+                  label: 'One Way',
+                  icon: Icons.arrow_forward,
+                  value: 'one_way',
+                ),
+              ),
+              SizedBox(width: context.wp(3)),
+              Expanded(
+                child: _buildTripTypeOption(
+                  label: 'Round Trip',
+                  icon: Icons.compare_arrows,
+                  value: 'round_trip',
+                ),
+              ),
+            ],
+          ),
+          if (_tripType == 'round_trip') ...[
+            SizedBox(height: context.hp(2)),
+            Text(
+              'RETURN PICKUP',
+              style: TextStyle(
+                fontSize: context.labelSmall,
+                fontWeight: FontWeight.w700,
+                color: Colors.grey.shade500,
+                letterSpacing: 0.5,
+              ),
+            ),
+            SizedBox(height: context.hp(1)),
+            InkWell(
+              onTap: _pickReturnDateTime,
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                padding: EdgeInsets.all(context.wp(3)),
+                decoration: BoxDecoration(
+                  color: const Color(0xffF8F9FA),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: _returnDate == null
+                        ? Colors.grey.shade300
+                        : _primaryBlue,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.calendar_today,
+                      size: context.iconSmall,
+                      color: _primaryBlue,
+                    ),
+                    SizedBox(width: context.wp(3)),
+                    Expanded(
+                      child: Text(
+                        _returnDate == null
+                            ? 'Select return date & time'
+                            : _formatDateTime(_returnDate!),
+                        style: TextStyle(
+                          fontSize: context.bodyMedium,
+                          color: _returnDate == null
+                              ? Colors.grey.shade500
+                              : _darkNavy,
+                          fontWeight: _returnDate == null
+                              ? FontWeight.w400
+                              : FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    Icon(
+                      Icons.chevron_right,
+                      size: context.iconSmall,
+                      color: Colors.grey.shade400,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTripTypeOption({
+    required String label,
+    required IconData icon,
+    required String value,
+  }) {
+    final isSelected = _tripType == value;
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _tripType = value;
+          if (value == 'one_way') _returnDate = null;
+        });
+      },
+      child: Container(
+        padding: EdgeInsets.symmetric(vertical: context.hp(1.5)),
+        decoration: BoxDecoration(
+          color: isSelected ? _primaryBlue.withOpacity(0.05) : Colors.grey.shade50,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isSelected ? _primaryBlue : Colors.grey.shade200,
+            width: isSelected ? 2 : 1,
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              icon,
+              size: context.iconSmall,
+              color: isSelected ? _primaryBlue : Colors.grey.shade600,
+            ),
+            SizedBox(width: context.wp(2)),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: context.bodyMedium,
+                fontWeight: FontWeight.w600,
+                color: isSelected ? _primaryBlue : _darkNavy,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -645,11 +854,12 @@ class _PaymentScreenState extends State<PaymentScreen> {
               width: double.infinity,
               height: context.buttonHeight,
               child: ElevatedButton(
-                onPressed: _selectedPaymentMethod != null
+                onPressed: (_selectedPaymentMethod != null && !_isProcessing)
                     ? _processPayment
                     : null,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: _selectedPaymentMethod != null
+                  backgroundColor:
+                      (_selectedPaymentMethod != null && !_isProcessing)
                       ? _primaryOrange
                       : Colors.grey.shade300,
                   foregroundColor: Colors.white,
@@ -659,23 +869,32 @@ class _PaymentScreenState extends State<PaymentScreen> {
                     borderRadius: BorderRadius.circular(8),
                   ),
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      _getPaymentIcon(),
-                      size: context.iconMedium,
-                    ),
-                    SizedBox(width: context.wp(2)),
-                    Text(
-                      _getButtonText(),
-                      style: TextStyle(
-                        fontSize: context.bodyLarge,
-                        fontWeight: FontWeight.w700,
+                child: _isProcessing
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation(Colors.white),
+                        ),
+                      )
+                    : Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            _getPaymentIcon(),
+                            size: context.iconMedium,
+                          ),
+                          SizedBox(width: context.wp(2)),
+                          Text(
+                            _getButtonText(),
+                            style: TextStyle(
+                              fontSize: context.bodyLarge,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                  ],
-                ),
               ),
             ),
             const SizedBox(height: 8),
@@ -833,7 +1052,70 @@ class _PaymentScreenState extends State<PaymentScreen> {
   //     );
   //   }
   // }
-  void _processPayment() {
+  /// Pays from the wallet if its balance covers the total (uses
+  /// [Urls.walletBalance]). There is no debit endpoint, so a sufficient
+  /// balance is treated as a successful payment.
+  Future<void> _payWithWallet() async {
+    // Wallet payment requires a logged-in user.
+    if (!di.sl<PreferencesManager>().isLoggedIn()) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please log in to pay with your wallet'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isProcessing = true);
+    try {
+      final response = await di.sl<WalletApiService>().getWalletBalance();
+      final data = (response.data as Map).cast<String, dynamic>();
+      final wallet = (data['wallet'] as Map?)?.cast<String, dynamic>() ?? {};
+      final balance = double.tryParse('${wallet['balance'] ?? 0}') ?? 0;
+
+      if (!mounted) return;
+      setState(() => _isProcessing = false);
+
+      if (balance >= widget.totalAmount) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Payment successful from wallet!'),
+            backgroundColor: _successGreen,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        // TODO: create the transport reservation / navigate to confirmation.
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Insufficient wallet balance '
+              '(INR ${balance.toStringAsFixed(2)} available)',
+            ),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isProcessing = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not fetch wallet balance. Please try again.'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  // ============================================================
+  // ----- CCAvenue hosted-checkout flow -----
+  // ============================================================
+  Future<void> _processPayment() async {
     print('=== PAYMENT SCREEN: Processing payment method ===');
 
     if (_selectedPaymentMethod == null) {
@@ -849,19 +1131,115 @@ class _PaymentScreenState extends State<PaymentScreen> {
       return;
     }
 
-    print('Payment method selected: $_selectedPaymentMethod');
+    if (_tripType == 'round_trip' && _returnDate == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Please select a return date & time for your round trip'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+      );
+      return;
+    }
 
-    // Since reservation is already created, just proceed with payment gateway
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Processing $_selectedPaymentMethod payment...'),
-        backgroundColor: _successGreen,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    // Wallet uses the wallet-balance flow; all other methods go via CCAvenue.
+    if (_selectedPaymentMethod == 'wallet') {
+      await _payWithWallet();
+      return;
+    }
 
-    // TODO: Integrate actual payment gateway (Razorpay, etc.) here
-    // After payment success, navigate to confirmation screen
+    setState(() => _isProcessing = true);
+
+    try {
+      // Backend requires a short order_id (CCAvenue limits length ~30 chars).
+      final orderId = 'WTXT${DateTime.now().millisecondsSinceEpoch}';
+      // Total is shown in INR on this screen; send a 2-decimal amount.
+      final amount = double.parse(widget.totalAmount.toStringAsFixed(2));
+      final nameParts = widget.passengerName.trim().split(' ');
+      final firstName = nameParts.isNotEmpty ? nameParts.first : '';
+      final lastName =
+          nameParts.length > 1 ? nameParts.sublist(1).join(' ') : '';
+
+      final session = await _ccavenueService.createCheckout(
+        orderId: orderId,
+        amount: amount,
+        currency: 'INR',
+        transactionType: 'transport',
+        userId: widget.userId,
+        firstName: firstName,
+        lastName: lastName,
+        email: widget.passengerEmail,
+        phone: widget.passengerPhone,
+        successUrl: Urls.ccavenueSuccessUrl,
+        failureUrl: Urls.ccavenueFailureUrl,
+      );
+
+      if (!mounted) return;
+      setState(() => _isProcessing = false);
+
+      final result = await Navigator.of(context).push<PaymentResult>(
+        MaterialPageRoute(
+          builder: (_) => CCAvenuePaymentPage(
+            service: _ccavenueService,
+            session: session,
+          ),
+        ),
+      );
+
+      if (!mounted) return;
+      switch (result) {
+        case PaymentResult.success:
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Payment successful!'),
+              backgroundColor: _successGreen,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+          // TODO: create the transport reservation / navigate to confirmation.
+          break;
+        case PaymentResult.failure:
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Payment failed. Please try again.'),
+              backgroundColor: Colors.red,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+          break;
+        case PaymentResult.cancelled:
+        case null:
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Payment cancelled.'),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+          break;
+      }
+    } on CCAvenueException catch (e) {
+      if (!mounted) return;
+      setState(() => _isProcessing = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.message),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isProcessing = false);
+      print('CCAvenue checkout error: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not start payment. Please try again.'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   String _formatDateTime(DateTime date) {

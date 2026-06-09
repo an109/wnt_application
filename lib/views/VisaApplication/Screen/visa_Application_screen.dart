@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import '../../../../UI_helper/responsive_layout.dart';
+import '../../../UI_helper/currency_converter.dart';
 import '../Section/itinery_section.dart';
 import '../Section/traveller_detail_section.dart';
+import '../Section/payment_section.dart';
+import '../Section/upload_documents_section.dart';
 
 class VisaApplicationScreen extends StatefulWidget {
   final String destinationName;
@@ -28,6 +31,31 @@ class _VisaApplicationScreenState extends State<VisaApplicationScreen> with Tick
   final Map<String, dynamic> _formData = {};
   late AnimationController _progressController;
   late Animation<double> _progressAnimation;
+  String _preferredSymbol = '₹';
+  double _convertedPrice = 0;
+  double _conversionRate = 1.0;
+  bool _isCurrencyLoaded = false;
+
+
+  Future<void> _loadConvertedPrice() async {
+    final preferred = CurrencyConverter.getPreferredCurrency();
+    final sourceCurrency = widget.currency.isNotEmpty ? widget.currency : 'USD';
+    final amount = double.tryParse(widget.price) ?? 0;
+
+    final converted = CurrencyConverter.convert(
+      amount: amount,
+      fromCurrency: sourceCurrency,
+      toCurrency: preferred,
+    );
+
+    setState(() {
+      _preferredSymbol = CurrencyConverter.getSymbol(preferred);
+      _convertedPrice = converted;
+      _isCurrencyLoaded = true;
+    });
+  }
+
+
 
   @override
   void initState() {
@@ -45,6 +73,7 @@ class _VisaApplicationScreenState extends State<VisaApplicationScreen> with Tick
     if (widget.preFilledData != null) {
       _formData.addAll(widget.preFilledData!);
     }
+    _loadConvertedPrice();
   }
 
   @override
@@ -59,6 +88,21 @@ class _VisaApplicationScreenState extends State<VisaApplicationScreen> with Tick
 
   void _saveFormData(Map<String, dynamic> data) {
     setState(() => _formData.addAll(data));
+  }
+
+  /// Total payable converted to INR (CCAvenue is charged in INR).
+  double get _payableInr {
+    final travellers = (_formData['travellers'] is int)
+        ? _formData['travellers'] as int
+        : int.tryParse('${_formData['travellers'] ?? 1}') ?? 1;
+    final base = double.tryParse(widget.price) ?? 0;
+    final source = widget.currency.isNotEmpty ? widget.currency : 'USD';
+    final inrBase = CurrencyConverter.convert(
+      amount: base,
+      fromCurrency: source,
+      toCurrency: 'INR',
+    );
+    return inrBase * travellers;
   }
 
   @override
@@ -246,14 +290,33 @@ class _VisaApplicationScreenState extends State<VisaApplicationScreen> with Tick
               onSave: _saveFormData,
             ),
             const SizedBox(height: 12),
-            // ReviewPaySection(
-            //   stepNumber: 3,
-            //   isActive: _currentStep == 3,
-            //   amount: widget.price,
-            //   currency: widget.currency,
-            //   onBack: () => _updateStep(2),
-            //   onSubmit: () => _showSuccessDialog(),
-            // ),
+            PaymentSection(
+              stepNumber: 3,
+              isCompleted: _currentStep > 3,
+              isActive: _currentStep == 3,
+              amountInr: _payableInr,
+              formData: _formData,
+              onBack: () => _updateStep(2),
+              onPaymentSuccess: () {
+                // Payment done → collapse payment, expand Upload Documents.
+                _updateStep(4);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Payment successful! Please upload your documents.'),
+                    backgroundColor: Color(0xff10B981),
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 12),
+            UploadDocumentsSection(
+              stepNumber: 4,
+              isCompleted: _currentStep > 4,
+              isActive: _currentStep == 4,
+              onBack: () => _updateStep(3),
+              onSubmit: _showSuccessDialog,
+            ),
             const SizedBox(height: 24),
           ],
         ),
@@ -261,10 +324,53 @@ class _VisaApplicationScreenState extends State<VisaApplicationScreen> with Tick
     );
   }
 
+  // Widget _buildFareSummary() {
+  //   final travellers = _formData['travellers'] ?? 1;
+  //   final basePrice = double.tryParse(widget.price) ?? 0;
+  //   final total = basePrice * travellers;
+  //
+  //   return Container(
+  //     padding: const EdgeInsets.all(12),
+  //     decoration: BoxDecoration(
+  //       color: Colors.white,
+  //       borderRadius: BorderRadius.circular(8),
+  //       boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8, offset: const Offset(0, 2))],
+  //     ),
+  //     child: Column(
+  //       crossAxisAlignment: CrossAxisAlignment.start,
+  //       children: [
+  //         Row(
+  //           children: [
+  //             const Text('Fare Summary', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+  //             const Spacer(),
+  //             Text('$travellers Traveller${travellers > 1 ? 's' : ''}',
+  //                 style: const TextStyle(fontSize: 10, color: Color(0xff0D47A1), fontWeight: FontWeight.w600)),
+  //           ],
+  //         ),
+  //         const SizedBox(height: 12),
+  //         _buildPriceRow('Base Fare', basePrice.toStringAsFixed(0)),
+  //         const SizedBox(height: 4),
+  //         _buildPriceRow('Taxes & charges', '0'),
+  //         const Divider(height: 12, color: Colors.grey),
+  //         Row(
+  //           mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  //           children: [
+  //             const Text('Grand Total', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+  //             Text('${widget.currency} ${total.toStringAsFixed(0)}',
+  //                 style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Color(0xffFF6B00))),
+  //           ],
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
   Widget _buildFareSummary() {
     final travellers = _formData['travellers'] ?? 1;
-    final basePrice = double.tryParse(widget.price) ?? 0;
+    // Use converted price if loaded, otherwise fallback to original
+    final basePrice = _isCurrencyLoaded ? _convertedPrice : (double.tryParse(widget.price) ?? 0);
+    final symbol = _isCurrencyLoaded ? _preferredSymbol : widget.currency;
     final total = basePrice * travellers;
+    final formattedTotal = total.toStringAsFixed(total % 1 == 0 ? 0 : 2);
 
     return Container(
       padding: const EdgeInsets.all(12),
@@ -285,7 +391,7 @@ class _VisaApplicationScreenState extends State<VisaApplicationScreen> with Tick
             ],
           ),
           const SizedBox(height: 12),
-          _buildPriceRow('Base Fare', basePrice.toStringAsFixed(0)),
+          _buildPriceRow('Base Fare', '${basePrice.toStringAsFixed(basePrice % 1 == 0 ? 0 : 2)}'),
           const SizedBox(height: 4),
           _buildPriceRow('Taxes & charges', '0'),
           const Divider(height: 12, color: Colors.grey),
@@ -293,7 +399,7 @@ class _VisaApplicationScreenState extends State<VisaApplicationScreen> with Tick
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text('Grand Total', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
-              Text('${widget.currency} ${total.toStringAsFixed(0)}',
+              Text('$symbol $formattedTotal',
                   style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Color(0xffFF6B00))),
             ],
           ),
@@ -303,6 +409,7 @@ class _VisaApplicationScreenState extends State<VisaApplicationScreen> with Tick
   }
 
   Widget _buildPriceRow(String label, String amount) {
+    final symbol = _isCurrencyLoaded ? _preferredSymbol : widget.currency;
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -313,7 +420,7 @@ class _VisaApplicationScreenState extends State<VisaApplicationScreen> with Tick
             Text(label, style: TextStyle(fontSize: 11, color: Colors.grey.shade700)),
           ],
         ),
-        Text(amount, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+        Text('$symbol $amount', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
       ],
     );
   }

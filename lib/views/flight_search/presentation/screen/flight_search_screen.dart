@@ -1,1672 +1,12 @@
-// import 'package:flutter/material.dart';
-// import 'package:flutter_bloc/flutter_bloc.dart';
-// import 'package:intl/intl.dart';
-// import 'package:wander_nova/UI_helper/responsive_layout.dart';
-// import '../../../../../injection_container.dart';
-// import '../../../../UI_helper/currency_converter.dart';
-// import '../../../../common_widgets/custom_bottom_nav.dart';
-// import '../../../../common_widgets/loadingScreen.dart';
-// import '../../../../common_widgets/logo.dart';
-// import '../../../../core/utils/storage/shared_preference.dart';
-// import '../../domain/entities/flight_entity.dart';
-// import '../../domain/entities/flight_search_request_entity.dart';
-// import '../bloc/flight_search_bloc.dart';
-// import '../bloc/flight_search_event.dart';
-// import '../bloc/flight_search_state.dart';
-// import 'detail_popup.dart';
-// import 'filter_drawer.dart';
-//
-// class FlightSearchScreen extends StatefulWidget {
-//   final String from;
-//   final String to;
-//   final String fromCode;
-//   final String toCode;
-//   final String fromAirport;
-//   final String toAirport;
-//   final DateTime? date;
-//   final int travellers;
-//   final int adults;
-//   final int children;
-//   final int infants;
-//   final String travelClass;
-//   final bool isRoundTrip;
-//   final DateTime? returnDate;
-//
-//   const FlightSearchScreen({
-//     super.key,
-//     required this.from,
-//     required this.to,
-//     required this.fromCode,
-//     required this.toCode,
-//     required this.fromAirport,
-//     required this.toAirport,
-//     required this.date,
-//     required this.travellers,
-//     required this.adults,
-//     required this.children,
-//     required this.infants,
-//     required this.travelClass,
-//     required this.isRoundTrip,
-//     this.returnDate,
-//   });
-//
-//   @override
-//   State<FlightSearchScreen> createState() => _FlightSearchScreenState();
-// }
-//
-// class _FlightSearchScreenState extends State<FlightSearchScreen>
-//     with SingleTickerProviderStateMixin {
-//   late FlightSearchBloc _flightSearchBloc;
-//   String _selectedSort = "Recommended";
-//   String _selectedFilter = "All Airlines";
-//   int currentIndex = 0;
-//   String _selectedTab = "Best Value";
-//   bool _isApiCalled = false;
-//   late TabController _tabController;
-//   late List<Map<String, dynamic>> _dateOptions;
-//
-//   // Filter state
-//   bool _showFilters = false;
-//   Set<String> _selectedAirlines = {};
-//   RangeValues _priceRange = const RangeValues(0, 50000);
-//   double _maxPrice = 50000;
-//
-//   // Stops filter
-//   int? _selectedStops; // null = all, 0 = non-stop, 1 = 1 stop, 2 = 2+ stops
-//
-//   void _initDateOptions() {
-//     final now = DateTime.now();
-//     _dateOptions = List.generate(7, (index) {
-//       final date = now.add(Duration(days: index));
-//       final dayFormat = DateFormat('EEE').format(date);
-//       final dateFormat = DateFormat('d MMM').format(date);
-//
-//       return {
-//         "day": dayFormat,
-//         "date": dateFormat,
-//         "price": 0, // You can fetch prices or keep as placeholder
-//         "selected": index == 0, // First date selected by default
-//         "dateTime": date, // Store actual DateTime object
-//       };
-//     });
-//   }
-//
-//   @override
-//   void initState() {
-//     super.initState();
-//     _flightSearchBloc = sl<FlightSearchBloc>();
-//     _tabController = TabController(length: 3, vsync: this);
-//     _triggerFlightSearch();
-//     _initDateOptions();
-//   }
-//
-//   @override
-//   void dispose() {
-//     _flightSearchBloc.close();
-//     _tabController.dispose();
-//     super.dispose();
-//   }
-//
-//   void _triggerFlightSearch() {
-//     if (_isApiCalled) return;
-//     _isApiCalled = true;
-//
-//     final request = _buildRequest();
-//     _flightSearchBloc.add(SearchFlightsEvent(request));
-//   }
-//
-//   void _onDateSelected(int selectedIndex, DateTime newDate) {
-//     // Update UI selection state
-//     for (var i = 0; i < _dateOptions.length; i++) {
-//       _dateOptions[i]["selected"] = i == selectedIndex;
-//     }
-//
-//     // Update the departure date in widget
-//     setState(() {
-//       // This will trigger a rebuild with the new selection
-//     });
-//
-//     // Create new request with updated date
-//     final updatedRequest = FlightSearchRequestEntity(
-//       endUserIp: '203.0.113.10',
-//       adultCount: widget.adults,
-//       childCount: widget.children,
-//       infantCount: widget.infants,
-//       journeyType: widget.isRoundTrip ? 2 : 1,
-//       segments: [
-//         FlightSegmentEntity(
-//           origin: widget.fromCode,
-//           destination: widget.toCode,
-//           flightCabinClass: _getCabinClassInt(widget.travelClass),
-//           preferredDepartureTime: _formatDateForAPI(newDate),
-//           preferredArrivalTime: _formatDateForAPI(newDate),
-//         ),
-//       ],
-//     );
-//
-//     // Add return segment if round trip
-//     if (widget.isRoundTrip && widget.returnDate != null) {
-//       updatedRequest.segments.add(
-//         FlightSegmentEntity(
-//           origin: widget.toCode,
-//           destination: widget.fromCode,
-//           flightCabinClass: _getCabinClassInt(widget.travelClass),
-//           preferredDepartureTime: _formatDateForAPI(widget.returnDate),
-//           preferredArrivalTime: _formatDateForAPI(widget.returnDate),
-//         ),
-//       );
-//     }
-//
-//     // Trigger new search
-//     _flightSearchBloc.add(SearchFlightsEvent(updatedRequest));
-//   }
-//
-//   FlightSearchRequestEntity _buildRequest() {
-//     final segments = <FlightSegmentEntity>[
-//       FlightSegmentEntity(
-//         origin: widget.fromCode,
-//         destination: widget.toCode,
-//         flightCabinClass: _getCabinClassInt(widget.travelClass),
-//         preferredDepartureTime: _formatDateForAPI(widget.date),
-//         preferredArrivalTime: _formatDateForAPI(widget.date),
-//       ),
-//     ];
-//
-//     if (widget.isRoundTrip && widget.returnDate != null) {
-//       segments.add(
-//         FlightSegmentEntity(
-//           origin: widget.toCode,
-//           destination: widget.fromCode,
-//           flightCabinClass: _getCabinClassInt(widget.travelClass),
-//           preferredDepartureTime: _formatDateForAPI(widget.returnDate),
-//           preferredArrivalTime: _formatDateForAPI(widget.returnDate),
-//         ),
-//       );
-//     }
-//
-//     return FlightSearchRequestEntity(
-//       endUserIp: '203.0.113.10',
-//       adultCount: widget.adults,
-//       childCount: widget.children,
-//       infantCount: widget.infants,
-//       journeyType: widget.isRoundTrip ? 2 : 1,
-//       segments: segments,
-//     );
-//   }
-//
-//   String _formatDateForAPI(DateTime? date) {
-//     if (date == null) return '';
-//     return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}T00:00:00';
-//   }
-//
-//   int _getCabinClassInt(String travelClass) {
-//     switch (travelClass.toLowerCase()) {
-//       case 'economy':
-//         return 2;
-//       case 'premium economy':
-//         return 3;
-//       case 'business':
-//         return 4;
-//       case 'first':
-//         return 5;
-//       default:
-//         return 2;
-//     }
-//   }
-//
-//   @override
-//   Widget build(BuildContext context) {
-//     return BlocProvider<FlightSearchBloc>(
-//       create: (_) => _flightSearchBloc,
-//       child: Scaffold(
-//         drawer: const FlightFilterDrawer(),
-//         appBar: AppBar(
-//           title: const WanderNovaLogo(scaleFactor: 0.6),
-//           backgroundColor: Colors.white,
-//           elevation: 0,
-//           actions: [
-//             Padding(
-//               padding: EdgeInsets.all(context.w(8)),
-//               child: Image.asset("assets/images/wander_nova_logo.jpg", height: context.h(35)),
-//             )
-//           ],
-//         ),
-//         backgroundColor: Colors.grey.shade50,
-//         body: BlocBuilder<FlightSearchBloc, FlightSearchState>(
-//           builder: (context, state) {
-//             if (state is FlightSearchLoading) {
-//               return ProfessionalLoadingScreen(
-//                 searchParams: {
-//                   'fromAirport': widget.fromAirport,
-//                   'toAirport': widget.toAirport,
-//                   'departureDate': widget.date,
-//                   'returnDate': widget.returnDate,
-//                   'adults': widget.adults,
-//                   'children': widget.children,
-//                   'infants': widget.infants,
-//                   'class': widget.travelClass,
-//                   'isRoundTrip': widget.isRoundTrip,
-//                 },
-//                 onLoadingComplete: () {},
-//               );
-//             }
-//
-//             if (state is FlightSearchError) {
-//               return _buildErrorState(state.message);
-//             }
-//
-//             if (state is FlightSearchLoaded) {
-//               _updateMaxPrice(state.flights);
-//               return _buildMainContent(state.flights);
-//             }
-//
-//             return _buildEmptyState();
-//           },
-//         ),
-//         bottomNavigationBar: const CustomBottomNav(
-//           currentIndex: 0,
-//         ),
-//       ),
-//     );
-//   }
-//
-//
-//   Widget _buildMainContent(List<FlightEntity> flights) {
-//     final filteredFlights = _applyAdvancedFilters(flights);
-//
-//     return Column(
-//       children: [
-//         _buildDateSelector(),
-//         // _buildSortAndFilterBar(),
-//         Expanded(
-//           child: _showFilters
-//               ? _buildFilterPanel(filteredFlights, flights)
-//               : _buildFlightList(filteredFlights),
-//         ),
-//       ],
-//     );
-//   }
-//
-//
-//   int _getMonthNumber(String monthAbbr) {
-//     const months = {
-//       'Jan': 1, 'Feb': 2, 'Mar': 3, 'Apr': 4, 'May': 5, 'Jun': 6,
-//       'Jul': 7, 'Aug': 8, 'Sep': 9, 'Oct': 10, 'Nov': 11, 'Dec': 12
-//     };
-//     return months[monthAbbr] ?? DateTime.now().month;
-//   }
-//
-//   String _formatDuration(int? minutes) {
-//     if (minutes == null || minutes == 0) return '0';
-//
-//     final hours = minutes ~/ 60;
-//     final remainingMinutes = minutes % 60;
-//
-//     if (hours > 0 && remainingMinutes > 0) {
-//       return '$hours hr $remainingMinutes min';
-//     } else if (hours > 0) {
-//       return '$hours hr';
-//     } else {
-//       return '$remainingMinutes min';
-//     }
-//   }
-//
-//   Widget _buildDateSelector() {
-//     return Container(
-//       color: Colors.white,
-//       padding: EdgeInsets.symmetric(vertical: context.h(8)),
-//       child: SizedBox(
-//         height: context.h(65),
-//         child: ListView.separated(
-//           scrollDirection: Axis.horizontal,
-//           padding: EdgeInsets.symmetric(horizontal: context.gapMedium),
-//           itemCount: _dateOptions.length,
-//           separatorBuilder: (context, index) => SizedBox(width: context.gapSmall),
-//           itemBuilder: (context, index) {
-//             final date = _dateOptions[index];
-//             final isSelected = date["selected"] as bool;
-//
-//             return GestureDetector(
-//               onTap: () {
-//                 // Parse the selected date from the date option
-//                 final dateStr = date["date"] as String;
-//                 final day = int.parse(dateStr.split(' ')[0]);
-//                 final month = _getMonthNumber(dateStr.split(' ')[1]);
-//                 final year = DateTime.now().year;
-//
-//                 final selectedDate = DateTime(year, month, day);
-//
-//                 // Call the date selection handler
-//                 _onDateSelected(index, selectedDate);
-//               },
-//               child: AnimatedContainer(
-//                 duration: const Duration(milliseconds: 200),
-//                 width: context.w(68),
-//                 decoration: BoxDecoration(
-//                   color: isSelected ? const Color(0xFF0A2463) : Colors.white,
-//                   borderRadius: BorderRadius.circular(context.borderRadius),
-//                   border: Border.all(
-//                     color: isSelected ? const Color(0xFF0A2463) : Colors.grey.shade200,
-//                     width: 1.5,
-//                   ),
-//                   boxShadow: isSelected
-//                       ? [BoxShadow(
-//                     color: const Color(0xFF0A2463).withOpacity(0.2),
-//                     blurRadius: 8,
-//                     offset: const Offset(0, 2),
-//                   )]
-//                       : null,
-//                 ),
-//                 child: Column(
-//                   mainAxisAlignment: MainAxisAlignment.center,
-//                   children: [
-//                     Text(
-//                       date["day"],
-//                       style: TextStyle(
-//                         fontSize: context.labelSmall,
-//                         fontWeight: FontWeight.w500,
-//                         color: isSelected ? Colors.white : Colors.grey.shade600,
-//                       ),
-//                     ),
-//                     SizedBox(height: context.gapXXSmall),
-//                     Text(
-//                       date["date"],
-//                       style: TextStyle(
-//                         fontSize: context.labelSmall,
-//                         fontWeight: FontWeight.w600,
-//                         color: isSelected ? Colors.white : Colors.grey.shade800,
-//                       ),
-//                     ),
-//                     // SizedBox(height: context.gapXXSmall),
-//                     // Text(
-//                     //   "₹${date["price"]}",
-//                     //   style: TextStyle(
-//                     //     fontSize: context.labelMedium,
-//                     //     fontWeight: FontWeight.bold,
-//                     //     color: isSelected ? Colors.white : const Color(0xFF00A859),
-//                     //   ),
-//                     // ),
-//                   ],
-//                 ),
-//               ),
-//             );
-//           },
-//         ),
-//       ),
-//     );
-//   }
-//
-//   String _convertFlightPrice(double amount, String? apiCurrency) {
-//     try {
-//       final prefs = sl<PreferencesManager>();
-//       final targetCurrency = prefs.getPreferredCurrency() ?? 'INR';
-//
-//       // Default to INR if no currency provided
-//       final fromCurrency = apiCurrency ?? 'INR';
-//
-//       // Skip conversion if same currency
-//       if (fromCurrency.toUpperCase() == targetCurrency.toUpperCase()) {
-//         return _formatPrice(amount.toInt());
-//       }
-//
-//       // Convert using cached rates
-//       final converted = CurrencyConverter.convert(
-//         amount: amount,
-//         fromCurrency: fromCurrency,
-//         toCurrency: targetCurrency,
-//       );
-//
-//       // Format based on target currency
-//       if (targetCurrency.toUpperCase() == 'INR') {
-//         return '₹${_formatIndianNumber(converted.toInt())}';
-//       }
-//
-//       final symbol = CurrencyConverter.getSymbol(targetCurrency);
-//       return '$symbol${converted.toStringAsFixed(0)}';
-//
-//     } catch (e) {
-//       print('FlightSearchScreen: Price conversion error: $e');
-//       return _formatPrice(amount.toInt());
-//     }
-//   }
-//
-//   String _formatIndianNumber(int num) {
-//     if (num < 1000) return num.toString();
-//     final str = num.toString();
-//     final lastThree = str.substring(str.length - 3);
-//     final remaining = str.substring(0, str.length - 3);
-//     var formatted = '';
-//     for (int i = 0; i < remaining.length; i++) {
-//       if (i > 0 && (remaining.length - i) % 2 == 0) {
-//         formatted += ',';
-//       }
-//       formatted += remaining[i];
-//     }
-//     return '$formatted,$lastThree';
-//   }
-//
-//   Widget _buildFilterPanel(List<FlightEntity> filteredFlights, List<FlightEntity> allFlights) {
-//     return Container(
-//       color: Colors.white,
-//       child: Column(
-//         children: [
-//           Container(
-//             padding: EdgeInsets.all(context.w(12)),
-//             child: Column(
-//               children: [
-//                 Row(
-//                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
-//                   children: [
-//                     Text(
-//                       'Filters',
-//                       style: TextStyle(
-//                         fontSize: context.titleMedium,
-//                         fontWeight: FontWeight.bold,
-//                       ),
-//                     ),
-//                     TextButton(
-//                       onPressed: () {
-//                         setState(() {
-//                           _selectedAirlines.clear();
-//                           _priceRange =  RangeValues(0, _maxPrice);
-//                           _selectedStops = null;
-//                         });
-//                       },
-//                       child: Text(
-//                         'Reset',
-//                         style: TextStyle(
-//                           color: const Color(0xFFFF3B30),
-//                           fontWeight: FontWeight.w600,
-//                         ),
-//                       ),
-//                     ),
-//                   ],
-//                 ),
-//                 SizedBox(height: context.gapMedium),
-//                 // Price Range
-//                 Column(
-//                   crossAxisAlignment: CrossAxisAlignment.start,
-//                   children: [
-//                     Text(
-//                       'Price Range',
-//                       style: TextStyle(
-//                         fontSize: context.titleSmall,
-//                         fontWeight: FontWeight.w600,
-//                       ),
-//                     ),
-//                     SizedBox(height: context.gapSmall),
-//                     RangeSlider(
-//                       values: _priceRange,
-//                       min: 0,
-//                       max: _maxPrice,
-//                       divisions: 100,
-//                       activeColor: const Color(0xFFFF3B30),
-//                       inactiveColor: Colors.grey.shade300,
-//                       labels: RangeLabels(
-//                         '₹${_priceRange.start.round()}',
-//                         '₹${_priceRange.end.round()}',
-//                       ),
-//                       onChanged: (values) {
-//                         setState(() {
-//                           _priceRange = values;
-//                         });
-//                       },
-//                     ),
-//                     Row(
-//                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-//                       children: [
-//                         Text(
-//                           '₹${_priceRange.start.round()}',
-//                           style: TextStyle(
-//                             fontSize: context.labelSmall,
-//                             color: Colors.grey.shade600,
-//                           ),
-//                         ),
-//                         Text(
-//                           '₹${_priceRange.end.round()}',
-//                           style: TextStyle(
-//                             fontSize: context.labelSmall,
-//                             color: Colors.grey.shade600,
-//                           ),
-//                         ),
-//                       ],
-//                     ),
-//                   ],
-//                 ),
-//                 SizedBox(height: context.gapLarge),
-//                 // Stops Filter
-//                 Column(
-//                   crossAxisAlignment: CrossAxisAlignment.start,
-//                   children: [
-//                     Text(
-//                       'Stops',
-//                       style: TextStyle(
-//                         fontSize: context.titleSmall,
-//                         fontWeight: FontWeight.w600,
-//                       ),
-//                     ),
-//                     SizedBox(height: context.gapSmall),
-//                     Row(
-//                       children: [
-//                         _buildStopOption("Any", null),
-//                         SizedBox(width: context.gapSmall),
-//                         _buildStopOption("Non-stop", 0),
-//                         SizedBox(width: context.gapSmall),
-//                         _buildStopOption("1 Stop", 1),
-//                         SizedBox(width: context.gapSmall),
-//                         _buildStopOption("2+ Stops", 2),
-//                       ],
-//                     ),
-//                   ],
-//                 ),
-//               ],
-//             ),
-//           ),
-//           Divider(height: 1, color: Colors.grey.shade200),
-//           Row(
-//             children: [
-//               Expanded(
-//                 child: TextButton(
-//                   onPressed: () => setState(() => _showFilters = false),
-//                   style: TextButton.styleFrom(
-//                     padding: EdgeInsets.symmetric(vertical: context.gapMedium),
-//                   ),
-//                   child: Text(
-//                     'Cancel',
-//                     style: TextStyle(
-//                       fontSize: context.titleSmall,
-//                       color: Colors.grey.shade600,
-//                     ),
-//                   ),
-//                 ),
-//               ),
-//               Container(
-//                 height: context.hp(5),
-//                 width: 1,
-//                 color: Colors.grey.shade200,
-//               ),
-//               Expanded(
-//                 child: TextButton(
-//                   onPressed: () => setState(() => _showFilters = false),
-//                   style: TextButton.styleFrom(
-//                     padding: EdgeInsets.symmetric(vertical: context.gapMedium),
-//                   ),
-//                   child: Text(
-//                     'Apply (${filteredFlights.length})',
-//                     style: TextStyle(
-//                       fontSize: context.titleSmall,
-//                       fontWeight: FontWeight.bold,
-//                       color: const Color(0xFFFF3B30),
-//                     ),
-//                   ),
-//                 ),
-//               ),
-//             ],
-//           ),
-//         ],
-//       ),
-//     );
-//   }
-//
-//   Widget _buildStopOption(String label, int? stops) {
-//     final isSelected = _selectedStops == stops;
-//     return Expanded(
-//       child: GestureDetector(
-//         onTap: () => setState(() => _selectedStops = stops),
-//         child: Container(
-//           padding: EdgeInsets.symmetric(vertical: context.h(8)),
-//           decoration: BoxDecoration(
-//             color: isSelected ? const Color(0xFFFF3B30).withOpacity(0.1) : Colors.transparent,
-//             borderRadius: BorderRadius.circular(context.borderRadius),
-//             border: Border.all(
-//               color: isSelected ? const Color(0xFFFF3B30) : Colors.grey.shade300,
-//             ),
-//           ),
-//           child: Center(
-//             child: Text(
-//               label,
-//               style: TextStyle(
-//                 fontSize: context.labelSmall,
-//                 fontWeight: FontWeight.w500,
-//                 color: isSelected ? const Color(0xFFFF3B30) : Colors.grey.shade700,
-//               ),
-//             ),
-//           ),
-//         ),
-//       ),
-//     );
-//   }
-//
-//   Widget _buildFlightList(List<FlightEntity> flights) {
-//     final filteredFlights = _applyFiltersAndSort(flights);
-//
-//     return CustomScrollView(
-//       slivers: [
-//         SliverToBoxAdapter(
-//           child: Padding(
-//             padding: EdgeInsets.symmetric(horizontal: context.gapMedium),
-//             child: _buildResultsHeader(filteredFlights.length, flights.length),
-//           ),
-//         ),
-//         SliverPadding(
-//           padding: EdgeInsets.symmetric(horizontal: context.gapMedium),
-//           sliver: SliverList(
-//             delegate: SliverChildBuilderDelegate(
-//                   (context, index) {
-//                 if (index == filteredFlights.length) {
-//                   return SizedBox(height: context.gapLarge);
-//                 }
-//                 return _buildEnhancedFlightCard(filteredFlights[index]);
-//               },
-//               childCount: filteredFlights.length,
-//             ),
-//           ),
-//         ),
-//       ],
-//     );
-//   }
-//
-//   // Widget _buildEnhancedFlightCard(FlightEntity flight) {
-//   //   return Container(
-//   //     margin: EdgeInsets.only(bottom: context.gapMedium),
-//   //     decoration: BoxDecoration(
-//   //       color: Colors.white,
-//   //       borderRadius: BorderRadius.circular(context.borderRadius),
-//   //       boxShadow: [
-//   //         BoxShadow(
-//   //           color: Colors.black.withOpacity(0.05),
-//   //           blurRadius: 10,
-//   //           offset: const Offset(0, 2),
-//   //         ),
-//   //       ],
-//   //     ),
-//   //     child: Material(
-//   //       color: Colors.transparent,
-//   //       child: InkWell(
-//   //         onTap: () => _showFlightDetails(flight),
-//   //         borderRadius: BorderRadius.circular(context.borderRadius),
-//   //         child: Padding(
-//   //           padding: EdgeInsets.all(context.w(12)),
-//   //           child: Column(
-//   //             children: [
-//   //               Row(
-//   //                 crossAxisAlignment: CrossAxisAlignment.start,
-//   //                 children: [
-//   //                   // Airline logo
-//   //                   Container(
-//   //                     width: context.wp(12),
-//   //                     height: context.wp(12),
-//   //                     decoration: BoxDecoration(
-//   //                       gradient: LinearGradient(
-//   //                         begin: Alignment.topLeft,
-//   //                         end: Alignment.bottomRight,
-//   //                         colors: [
-//   //                           const Color(0xFFFF3B30).withOpacity(0.15),
-//   //                           const Color(0xFFFF3B30).withOpacity(0.05),
-//   //                         ],
-//   //                       ),
-//   //                       borderRadius: BorderRadius.circular(context.borderRadius),
-//   //                     ),
-//   //                     child: Center(
-//   //                       child: Text(
-//   //                         flight.airlineCode?.substring(0, 2) ?? '--',
-//   //                         style: TextStyle(
-//   //                           fontSize: context.titleLarge,
-//   //                           fontWeight: FontWeight.bold,
-//   //                           color: const Color(0xFFFF3B30),
-//   //                         ),
-//   //                       ),
-//   //                     ),
-//   //                   ),
-//   //                   SizedBox(width: context.gapMedium),
-//   //
-//   //                   // Flight details
-//   //                   Expanded(
-//   //                     child: Column(
-//   //                       crossAxisAlignment: CrossAxisAlignment.start,
-//   //                       children: [
-//   //                         Row(
-//   //                           children: [
-//   //                             Text(
-//   //                               flight.airlineName ?? 'Unknown',
-//   //                               style: TextStyle(
-//   //                                 fontWeight: FontWeight.bold,
-//   //                                 fontSize: context.titleMedium,
-//   //                               ),
-//   //                             ),
-//   //                             SizedBox(width: context.gapSmall),
-//   //                             Container(
-//   //                               padding: EdgeInsets.symmetric(
-//   //                                 horizontal: context.gapXSmall,
-//   //                                 vertical: context.gapXXSmall,
-//   //                               ),
-//   //                               decoration: BoxDecoration(
-//   //                                 color: (flight.seatsAvailable ?? 9) > 5
-//   //                                     ? Colors.green.withOpacity(0.1)
-//   //                                     : Colors.orange.withOpacity(0.1),
-//   //                                 borderRadius: BorderRadius.circular(context.borderRadiusSmall),
-//   //                               ),
-//   //                               child: Text(
-//   //                                 (flight.seatsAvailable ?? 9) > 5 ? "Available" : "Few seats",
-//   //                                 style: TextStyle(
-//   //                                   fontSize: context.labelSmall,
-//   //                                   color: (flight.seatsAvailable ?? 9) > 5
-//   //                                       ? Colors.green.shade700
-//   //                                       : Colors.orange.shade700,
-//   //                                   fontWeight: FontWeight.w500,
-//   //                                 ),
-//   //                               ),
-//   //                             ),
-//   //                           ],
-//   //                         ),
-//   //                         SizedBox(height: context.gapSmall),
-//   //
-//   //                         // Time and route with enhanced design
-//   //                         Row(
-//   //                           children: [
-//   //                             Expanded(
-//   //                               child: Column(
-//   //                                 crossAxisAlignment: CrossAxisAlignment.start,
-//   //                                 children: [
-//   //                                   Text(
-//   //                                     _formatTime(flight.departureTime),
-//   //                                     style: TextStyle(
-//   //                                       fontSize: context.titleLarge,
-//   //                                       fontWeight: FontWeight.bold,
-//   //                                     ),
-//   //                                   ),
-//   //                                   SizedBox(height: context.gapXXSmall),
-//   //                                   Text(
-//   //                                     flight.origin ?? '--',
-//   //                                     style: TextStyle(
-//   //                                       fontSize: context.labelSmall,
-//   //                                       color: Colors.grey.shade600,
-//   //                                     ),
-//   //                                   ),
-//   //                                 ],
-//   //                               ),
-//   //                             ),
-//   //                             Expanded(
-//   //                               child: Column(
-//   //                                 children: [
-//   //                                   Text(
-//   //                                     _formatDuration(flight.duration != null ? int.tryParse(flight.duration!) : null),
-//   //                                     style: TextStyle(
-//   //                                       fontSize: context.labelSmall,
-//   //                                       color: Colors.grey.shade500,
-//   //                                     ),
-//   //                                   ),
-//   //                                   SizedBox(height: context.gapXXSmall),
-//   //                                   Stack(
-//   //                                     alignment: Alignment.center,
-//   //                                     children: [
-//   //                                       Container(
-//   //                                         width: double.infinity,
-//   //                                         height: 1,
-//   //                                         color: Colors.grey.shade300,
-//   //                                       ),
-//   //                                       Container(
-//   //                                         padding: EdgeInsets.all(context.gapXXSmall),
-//   //                                         decoration: BoxDecoration(
-//   //                                           color: Colors.white,
-//   //                                           shape: BoxShape.circle,
-//   //                                           border: Border.all(
-//   //                                             color: Colors.grey.shade300,
-//   //                                           ),
-//   //                                         ),
-//   //                                         child: Icon(
-//   //                                           Icons.flight_takeoff,
-//   //                                           size: context.iconXSmall,
-//   //                                           color: const Color(0xFFFF3B30),
-//   //                                         ),
-//   //                                       ),
-//   //                                     ],
-//   //                                   ),
-//   //                                   SizedBox(height: context.gapXXSmall),
-//   //                                   Text(
-//   //                                     'Non-stop',
-//   //                                     style: TextStyle(
-//   //                                       fontSize: context.labelSmall,
-//   //                                       color: Colors.green.shade600,
-//   //                                       fontWeight: FontWeight.w500,
-//   //                                     ),
-//   //                                   ),
-//   //                                 ],
-//   //                               ),
-//   //                             ),
-//   //                             Expanded(
-//   //                               child: Column(
-//   //                                 crossAxisAlignment: CrossAxisAlignment.end,
-//   //                                 children: [
-//   //                                   Text(
-//   //                                     _formatTime(flight.arrivalTime),
-//   //                                     style: TextStyle(
-//   //                                       fontSize: context.titleLarge,
-//   //                                       fontWeight: FontWeight.bold,
-//   //                                     ),
-//   //                                   ),
-//   //                                   SizedBox(height: context.gapXXSmall),
-//   //                                   Text(
-//   //                                     flight.destination ?? '--',
-//   //                                     style: TextStyle(
-//   //                                       fontSize: context.labelSmall,
-//   //                                       color: Colors.grey.shade600,
-//   //                                     ),
-//   //                                   ),
-//   //                                 ],
-//   //                               ),
-//   //                             ),
-//   //                           ],
-//   //                         ),
-//   //                       ],
-//   //                     ),
-//   //                   ),
-//   //                 ],
-//   //               ),
-//   //               SizedBox(height: context.gapMedium),
-//   //
-//   //               // Bottom section with price and booking
-//   //               Divider(height: 1, color: Colors.grey.shade200),
-//   //               SizedBox(height: context.gapMedium),
-//   //
-//   //               Row(
-//   //                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
-//   //                 children: [
-//   //                   // Fare type badge
-//   //                   Container(
-//   //                     padding: EdgeInsets.symmetric(
-//   //                       horizontal: context.gapSmall,
-//   //                       vertical: context.gapXXSmall,
-//   //                     ),
-//   //                     decoration: BoxDecoration(
-//   //                       color: const Color(0xFFFF3B30).withOpacity(0.1),
-//   //                       borderRadius: BorderRadius.circular(context.borderRadiusSmall),
-//   //                     ),
-//   //                     child: Row(
-//   //                       mainAxisSize: MainAxisSize.min,
-//   //                       children: [
-//   //                         Icon(
-//   //                           Icons.luggage_outlined,
-//   //                           size: context.iconXSmall,
-//   //                           color: const Color(0xFFFF3B30),
-//   //                         ),
-//   //                         SizedBox(width: context.gapXXSmall),
-//   //                         Text(
-//   //                           'Inclusive of taxes',
-//   //                           style: TextStyle(
-//   //                             fontSize: context.labelSmall,
-//   //                             color: const Color(0xFFFF3B30),
-//   //                             fontWeight: FontWeight.w500,
-//   //                           ),
-//   //                         ),
-//   //                       ],
-//   //                     ),
-//   //                   ),
-//   //
-//   //                   Row(
-//   //                     children: [
-//   //                       Column(
-//   //                         crossAxisAlignment: CrossAxisAlignment.end,
-//   //                         children: [
-//   //                           // Text(
-//   //                           //   "${flight.currency ?? '₹'} ${_formatPrice((flight.totalFare ?? 0).toInt())}",
-//   //                           //   style: TextStyle(
-//   //                           //     fontSize: context.titleLarge,
-//   //                           //     fontWeight: FontWeight.bold,
-//   //                           //     color: const Color(0xFFFF3B30),
-//   //                           //   ),
-//   //                           // ),
-//   //                           Text(
-//   //                             _convertFlightPrice((flight.totalFare ?? 0).toDouble(), flight.currency),
-//   //                             style: TextStyle(
-//   //                               fontSize: context.titleLarge,
-//   //                               fontWeight: FontWeight.bold,
-//   //                               color: const Color(0xFFFF3B30),
-//   //                             ),
-//   //                           ),
-//   //                           Text(
-//   //                             'per passenger',
-//   //                             style: TextStyle(
-//   //                               fontSize: context.labelSmall,
-//   //                               color: Colors.grey.shade600,
-//   //                             ),
-//   //                           ),
-//   //                         ],
-//   //                       ),
-//   //                       SizedBox(width: context.gapSmall),
-//   //                       Container(
-//   //                         decoration: BoxDecoration(
-//   //                           gradient: const LinearGradient(
-//   //                             colors: [Color(0xFFFF3B30), Color(0xFFFF6B4A)],
-//   //                           ),
-//   //                           borderRadius: BorderRadius.circular(context.borderRadius),
-//   //                         ),
-//   //                         child: ElevatedButton(
-//   //                           onPressed: () => _showFlightDetails(flight),
-//   //                           style: ElevatedButton.styleFrom(
-//   //                             backgroundColor: Colors.transparent,
-//   //                             shadowColor: Colors.transparent,
-//   //                             padding: EdgeInsets.symmetric(
-//   //                               horizontal: context.gapLarge,
-//   //                               vertical: context.gapSmall,
-//   //                             ),
-//   //                             shape: RoundedRectangleBorder(
-//   //                               borderRadius: BorderRadius.circular(context.borderRadius),
-//   //                             ),
-//   //                           ),
-//   //                           child: Text(
-//   //                             "View Details",
-//   //                             style: TextStyle(
-//   //                               fontWeight: FontWeight.w600,
-//   //                               fontSize: context.labelMedium,
-//   //                               color: Colors.white,
-//   //                             ),
-//   //                           ),
-//   //                         ),
-//   //                       ),
-//   //                     ],
-//   //                   ),
-//   //                 ],
-//   //               ),
-//   //             ],
-//   //           ),
-//   //         ),
-//   //       ),
-//   //     ),
-//   //   );
-//   // }
-//
-//
-//   Widget _buildEnhancedFlightCard(FlightEntity flight) {
-//     return Container(
-//       margin: EdgeInsets.only(bottom: context.h(8)),
-//       decoration: BoxDecoration(
-//         color: Colors.white,
-//         borderRadius: BorderRadius.circular(12),
-//         boxShadow: [
-//           BoxShadow(
-//             color: Colors.black.withOpacity(0.06),
-//             blurRadius: 8,
-//             offset: const Offset(0, 2),
-//           ),
-//         ],
-//       ),
-//       child: Material(
-//         color: Colors.transparent,
-//         child: InkWell(
-//           onTap: () => _showFlightDetails(flight),
-//           borderRadius: BorderRadius.circular(12),
-//           child: Padding(
-//             padding: EdgeInsets.fromLTRB(context.w(12), context.h(12), context.w(12), context.h(8)),
-//             child: Column(
-//               crossAxisAlignment: CrossAxisAlignment.start,
-//               children: [
-//                 // Header - Airline Info
-//                 Row(
-//                   children: [
-//                     Container(
-//                       width: context.w(36),
-//                       height:  context.w(36),
-//                       decoration: BoxDecoration(
-//                         gradient: LinearGradient(
-//                           colors: [
-//                             const Color(0xFFFF3B30).withOpacity(0.2),
-//                             const Color(0xFFFF3B30).withOpacity(0.05),
-//                           ],
-//                         ),
-//                         borderRadius: BorderRadius.circular(8),
-//                       ),
-//                       child: Center(
-//                         child: Text(
-//                           flight.airlineCode?.substring(0, 2).toUpperCase() ?? 'AI',
-//                           style: TextStyle(
-//                             fontSize: 14,
-//                             fontWeight: FontWeight.bold,
-//                             color: const Color(0xFFFF3B30),
-//                           ),
-//                         ),
-//                       ),
-//                     ),
-//                     SizedBox(width: 10),
-//                     Expanded(
-//                       child: Column(
-//                         crossAxisAlignment: CrossAxisAlignment.start,
-//                         children: [
-//                           Text(
-//                             flight.airlineName ?? 'Airline',
-//                             style: TextStyle(
-//                               fontWeight: FontWeight.w600,
-//                               fontSize: 15,
-//                               color: Colors.black87,
-//                             ),
-//                           ),
-//                           Text(
-//                             'Flight ${flight.flightNumber ?? ''}',
-//                             style: TextStyle(
-//                               fontSize: 12,
-//                               color: Colors.grey.shade600,
-//                             ),
-//                           ),
-//                         ],
-//                       ),
-//                     ),
-//                     // Price
-//                     Text(
-//                       _convertFlightPrice((flight.totalFare ?? 0).toDouble(), flight.currency),
-//                       style: TextStyle(
-//                         fontSize: context.fs(20),
-//                         fontWeight: FontWeight.bold,
-//                         color: const Color(0xFF0A2463),
-//                       ),
-//                     ),
-//                   ],
-//                 ),
-//
-//                 SizedBox(height: 12),
-//
-//                 // Flight Times - Main Row
-//                 // Row(
-//                 //   children: [
-//                 //     // Departure
-//                 //     Expanded(
-//                 //       flex: 2,
-//                 //       child: Column(
-//                 //         crossAxisAlignment: CrossAxisAlignment.start,
-//                 //         children: [
-//                 //           Text(
-//                 //             _formatTime(flight.departureTime),
-//                 //             style: TextStyle(
-//                 //               fontSize: context.fs(24),
-//                 //               fontWeight: FontWeight.bold,
-//                 //               color: Colors.black87,
-//                 //             ),
-//                 //           ),
-//                 //           Text(
-//                 //             flight.originName ?? flight.origin ?? '',  // Use airport name, fallback to code
-//                 //             style: TextStyle(
-//                 //               fontSize: context.fs(13),  // Responsive font size
-//                 //               color: Colors.grey.shade600,
-//                 //               fontWeight: FontWeight.w500,
-//                 //             ),
-//                 //             maxLines: 1,
-//                 //             overflow: TextOverflow.ellipsis,  // Handle long names
-//                 //           ),
-//                 //           // Text(
-//                 //           //   flight.origin ?? '',
-//                 //           //   style: TextStyle(
-//                 //           //     fontSize: 13,
-//                 //           //     color: Colors.grey.shade600,
-//                 //           //     fontWeight: FontWeight.w500,
-//                 //           //   ),
-//                 //           // ),
-//                 //         ],
-//                 //       ),
-//                 //     ),
-//                 //
-//                 //     // Duration & Line
-//                 //     Expanded(
-//                 //       flex: 2,
-//                 //       child: Column(
-//                 //         children: [
-//                 //           Row(
-//                 //             mainAxisAlignment: MainAxisAlignment.center,
-//                 //             children: [
-//                 //               Container(
-//                 //                 width: 6,
-//                 //                 height: 6,
-//                 //                 decoration: BoxDecoration(
-//                 //                   color: const Color(0xFFFF3B30),
-//                 //                   shape: BoxShape.circle,
-//                 //                 ),
-//                 //               ),
-//                 //               Expanded(
-//                 //                 child: Container(
-//                 //                   height: 2,
-//                 //                   decoration: BoxDecoration(
-//                 //                     gradient: LinearGradient(
-//                 //                       colors: [
-//                 //                         const Color(0xFFFF3B30).withOpacity(0.3),
-//                 //                         const Color(0xFFFF3B30).withOpacity(0.6),
-//                 //                       ],
-//                 //                     ),
-//                 //                   ),
-//                 //                 ),
-//                 //               ),
-//                 //               Icon(
-//                 //                 Icons.flight,
-//                 //                 size: 16,
-//                 //                 color: const Color(0xFFFF3B30),
-//                 //               ),
-//                 //               Expanded(
-//                 //                 child: Container(
-//                 //                   height: 2,
-//                 //                   decoration: BoxDecoration(
-//                 //                     gradient: LinearGradient(
-//                 //                       colors: [
-//                 //                         const Color(0xFFFF3B30).withOpacity(0.6),
-//                 //                         const Color(0xFFFF3B30).withOpacity(0.3),
-//                 //                       ],
-//                 //                     ),
-//                 //                   ),
-//                 //                 ),
-//                 //               ),
-//                 //               Container(
-//                 //                 width: 6,
-//                 //                 height: 6,
-//                 //                 decoration: BoxDecoration(
-//                 //                   color: const Color(0xFFFF3B30),
-//                 //                   shape: BoxShape.circle,
-//                 //                 ),
-//                 //               ),
-//                 //             ],
-//                 //           ),
-//                 //           SizedBox(height: 4),
-//                 //           Text(
-//                 //             _formatDuration(flight.duration != null ? int.tryParse(flight.duration!) : null),
-//                 //             style: TextStyle(
-//                 //               fontSize: 12,
-//                 //               color: Colors.grey.shade700,
-//                 //               fontWeight: FontWeight.w600,
-//                 //             ),
-//                 //           ),
-//                 //           Text(
-//                 //             'Non-stop',
-//                 //             style: TextStyle(
-//                 //               fontSize: 11,
-//                 //               color: Colors.green.shade600,
-//                 //               fontWeight: FontWeight.w500,
-//                 //             ),
-//                 //           ),
-//                 //         ],
-//                 //       ),
-//                 //     ),
-//                 //
-//                 //     // Arrival
-//                 //     Expanded(
-//                 //       flex: 2,
-//                 //       child: Column(
-//                 //         crossAxisAlignment: CrossAxisAlignment.end,
-//                 //         children: [
-//                 //           Text(
-//                 //             _formatTime(flight.arrivalTime),
-//                 //             style: TextStyle(
-//                 //               fontSize: context.fs(24),
-//                 //               fontWeight: FontWeight.bold,
-//                 //               color: Colors.black87,
-//                 //             ),
-//                 //           ),
-//                 //           Text(
-//                 //             flight.destinationName ?? flight.destination ?? '',  // Use airport name, fallback to code
-//                 //             style: TextStyle(
-//                 //               fontSize: context.fs(13),  // Responsive font size
-//                 //               color: Colors.grey.shade600,
-//                 //               fontWeight: FontWeight.w500,
-//                 //             ),
-//                 //             maxLines: 1,
-//                 //             overflow: TextOverflow.ellipsis,  // Handle long names
-//                 //           ),
-//                 //           // Text(
-//                 //           //   flight.destination ?? '',
-//                 //           //   style: TextStyle(
-//                 //           //     fontSize: 13,
-//                 //           //     color: Colors.grey.shade600,
-//                 //           //     fontWeight: FontWeight.w500,
-//                 //           //   ),
-//                 //           // ),
-//                 //         ],
-//                 //       ),
-//                 //     ),
-//                 //   ],
-//                 // ),
-// // Flight Times - Main Row (More Responsive)
-//                 LayoutBuilder(
-//                   builder: (context, constraints) {
-//                     bool isSmallScreen = constraints.maxWidth < 350;
-//
-//                     return Row(
-//                       children: [
-//                         // Departure
-//                         Expanded(
-//                           flex: 2,
-//                           child: Column(
-//                             crossAxisAlignment: CrossAxisAlignment.start,
-//                             children: [
-//                               Text(
-//                                 _formatTime(flight.departureTime),
-//                                 style: TextStyle(
-//                                   fontSize: context.fs(isSmallScreen ? 20 : 24),
-//                                   fontWeight: FontWeight.bold,
-//                                   color: Colors.black87,
-//                                 ),
-//                               ),
-//                               SizedBox(height: context.h(2)),
-//                               Text(
-//                                 flight.originName ?? flight.origin ?? '',
-//                                 style: TextStyle(
-//                                   fontSize: context.fs(isSmallScreen ? 11 : 13),
-//                                   color: Colors.grey.shade600,
-//                                   fontWeight: FontWeight.w500,
-//                                 ),
-//                                 maxLines: 1,
-//                                 overflow: TextOverflow.ellipsis,
-//                               ),
-//                             ],
-//                           ),
-//                         ),
-//
-//                         // Duration & Line
-//                         Expanded(
-//                           flex: isSmallScreen ? 3 : 2,
-//                           child: Column(
-//                             children: [
-//                               Row(
-//                                 mainAxisAlignment: MainAxisAlignment.center,
-//                                 children: [
-//                                   Container(
-//                                     width: context.w(6),
-//                                     height: context.h(6),
-//                                     decoration: BoxDecoration(
-//                                       color: const Color(0xFFFF3B30),
-//                                       shape: BoxShape.circle,
-//                                     ),
-//                                   ),
-//                                   Expanded(
-//                                     child: Container(
-//                                       height: 2,
-//                                       decoration: BoxDecoration(
-//                                         gradient: LinearGradient(
-//                                           colors: [
-//                                             const Color(0xFFFF3B30).withOpacity(0.3),
-//                                             const Color(0xFFFF3B30).withOpacity(0.6),
-//                                           ],
-//                                         ),
-//                                       ),
-//                                     ),
-//                                   ),
-//                                   Icon(
-//                                     Icons.flight,
-//                                     size: context.w(isSmallScreen ? 14 : 16),
-//                                     color: const Color(0xFFFF3B30),
-//                                   ),
-//                                   Expanded(
-//                                     child: Container(
-//                                       height: 2,
-//                                       decoration: BoxDecoration(
-//                                         gradient: LinearGradient(
-//                                           colors: [
-//                                             const Color(0xFFFF3B30).withOpacity(0.6),
-//                                             const Color(0xFFFF3B30).withOpacity(0.3),
-//                                           ],
-//                                         ),
-//                                       ),
-//                                     ),
-//                                   ),
-//                                   Container(
-//                                     width: context.w(6),
-//                                     height: context.h(6),
-//                                     decoration: BoxDecoration(
-//                                       color: const Color(0xFFFF3B30),
-//                                       shape: BoxShape.circle,
-//                                     ),
-//                                   ),
-//                                 ],
-//                               ),
-//                               SizedBox(height: context.h(4)),
-//                               Text(
-//                                 _formatDuration(flight.duration != null ? int.tryParse(flight.duration!) : null),
-//                                 style: TextStyle(
-//                                   fontSize: context.fs(isSmallScreen ? 11 : 12),
-//                                   color: Colors.grey.shade700,
-//                                   fontWeight: FontWeight.w600,
-//                                 ),
-//                               ),
-//                               Text(
-//                                 'Non-stop',
-//                                 style: TextStyle(
-//                                   fontSize: context.fs(isSmallScreen ? 10 : 11),
-//                                   color: Colors.green.shade600,
-//                                   fontWeight: FontWeight.w500,
-//                                 ),
-//                               ),
-//                             ],
-//                           ),
-//                         ),
-//
-//                         // Arrival
-//                         Expanded(
-//                           flex: 2,
-//                           child: Column(
-//                             crossAxisAlignment: CrossAxisAlignment.end,
-//                             children: [
-//                               Text(
-//                                 _formatTime(flight.arrivalTime),
-//                                 style: TextStyle(
-//                                   fontSize: context.fs(isSmallScreen ? 20 : 24),
-//                                   fontWeight: FontWeight.bold,
-//                                   color: Colors.black87,
-//                                 ),
-//                               ),
-//                               SizedBox(height: context.h(2)),
-//                               Text(
-//                                 flight.destinationName ?? flight.destination ?? '',
-//                                 style: TextStyle(
-//                                   fontSize: context.fs(isSmallScreen ? 11 : 13),
-//                                   color: Colors.grey.shade600,
-//                                   fontWeight: FontWeight.w500,
-//                                 ),
-//                                 maxLines: 1,
-//                                 overflow: TextOverflow.ellipsis,
-//                               ),
-//                             ],
-//                           ),
-//                         ),
-//                       ],
-//                     );
-//                   },
-//                 ),
-//                 SizedBox(height: 10),
-//
-//                 // Promotional Offers
-//                 // Container(
-//                 //   padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-//                 //   decoration: BoxDecoration(
-//                 //     color: const Color(0xFF00A859).withOpacity(0.08),
-//                 //     borderRadius: BorderRadius.circular(6),
-//                 //   ),
-//                 //   child: Row(
-//                 //     children: [
-//                 //       Icon(
-//                 //         Icons.local_offer_outlined,
-//                 //         size: 14,
-//                 //         color: const Color(0xFF00A859),
-//                 //       ),
-//                 //       SizedBox(width: 6),
-//                 //       Expanded(
-//                 //         child: Text(
-//                 //           'Get Flat ₹ 370 OFF using code MMTSUPER',
-//                 //           style: TextStyle(
-//                 //             fontSize: 11,
-//                 //             color: const Color(0xFF00A859),
-//                 //             fontWeight: FontWeight.w600,
-//                 //           ),
-//                 //           maxLines: 1,
-//                 //           overflow: TextOverflow.ellipsis,
-//                 //         ),
-//                 //       ),
-//                 //     ],
-//                 //   ),
-//                 // ),
-//
-//                 // SizedBox(height: 6),
-//                 //
-//                 // Row(
-//                 //   children: [
-//                 //     Icon(
-//                 //       Icons.event_seat_outlined,
-//                 //       size: 14,
-//                 //       color: Colors.grey.shade600,
-//                 //     ),
-//                 //     SizedBox(width: 6),
-//                 //     Text(
-//                 //       'Free Seat with VISA Signature*',
-//                 //       style: TextStyle(
-//                 //         fontSize: 11,
-//                 //         color: Colors.grey.shade600,
-//                 //       ),
-//                 //     ),
-//                 //   ],
-//                 // ),
-//                 //
-//                 // SizedBox(height: 8),
-//
-//                 // Lock Price Button
-//                 Container(
-//                   width: double.infinity,
-//                   decoration: BoxDecoration(
-//                     gradient: LinearGradient(
-//                       colors: [
-//                         const Color(0xFF1976D2).withOpacity(0.1),
-//                         const Color(0xFF1976D2).withOpacity(0.05),
-//                       ],
-//                     ),
-//                     borderRadius: BorderRadius.circular(8),
-//                     border: Border.all(
-//                       color: const Color(0xFF1976D2).withOpacity(0.3),
-//                       width: 1,
-//                     ),
-//                   ),
-//                   child: Material(
-//                     color: Colors.transparent,
-//                     child: InkWell(
-//                       onTap: () => _showFlightDetails(flight),
-//                       borderRadius: BorderRadius.circular(8),
-//                       child: Padding(
-//                         padding: EdgeInsets.symmetric(vertical: 10),
-//                         child: Row(
-//                           mainAxisAlignment: MainAxisAlignment.center,
-//                           mainAxisSize: MainAxisSize.min,
-//                           children: [
-//                             Icon(
-//                               Icons.lock_outline,
-//                               size: 16,
-//                               color: const Color(0xFF1976D2),
-//                             ),
-//                             SizedBox(width: 8),
-//                             Text(
-//                               'View Price Detail',
-//                               style: TextStyle(
-//                                 fontSize: 13,
-//                                 fontWeight: FontWeight.w600,
-//                                 color: const Color(0xFF1976D2),
-//                               ),
-//                             ),
-//                             SizedBox(width: 8),
-//                             Icon(
-//                               Icons.arrow_forward_ios,
-//                               size: 12,
-//                               color: const Color(0xFF1976D2),
-//                             ),
-//                           ],
-//                         ),
-//                       ),
-//                     ),
-//                   ),
-//                 ),
-//               ],
-//             ),
-//           ),
-//         ),
-//       ),
-//     );
-//   }
-//
-//   void _showFlightDetails(FlightEntity flight) {
-//     FlightDetailsPopup.show(
-//       context,
-//       airlineName: flight.airlineName ?? "Unknown",
-//       airlineCode: flight.airlineName ?? "--",
-//       flightNumber: flight.flightNumber ?? "--",
-//       fromCode: flight.origin ?? "--",
-//       toCode: flight.destination ?? "--",
-//       departureTime: _formatTime(flight.departureTime),
-//       arrivalTime: _formatTime(flight.arrivalTime),
-//       traceId: flight.traceId,
-//       resultIndex: flight.resultIndex,
-//       duration: "${flight.duration ?? '--'} min",
-//       // price: _formatPrice((flight.totalFare ?? 0).toInt()),
-//       price: _convertFlightPrice((flight.totalFare ?? 0).toDouble(), flight.currency),
-//     );
-//   }
-//
-//   List<FlightEntity> _applyAdvancedFilters(List<FlightEntity> flights) {
-//     var result = List<FlightEntity>.from(flights);
-//
-//     // Filter by price range
-//     result = result.where((f) {
-//       final price = f.totalFare ?? 0;
-//       return price >= _priceRange.start && price <= _priceRange.end;
-//     }).toList();
-//
-//     // Filter by stops (you'll need to add stops info to FlightEntity)
-//     if (_selectedStops != null) {
-//       // Add stops filtering logic based on your data structure
-//     }
-//
-//     // Apply sort and other filters
-//     return _applyFiltersAndSort(result);
-//   }
-//
-//   List<FlightEntity> _applyFiltersAndSort(List<FlightEntity> flights) {
-//     var result = List<FlightEntity>.from(flights);
-//
-//     if (_selectedFilter != "All Airlines" && _selectedFilter.isNotEmpty) {
-//       result = result
-//           .where((f) => f.airlineName?.toLowerCase() == _selectedFilter.toLowerCase())
-//           .toList();
-//     }
-//
-//     if (_selectedSort == "Price: Low to High") {
-//       result.sort((a, b) => (a.totalFare ?? 0).compareTo(b.totalFare ?? 0));
-//     } else if (_selectedSort == "Price: High to Low") {
-//       result.sort((a, b) => (b.totalFare ?? 0).compareTo(a.totalFare ?? 0));
-//     } else if (_selectedSort == "Duration: Shortest") {
-//       result.sort((a, b) {
-//         int aDur = int.tryParse(a.duration ?? '0') ?? 9999;
-//         int bDur = int.tryParse(b.duration ?? '0') ?? 9999;
-//         return aDur.compareTo(bDur);
-//       });
-//     } else if (_selectedSort == "Departure: Earliest") {
-//       result.sort((a, b) => (a.departureTime ?? '').compareTo(b.departureTime ?? ''));
-//     }
-//
-//     return result;
-//   }
-//
-//   void _updateMaxPrice(List<FlightEntity> flights) {
-//     final maxPrice = flights.fold<double>(
-//       0,
-//           (max, f) => (f.totalFare ?? 0) > max ? (f.totalFare ?? 0) : max,
-//     );
-//     if (maxPrice > _maxPrice) {
-//       setState(() {
-//         _maxPrice = maxPrice;
-//         _priceRange = RangeValues(0, maxPrice);
-//       });
-//     }
-//   }
-//
-//
-//   Widget _buildResultsHeader(int showing, int total) {
-//     return Padding(
-//       padding: EdgeInsets.symmetric(vertical: context.h(8)),
-//       child: Row(
-//         mainAxisAlignment: MainAxisAlignment.spaceBetween,
-//         children: [
-//           Text(
-//             "$showing of $total Flights",
-//             style: TextStyle(
-//               fontSize: context.labelMedium,
-//               fontWeight: FontWeight.w500,
-//               color: Colors.grey.shade600,
-//             ),
-//           ),
-//         ],
-//       ),
-//     );
-//   }
-//
-//   Widget _buildErrorState(String message) {
-//     return Center(
-//       child: Padding(
-//         padding: context.horizontalPadding,
-//         child: Column(
-//           mainAxisAlignment: MainAxisAlignment.center,
-//           children: [
-//             Icon(Icons.error_outline, size: context.iconXLarge, color: Colors.red.shade400),
-//             SizedBox(height: context.gapLarge),
-//             Text(
-//               'Failed to load flights',
-//               style: TextStyle(fontSize: context.titleLarge, fontWeight: FontWeight.w600),
-//             ),
-//             SizedBox(height: context.gapSmall),
-//             Text(
-//               message,
-//               textAlign: TextAlign.center,
-//               style: TextStyle(fontSize: context.bodyMedium, color: Colors.grey.shade600),
-//             ),
-//             SizedBox(height: context.gapXLarge),
-//             ElevatedButton(
-//               onPressed: _triggerFlightSearch,
-//               style: ElevatedButton.styleFrom(
-//                 backgroundColor: const Color(0xFFFF3B30),
-//                 padding: EdgeInsets.symmetric(
-//                   horizontal: context.buttonWidth,
-//                   vertical: context.gapMedium,
-//                 ),
-//                 shape: RoundedRectangleBorder(
-//                   borderRadius: BorderRadius.circular(context.borderRadius),
-//                 ),
-//               ),
-//               child: const Text('Retry', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-//             ),
-//           ],
-//         ),
-//       ),
-//     );
-//   }
-//
-//   Widget _buildEmptyState() {
-//     return Center(
-//       child: Column(
-//         mainAxisAlignment: MainAxisAlignment.center,
-//         children: [
-//           Icon(Icons.flight_takeoff, size: context.iconXLarge * 1.5, color: Colors.grey.shade400),
-//           SizedBox(height: context.gapLarge),
-//           Text(
-//             'Search for flights',
-//             style: TextStyle(fontSize: context.titleLarge, fontWeight: FontWeight.w600),
-//           ),
-//           SizedBox(height: context.gapSmall),
-//           Text(
-//             'Enter your travel details to find the best flights',
-//             textAlign: TextAlign.center,
-//             style: TextStyle(fontSize: context.bodyMedium, color: Colors.grey.shade600),
-//           ),
-//         ],
-//       ),
-//     );
-//   }
-//
-//   String _formatTime(String? isoTime) {
-//     if (isoTime == null || isoTime.isEmpty) return '--:--';
-//     try {
-//       final dt = DateTime.parse(isoTime);
-//       return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
-//     } catch (_) {
-//       return isoTime;
-//     }
-//   }
-//
-//   String _formatPrice(int price) {
-//     return price.toString().replaceAllMapped(
-//       RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-//           (Match m) => '${m[1]},',
-//     );
-//   }
-//
-//
-//   String _getMonthAbbr(int month) {
-//     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-//     return months[month - 1];
-//   }
-// }
+import 'dart:math' as math;
+import 'dart:ui' as ui;
 
-
-
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
+import 'package:wander_nova/core/resources/app_colours.dart';
 import '../../../../../injection_container.dart';
 import '../../../../UI_helper/currency_converter.dart';
 import '../../../../common_widgets/custom_bottom_nav.dart';
@@ -1681,6 +21,37 @@ import '../bloc/flight_search_state.dart';
 import 'detail_popup.dart';
 import 'filter_drawer.dart';
 
+// ---------------------------------------------------------------------------
+// Group model
+// ---------------------------------------------------------------------------
+class _FlightGroup {
+  final FlightEntity primary;
+  final List<FlightEntity> extras;
+  final String key;
+
+  _FlightGroup({required this.primary, required this.extras, required this.key});
+
+  int get totalCount => 1 + extras.length;
+}
+
+// ---------------------------------------------------------------------------
+// Offer model (MMT-style promo cards)
+// ---------------------------------------------------------------------------
+class _FlightOffer {
+  final String title;
+  final String code;
+  final IconData icon;
+
+  const _FlightOffer({
+    required this.title,
+    required this.code,
+    required this.icon,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Screen
+// ---------------------------------------------------------------------------
 class FlightSearchScreen extends StatefulWidget {
   final String from;
   final String to;
@@ -1699,10 +70,19 @@ class FlightSearchScreen extends StatefulWidget {
 
   const FlightSearchScreen({
     super.key,
-    required this.from, required this.to, required this.fromCode, required this.toCode,
-    required this.fromAirport, required this.toAirport, required this.date,
-    required this.travellers, required this.adults, required this.children,
-    required this.infants, required this.travelClass, required this.isRoundTrip,
+    required this.from,
+    required this.to,
+    required this.fromCode,
+    required this.toCode,
+    required this.fromAirport,
+    required this.toAirport,
+    required this.date,
+    required this.travellers,
+    required this.adults,
+    required this.children,
+    required this.infants,
+    required this.travelClass,
+    required this.isRoundTrip,
     this.returnDate,
   });
 
@@ -1710,49 +90,60 @@ class FlightSearchScreen extends StatefulWidget {
   State<FlightSearchScreen> createState() => _FlightSearchScreenState();
 }
 
-class _FlightSearchScreenState extends State<FlightSearchScreen> with SingleTickerProviderStateMixin {
+class _FlightSearchScreenState extends State<FlightSearchScreen> {
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
   late FlightSearchBloc _flightSearchBloc;
-  String _selectedSort = "Recommended";
-  String _selectedFilter = "All Airlines";
-  int currentIndex = 0;
-  String _selectedTab = "Best Value";
-  bool _isApiCalled = false;
-  late TabController _tabController;
-  late List<Map<String, dynamic>> _dateOptions;
 
-  bool _showFilters = false;
-  Set<String> _selectedAirlines = {};
+  // filter & sort state
+  String _selectedSort = "Recommended";
   RangeValues _priceRange = const RangeValues(0, 50000);
   double _maxPrice = 50000;
-  int? _selectedStops;
+  double _minPrice = 0;
+  Set<String> _selectedAirlines = {};
+  Set<String> _selectedDepartureTimes = {};
+  Set<String> _selectedArrivalTimes = {};
+  bool _filterRefundable = false;
+  bool _filterNonRefundable = false;
 
-  void _initDateOptions() {
-    final now = DateTime.now();
-    _dateOptions = List.generate(7, (index) {
-      final date = now.add(Duration(days: index));
-      return {
-        "day": DateFormat('EEE').format(date),
-        "date": DateFormat('d MMM').format(date),
-        "price": 0,
-        "selected": index == 0,
-        "dateTime": date,
-      };
-    });
-  }
+  // cached flight list for the drawer
+  List<FlightEntity> _allFlights = [];
+
+  // expanded groups
+  final Set<String> _expandedGroups = {};
+
+  bool _isApiCalled = false;
+  int currentIndex = 0;
+
+  // Horizontally scrollable date strip (MMT style)
+  DateTime? _selectedDate;
+  DateTime? _returnDate;
+  final ScrollController _dateScrollController = ScrollController();
+  bool _didInitialDateScroll = false;
+  static const int _dateStripDays = 30;
+
+  static const _sortOptions = [
+    "Recommended",
+    "Price: Low to High",
+    "Price: High to Low",
+    "Duration: Shortest",
+    "Departure: Earliest",
+  ];
 
   @override
   void initState() {
     super.initState();
     _flightSearchBloc = sl<FlightSearchBloc>();
-    _tabController = TabController(length: 3, vsync: this);
+    _selectedDate = widget.date != null
+        ? DateUtils.dateOnly(widget.date!)
+        : DateUtils.dateOnly(DateTime.now());
+    _returnDate = widget.returnDate;
     _triggerFlightSearch();
-    _initDateOptions();
   }
 
   @override
   void dispose() {
+    _dateScrollController.dispose();
     _flightSearchBloc.close();
-    _tabController.dispose();
     super.dispose();
   }
 
@@ -1762,89 +153,303 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> with SingleTick
     _flightSearchBloc.add(SearchFlightsEvent(_buildRequest()));
   }
 
-  void _onDateSelected(int selectedIndex, DateTime newDate) {
-    for (var i = 0; i < _dateOptions.length; i++) {
-      _dateOptions[i]["selected"] = i == selectedIndex;
-    }
-    setState(() {});
+  /// Re-run the search for a newly picked date from the date strip.
+  void _onDateSelected(DateTime date) {
+    final d = DateUtils.dateOnly(date);
+    if (_selectedDate != null && DateUtils.isSameDay(d, _selectedDate!)) return;
+    setState(() {
+      _selectedDate = d;
+      // Keep the return leg valid for round trips.
+      if (widget.isRoundTrip &&
+          _returnDate != null &&
+          _returnDate!.isBefore(d)) {
+        _returnDate = d;
+      }
+      // Reset filters so the fresh results are not over-filtered.
+      _selectedAirlines = {};
+      _selectedDepartureTimes = {};
+      _selectedArrivalTimes = {};
+      _filterRefundable = false;
+      _filterNonRefundable = false;
+      _expandedGroups.clear();
+    });
+    _flightSearchBloc.add(SearchFlightsEvent(_buildRequest()));
+  }
 
-    final updatedRequest = FlightSearchRequestEntity(
-      endUserIp: '203.0.113.10',
-      adultCount: widget.adults, childCount: widget.children, infantCount: widget.infants,
-      journeyType: widget.isRoundTrip ? 2 : 1,
-      segments: [
-        FlightSegmentEntity(
-          origin: widget.fromCode, destination: widget.toCode,
-          flightCabinClass: _getCabinClassInt(widget.travelClass),
-          preferredDepartureTime: _formatDateForAPI(newDate),
-          preferredArrivalTime: _formatDateForAPI(newDate),
-        ),
-      ],
+  void _scrollSelectedDateIntoView() {
+    if (_didInitialDateScroll || !_dateScrollController.hasClients) return;
+    _didInitialDateScroll = true;
+    final today = DateUtils.dateOnly(DateTime.now());
+    final idx = (_selectedDate ?? today)
+        .difference(today)
+        .inDays
+        .clamp(0, _dateStripDays - 1);
+    final extent = context.w(72);
+    final target = (idx * extent) - context.w(12);
+    _dateScrollController.jumpTo(
+      target.clamp(0.0, _dateScrollController.position.maxScrollExtent),
     );
-
-    if (widget.isRoundTrip && widget.returnDate != null) {
-      updatedRequest.segments.add(
-        FlightSegmentEntity(
-          origin: widget.toCode, destination: widget.fromCode,
-          flightCabinClass: _getCabinClassInt(widget.travelClass),
-          preferredDepartureTime: _formatDateForAPI(widget.returnDate),
-          preferredArrivalTime: _formatDateForAPI(widget.returnDate),
-        ),
-      );
-    }
-    _flightSearchBloc.add(SearchFlightsEvent(updatedRequest));
   }
 
   FlightSearchRequestEntity _buildRequest() {
     final segments = <FlightSegmentEntity>[
       FlightSegmentEntity(
-        origin: widget.fromCode, destination: widget.toCode,
+        origin: widget.fromCode,
+        destination: widget.toCode,
         flightCabinClass: _getCabinClassInt(widget.travelClass),
-        preferredDepartureTime: _formatDateForAPI(widget.date),
-        preferredArrivalTime: _formatDateForAPI(widget.date),
+        preferredDepartureTime: _formatDateForAPI(_selectedDate),
+        preferredArrivalTime: _formatDateForAPI(_selectedDate),
       ),
     ];
-    if (widget.isRoundTrip && widget.returnDate != null) {
-      segments.add(
-        FlightSegmentEntity(
-          origin: widget.toCode, destination: widget.fromCode,
-          flightCabinClass: _getCabinClassInt(widget.travelClass),
-          preferredDepartureTime: _formatDateForAPI(widget.returnDate),
-          preferredArrivalTime: _formatDateForAPI(widget.returnDate),
-        ),
-      );
+    if (widget.isRoundTrip && _returnDate != null) {
+      segments.add(FlightSegmentEntity(
+        origin: widget.toCode,
+        destination: widget.fromCode,
+        flightCabinClass: _getCabinClassInt(widget.travelClass),
+        preferredDepartureTime: _formatDateForAPI(_returnDate),
+        preferredArrivalTime: _formatDateForAPI(_returnDate),
+      ));
     }
     return FlightSearchRequestEntity(
-      endUserIp: '203.0.113.10', adultCount: widget.adults,
-      childCount: widget.children, infantCount: widget.infants,
-      journeyType: widget.isRoundTrip ? 2 : 1, segments: segments,
+      endUserIp: '203.0.113.10',
+      adultCount: widget.adults,
+      childCount: widget.children,
+      infantCount: widget.infants,
+      journeyType: widget.isRoundTrip ? 2 : 1,
+      segments: segments,
     );
   }
 
-  String _formatDateForAPI(DateTime? date) => date == null ? '' : '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}T00:00:00';
+  String _formatDateForAPI(DateTime? date) => date == null
+      ? ''
+      : '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}T00:00:00';
+
   int _getCabinClassInt(String travelClass) {
     switch (travelClass.toLowerCase()) {
-      case 'premium economy': return 3;
-      case 'business': return 4;
-      case 'first': return 5;
-      default: return 2;
+      case 'premium economy':
+        return 3;
+      case 'business':
+        return 4;
+      case 'first':
+        return 5;
+      default:
+        return 2;
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // Airline metadata derived from flights
+  // ---------------------------------------------------------------------------
+  Map<String, int> _buildAirlineCounts(List<FlightEntity> flights) {
+    final map = <String, int>{};
+    for (final f in flights) {
+      final name = f.airlineName ?? 'Unknown';
+      map[name] = (map[name] ?? 0) + 1;
+    }
+    return map;
+  }
+
+  Map<String, double> _buildAirlineMinPrices(List<FlightEntity> flights) {
+    final map = <String, double>{};
+    for (final f in flights) {
+      final name = f.airlineName ?? 'Unknown';
+      final price = (f.totalFare ?? 0).toDouble();
+      if (!map.containsKey(name) || price < map[name]!) map[name] = price;
+    }
+    return map;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Filtering & sorting
+  // ---------------------------------------------------------------------------
+  List<FlightEntity> _applyFilters(List<FlightEntity> flights) {
+    var result = List<FlightEntity>.from(flights);
+
+    // price
+    result = result
+        .where((f) =>
+            (f.totalFare ?? 0) >= _priceRange.start &&
+            (f.totalFare ?? 0) <= _priceRange.end)
+        .toList();
+
+    // airlines – if none selected treat as "all"
+    if (_selectedAirlines.isNotEmpty) {
+      result = result
+          .where((f) => _selectedAirlines.contains(f.airlineName ?? 'Unknown'))
+          .toList();
+    }
+
+    // departure time slots
+    if (_selectedDepartureTimes.isNotEmpty) {
+      result = result.where((f) {
+        final h = _hourOf(f.departureTime);
+        return _selectedDepartureTimes.any((s) => _inSlot(h, s));
+      }).toList();
+    }
+
+    // arrival time slots
+    if (_selectedArrivalTimes.isNotEmpty) {
+      result = result.where((f) {
+        final h = _hourOf(f.arrivalTime);
+        return _selectedArrivalTimes.any((s) => _inSlot(h, s));
+      }).toList();
+    }
+
+    // sort
+    switch (_selectedSort) {
+      case "Price: Low to High":
+        result.sort((a, b) => (a.totalFare ?? 0).compareTo(b.totalFare ?? 0));
+        break;
+      case "Price: High to Low":
+        result.sort((a, b) => (b.totalFare ?? 0).compareTo(a.totalFare ?? 0));
+        break;
+      case "Duration: Shortest":
+        result.sort((a, b) =>
+            (int.tryParse(a.duration ?? '0') ?? 9999)
+                .compareTo(int.tryParse(b.duration ?? '0') ?? 9999));
+        break;
+      case "Departure: Earliest":
+        result.sort((a, b) =>
+            (a.departureTime ?? '').compareTo(b.departureTime ?? ''));
+        break;
+    }
+
+    return result;
+  }
+
+  int _hourOf(String? isoTime) {
+    if (isoTime == null || isoTime.isEmpty) return 0;
+    try {
+      return DateTime.parse(isoTime).hour;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  bool _inSlot(int hour, String slot) {
+    switch (slot) {
+      case '05am-12pm':
+        return hour >= 5 && hour < 12;
+      case '12pm-6pm':
+        return hour >= 12 && hour < 18;
+      case '6pm-11pm':
+        return hour >= 18 && hour < 23;
+      case '11pm-05am':
+        return hour >= 23 || hour < 5;
+      default:
+        return false;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Grouping
+  // ---------------------------------------------------------------------------
+  List<_FlightGroup> _groupFlights(List<FlightEntity> flights) {
+    final map = <String, List<FlightEntity>>{};
+    for (final f in flights) {
+      final key =
+          '${f.airlineName ?? ""}__${(f.totalFare ?? 0).toStringAsFixed(0)}';
+      map.putIfAbsent(key, () => []).add(f);
+    }
+    return map.entries.map((e) {
+      final sorted = e.value;
+      return _FlightGroup(
+        primary: sorted.first,
+        extras: sorted.length > 1 ? sorted.sublist(1) : [],
+        key: e.key,
+      );
+    }).toList();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Price / max init
+  // ---------------------------------------------------------------------------
+  void _updateMaxPrice(List<FlightEntity> flights) {
+    if (flights.isEmpty) return;
+
+    // Update cache immediately — no setState needed for a plain field.
+    _allFlights = flights;
+
+    final maxP = flights.fold<double>(
+        0, (m, f) => (f.totalFare ?? 0) > m ? (f.totalFare ?? 0) : m);
+    final minP = flights.fold<double>(double.infinity,
+        (m, f) => (f.totalFare ?? 0) < m ? (f.totalFare ?? 0) : m);
+
+    final newMax = maxP == 0 ? 50000.0 : maxP;
+    final newMin = minP == double.infinity ? 0.0 : minP;
+
+    // Nothing changed — skip the rebuild.
+    if (newMax == _maxPrice && newMin == _minPrice && _selectedAirlines.isNotEmpty) return;
+
+    // Defer setState to after the current build frame to avoid calling
+    // setState() during a build, which triggers the assertion error.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      setState(() {
+        _maxPrice = newMax;
+        _minPrice = newMin;
+        _priceRange = RangeValues(newMin, newMax);
+        if (_selectedAirlines.isEmpty) {
+          _selectedAirlines =
+              flights.map((f) => f.airlineName ?? 'Unknown').toSet();
+        }
+      });
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Open drawer with current state
+  // ---------------------------------------------------------------------------
+  void _openFilterDrawer() {
+    _scaffoldKey.currentState?.openDrawer();
+  }
+
+  void _onFilterApply(FlightFilterResult result) {
+    setState(() {
+      // Convert filter range from preferred currency back to INR
+      final preferred = CurrencyConverter.getPreferredCurrency();
+      _priceRange = RangeValues(
+        CurrencyConverter.convert(
+          amount: result.priceRange.start,
+          fromCurrency: preferred,
+          toCurrency: 'INR',
+        ),
+        CurrencyConverter.convert(
+          amount: result.priceRange.end,
+          fromCurrency: preferred,
+          toCurrency: 'INR',
+        ),
+      );
+      _selectedAirlines = result.selectedAirlines;
+      _selectedDepartureTimes = result.selectedDepartureTimes;
+      _selectedArrivalTimes = result.selectedArrivalTimes;
+      _filterRefundable = result.refundable;
+      _filterNonRefundable = result.nonRefundable;
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Build
+  // ---------------------------------------------------------------------------
   @override
   Widget build(BuildContext context) {
     return BlocProvider<FlightSearchBloc>(
       create: (_) => _flightSearchBloc,
       child: Scaffold(
-        drawer: const FlightFilterDrawer(),
+        key: _scaffoldKey,
+        drawer: _buildFilterDrawer(),
         appBar: AppBar(
           title: const WanderNovaLogo(scaleFactor: 0.6),
-          backgroundColor: Colors.white, elevation: 0,
+          backgroundColor: Colors.white,
+          elevation: 0,
           actions: [
             Padding(
               padding: EdgeInsets.all(context.w(8)),
-              child: Image.asset("assets/images/wander_nova_logo.jpg", height: context.h(35)),
-            )
+              child: Image.asset(
+                "assets/images/wander_logo.png",
+                height: context.h(35),
+              ),
+            ),
           ],
         ),
         backgroundColor: Colors.grey.shade50,
@@ -1853,16 +458,21 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> with SingleTick
             if (state is FlightSearchLoading) {
               return ProfessionalLoadingScreen(
                 searchParams: {
-                  'fromAirport': widget.fromAirport, 'toAirport': widget.toAirport,
-                  'departureDate': widget.date, 'returnDate': widget.returnDate,
-                  'adults': widget.adults, 'children': widget.children,
-                  'infants': widget.infants, 'class': widget.travelClass,
+                  'fromAirport': widget.fromAirport,
+                  'toAirport': widget.toAirport,
+                  'departureDate': _selectedDate,
+                  'returnDate': _returnDate,
+                  'adults': widget.adults,
+                  'children': widget.children,
+                  'infants': widget.infants,
+                  'class': widget.travelClass,
                   'isRoundTrip': widget.isRoundTrip,
                 },
                 onLoadingComplete: () {},
               );
             }
-            if (state is FlightSearchError) return _buildErrorState(state.message);
+            if (state is FlightSearchError)
+              return _buildErrorState(state.message);
             if (state is FlightSearchLoaded) {
               _updateMaxPrice(state.flights);
               return _buildMainContent(state.flights);
@@ -1875,68 +485,113 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> with SingleTick
     );
   }
 
+  Widget _buildFilterDrawer() {
+    // Derive the API currency from any flight in the cached list.
+    // This is the same currency that totalFare values (and _priceRange) are stored in.
+    final apiCurrency = _allFlights.isNotEmpty
+        ? (_allFlights.first.currency ?? 'INR')
+        : 'INR';
+
+    return FlightFilterDrawer(
+      minPrice: _minPrice,
+      maxPrice: _maxPrice,
+      currentPriceRange: _priceRange,
+      currentSelectedAirlines: _selectedAirlines,
+      currentSelectedDepartureTimes: _selectedDepartureTimes,
+      currentSelectedArrivalTimes: _selectedArrivalTimes,
+      currentRefundable: _filterRefundable,
+      currentNonRefundable: _filterNonRefundable,
+      airlineCounts: _buildAirlineCounts(_allFlights),
+      airlineMinPrices: _buildAirlineMinPrices(_allFlights),
+      onApply: _onFilterApply,
+      apiCurrency: apiCurrency,
+    );
+  }
+
   Widget _buildMainContent(List<FlightEntity> flights) {
-    final filteredFlights = _applyAdvancedFilters(flights);
+    final filtered = _applyFilters(flights);
+    final groups = _groupFlights(filtered);
     return Column(
       children: [
-        _buildDateSelector(),
-        Expanded(
-          child: _showFilters ? _buildFilterPanel(filteredFlights, flights) : _buildFlightList(filteredFlights),
-        ),
+        _buildRouteSummary(filtered),
+        _buildDateStrip(),
+        _buildSortBar(),
+        Expanded(child: _buildFlightList(groups, filtered.length, flights.length)),
       ],
     );
   }
 
-  int _getMonthNumber(String monthAbbr) {
-    const months = {'Jan': 1, 'Feb': 2, 'Mar': 3, 'Apr': 4, 'May': 5, 'Jun': 6, 'Jul': 7, 'Aug': 8, 'Sep': 9, 'Oct': 10, 'Nov': 11, 'Dec': 12};
-    return months[monthAbbr] ?? DateTime.now().month;
-  }
-
-  String _formatDuration(int? minutes) {
-    if (minutes == null || minutes == 0) return '0';
-    final hours = minutes ~/ 60;
-    final remainingMinutes = minutes % 60;
-    if (hours > 0 && remainingMinutes > 0) return '$hours hr $remainingMinutes min';
-    if (hours > 0) return '$hours hr';
-    return '$remainingMinutes min';
-  }
-
-  Widget _buildDateSelector() {
+  // ---------------------------------------------------------------------------
+  // Horizontally scrollable date + day strip
+  // ---------------------------------------------------------------------------
+  Widget _buildDateStrip() {
+    final today = DateUtils.dateOnly(DateTime.now());
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _scrollSelectedDateIntoView(),
+    );
     return Container(
       color: Colors.white,
-      padding: EdgeInsets.symmetric(vertical: context.h(8)),
+      padding: EdgeInsets.only(bottom: context.h(6)),
       child: SizedBox(
-        height: context.h(65),
-        child: ListView.separated(
+        height: context.h(58),
+        child: ListView.builder(
+          controller: _dateScrollController,
           scrollDirection: Axis.horizontal,
-          padding: EdgeInsets.symmetric(horizontal: context.gapMedium),
-          itemCount: _dateOptions.length,
-          separatorBuilder: (context, index) => SizedBox(width: context.gapSmall),
-          itemBuilder: (context, index) {
-            final date = _dateOptions[index];
-            final isSelected = date["selected"] as bool;
+          physics: const BouncingScrollPhysics(),
+          padding: EdgeInsets.symmetric(horizontal: context.w(12)),
+          itemCount: _dateStripDays,
+          itemBuilder: (context, i) {
+            final date = today.add(Duration(days: i));
+            final selected =
+                _selectedDate != null && DateUtils.isSameDay(date, _selectedDate!);
             return GestureDetector(
-              onTap: () {
-                final dateStr = date["date"] as String;
-                final day = int.parse(dateStr.split(' ')[0]);
-                final month = _getMonthNumber(dateStr.split(' ')[1]);
-                _onDateSelected(index, DateTime(DateTime.now().year, month, day));
-              },
+              onTap: () => _onDateSelected(date),
               child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                width: context.w(68),
+                duration: const Duration(milliseconds: 180),
+                width: context.w(62),
+                margin: EdgeInsets.symmetric(horizontal: context.w(4)),
                 decoration: BoxDecoration(
-                  color: isSelected ? const Color(0xFF0A2463) : Colors.white,
+                  color: selected ? const Color(0xff1663F7) : Colors.white,
                   borderRadius: BorderRadius.circular(context.r(12)),
-                  border: Border.all(color: isSelected ? const Color(0xFF0A2463) : Colors.grey.shade200, width: 1.5),
-                  boxShadow: isSelected ? [BoxShadow(color: const Color(0xFF0A2463).withOpacity(0.2), blurRadius: context.w(8), offset: Offset(0, context.h(2)))] : null,
+                  border: Border.all(
+                    color: selected
+                        ? const Color(0xff1663F7)
+                        : const Color(0xffE6ECFF),
+                  ),
+                  boxShadow: selected
+                      ? [
+                          BoxShadow(
+                            color:
+                                const Color(0xff1663F7).withValues(alpha: 0.25),
+                            blurRadius: context.w(8),
+                            offset: Offset(0, context.h(3)),
+                          ),
+                        ]
+                      : null,
                 ),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text(date["day"], style: TextStyle(fontSize: context.fs(11), fontWeight: FontWeight.w500, color: isSelected ? Colors.white : Colors.grey.shade600)),
+                    Text(
+                      DateFormat('EEE').format(date),
+                      style: TextStyle(
+                        fontSize: context.fs(10),
+                        fontWeight: FontWeight.w600,
+                        color: selected
+                            ? Colors.white.withValues(alpha: 0.85)
+                            : const Color(0xff9AA2BF),
+                      ),
+                    ),
                     SizedBox(height: context.h(2)),
-                    Text(date["date"], style: TextStyle(fontSize: context.fs(11), fontWeight: FontWeight.w600, color: isSelected ? Colors.white : Colors.grey.shade800)),
+                    Text(
+                      DateFormat('d MMM').format(date),
+                      style: TextStyle(
+                        fontSize: context.fs(13),
+                        fontWeight: FontWeight.w700,
+                        color:
+                            selected ? Colors.white : const Color(0xff3D3F4A),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -1947,149 +602,849 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> with SingleTick
     );
   }
 
-  String _convertFlightPrice(double amount, String? apiCurrency) {
-    try {
-      final prefs = sl<PreferencesManager>();
-      final targetCurrency = prefs.getPreferredCurrency() ?? 'INR';
-      final fromCurrency = apiCurrency ?? 'INR';
-      if (fromCurrency.toUpperCase() == targetCurrency.toUpperCase()) return _formatPrice(amount.toInt());
-      final converted = CurrencyConverter.convert(amount: amount, fromCurrency: fromCurrency, toCurrency: targetCurrency);
-      if (targetCurrency.toUpperCase() == 'INR') return '₹${_formatIndianNumber(converted.toInt())}';
-      final symbol = CurrencyConverter.getSymbol(targetCurrency);
-      return '$symbol${converted.toStringAsFixed(0)}';
-    } catch (e) {
-      return _formatPrice(amount.toInt());
-    }
-  }
+  // ---------------------------------------------------------------------------
+  // Route summary
+  // ---------------------------------------------------------------------------
+  Widget _buildRouteSummary(List<FlightEntity> flights) {
+    final sampleFlight = flights.isNotEmpty ? flights.first : null;
+    final duration = sampleFlight?.duration != null
+        ? _formatDuration(int.tryParse(sampleFlight!.duration!))
+        : '';
 
-  String _formatIndianNumber(int num) {
-    if (num < 1000) return num.toString();
-    final str = num.toString();
-    final lastThree = str.substring(str.length - 3);
-    final remaining = str.substring(0, str.length - 3);
-    var formatted = '';
-    for (int i = 0; i < remaining.length; i++) {
-      if (i > 0 && (remaining.length - i) % 2 == 0) formatted += ',';
-      formatted += remaining[i];
-    }
-    return '$formatted,$lastThree';
-  }
-
-  Widget _buildFilterPanel(List<FlightEntity> filteredFlights, List<FlightEntity> allFlights) {
     return Container(
-      color: Colors.white,
+      width: double.infinity,
+      padding: EdgeInsets.fromLTRB(
+        context.w(15),
+        context.h(16),
+        context.w(15),
+        context.h(18),
+      ),
+      decoration: const BoxDecoration(color: Color(0xffF8FAFF)),
       child: Column(
         children: [
-          Container(
-            padding: EdgeInsets.all(context.w(12)),
-            child: Column(
+          SizedBox(
+            height: context.h(98),
+            child: Stack(
+              alignment: Alignment.center,
               children: [
+                Positioned.fill(
+                  child: CustomPaint(
+                    painter: _RouteArcPainter(color: AppColors.primary),
+                  ),
+                ),
+                Positioned(
+                  top: context.h(36),
+                  child: Container(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: context.w(12),
+                      vertical: context.h(4),
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(context.r(14)),
+                      border: Border.all(color: const Color(0xffE6ECFF)),
+                      boxShadow: [
+                        BoxShadow(
+                          color:
+                              const Color(0xff4B74FF).withValues(alpha: 0.08),
+                          blurRadius: context.w(14),
+                          offset: Offset(0, context.h(4)),
+                        ),
+                      ],
+                    ),
+                    child: Text(
+                      duration.isEmpty ? widget.travelClass : duration,
+                      style: TextStyle(
+                        color: const Color(0xff3F4350),
+                        fontSize: context.fs(11),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Text('Filters', style: TextStyle(fontSize: context.fs(18), fontWeight: FontWeight.bold)),
-                    TextButton(
-                      onPressed: () => setState(() { _selectedAirlines.clear(); _priceRange = RangeValues(0, _maxPrice); _selectedStops = null; }),
-                      child: Text('Reset', style: TextStyle(color: const Color(0xFFFF3B30), fontWeight: FontWeight.w600)),
-                    ),
-                  ],
-                ),
-                SizedBox(height: context.h(12)),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Price Range', style: TextStyle(fontSize: context.fs(16), fontWeight: FontWeight.w600)),
-                    SizedBox(height: context.h(8)),
-                    RangeSlider(
-                      values: _priceRange, min: 0, max: _maxPrice, divisions: 100,
-                      activeColor: const Color(0xFFFF3B30), inactiveColor: Colors.grey.shade300,
-                      labels: RangeLabels('₹${_priceRange.start.round()}', '₹${_priceRange.end.round()}'),
-                      onChanged: (values) => setState(() => _priceRange = values),
-                    ),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text('₹${_priceRange.start.round()}', style: TextStyle(fontSize: context.fs(11), color: Colors.grey.shade600)),
-                        Text('₹${_priceRange.end.round()}', style: TextStyle(fontSize: context.fs(11), color: Colors.grey.shade600)),
-                      ],
-                    ),
-                  ],
-                ),
-                SizedBox(height: context.h(16)),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Stops', style: TextStyle(fontSize: context.fs(16), fontWeight: FontWeight.w600)),
-                    SizedBox(height: context.h(8)),
-                    Row(
-                      children: [
-                        _buildStopOption("Any", null), SizedBox(width: context.w(8)),
-                        _buildStopOption("Non-stop", 0), SizedBox(width: context.w(8)),
-                        _buildStopOption("1 Stop", 1), SizedBox(width: context.w(8)),
-                        _buildStopOption("2+ Stops", 2),
-                      ],
-                    ),
+                    _routeCityBlock(
+                        code: widget.fromCode,
+                        city: widget.from,
+                        alignRight: false),
+                    _routeCityBlock(
+                        code: widget.toCode,
+                        city: widget.to,
+                        alignRight: true),
                   ],
                 ),
               ],
             ),
           ),
-          Divider(height: 1, color: Colors.grey.shade200),
-          Row(
-            children: [
-              Expanded(
-                child: TextButton(
-                  onPressed: () => setState(() => _showFilters = false),
-                  style: TextButton.styleFrom(padding: EdgeInsets.symmetric(vertical: context.h(12))),
-                  child: Text('Cancel', style: TextStyle(fontSize: context.fs(16), color: Colors.grey.shade600)),
-                ),
-              ),
-              Container(height: context.h(40), width: context.w(1), color: Colors.grey.shade200),
-              Expanded(
-                child: TextButton(
-                  onPressed: () => setState(() => _showFilters = false),
-                  style: TextButton.styleFrom(padding: EdgeInsets.symmetric(vertical: context.h(12))),
-                  child: Text('Apply (${filteredFlights.length})', style: TextStyle(fontSize: context.fs(16), fontWeight: FontWeight.bold, color: const Color(0xFFFF3B30))),
-                ),
-              ),
-            ],
+          SizedBox(height: context.h(8)),
+          Text(
+            "${widget.travellers} Traveller${widget.travellers > 1 ? 's' : ''} • ${widget.travelClass}",
+            style: TextStyle(
+              color: const Color(0xff9AA2BF),
+              fontSize: context.fs(12),
+              fontWeight: FontWeight.w500,
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildStopOption(String label, int? stops) {
-    final isSelected = _selectedStops == stops;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () => setState(() => _selectedStops = stops),
-        child: Container(
-          padding: EdgeInsets.symmetric(vertical: context.h(8)),
-          decoration: BoxDecoration(
-            color: isSelected ? const Color(0xFFFF3B30).withOpacity(0.1) : Colors.transparent,
-            borderRadius: BorderRadius.circular(context.r(12)),
-            border: Border.all(color: isSelected ? const Color(0xFFFF3B30) : Colors.grey.shade300),
+  Widget _routeCityBlock({
+    required String code,
+    required String city,
+    required bool alignRight,
+  }) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment:
+          alignRight ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+      children: [
+        Text(
+          code,
+          style: TextStyle(
+            color: const Color(0xff3D3F4A),
+            fontSize: context.fs(28),
+            fontWeight: FontWeight.w700,
+            height: 1,
           ),
-          child: Center(child: Text(label, style: TextStyle(fontSize: context.fs(11), fontWeight: FontWeight.w500, color: isSelected ? const Color(0xFFFF3B30) : Colors.grey.shade700))),
+        ),
+        SizedBox(height: context.h(5)),
+        Text(
+          city,
+          style: TextStyle(
+            color: const Color(0xffA0A6C2),
+            fontSize: context.fs(13),
+            fontWeight: FontWeight.w500,
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ],
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Sort bar
+  // ---------------------------------------------------------------------------
+  Widget _buildSortBar() {
+    return Container(
+      color: Colors.white,
+      padding: EdgeInsets.fromLTRB(
+        context.w(14),
+        context.h(8),
+        context.w(14),
+        context.h(8),
+      ),
+      child: Row(
+        children: [
+          // Filter button
+          GestureDetector(
+            onTap: _openFilterDrawer,
+            child: Container(
+              padding: EdgeInsets.symmetric(
+                horizontal: context.w(12),
+                vertical: context.h(7),
+              ),
+              decoration: BoxDecoration(
+                color: _hasActiveFilters()
+                    ? const Color(0xff1663F7)
+                    : Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(context.r(20)),
+                border: Border.all(
+                  color: _hasActiveFilters()
+                      ? const Color(0xff1663F7)
+                      : Colors.grey.shade300,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.tune_rounded,
+                    size: context.w(14),
+                    color: _hasActiveFilters() ? Colors.white : Colors.grey.shade700,
+                  ),
+                  SizedBox(width: context.w(5)),
+                  Text(
+                    "Filter",
+                    style: TextStyle(
+                      fontSize: context.fs(12),
+                      fontWeight: FontWeight.w600,
+                      color: _hasActiveFilters()
+                          ? Colors.white
+                          : Colors.grey.shade700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          SizedBox(width: context.w(8)),
+          // Sort chips
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: _sortOptions.map((opt) {
+                  final selected = _selectedSort == opt;
+                  return Padding(
+                    padding: EdgeInsets.only(right: context.w(6)),
+                    child: GestureDetector(
+                      onTap: () => setState(() => _selectedSort = opt),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 180),
+                        padding: EdgeInsets.symmetric(
+                          horizontal: context.w(12),
+                          vertical: context.h(7),
+                        ),
+                        decoration: BoxDecoration(
+                          color: selected
+                              ? const Color(0xff1663F7)
+                              : Colors.grey.shade100,
+                          borderRadius: BorderRadius.circular(context.r(20)),
+                          border: Border.all(
+                            color: selected
+                                ? const Color(0xff1663F7)
+                                : Colors.grey.shade300,
+                          ),
+                        ),
+                        child: Text(
+                          opt,
+                          style: TextStyle(
+                            fontSize: context.fs(12),
+                            fontWeight: FontWeight.w500,
+                            color: selected
+                                ? Colors.white
+                                : Colors.grey.shade700,
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  bool _hasActiveFilters() {
+    return _selectedDepartureTimes.isNotEmpty ||
+        _selectedArrivalTimes.isNotEmpty ||
+        _filterRefundable ||
+        _filterNonRefundable ||
+        (_selectedAirlines.isNotEmpty &&
+            _selectedAirlines.length <
+                _buildAirlineCounts(_allFlights).length) ||
+        (_allFlights.isNotEmpty &&
+            (_priceRange.start > _minPrice ||
+                _priceRange.end < _maxPrice));
+  }
+
+  // ---------------------------------------------------------------------------
+  // Flight list (grouped)
+  // ---------------------------------------------------------------------------
+  Widget _buildFlightList(
+    List<_FlightGroup> groups,
+    int filteredCount,
+    int totalCount,
+  ) {
+    if (groups.isEmpty) {
+      return _buildNoResultsState();
+    }
+    return Container(
+      color: const Color(0xffF3F6FF),
+      child: CustomScrollView(
+        slivers: [
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(
+                context.w(14),
+                context.h(10),
+                context.w(14),
+                context.h(6),
+              ),
+              child: _buildResultsHeader(filteredCount, totalCount),
+            ),
+          ),
+          SliverPadding(
+            padding: EdgeInsets.fromLTRB(
+              context.w(10),
+              0,
+              context.w(10),
+              context.h(18),
+            ),
+            sliver: SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (context, index) => _buildGroupCard(groups[index]),
+                childCount: groups.length,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Inline flight-card offers (MMT style)
+  // ---------------------------------------------------------------------------
+  static const List<_FlightOffer> _offers = [
+    _FlightOffer(
+      title: 'Free seat with Visa Signature cards',
+      code: 'VISASEAT',
+      icon: Icons.airline_seat_recline_extra_rounded,
+    ),
+    _FlightOffer(
+      title: 'Get ₹1,500 OFF with HDFC Credit Cards',
+      code: 'WNHDFC',
+      icon: Icons.local_offer_rounded,
+    ),
+    _FlightOffer(
+      title: 'Up to ₹2,000 OFF on your first booking',
+      code: 'WELCOME2K',
+      icon: Icons.card_giftcard_rounded,
+    ),
+    _FlightOffer(
+      title: '10% Cashback via Wander Wallet',
+      code: 'WNWALLET',
+      icon: Icons.account_balance_wallet_rounded,
+    ),
+  ];
+
+  /// Deterministically pick an offer for a flight so each card consistently
+  /// shows the same one across rebuilds.
+  _FlightOffer _offerFor(FlightEntity flight) {
+    final seed = (flight.resultIndex ?? flight.flightNumber ?? flight.airlineCode ?? '')
+        .codeUnits
+        .fold<int>(0, (s, u) => s + u);
+    return _offers[seed % _offers.length];
+  }
+
+  /// MMT-style inline offer row shown at the bottom of a flight card.
+  Widget _buildCardOffer(FlightEntity flight) {
+    final offer = _offerFor(flight);
+    const Color offerColor = Color(0xff1A7F5A); // MMT-like green
+    return Container(
+      width: double.infinity,
+      child: Row(
+        children: [
+          Icon(offer.icon, size: context.w(14), color: offerColor),
+          SizedBox(width: context.w(6)),
+          Expanded(
+            child: Text(
+              offer.title,
+              style: TextStyle(
+                color: offerColor,
+                fontSize: context.fs(11),
+                fontWeight: FontWeight.w600,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          SizedBox(width: context.w(6)),
+          Container(
+            padding: EdgeInsets.symmetric(
+              horizontal: context.w(6),
+              vertical: context.h(1),
+            ),
+            decoration: BoxDecoration(
+              border: Border.all(
+                color: offerColor.withValues(alpha: 0.5),
+              ),
+              borderRadius: BorderRadius.circular(context.r(4)),
+            ),
+            child: Text(
+              offer.code,
+              style: TextStyle(
+                color: offerColor,
+                fontSize: context.fs(9),
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildResultsHeader(int showing, int total) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          "$showing of $total Flights",
+          style: TextStyle(
+            fontSize: context.fs(12),
+            fontWeight: FontWeight.w500,
+            color: Colors.grey.shade600,
+          ),
+        ),
+        if (_hasActiveFilters())
+          GestureDetector(
+            onTap: () => setState(() {
+              _selectedDepartureTimes.clear();
+              _selectedArrivalTimes.clear();
+              _filterRefundable = false;
+              _filterNonRefundable = false;
+              _selectedAirlines =
+                  _allFlights.map((f) => f.airlineName ?? 'Unknown').toSet();
+              _priceRange = RangeValues(_minPrice, _maxPrice);
+            }),
+            child: Text(
+              "Clear Filters",
+              style: TextStyle(
+                fontSize: context.fs(12),
+                fontWeight: FontWeight.w600,
+                color: const Color(0xff1663F7),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Group card
+  // ---------------------------------------------------------------------------
+  Widget _buildGroupCard(_FlightGroup group) {
+    final isExpanded = _expandedGroups.contains(group.key);
+    return Padding(
+      padding: EdgeInsets.only(bottom: context.h(12)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Primary card
+          _buildFlightCardInner(
+            group.primary,
+            extraCount: group.extras.length,
+            isExpanded: isExpanded,
+            onMoreTap: group.extras.isEmpty
+                ? null
+                : () => setState(() {
+                      if (isExpanded) {
+                        _expandedGroups.remove(group.key);
+                      } else {
+                        _expandedGroups.add(group.key);
+                      }
+                    }),
+          ),
+          // Expanded extra cards
+          if (isExpanded)
+            ...group.extras
+                .map((f) => Padding(
+                      padding: EdgeInsets.only(top: context.h(6)),
+                      child: _buildExtraCard(f),
+                    ))
+                .toList(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFlightCardInner(
+    FlightEntity flight, {
+    int extraCount = 0,
+    bool isExpanded = false,
+    VoidCallback? onMoreTap,
+  }) {
+    final bool isRoundTrip = flight.isRoundTrip;
+    final Color accentColor =
+        isRoundTrip ? const Color(0xff3B82F6) : AppColors.primary;
+    final departure = _formatTime(flight.departureTime);
+    final arrival = _formatTime(flight.arrivalTime);
+    final duration = _formatDuration(
+        flight.duration != null ? int.tryParse(flight.duration!) : null);
+    final airlineCode = (flight.airlineCode?.isNotEmpty ?? false)
+        ? flight.airlineCode!.toUpperCase()
+        : (flight.airlineName?.isNotEmpty ?? false)
+            ? flight.airlineName!.substring(0, 1).toUpperCase()
+            : 'FL';
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(context.r(8)),
+        border: Border.all(color: const Color(0xffE9EDF6)),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xff2B3A67).withValues(alpha: 0.05),
+            blurRadius: context.w(10),
+            offset: Offset(0, context.h(4)),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => _showFlightDetails(flight),
+          borderRadius: BorderRadius.circular(context.r(14)),
+          child: Padding(
+            padding: EdgeInsets.all(context.w(12)),
+            child: Column(
+              children: [
+                // Header row: logo + airline name/flight no + price
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    _airlineLogo(flight, context.w(34)),
+                    SizedBox(width: context.w(8)),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            flight.airlineName ?? 'Airline',
+                            style: TextStyle(
+                              color: const Color(0xff3D3F4A),
+                              fontSize: context.fs(13),
+                              fontWeight: FontWeight.w700,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          SizedBox(height: context.h(1)),
+                          Text(
+                            '$airlineCode ${flight.flightNumber ?? ''}'.trim(),
+                            style: TextStyle(
+                              color: const Color(0xffA0A6C2),
+                              fontSize: context.fs(10),
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    SizedBox(width: context.w(8)),
+                    Text(
+                      _convertFlightPrice(
+                        (flight.totalFare ?? 0).toDouble(),
+                        flight.currency,
+                      ),
+                      style: TextStyle(
+                        color: const Color(0xff1663F7),
+                        fontSize: context.fs(18),
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: context.h(12)),
+                if (!isRoundTrip)
+                  // Compact one-way route row (MMT style)
+                  Row(
+                    children: [
+                      _timeAirportBlock(
+                        time: departure,
+                        code: flight.origin ?? widget.fromCode,
+                        alignRight: false,
+                      ),
+                      SizedBox(width: context.w(8)),
+                      Expanded(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              duration,
+                              style: TextStyle(
+                                color: const Color(0xff9AA2BF),
+                                fontSize: context.fs(10),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            SizedBox(height: context.h(4)),
+                            _ticketFlightPath(accentColor),
+                            if (_formatStops(flight.stops).isNotEmpty) ...[
+                              SizedBox(height: context.h(4)),
+                              Text(
+                                _formatStops(flight.stops),
+                                style: TextStyle(
+                                  color: const Color(0xff9AA2BF),
+                                  fontSize: context.fs(10),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                      SizedBox(width: context.w(8)),
+                      _timeAirportBlock(
+                        time: arrival,
+                        code: flight.destination ?? widget.toCode,
+                        alignRight: true,
+                      ),
+                    ],
+                  )
+                else
+                  // Round-trip — two labelled legs (Depart + Return)
+                  _roundTripBody(flight, accentColor),
+                // MMT-style inline offer
+                SizedBox(height: context.h(10)),
+                _buildCardOffer(flight),
+                // "N more flights" badge
+                if (extraCount > 0) ...[
+                  SizedBox(height: context.h(10)),
+                  GestureDetector(
+                    onTap: onMoreTap,
+                    child: Container(
+                      width: double.infinity,
+                      padding: EdgeInsets.symmetric(
+                        horizontal: context.w(12),
+                        vertical: context.h(7),
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xff1663F7).withValues(alpha: 0.06),
+                        borderRadius: BorderRadius.circular(context.r(10)),
+                        border: Border.all(
+                          color: const Color(0xff1663F7).withValues(alpha: 0.2),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            isExpanded
+                                ? Icons.keyboard_arrow_up_rounded
+                                : Icons.keyboard_arrow_down_rounded,
+                            size: context.w(16),
+                            color: const Color(0xff1663F7),
+                          ),
+                          SizedBox(width: context.w(5)),
+                          Text(
+                            isExpanded
+                                ? 'Hide extra flights'
+                                : '$extraCount more flight${extraCount > 1 ? 's' : ''} at this price',
+                            style: TextStyle(
+                              fontSize: context.fs(12),
+                              fontWeight: FontWeight.w600,
+                              color: const Color(0xff1663F7),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildFlightList(List<FlightEntity> flights) {
-    final filteredFlights = _applyFiltersAndSort(flights);
-    return CustomScrollView(
-      slivers: [
-        SliverToBoxAdapter(
-          child: Padding(padding: EdgeInsets.symmetric(horizontal: context.gapMedium), child: _buildResultsHeader(filteredFlights.length, flights.length)),
+  /// Compact card for extra flights in an expanded group
+  Widget _buildExtraCard(FlightEntity flight) {
+    final accentColor =
+        flight.isRoundTrip ? const Color(0xff3B82F6) : const Color(0xff5F86FF);
+    final dep = _formatTime(flight.departureTime);
+    final arr = _formatTime(flight.arrivalTime);
+    final dur = _formatDuration(
+        flight.duration != null ? int.tryParse(flight.duration!) : null);
+    final code = (flight.airlineCode?.isNotEmpty ?? false)
+        ? flight.airlineCode!.toUpperCase()
+        : 'FL';
+
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(context.r(12)),
+      child: InkWell(
+        onTap: () => _showFlightDetails(flight),
+        borderRadius: BorderRadius.circular(context.r(12)),
+        child: Container(
+          padding: EdgeInsets.symmetric(
+            horizontal: context.w(16),
+            vertical: context.h(12),
+          ),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(context.r(12)),
+            border: Border.all(color: const Color(0xffE6ECFF)),
+          ),
+          child: Row(
+            children: [
+              _airlineLogo(flight, context.w(24)),
+              SizedBox(width: context.w(8)),
+              Text(
+                '$code${flight.flightNumber ?? ''}',
+                style: TextStyle(
+                  fontSize: context.fs(12),
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xff3D3F4A),
+                ),
+              ),
+              SizedBox(width: context.w(12)),
+              Text(
+                dep,
+                style: TextStyle(
+                  fontSize: context.fs(13),
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xff3D3F4A),
+                ),
+              ),
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: context.w(8)),
+                child: Icon(Icons.flight, size: context.w(14), color: accentColor),
+              ),
+              Text(
+                arr,
+                style: TextStyle(
+                  fontSize: context.fs(13),
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xff3D3F4A),
+                ),
+              ),
+              const Spacer(),
+              Container(
+                padding: EdgeInsets.symmetric(
+                  horizontal: context.w(8),
+                  vertical: context.h(3),
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xffF3F6FF),
+                  borderRadius: BorderRadius.circular(context.r(8)),
+                ),
+                child: Text(
+                  dur,
+                  style: TextStyle(
+                    fontSize: context.fs(11),
+                    fontWeight: FontWeight.w500,
+                    color: const Color(0xff5F86FF),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
-        SliverPadding(
-          padding: EdgeInsets.symmetric(horizontal: context.gapMedium),
-          sliver: SliverList(
-            delegate: SliverChildBuilderDelegate(
-                  (context, index) => _buildEnhancedFlightCard(filteredFlights[index]),
-              childCount: filteredFlights.length,
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Shared card sub-widgets
+  // ---------------------------------------------------------------------------
+  Widget _timeAirportBlock({
+    required String time,
+    required String code,
+    required bool alignRight,
+  }) {
+    return SizedBox(
+      width: context.w(76),
+      child: Column(
+        crossAxisAlignment:
+            alignRight ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+        children: [
+          Text(
+            time,
+            style: TextStyle(
+              color: const Color(0xff3D3F4A),
+              fontSize: context.fs(18),
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          SizedBox(height: context.h(3)),
+          Text(
+            code,
+            style: TextStyle(
+              color: const Color(0xffA0A6C2),
+              fontSize: context.fs(11),
+              fontWeight: FontWeight.w600,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _ticketFlightPath(Color color) {
+    return Row(
+      children: [
+        _pathDot(color),
+        Expanded(
+          child: CustomPaint(
+            painter: _DashedLinePainter(color: const Color(0xffDDE3EF)),
+            child: SizedBox(height: context.h(1)),
+          ),
+        ),
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: context.w(6)),
+          child: Icon(Icons.flight, color: color, size: context.w(22)),
+        ),
+        Expanded(
+          child: CustomPaint(
+            painter: _DashedLinePainter(color: const Color(0xffDDE3EF)),
+            child: SizedBox(height: context.h(1)),
+          ),
+        ),
+        _pathDot(color),
+      ],
+    );
+  }
+
+  Widget _pathDot(Color color) {
+    return Container(
+      width: context.w(9),
+      height: context.w(9),
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: color,
+        boxShadow: [
+          BoxShadow(
+            color: color.withValues(alpha: 0.28),
+            blurRadius: context.w(8),
+            spreadRadius: context.w(1),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _dashedDivider() {
+    return CustomPaint(
+      painter: _DashedLinePainter(color: const Color(0xffDDE3EF)),
+      child: SizedBox(width: double.infinity, height: context.h(1)),
+    );
+  }
+
+  Widget _ticketMetaChip({required String label, required String value}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            color: const Color(0xffA0A6C2),
+            fontSize: context.fs(11),
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        SizedBox(height: context.h(4)),
+        Container(
+          padding: EdgeInsets.symmetric(
+            horizontal: context.w(10),
+            vertical: context.h(4),
+          ),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(context.r(14)),
+            border: Border.all(color: const Color(0xffE6ECFF)),
+          ),
+          child: Text(
+            value.isEmpty ? '--' : value,
+            style: TextStyle(
+              color: const Color(0xff3D3F4A),
+              fontSize: context.fs(11),
+              fontWeight: FontWeight.w600,
             ),
           ),
         ),
@@ -2097,157 +1452,128 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> with SingleTick
     );
   }
 
-  Widget _buildEnhancedFlightCard(FlightEntity flight) {
-    final bool isRoundTrip = flight.isRoundTrip;
-    final Color accentColor = isRoundTrip ? const Color(0xFF1976D2) : const Color(0xFFFF3B30);
+  /// Round-trip card body: an outbound (Depart) leg and a Return leg,
+  /// each rendered like a mini flight ticket. One-way cards never use this.
+  Widget _roundTripBody(FlightEntity flight, Color accentColor) {
+    final outDuration = _formatDuration(
+        flight.duration != null ? int.tryParse(flight.duration!) : null);
+    final retDuration = _formatDuration(flight.returnDuration != null
+        ? int.tryParse(flight.returnDuration!)
+        : null);
 
-    return Container(
-      margin: EdgeInsets.only(bottom: context.h(12)),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(context.r(12)),
-        border: isRoundTrip ? Border.all(color: accentColor.withOpacity(0.4), width: context.w(1.5)) : null,
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: context.w(8), offset: Offset(0, context.h(2)))],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () => _showFlightDetails(flight),
-          borderRadius: BorderRadius.circular(context.r(12)),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (isRoundTrip)
-                Container(
-                  width: double.infinity,
-                  padding: EdgeInsets.symmetric(horizontal: context.w(12), vertical: context.h(6)),
-                  decoration: BoxDecoration(
-                    color: accentColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.only(topLeft: Radius.circular(context.r(12)), topRight: Radius.circular(context.r(12))),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.sync_alt, size: context.w(14), color: accentColor),
-                      SizedBox(width: context.w(6)),
-                      Text('Round Trip', style: TextStyle(fontSize: context.fs(12), fontWeight: FontWeight.w600, color: accentColor)),
-                    ],
-                  ),
-                ),
-              Padding(
-                padding: EdgeInsets.fromLTRB(context.w(12), context.h(12), context.w(12), context.h(12)),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          width: context.w(36), height: context.w(36),
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(colors: [accentColor.withOpacity(0.2), accentColor.withOpacity(0.05)]),
-                            borderRadius: BorderRadius.circular(context.r(8)),
-                          ),
-                          child: Center(child: Text(flight.airlineCode?.substring(0, 2).toUpperCase() ?? 'AI', style: TextStyle(fontSize: context.fs(14), fontWeight: FontWeight.bold, color: accentColor))),
-                        ),
-                        SizedBox(width: context.w(10)),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(flight.airlineName ?? 'Airline', style: TextStyle(fontWeight: FontWeight.w600, fontSize: context.fs(15), color: Colors.black87)),
-                              Text('Flight ${flight.flightNumber ?? ''}', style: TextStyle(fontSize: context.fs(12), color: Colors.grey.shade600)),
-                            ],
-                          ),
-                        ),
-                        Text(_convertFlightPrice((flight.totalFare ?? 0).toDouble(), flight.currency), style: TextStyle(fontSize: context.fs(20), fontWeight: FontWeight.bold, color: const Color(0xFF0A2463))),
-                      ],
-                    ),
-                    SizedBox(height: context.h(12)),
-                    LayoutBuilder(
-                      builder: (context, constraints) {
-                        bool isSmallScreen = constraints.maxWidth < 350;
-                        return Row(
-                          children: [
-                            Expanded(flex: 2, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                              Text(_formatTime(flight.departureTime), style: TextStyle(fontSize: context.fs(isSmallScreen ? 20 : 24), fontWeight: FontWeight.bold, color: Colors.black87)),
-                              SizedBox(height: context.h(2)),
-                              Text(flight.originName ?? flight.origin ?? '', style: TextStyle(fontSize: context.fs(isSmallScreen ? 11 : 13), color: Colors.grey.shade600, fontWeight: FontWeight.w500), maxLines: 1, overflow: TextOverflow.ellipsis),
-                            ])),
-                            Expanded(flex: isSmallScreen ? 3 : 2, child: Column(children: [
-                              Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                                Container(width: context.w(6), height: context.h(6), decoration: BoxDecoration(color: accentColor, shape: BoxShape.circle)),
-                                Expanded(child: Container(height: context.h(2), decoration: BoxDecoration(gradient: LinearGradient(colors: [accentColor.withOpacity(0.3), accentColor.withOpacity(0.6)])))),
-                                Icon(Icons.flight, size: context.w(isSmallScreen ? 14 : 16), color: accentColor),
-                                Expanded(child: Container(height: context.h(2), decoration: BoxDecoration(gradient: LinearGradient(colors: [accentColor.withOpacity(0.6), accentColor.withOpacity(0.3)])))),
-                                Container(width: context.w(6), height: context.h(6), decoration: BoxDecoration(color: accentColor, shape: BoxShape.circle)),
-                              ]),
-                              SizedBox(height: context.h(4)),
-                              Text(_formatDuration(flight.duration != null ? int.tryParse(flight.duration!) : null), style: TextStyle(fontSize: context.fs(isSmallScreen ? 11 : 12), color: Colors.grey.shade700, fontWeight: FontWeight.w600)),
-                              Text('Non-stop', style: TextStyle(fontSize: context.fs(isSmallScreen ? 10 : 11), color: Colors.green.shade600, fontWeight: FontWeight.w500)),
-                            ])),
-                            Expanded(flex: 2, child: Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                              Text(_formatTime(flight.arrivalTime), style: TextStyle(fontSize: context.fs(isSmallScreen ? 20 : 24), fontWeight: FontWeight.bold, color: Colors.black87)),
-                              SizedBox(height: context.h(2)),
-                              Text(flight.destinationName ?? flight.destination ?? '', style: TextStyle(fontSize: context.fs(isSmallScreen ? 11 : 13), color: Colors.grey.shade600, fontWeight: FontWeight.w500), maxLines: 1, overflow: TextOverflow.ellipsis),
-                            ])),
-                          ],
-                        );
-                      },
-                    ),
-                    if (isRoundTrip) ...[
-                      SizedBox(height: context.h(12)),
-                      Divider(height: 1, color: Colors.grey.shade200),
-                      SizedBox(height: context.h(12)),
-                      Row(
-                        children: [
-                          Container(padding: EdgeInsets.all(context.w(4)), decoration: BoxDecoration(color: accentColor.withOpacity(0.1), shape: BoxShape.circle), child: Icon(Icons.flight_land, size: context.w(14), color: accentColor)),
-                          SizedBox(width: context.w(8)),
-                          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                            Text('Return: ${_formatTime(flight.returnDepartureTime)} - ${_formatTime(flight.returnArrivalTime)}', style: TextStyle(fontSize: context.fs(13), fontWeight: FontWeight.w600, color: Colors.black87)),
-                            Text('${flight.returnOriginName ?? flight.returnOrigin ?? ''} to ${flight.returnDestinationName ?? flight.returnDestination ?? ''} • ${flight.returnDuration != null ? _formatDuration(int.tryParse(flight.returnDuration!)) : ''}', style: TextStyle(fontSize: context.fs(11), color: Colors.grey.shade600), maxLines: 1, overflow: TextOverflow.ellipsis),
-                          ])),
-                        ],
-                      ),
-                    ],
-                    SizedBox(height: context.h(12)),
-                    Container(
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(colors: [accentColor.withOpacity(0.1), accentColor.withOpacity(0.05)]),
-                        borderRadius: BorderRadius.circular(context.r(8)),
-                        border: Border.all(color: accentColor.withOpacity(0.3), width: context.w(1)),
-                      ),
-                      child: Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          onTap: () => _showFlightDetails(flight),
-                          borderRadius: BorderRadius.circular(context.r(8)),
-                          child: Padding(
-                            padding: EdgeInsets.symmetric(vertical: context.h(10)),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.lock_outline, size: context.w(16), color: accentColor),
-                                SizedBox(width: context.w(8)),
-                                Text('View Price Detail', style: TextStyle(fontSize: context.fs(13), fontWeight: FontWeight.w600, color: accentColor)),
-                                SizedBox(width: context.w(8)),
-                                Icon(Icons.arrow_forward_ios, size: context.w(12), color: accentColor),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
+    return Column(
+      children: [
+        _legBlock(
+          label: 'Depart',
+          icon: Icons.flight_takeoff,
+          originCode: flight.origin ?? widget.fromCode,
+          destCode: flight.destination ?? widget.toCode,
+          depTime: _formatTime(flight.departureTime),
+          arrTime: _formatTime(flight.arrivalTime),
+          date: _formatReadableFlightDate(flight.departureTime),
+          duration: outDuration,
+          stops: _formatStops(flight.stops),
+          accentColor: accentColor,
         ),
-      ),
+        SizedBox(height: context.h(14)),
+        _dashedDivider(),
+        SizedBox(height: context.h(14)),
+        _legBlock(
+          label: 'Return',
+          icon: Icons.flight_land,
+          originCode:
+              flight.returnOrigin ?? flight.destination ?? widget.toCode,
+          destCode:
+              flight.returnDestination ?? flight.origin ?? widget.fromCode,
+          depTime: _formatTime(flight.returnDepartureTime),
+          arrTime: _formatTime(flight.returnArrivalTime),
+          date: _formatReadableFlightDate(flight.returnDepartureTime),
+          duration: retDuration,
+          stops: _formatStops(flight.returnStops),
+          accentColor: accentColor,
+        ),
+      ],
     );
   }
 
+  Widget _legBlock({
+    required String label,
+    required IconData icon,
+    required String originCode,
+    required String destCode,
+    required String depTime,
+    required String arrTime,
+    required String date,
+    required String duration,
+    required Color accentColor,
+    String stops = '',
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Leg label with a divider line
+        Row(
+          children: [
+            Icon(icon, size: context.w(14), color: accentColor),
+            SizedBox(width: context.w(6)),
+            Text(
+              label.toUpperCase(),
+              style: TextStyle(
+                fontSize: context.fs(10),
+                fontWeight: FontWeight.w800,
+                color: accentColor,
+                letterSpacing: 0.6,
+              ),
+            ),
+            SizedBox(width: context.w(8)),
+            Expanded(
+              child: Container(height: 1, color: const Color(0xffEDF0F7)),
+            ),
+          ],
+        ),
+        SizedBox(height: context.h(14)),
+        Row(
+          children: [
+            _timeAirportBlock(time: depTime, code: originCode, alignRight: false),
+            SizedBox(width: context.w(12)),
+            Expanded(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _ticketFlightPath(accentColor),
+                  if (stops.isNotEmpty) ...[
+                    SizedBox(height: context.h(4)),
+                    Text(
+                      stops,
+                      style: TextStyle(
+                        color: const Color(0xff9AA2BF),
+                        fontSize: context.fs(10),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            SizedBox(width: context.w(12)),
+            _timeAirportBlock(time: arrTime, code: destCode, alignRight: true),
+          ],
+        ),
+        SizedBox(height: context.h(12)),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            _ticketMetaChip(label: 'Date:', value: date),
+            _ticketMetaChip(label: 'Duration:', value: duration),
+          ],
+        ),
+      ],
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Detail popup
+  // ---------------------------------------------------------------------------
   void _showFlightDetails(FlightEntity flight) {
     FlightDetailsPopup.show(
       context,
@@ -2261,57 +1587,47 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> with SingleTick
       traceId: flight.traceId,
       resultIndex: flight.resultIndex,
       duration: "${flight.duration ?? '--'} min",
-      price: _convertFlightPrice((flight.totalFare ?? 0).toDouble(), flight.currency),
+      price: _convertFlightPrice(
+        (flight.totalFare ?? 0).toDouble(),
+        flight.currency,
+      ),
+      travellerCount: widget.travellers,
     );
   }
 
-  List<FlightEntity> _applyAdvancedFilters(List<FlightEntity> flights) {
-    var result = List<FlightEntity>.from(flights);
-    result = result.where((f) {
-      final price = f.totalFare ?? 0;
-      return price >= _priceRange.start && price <= _priceRange.end;
-    }).toList();
-    if (_selectedStops != null) {
-      // Add stops filtering logic based on your data structure
-    }
-    return _applyFiltersAndSort(result);
-  }
-
-  List<FlightEntity> _applyFiltersAndSort(List<FlightEntity> flights) {
-    var result = List<FlightEntity>.from(flights);
-    if (_selectedFilter != "All Airlines" && _selectedFilter.isNotEmpty) {
-      result = result.where((f) => f.airlineName?.toLowerCase() == _selectedFilter.toLowerCase()).toList();
-    }
-    if (_selectedSort == "Price: Low to High") {
-      result.sort((a, b) => (a.totalFare ?? 0).compareTo(b.totalFare ?? 0));
-    } else if (_selectedSort == "Price: High to Low") {
-      result.sort((a, b) => (b.totalFare ?? 0).compareTo(a.totalFare ?? 0));
-    } else if (_selectedSort == "Duration: Shortest") {
-      result.sort((a, b) {
-        int aDur = int.tryParse(a.duration ?? '0') ?? 9999;
-        int bDur = int.tryParse(b.duration ?? '0') ?? 9999;
-        return aDur.compareTo(bDur);
-      });
-    } else if (_selectedSort == "Departure: Earliest") {
-      result.sort((a, b) => (a.departureTime ?? '').compareTo(b.departureTime ?? ''));
-    }
-    return result;
-  }
-
-  void _updateMaxPrice(List<FlightEntity> flights) {
-    final maxPrice = flights.fold<double>(0, (max, f) => (f.totalFare ?? 0) > max ? (f.totalFare ?? 0) : max);
-    if (maxPrice > _maxPrice) {
-      setState(() { _maxPrice = maxPrice; _priceRange = RangeValues(0, maxPrice); });
-    }
-  }
-
-  Widget _buildResultsHeader(int showing, int total) {
-    return Padding(
-      padding: EdgeInsets.symmetric(vertical: context.h(8)),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  // ---------------------------------------------------------------------------
+  // Empty / error states
+  // ---------------------------------------------------------------------------
+  Widget _buildNoResultsState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text("$showing of $total Flights", style: TextStyle(fontSize: context.fs(12), fontWeight: FontWeight.w500, color: Colors.grey.shade600)),
+          Icon(Icons.search_off_rounded,
+              size: context.iconXLarge, color: Colors.grey.shade400),
+          SizedBox(height: context.gapLarge),
+          Text(
+            'No flights match your filters',
+            style: TextStyle(
+                fontSize: context.fs(18), fontWeight: FontWeight.w600),
+          ),
+          SizedBox(height: context.gapSmall),
+          TextButton(
+            onPressed: () => setState(() {
+              _selectedDepartureTimes.clear();
+              _selectedArrivalTimes.clear();
+              _filterRefundable = false;
+              _filterNonRefundable = false;
+              _selectedAirlines =
+                  _allFlights.map((f) => f.airlineName ?? 'Unknown').toSet();
+              _priceRange = RangeValues(_minPrice, _maxPrice);
+            }),
+            child: Text(
+              'Clear all filters',
+              style: TextStyle(
+                  fontSize: context.fs(14), color: const Color(0xff1663F7)),
+            ),
+          ),
         ],
       ),
     );
@@ -2324,20 +1640,33 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> with SingleTick
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.error_outline, size: context.iconXLarge, color: Colors.red.shade400),
+            Icon(Icons.error_outline,
+                size: context.iconXLarge, color: Colors.red.shade400),
             SizedBox(height: context.gapLarge),
-            Text('Failed to load flights', style: TextStyle(fontSize: context.fs(20), fontWeight: FontWeight.w600)),
+            Text('Failed to load flights',
+                style: TextStyle(
+                    fontSize: context.fs(20), fontWeight: FontWeight.w600)),
             SizedBox(height: context.gapSmall),
-            Text(message, textAlign: TextAlign.center, style: TextStyle(fontSize: context.fs(14), color: Colors.grey.shade600)),
+            Text(message,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                    fontSize: context.fs(14), color: Colors.grey.shade600)),
             SizedBox(height: context.gapXLarge),
             ElevatedButton(
               onPressed: _triggerFlightSearch,
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFFF3B30),
-                padding: EdgeInsets.symmetric(horizontal: context.buttonWidth, vertical: context.gapMedium),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(context.r(12))),
+                padding: EdgeInsets.symmetric(
+                  horizontal: context.buttonWidth,
+                  vertical: context.gapMedium,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(context.r(12)),
+                ),
               ),
-              child: const Text('Retry', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+              child: const Text('Retry',
+                  style: TextStyle(
+                      color: Colors.white, fontWeight: FontWeight.w600)),
             ),
           ],
         ),
@@ -2350,16 +1679,25 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> with SingleTick
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.flight_takeoff, size: context.iconXLarge * 1.5, color: Colors.grey.shade400),
+          Icon(Icons.flight_takeoff,
+              size: context.iconXLarge * 1.5, color: Colors.grey.shade400),
           SizedBox(height: context.gapLarge),
-          Text('Search for flights', style: TextStyle(fontSize: context.fs(20), fontWeight: FontWeight.w600)),
+          Text('Search for flights',
+              style: TextStyle(
+                  fontSize: context.fs(20), fontWeight: FontWeight.w600)),
           SizedBox(height: context.gapSmall),
-          Text('Enter your travel details to find the best flights', textAlign: TextAlign.center, style: TextStyle(fontSize: context.fs(14), color: Colors.grey.shade600)),
+          Text('Enter your travel details to find the best flights',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                  fontSize: context.fs(14), color: Colors.grey.shade600)),
         ],
       ),
     );
   }
 
+  // ---------------------------------------------------------------------------
+  // Helpers
+  // ---------------------------------------------------------------------------
   String _formatTime(String? isoTime) {
     if (isoTime == null || isoTime.isEmpty) return '--:--';
     try {
@@ -2370,17 +1708,209 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> with SingleTick
     }
   }
 
-  String _formatPrice(int price) {
-    return price.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},');
+  /// MMT-style stops label, taken from the API response.
+  /// 0 stops → "Non stop", otherwise "1 Stop" / "2 Stops".
+  String _formatStops(int? stops) {
+    if (stops == null) return '';
+    if (stops <= 0) return 'Non stop';
+    return '$stops Stop${stops > 1 ? 's' : ''}';
+  }
+
+  String _formatDuration(int? minutes) {
+    if (minutes == null || minutes == 0) return '0';
+    final h = minutes ~/ 60;
+    final m = minutes % 60;
+    if (h > 0 && m > 0) return '${h}h ${m}m';
+    if (h > 0) return '${h}h';
+    return '${m}m';
+  }
+
+  String _formatReadableFlightDate(String? isoTime) {
+    final source = isoTime ?? widget.date?.toIso8601String();
+    if (source == null || source.isEmpty) return _formatDate(widget.date);
+    try {
+      return DateFormat('MMMM d, yyyy').format(DateTime.parse(source));
+    } catch (_) {
+      return _formatDate(widget.date);
+    }
   }
 
   String _formatDate(DateTime? date) {
     if (date == null) return '';
-    return '${date.day} ${_getMonthAbbr(date.month)} ${date.year}';
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+    return '${date.day} ${months[date.month - 1]} ${date.year}';
   }
 
-  String _getMonthAbbr(int month) {
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    return months[month - 1];
+  String _convertFlightPrice(double amount, String? apiCurrency) {
+    try {
+      final prefs = sl<PreferencesManager>();
+      final target = prefs.getPreferredCurrency() ?? 'INR';
+      final from = apiCurrency ?? 'INR';
+      if (from.toUpperCase() == target.toUpperCase()) {
+        return _formatIndianNumber(amount.toInt());
+      }
+      final converted =
+          CurrencyConverter.convert(amount: amount, fromCurrency: from, toCurrency: target);
+      if (target.toUpperCase() == 'INR') {
+        return _formatIndianNumber(converted.toInt());
+      }
+      return converted.toStringAsFixed(0);
+    } catch (_) {
+      return _formatIndianNumber(amount.toInt());
+    }
   }
+
+  String _formatIndianNumber(int num) {
+    if (num < 1000) return num.toString();
+    final str = num.toString();
+    final last3 = str.substring(str.length - 3);
+    final remaining = str.substring(0, str.length - 3);
+    var formatted = '';
+    for (int i = 0; i < remaining.length; i++) {
+      if (i > 0 && (remaining.length - i) % 2 == 0) formatted += ',';
+      formatted += remaining[i];
+    }
+    return '$formatted,$last3';
+  }
+
+  Color _airlineColor(String code) {
+    const colors = [
+      Color(0xffC29200),
+      Color(0xff25358D),
+      Color(0xff7A003C),
+      Color(0xff0F766E),
+      Color(0xffB42318),
+    ];
+    final hash = code.codeUnits.fold<int>(0, (s, u) => s + u);
+    return colors[hash % colors.length];
+  }
+
+  /// Airline logo fetched from the Kiwi CDN by IATA code, with a graceful
+  /// fallback to a coloured initials tile when the logo is missing/offline.
+  Widget _airlineLogo(FlightEntity flight, double size) {
+    final code = (flight.airlineCode ?? '').trim().toUpperCase();
+    final initials = code.isNotEmpty
+        ? (code.length > 2 ? code.substring(0, 2) : code)
+        : ((flight.airlineName?.isNotEmpty ?? false)
+            ? flight.airlineName!.substring(0, 1).toUpperCase()
+            : 'FL');
+
+    Widget initialsTile() => Container(
+          color: _airlineColor(initials),
+          alignment: Alignment.center,
+          child: Text(
+            initials,
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: size * 0.32,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        );
+
+    return Container(
+      width: size,
+      height: size,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(context.r(8)),
+        border: Border.all(color: const Color(0xffE6ECFF)),
+      ),
+      child: code.isEmpty
+          ? initialsTile()
+          : Padding(
+              padding: EdgeInsets.all(context.w(3)),
+              child: CachedNetworkImage(
+                imageUrl: 'https://images.kiwi.com/airlines/64/$code.png',
+                fit: BoxFit.contain,
+                placeholder: (_, __) => initialsTile(),
+                errorWidget: (_, __, ___) => initialsTile(),
+              ),
+            ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Custom Painters
+// ---------------------------------------------------------------------------
+class _RouteArcPainter extends CustomPainter {
+  final Color color;
+  _RouteArcPainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color.withValues(alpha: 0.45)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.3;
+
+    final start = Offset(size.width * 0.24, size.height * 0.58);
+    final end = Offset(size.width * 0.76, size.height * 0.58);
+    final control = Offset(size.width * 0.5, size.height * 0.05);
+    final path = Path()
+      ..moveTo(start.dx, start.dy)
+      ..quadraticBezierTo(control.dx, control.dy, end.dx, end.dy);
+    canvas.drawPath(path, paint);
+    _drawDot(canvas, start);
+    _drawDot(canvas, end);
+
+    final tangentAngle = math.atan2(end.dy - control.dy, end.dx - control.dx);
+    canvas.save();
+    canvas.translate(size.width * 0.5, size.height * 0.18);
+    canvas.rotate(tangentAngle + math.pi / 16);
+    final iconPainter = TextPainter(
+      text: TextSpan(
+        text: String.fromCharCode(Icons.flight.codePoint),
+        style: TextStyle(
+          fontFamily: Icons.flight.fontFamily,
+          package: Icons.flight.fontPackage,
+          color: color,
+          fontSize: 22,
+        ),
+      ),
+      textDirection: ui.TextDirection.ltr,
+    )..layout();
+    iconPainter.paint(
+        canvas, Offset(-iconPainter.width / 2, -iconPainter.height / 2));
+    canvas.restore();
+  }
+
+  void _drawDot(Canvas canvas, Offset offset) {
+    canvas.drawCircle(offset, 5, Paint()..color = color);
+    canvas.drawCircle(
+        offset, 9, Paint()..color = color.withValues(alpha: 0.12));
+  }
+
+  @override
+  bool shouldRepaint(covariant _RouteArcPainter old) => old.color != color;
+}
+
+class _DashedLinePainter extends CustomPainter {
+  final Color color;
+  _DashedLinePainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 1.2
+      ..strokeCap = StrokeCap.round;
+    const dashWidth = 6.0;
+    const dashSpace = 6.0;
+    var x = 0.0;
+    final y = size.height / 2;
+    while (x < size.width) {
+      canvas.drawLine(
+          Offset(x, y), Offset(math.min(x + dashWidth, size.width), y), paint);
+      x += dashWidth + dashSpace;
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _DashedLinePainter old) => old.color != color;
 }

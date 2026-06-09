@@ -2,24 +2,43 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/error/data_state.dart';
 import '../../../../core/utils/storage/shared_preference.dart';
 import '../../domain/entity/user_entity.dart';
+import '../../domain/usecase/apple_auth_usecase.dart';
 import '../../domain/usecase/google_auth_usecase.dart';
 import 'auth_event.dart';
 import 'auth_state.dart';
 
 class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final GoogleLoginUseCase googleLoginUseCase;
+  final AppleLoginUseCase appleLoginUseCase;
   final PreferencesManager preferencesManager;
 
   AuthBloc({
     required this.googleLoginUseCase,
+    required this.appleLoginUseCase,
     required this.preferencesManager,
   }) : super(const AuthInitial()) {
     on<GoogleLoginRequested>(_onGoogleLoginRequested);
+    on<AppleLoginRequested>(_onAppleLoginRequested);
     on<AuthLogoutRequested>(_onAuthLogoutRequested);
     on<AuthTokenRefreshRequested>(_onAuthTokenRefreshRequested);
     on<AuthCheckStatusRequested>(_onAuthCheckStatusRequested);
 
     add(const AuthCheckStatusRequested());
+  }
+
+  Future<void> _persistAndEmit(
+    UserEntity user,
+    Emitter<AuthState> emit,
+  ) async {
+    await preferencesManager.saveUserData(user.toJson());
+    if (user.accessToken != null) {
+      await preferencesManager.saveToken(user.accessToken!);
+    }
+    if (user.refreshToken != null) {
+      await preferencesManager.saveRefreshToken(user.refreshToken!);
+    }
+    await preferencesManager.saveUserType(int.tryParse(user.userType ?? '0') ?? 0);
+    emit(AuthAuthenticated(user));
   }
 
   Future<void> _onAuthCheckStatusRequested(
@@ -52,21 +71,34 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     final result = await googleLoginUseCase(event.idToken);
 
     if (result is DataSuccess) {
-      print(' Bloc: Emitting AuthAuthenticated');
-      // Save user data to local storage
-      final user = result.data!;
-      await preferencesManager.saveUserData(user.toJson()); // Add toJson method
-      if (user.accessToken != null) {
-        await preferencesManager.saveToken(user.accessToken!);
-      }
-      if (user.refreshToken != null) {
-        await preferencesManager.saveRefreshToken(user.refreshToken!);
-      }
-      await preferencesManager.saveUserType(int.tryParse(user.userType ?? '0') ?? 0);
-
-      emit(AuthAuthenticated(result.data!));
+      print(' Bloc: Emitting AuthAuthenticated (google)');
+      await _persistAndEmit(result.data!, emit);
     } else if (result is DataFailed) {
       final errorMessage = result.error?.message ?? 'Authentication failed';
+      print(' Bloc: Emitting AuthError - $errorMessage');
+      emit(AuthError(errorMessage));
+    }
+  }
+
+  Future<void> _onAppleLoginRequested(
+      AppleLoginRequested event,
+      Emitter<AuthState> emit,
+      ) async {
+    print(' Bloc: Processing AppleLoginRequested');
+    emit(const AuthLoading());
+
+    final result = await appleLoginUseCase(
+      token: event.token,
+      firstName: event.firstName,
+      lastName: event.lastName,
+      email: event.email,
+    );
+
+    if (result is DataSuccess) {
+      print(' Bloc: Emitting AuthAuthenticated (apple)');
+      await _persistAndEmit(result.data!, emit);
+    } else if (result is DataFailed) {
+      final errorMessage = result.error?.message ?? 'Apple authentication failed';
       print(' Bloc: Emitting AuthError - $errorMessage');
       emit(AuthError(errorMessage));
     }

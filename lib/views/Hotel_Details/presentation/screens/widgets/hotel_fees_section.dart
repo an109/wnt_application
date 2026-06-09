@@ -165,10 +165,10 @@ class _HotelFeesWidgetState extends State<HotelFeesWidget> {
 
     return Container(
       margin: context.responsivePadding,
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(context.w(14)),
       decoration: BoxDecoration(
         color: Colors.amber.shade50,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(context.r(12)),
         border: Border.all(color: Colors.amber.shade200),
       ),
       child: Column(
@@ -176,29 +176,33 @@ class _HotelFeesWidgetState extends State<HotelFeesWidget> {
         children: [
           Row(
             children: [
-              Icon(Icons.info_outline, color: Colors.amber.shade700, size: 20),
-              const SizedBox(width: 8),
+              Icon(Icons.info_outline,
+                  color: Colors.amber.shade700, size: context.w(18)),
+              SizedBox(width: context.w(8)),
               Text(
                 'Hotel Fees & Add-ons',
                 style: TextStyle(
-                  fontSize: 16,
+                  fontSize: context.fs(14),
                   fontWeight: FontWeight.bold,
                   color: Colors.amber.shade900,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 4),
+          SizedBox(height: context.h(4)),
           Text(
             'Optional extras can be added to your total before checkout.',
-            style: TextStyle(fontSize: 12, color: Colors.amber.shade800),
+            style: TextStyle(fontSize: context.fs(11), color: Colors.amber.shade800),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: context.h(16)),
           Text(
             'OPTIONAL ADD-ONS',
-            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey.shade700),
+            style: TextStyle(
+                fontSize: context.fs(11),
+                fontWeight: FontWeight.w600,
+                color: Colors.grey.shade700),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: context.h(12)),
           ...widget.hotelFees.optional.map((fee) => _buildAddOnItem(fee)),
         ],
       ),
@@ -225,16 +229,12 @@ class _HotelFeesWidgetState extends State<HotelFeesWidget> {
       displayCurrency = targetCurrency;
     }
 
+    // Display amount without any currency sign
     final code = displayCurrency.toUpperCase();
     final intAmount = finalAmount.toInt();
 
-    if (code == 'INR') return '₹${_formatIndianNumber(intAmount)}';
-    if (code == 'USD') return '\$${intAmount.toStringAsFixed(0)}';
-    if (code == 'EUR') return '€${intAmount.toStringAsFixed(0)}';
-    if (code == 'GBP') return '£${intAmount.toStringAsFixed(0)}';
-    if (code == 'AED') return 'د.إ ${intAmount.toStringAsFixed(0)}';
-
-    return '$code ${intAmount.toStringAsFixed(0)}';
+    if (code == 'INR') return _formatIndianNumber(intAmount);
+    return intAmount.toStringAsFixed(0);
   }
 
   String _formatIndianNumber(int num) {
@@ -254,11 +254,11 @@ class _HotelFeesWidgetState extends State<HotelFeesWidget> {
     final isSelected = _selectedAddOns[fee.feesType] ?? false;
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(12),
+      margin: EdgeInsets.only(bottom: context.h(12)),
+      padding: EdgeInsets.all(context.w(12)),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(context.r(8)),
         border: Border.all(
           color: isSelected ? Colors.amber.shade400 : Colors.grey.shade200,
           width: isSelected ? 2 : 1,
@@ -279,11 +279,13 @@ class _HotelFeesWidgetState extends State<HotelFeesWidget> {
               children: [
                 Text(
                   fee.feesType,
-                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                  style: TextStyle(
+                      fontWeight: FontWeight.w600, fontSize: context.fs(13)),
                 ),
                 Text(
                   '${fee.chargeType} | ${fee.feesCategory}',
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                  style: TextStyle(
+                      fontSize: context.fs(11), color: Colors.grey.shade600),
                 ),
               ],
             ),
@@ -292,7 +294,7 @@ class _HotelFeesWidgetState extends State<HotelFeesWidget> {
           Text(
             _formatFeePrice(fee.feesValue, fee.currency),
             style: TextStyle(
-              fontSize: 16,
+              fontSize: context.fs(14),
               fontWeight: FontWeight.bold,
               color: Colors.amber.shade900,
             ),

@@ -6,7 +6,7 @@ import '../../../domain/entities/ssr_entity.dart';
 import '../../bloc/ssr_bloc.dart';
 import '../../bloc/ssr_event.dart';
 import '../../bloc/ssr_state.dart';
-
+import 'ssr_price_formatter.dart';
 
 class BaggageScreen extends StatefulWidget {
   final String traceId;
@@ -65,7 +65,8 @@ class _BaggageScreenState extends State<BaggageScreen> {
     if (state is SsrLoaded) {
       final baggage = state.ssrData.baggageOptions;
       if (baggage != null && baggage.isNotEmpty) {
-        final segmentIndex = widget.selectedSegmentIndex ?? _currentSegmentIndex;
+        final segmentIndex =
+            widget.selectedSegmentIndex ?? _currentSegmentIndex;
         if (segmentIndex < baggage.length) {
           return baggage[segmentIndex];
         }
@@ -183,10 +184,7 @@ class _BaggageScreenState extends State<BaggageScreen> {
                 borderRadius: BorderRadius.circular(context.borderRadius),
               ),
             ),
-            child: Text(
-              'Retry',
-              style: TextStyle(fontWeight: FontWeight.w600),
-            ),
+            child: Text('Retry', style: TextStyle(fontWeight: FontWeight.w600)),
           ),
         ],
       ),
@@ -240,7 +238,8 @@ class _BaggageScreenState extends State<BaggageScreen> {
       return _buildEmptyState();
     }
 
-    final currentSegmentIndex = widget.selectedSegmentIndex ?? _currentSegmentIndex;
+    final currentSegmentIndex =
+        widget.selectedSegmentIndex ?? _currentSegmentIndex;
     final segmentBaggage = currentSegmentIndex < baggageSegments.length
         ? baggageSegments[currentSegmentIndex]
         : <BaggageOptionEntity>[];
@@ -260,23 +259,23 @@ class _BaggageScreenState extends State<BaggageScreen> {
           child: segmentBaggage.isEmpty
               ? _buildEmptyState()
               : ListView.builder(
-            padding: EdgeInsets.symmetric(
-              horizontal: context.gapMedium,
-              vertical: context.gapSmall,
-            ),
-            itemCount: segmentBaggage.length,
-            itemBuilder: (context, index) {
-              final option = segmentBaggage[index];
-              final isSelected = _selectedBaggageIndex == index;
+                  padding: EdgeInsets.symmetric(
+                    horizontal: context.gapMedium,
+                    vertical: context.gapSmall,
+                  ),
+                  itemCount: segmentBaggage.length,
+                  itemBuilder: (context, index) {
+                    final option = segmentBaggage[index];
+                    final isSelected = _selectedBaggageIndex == index;
 
-              return _buildBaggageOptionCard(
-                context,
-                option: option,
-                isSelected: isSelected,
-                onTap: () => _handleBaggageSelection(index, option),
-              );
-            },
-          ),
+                    return _buildBaggageOptionCard(
+                      context,
+                      option: option,
+                      isSelected: isSelected,
+                      onTap: () => _handleBaggageSelection(index, option),
+                    );
+                  },
+                ),
         ),
       ],
     );
@@ -296,7 +295,7 @@ class _BaggageScreenState extends State<BaggageScreen> {
         borderRadius: BorderRadius.circular(context.borderRadius),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 12,
             offset: const Offset(0, 2),
           ),
@@ -382,9 +381,11 @@ class _BaggageScreenState extends State<BaggageScreen> {
         child: ListView.separated(
           scrollDirection: Axis.horizontal,
           itemCount: segmentCount,
-          separatorBuilder: (context, index) => SizedBox(width: context.gapSmall),
+          separatorBuilder: (context, index) =>
+              SizedBox(width: context.gapSmall),
           itemBuilder: (context, index) {
-            final isSelected = index == (widget.selectedSegmentIndex ?? _currentSegmentIndex);
+            final isSelected =
+                index == (widget.selectedSegmentIndex ?? _currentSegmentIndex);
 
             return GestureDetector(
               onTap: () {
@@ -407,12 +408,12 @@ class _BaggageScreenState extends State<BaggageScreen> {
                   ),
                   boxShadow: isSelected
                       ? [
-                    BoxShadow(
-                      color: Colors.blue.withOpacity(0.3),
-                      blurRadius: 8,
-                      offset: Offset(0, 2),
-                    ),
-                  ]
+                          BoxShadow(
+                            color: Colors.blue.withValues(alpha: 0.3),
+                            blurRadius: 8,
+                            offset: Offset(0, 2),
+                          ),
+                        ]
                       : null,
                 ),
                 child: Center(
@@ -434,11 +435,11 @@ class _BaggageScreenState extends State<BaggageScreen> {
   }
 
   Widget _buildBaggageOptionCard(
-      BuildContext context, {
-        required BaggageOptionEntity option,
-        required bool isSelected,
-        required VoidCallback onTap,
-      }) {
+    BuildContext context, {
+    required BaggageOptionEntity option,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
     return Container(
       margin: EdgeInsets.only(bottom: context.gapMedium),
       child: Material(
@@ -457,7 +458,7 @@ class _BaggageScreenState extends State<BaggageScreen> {
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.03),
+                  color: Colors.black.withValues(alpha: 0.03),
                   blurRadius: 8,
                   offset: const Offset(0, 2),
                 ),
@@ -472,21 +473,23 @@ class _BaggageScreenState extends State<BaggageScreen> {
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     border: Border.all(
-                      color: isSelected ? Colors.blue.shade600 : Colors.grey.shade400,
+                      color: isSelected
+                          ? Colors.blue.shade600
+                          : Colors.grey.shade400,
                       width: 1.5,
                     ),
                   ),
                   child: isSelected
                       ? Center(
-                    child: Container(
-                      width: 12,
-                      height: 12,
-                      decoration: const BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Colors.blue,
-                      ),
-                    ),
-                  )
+                          child: Container(
+                            width: 12,
+                            height: 12,
+                            decoration: const BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Colors.blue,
+                            ),
+                          ),
+                        )
                       : null,
                 ),
                 SizedBox(width: context.gapMedium),
@@ -551,7 +554,7 @@ class _BaggageScreenState extends State<BaggageScreen> {
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(
-                      option.displayPrice,
+                      SsrPriceFormatter.format(option.price, option.currency),
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: context.bodyLarge,
@@ -564,7 +567,11 @@ class _BaggageScreenState extends State<BaggageScreen> {
                       Padding(
                         padding: EdgeInsets.only(top: context.gapSmall / 2),
                         child: Text(
-                          option.pricePerKg,
+                          SsrPriceFormatter.unit(
+                            option.price / option.weight,
+                            option.currency,
+                            'kg',
+                          ),
                           style: TextStyle(
                             color: Colors.grey.shade500,
                             fontSize: context.labelSmall,

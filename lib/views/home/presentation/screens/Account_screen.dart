@@ -21,7 +21,7 @@ class AccountScreen extends StatelessWidget {
         actions: [
           Padding(
             padding: EdgeInsets.all(context.wp(2)),
-            child: Image.asset("assets/images/wander_nova_logo.jpg", height: context.hp(4.5)),
+            child: Image.asset("assets/images/wander_logo.png", height: context.hp(4.5)),
           )
         ],
       ),

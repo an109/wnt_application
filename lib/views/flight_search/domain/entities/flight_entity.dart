@@ -80,6 +80,10 @@ class FlightEntity extends Equatable {
   final int? seatsAvailable;
   final String? traceId;
 
+  // Number of stops on the outbound journey (0 = non-stop), as derived
+  // from the API's segment legs.
+  final int? stops;
+
   // Round trip details
   final bool isRoundTrip;
   final String? returnDepartureTime;
@@ -89,6 +93,7 @@ class FlightEntity extends Equatable {
   final String? returnOriginName;
   final String? returnDestination;
   final String? returnDestinationName;
+  final int? returnStops;
 
   const FlightEntity({
     this.resultIndex,
@@ -109,6 +114,7 @@ class FlightEntity extends Equatable {
     this.currency,
     this.seatsAvailable,
     this.traceId,
+    this.stops,
     this.isRoundTrip = false,
     this.returnDepartureTime,
     this.returnArrivalTime,
@@ -117,14 +123,15 @@ class FlightEntity extends Equatable {
     this.returnOriginName,
     this.returnDestination,
     this.returnDestinationName,
+    this.returnStops,
   });
 
   @override
   List<Object?> get props => [
     resultIndex, airlineCode, airlineName, flightNumber, origin, originName,
     destination, destinationName, departureTime, arrivalTime, duration, cabinClass,
-    baseFare, tax, totalFare, currency, seatsAvailable, traceId, isRoundTrip,
+    baseFare, tax, totalFare, currency, seatsAvailable, traceId, stops, isRoundTrip,
     returnDepartureTime, returnArrivalTime, returnDuration, returnOrigin,
-    returnOriginName, returnDestination, returnDestinationName,
+    returnOriginName, returnDestination, returnDestinationName, returnStops,
   ];
 }

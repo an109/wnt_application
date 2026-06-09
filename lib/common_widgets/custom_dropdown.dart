@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wander_nova/UI_helper/responsive_layout.dart';
 
 class CustomDropdownSearch<T extends Object> extends StatefulWidget {
   final List<T> options;
@@ -33,9 +34,6 @@ class _CustomDropdownSearchState<T extends Object> extends State<CustomDropdownS
   bool _isDropdownOpen = false;
   OverlayEntry? _overlayEntry;
   final GlobalKey _fieldKey = GlobalKey();
-
-  static const double _dropdownHeight = 250.0;
-  static const double _headerHeight = 48.0;
 
   @override
   void initState() {
@@ -81,6 +79,8 @@ class _CustomDropdownSearchState<T extends Object> extends State<CustomDropdownS
 
     final size = renderBox.size;
     final offset = renderBox.localToGlobal(Offset.zero);
+    final dropdownHeight = context.h(250);
+    final dropdownGap = context.h(8);
 
     _overlayEntry = OverlayEntry(
       builder: (context) => GestureDetector(
@@ -91,15 +91,15 @@ class _CustomDropdownSearchState<T extends Object> extends State<CustomDropdownS
             Positioned.fill(child: Container(color: Colors.transparent)),
             Positioned(
               left: offset.dx,
-              top: offset.dy + size.height + 8,
+              top: offset.dy + size.height + dropdownGap,
               width: size.width,
               child: Material(
                 elevation: 8,
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(context.r(12)),
                 clipBehavior: Clip.antiAlias,
                 child: SizedBox(
-                  height: _dropdownHeight,
+                  height: dropdownHeight,
                   child: _DropdownContent<T>(
                     searchController: _searchController,
                     options: widget.options,
@@ -142,14 +142,14 @@ class _CustomDropdownSearchState<T extends Object> extends State<CustomDropdownS
           key: _fieldKey,
           onTap: _toggleDropdown,
           child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 4),
+            padding: EdgeInsets.symmetric(vertical: context.h(4)),
             child: Row(
               children: [
                 Expanded(
                   child: Text(
                     widget.selectedValue ?? widget.hint,
                     style: TextStyle(
-                      fontSize: 16,
+                      fontSize: context.fs(15),
                       fontWeight: widget.selectedValue != null
                           ? FontWeight.bold
                           : FontWeight.w500,
@@ -158,13 +158,13 @@ class _CustomDropdownSearchState<T extends Object> extends State<CustomDropdownS
                           : const Color(0xffBCC1CA),
                     ),
                     overflow: TextOverflow.ellipsis,
-                    maxLines: 2,
+                    maxLines: 1,
                   ),
                 ),
                 Icon(
                   _isDropdownOpen ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
                   color: const Color(0xffBCC1CA),
-                  size: 20,
+                  size: context.iconMedium,
                 ),
               ],
             ),
@@ -242,17 +242,17 @@ class _DropdownContentState<T> extends State<_DropdownContent<T>> {
     return Column(
       children: [
         SizedBox(
-          height: 48,
+          height: context.h(48),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
+            padding: EdgeInsets.symmetric(horizontal: context.w(12)),
             decoration: BoxDecoration(
               border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
               color: Colors.grey.shade50,
             ),
             child: Row(
               children: [
-                Icon(Icons.search, size: 18, color: Colors.grey.shade500),
-                const SizedBox(width: 8),
+                Icon(Icons.search, size: context.iconSmall, color: Colors.grey.shade500),
+                SizedBox(width: context.w(8)),
                 Expanded(
                   child: TextField(
                     controller: widget.searchController,
@@ -263,7 +263,7 @@ class _DropdownContentState<T> extends State<_DropdownContent<T>> {
                       isDense: true,
                       contentPadding: EdgeInsets.zero,
                     ),
-                    style: const TextStyle(fontSize: 14),
+                    style: TextStyle(fontSize: context.fs(14)),
                   ),
                 ),
               ],
@@ -287,13 +287,13 @@ class _DropdownContentState<T> extends State<_DropdownContent<T>> {
                 child: InkWell(
                   onTap: () => widget.onSelected(option),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
+                    padding: EdgeInsets.symmetric(
+                      horizontal: context.w(16),
+                      vertical: context.h(12),
                     ),
                     child: Text(
                       widget.displayStringForOption(option),
-                      style: const TextStyle(fontSize: 14),
+                      style: TextStyle(fontSize: context.fs(14)),
                     ),
                   ),
                 ),

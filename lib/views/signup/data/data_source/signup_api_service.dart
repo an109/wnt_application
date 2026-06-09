@@ -6,8 +6,9 @@ abstract class SignupApiService {
     required String firstname,
     required String lastname,
     required String password,
-    required String phone,
-    required String phoneCode,
+    String? email,
+    String? phone,
+    String? phoneCode,
   });
 }
 
@@ -21,23 +22,35 @@ class SignupApiServiceImpl implements SignupApiService {
     required String firstname,
     required String lastname,
     required String password,
-    required String phone,
-    required String phoneCode,
+    String? email,
+    String? phone,
+    String? phoneCode,
   }) async {
     try {
       print('CALLING SIGNUP API: ${Urls.signup}');
-      print('Request payload: {firstname: $firstname, lastname: $lastname, phone: $phone, phone_code: $phoneCode}');
 
-      final response = await dio.post(
-        Urls.signup,
-        data: {
-          'firstname': firstname,
-          'lastname': lastname,
-          'password': password,
-          'phone': phone,
-          'phone_code': phoneCode,
-        },
-      );
+      // Backend accepts email OR phone. Send whichever was provided.
+      final Map<String, dynamic> data = {
+        'firstname': firstname,
+        'lastname': lastname,
+        'password': password,
+        'platform': 'email',
+      };
+
+      final trimmedEmail = (email ?? '').trim();
+      final trimmedPhone = (phone ?? '').trim();
+
+      if (trimmedEmail.isNotEmpty) {
+        data['email'] = trimmedEmail;
+      }
+      if (trimmedPhone.isNotEmpty) {
+        data['phone'] = trimmedPhone;
+        data['phone_code'] = (phoneCode ?? '').trim();
+      }
+
+      print('Request payload: $data');
+
+      final response = await dio.post(Urls.signup, data: data);
       return response;
     } on DioException catch (e) {
       print('API Error: ${e.message}');

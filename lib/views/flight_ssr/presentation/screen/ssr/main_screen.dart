@@ -14,7 +14,6 @@ import '../../../../flight_search/presentation/screen/booking_screen.dart';
 import 'baggage_screen.dart';
 import 'meal_screen.dart';
 import 'seats_screen.dart';
-import 'special_service_screen.dart';
 
 class SSRMainScreen extends StatefulWidget {
   final String traceId;
@@ -25,6 +24,9 @@ class SSRMainScreen extends StatefulWidget {
   final FareQuoteData? fareQuoteData;
   final FlightRouteSegment? route;
 
+  /// Number of travellers — caps how many seats can be chosen.
+  final int travellerCount;
+
   const SSRMainScreen({
     super.key,
     required this.traceId,
@@ -34,6 +36,7 @@ class SSRMainScreen extends StatefulWidget {
     this.passengerData = const {},
     this.fareQuoteData,
     this.route,
+    this.travellerCount = 1,
   });
 
   @override
@@ -44,19 +47,13 @@ class _SSRMainScreenState extends State<SSRMainScreen> {
   final PageController _pageController = PageController();
   late final SsrBloc _ssrBloc;
   MealOptionEntity? _selectedMeal;
-  SeatOptionEntity? _selectedSeat;
+  List<SeatOptionEntity> _selectedSeats = [];
   List<SpecialServiceEntity> _selectedServices = [];
 
   int currentIndex = 0;
   BaggageOptionEntity? _selectedBaggage;
-  int? _selectedBaggageIndex;
 
-  final List<String> titles = [
-    "Baggage",
-    "Meals",
-    "Choose Your Seat",
-    "Services",
-  ];
+  final List<String> titles = ["Baggage", "Meals", "Choose Your Seat"];
 
   @override
   void initState() {
@@ -84,7 +81,7 @@ class _SSRMainScreenState extends State<SSRMainScreen> {
   }
 
   void nextPage() {
-    if (currentIndex < 3) {
+    if (currentIndex < titles.length - 1) {
       _pageController.nextPage(
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
@@ -102,13 +99,14 @@ class _SSRMainScreenState extends State<SSRMainScreen> {
   }
 
   void _handleBaggageSelected(
-      List<BaggageOptionEntity>? options,
-      int? selectedIndex,
-      ) {
-    if (options != null && selectedIndex != null && selectedIndex < options.length) {
+    List<BaggageOptionEntity>? options,
+    int? selectedIndex,
+  ) {
+    if (options != null &&
+        selectedIndex != null &&
+        selectedIndex < options.length) {
       setState(() {
         _selectedBaggage = options[selectedIndex];
-        _selectedBaggageIndex = selectedIndex;
       });
       print('Baggage selected: ${options[selectedIndex].code}');
     }
@@ -117,7 +115,11 @@ class _SSRMainScreenState extends State<SSRMainScreen> {
   void _navigateToPayment() {
     if (widget.route == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Missing flight details. Please go back and try again.')),
+        const SnackBar(
+          content: Text(
+            'Missing flight details. Please go back and try again.',
+          ),
+        ),
       );
       return;
     }
@@ -125,7 +127,7 @@ class _SSRMainScreenState extends State<SSRMainScreen> {
     final ssrSelections = {
       'baggage': _selectedBaggage?.code,
       'meal': _selectedMeal?.code,
-      'seat': _selectedSeat?.seatLabel,
+      'seat': _selectedSeats.map((s) => s.code).toList(),
       'services': _selectedServices.map((s) => s.code).toList(),
     };
 
@@ -150,19 +152,19 @@ class _SSRMainScreenState extends State<SSRMainScreen> {
     return BlocProvider<SsrBloc>(
       create: (_) => _ssrBloc,
       child: Scaffold(
-        backgroundColor: const Color(0xffF7F8FA),
+        backgroundColor: const Color(0xFFF3F6FC),
         appBar: AppBar(
           title: const WanderNovaLogo(scaleFactor: 0.6),
-          backgroundColor: Colors.white,
+          backgroundColor: const Color(0xFFF3F6FC),
           elevation: 0,
           actions: [
             Padding(
               padding: EdgeInsets.all(context.w(8)),
               child: Image.asset(
-                "assets/images/wander_nova_logo.jpg",
+                "assets/images/wander_logo.png",
                 height: 35,
               ),
-            )
+            ),
           ],
         ),
         body: SafeArea(
@@ -180,6 +182,7 @@ class _SSRMainScreenState extends State<SSRMainScreen> {
                       style: TextStyle(
                         fontSize: context.titleLarge,
                         fontWeight: FontWeight.bold,
+                        color: const Color(0xFF071638),
                       ),
                     ),
                     SizedBox(height: context.gapSmall),
@@ -195,16 +198,14 @@ class _SSRMainScreenState extends State<SSRMainScreen> {
                     /// PROGRESS BAR
                     Row(
                       children: List.generate(
-                        4,
-                            (index) => Expanded(
+                        titles.length,
+                        (index) => Expanded(
                           child: Container(
-                            margin: EdgeInsets.only(
-                              right: index == 3 ? 0 : 8,
-                            ),
+                            margin: EdgeInsets.only(right: index == 3 ? 0 : 8),
                             height: context.hp(0.8),
                             decoration: BoxDecoration(
                               color: index <= currentIndex
-                                  ? Colors.blue
+                                  ? const Color(0xFF1769F6)
                                   : Colors.grey.shade300,
                               borderRadius: BorderRadius.circular(50),
                             ),
@@ -244,11 +245,15 @@ class _SSRMainScreenState extends State<SSRMainScreen> {
                       tokenId: widget.tokenId,
                       resultIndex: widget.resultIndex,
                       onMealSelected: (meals, index) {
-                        if (meals != null && index != null && index < meals.length) {
+                        if (meals != null &&
+                            index != null &&
+                            index < meals.length) {
                           setState(() {
                             _selectedMeal = meals[index];
                           });
-                          print('Meal selected for segment: ${meals[index].code}');
+                          print(
+                            'Meal selected for segment: ${meals[index].code}',
+                          );
                         }
                       },
                     ),
@@ -256,18 +261,9 @@ class _SSRMainScreenState extends State<SSRMainScreen> {
                       traceId: widget.traceId,
                       tokenId: widget.tokenId,
                       resultIndex: widget.resultIndex,
-                      onSeatSelected: (seat) {
-                        setState(() => _selectedSeat = seat);
-                      },
-                    ),
-
-                    /// SPECIAL SERVICES - NEW INTEGRATION
-                    SpecialServiceScreen(
-                      traceId: widget.traceId,
-                      tokenId: widget.tokenId,
-                      resultIndex: widget.resultIndex,
-                      onServicesSelected: (services) {
-                        setState(() => _selectedServices);
+                      travellerCount: widget.travellerCount,
+                      onSeatsSelected: (seats) {
+                        setState(() => _selectedSeats = seats);
                       },
                     ),
                   ],
@@ -297,7 +293,7 @@ class _SSRMainScreenState extends State<SSRMainScreen> {
                     Expanded(
                       child: ElevatedButton(
                         onPressed: () {
-                          if (currentIndex == 3) {
+                          if (currentIndex == titles.length - 1) {
                             _navigateToPayment();
                           } else {
                             nextPage();
@@ -308,11 +304,13 @@ class _SSRMainScreenState extends State<SSRMainScreen> {
                             double.infinity,
                             context.buttonHeight,
                           ),
-                          backgroundColor: Colors.blue,
+                          backgroundColor: const Color(0xFF1769F6),
                           foregroundColor: Colors.white,
                         ),
                         child: Text(
-                          currentIndex == 3  ? "Continue" : "Next",
+                          currentIndex == titles.length - 1
+                              ? "Continue"
+                              : "Next",
                           style: TextStyle(fontWeight: FontWeight.w600),
                         ),
                       ),

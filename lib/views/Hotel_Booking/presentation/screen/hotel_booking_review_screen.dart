@@ -12,17 +12,14 @@ import 'package:wander_nova/views/Hotel_Booking/presentation/screen/widgets/trav
 import 'package:wander_nova/views/Hotel_Payment/hotel_payment_screen.dart';
 import '../../../../UI_helper/currency_converter.dart';
 import '../../../../core/utils/storage/shared_preference.dart';
-import '../../../../injection_container.dart';
 import '../../../../injection_container.dart' as di;
 import '../../domain/entities/hotel_booking_entity.dart';
 import '../../../../UI_helper/responsive_layout.dart';
 import '../../../../common_widgets/logo.dart';
-import '../../../../core/services/currency_service.dart';
 import '../../../../core/services/hotel_session_service.dart';
 import '../bloc/hotel_booking_bloc.dart';
 import '../bloc/hotel_booking_event.dart';
 import '../bloc/hotel_booking_state.dart';
-
 
 class HotelBookingReviewScreen extends StatefulWidget {
   final String bookingCode;
@@ -55,12 +52,14 @@ class HotelBookingReviewScreen extends StatefulWidget {
   });
 
   @override
-  State<HotelBookingReviewScreen> createState() => _HotelBookingReviewScreenState();
+  State<HotelBookingReviewScreen> createState() =>
+      _HotelBookingReviewScreenState();
 }
 
 class _HotelBookingReviewScreenState extends State<HotelBookingReviewScreen> {
   final ScrollController _scrollController = ScrollController();
   bool _showScrollToTop = false;
+  static const _pageBg = Color(0xFFF3F6FC);
 
   final GlobalKey<TravellerDetailsSectionState> _travellerKey =
       GlobalKey<TravellerDetailsSectionState>();
@@ -76,8 +75,12 @@ class _HotelBookingReviewScreenState extends State<HotelBookingReviewScreen> {
   @override
   void initState() {
     super.initState();
-    print('HotelBookingReviewScreen: Initializing with booking code: ${widget.bookingCode}');
-    print('HotelBookingReviewScreen: Hotel facilities count: ${widget.hotelFacilities?.length ?? 0}');
+    print(
+      'HotelBookingReviewScreen: Initializing with booking code: ${widget.bookingCode}',
+    );
+    print(
+      'HotelBookingReviewScreen: Hotel facilities count: ${widget.hotelFacilities?.length ?? 0}',
+    );
 
     // Fetch hotel booking details
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -110,13 +113,16 @@ class _HotelBookingReviewScreenState extends State<HotelBookingReviewScreen> {
 
     // Just store original values, no conversion
     setState(() {
-      _inrBasePrice = room.basePrice;  // Store original (32.92 USD)
-      _inrTax = room.totalTax;         // Store original (0 USD)
+      _inrBasePrice = room.basePrice; // Store original (32.92 USD)
+      _inrTax = room.totalTax; // Store original (0 USD)
       _isConverting = false;
     });
   }
 
-  Future<void> _navigateToPayment(RoomEntity room, String originalCurrency) async {
+  Future<void> _navigateToPayment(
+    RoomEntity room,
+    String originalCurrency,
+  ) async {
     // Guard: TBO 15-minute session
     final expired = await HotelSessionService.instance.isSessionExpired();
 
@@ -127,7 +133,7 @@ class _HotelBookingReviewScreenState extends State<HotelBookingReviewScreen> {
           title: const Text('Session Expired'),
           content: const Text(
             'Your hotel search session has expired (15-minute limit). '
-                'Please go back and search again to get fresh pricing.',
+            'Please go back and search again to get fresh pricing.',
           ),
           actions: [
             TextButton(
@@ -143,7 +149,8 @@ class _HotelBookingReviewScreenState extends State<HotelBookingReviewScreen> {
       return;
     }
 
-    final pax = _travellerKey.currentState?.getFirstAdultData() ?? ['Mr', '', ''];
+    final pax =
+        _travellerKey.currentState?.getFirstAdultData() ?? ['Mr', '', ''];
     final phone = _contactKey.currentState?.phone ?? '';
     final email = _contactKey.currentState?.email ?? widget.userEmail;
 
@@ -158,11 +165,12 @@ class _HotelBookingReviewScreenState extends State<HotelBookingReviewScreen> {
     }
 
     // Get user's preferred currency
-    final prefs = sl<PreferencesManager>();
+    final prefs = di.sl<PreferencesManager>();
     final preferredCurrency = prefs.getPreferredCurrency() ?? 'INR';
 
     // Calculate total in ORIGINAL currency (USD)
-    final totalOriginal = (_inrBasePrice ?? room.basePrice) + (_inrTax ?? room.totalTax);
+    final totalOriginal =
+        (_inrBasePrice ?? room.basePrice) + (_inrTax ?? room.totalTax);
 
     print('🟡 Original amount: $totalOriginal $originalCurrency');
 
@@ -178,7 +186,9 @@ class _HotelBookingReviewScreenState extends State<HotelBookingReviewScreen> {
           toCurrency: preferredCurrency,
         );
         finalCurrency = preferredCurrency;
-        print('🟢 Converted: $totalOriginal $originalCurrency → $finalAmount $finalCurrency');
+        print(
+          '🟢 Converted: $totalOriginal $originalCurrency → $finalAmount $finalCurrency',
+        );
       } catch (e) {
         print('🔴 Conversion failed: $e');
       }
@@ -206,24 +216,25 @@ class _HotelBookingReviewScreenState extends State<HotelBookingReviewScreen> {
       ),
     );
   }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[100],
+      backgroundColor: _pageBg,
       appBar: AppBar(
         title: const WanderNovaLogo(scaleFactor: 0.6),
-        backgroundColor: Colors.white,
+        backgroundColor: _pageBg,
         elevation: 0,
         actions: [
           Padding(
             padding: EdgeInsets.all(context.w(8)),
             child: Image.asset(
-              "assets/images/wander_nova_logo.jpg",
+              "assets/images/wander_logo.png",
               height: 35,
               errorBuilder: (context, error, stackTrace) =>
-              const Icon(Icons.hotel, size: 35),
+                  const Icon(Icons.hotel, size: 35),
             ),
-          )
+          ),
         ],
       ),
       body: BlocConsumer<HotelBookingBloc, HotelBookingState>(
@@ -283,14 +294,12 @@ class _HotelBookingReviewScreenState extends State<HotelBookingReviewScreen> {
                 : null;
 
             if (hotelResult == null || hotelResult.rooms.isEmpty) {
-              return const Center(
-                child: Text('No booking data available'),
-              );
+              return const Center(child: Text('No booking data available'));
             }
 
             final room = hotelResult.rooms.first;
 
-            final prefs = sl<PreferencesManager>();
+            final prefs = di.sl<PreferencesManager>();
             final preferredCurrency = prefs.getPreferredCurrency() ?? 'INR';
 
             return Stack(
@@ -337,17 +346,17 @@ class _HotelBookingReviewScreenState extends State<HotelBookingReviewScreen> {
                           rateConditions: hotelResult.rateConditions,
                         ),
                         const SizedBox(height: 16),
-                        RoomAmenitiesSection(
-                          amenities: room.amenities,
-                        ),
+                        RoomAmenitiesSection(amenities: room.amenities),
                         const SizedBox(height: 16),
-                        if (widget.hotelFacilities != null && widget.hotelFacilities!.isNotEmpty) ...[
+                        if (widget.hotelFacilities != null &&
+                            widget.hotelFacilities!.isNotEmpty) ...[
                           HotelFacilitiesSection(
                             facilities: widget.hotelFacilities!,
                           ),
                           const SizedBox(height: 16),
                         ],
-                        if (widget.hotelDescription != null && widget.hotelDescription!.isNotEmpty) ...[
+                        if (widget.hotelDescription != null &&
+                            widget.hotelDescription!.isNotEmpty) ...[
                           AboutHotelSection(
                             description: widget.hotelDescription!,
                             hotelName: widget.hotelName,
@@ -363,7 +372,8 @@ class _HotelBookingReviewScreenState extends State<HotelBookingReviewScreen> {
                           preferredCurrency: preferredCurrency,
                           bookingCode: widget.bookingCode,
                           isConverting: _isConverting,
-                          onContinueToPayment: () => _navigateToPayment(room, hotelResult.currency),
+                          onContinueToPayment: () =>
+                              _navigateToPayment(room, hotelResult.currency),
                         ),
                         const SizedBox(height: 100),
                       ],

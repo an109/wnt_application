@@ -58,7 +58,7 @@ class _PhotoGallerySectionState extends State<PhotoGallerySection> {
               return Center(
                 child: Icon(
                   Icons.hotel,
-                  size: 64,
+                  size: context.w(48),
                   color: Colors.grey[400],
                 ),
               );
@@ -78,31 +78,34 @@ class _PhotoGallerySectionState extends State<PhotoGallerySection> {
               : Center(
             child: Icon(
               Icons.hotel,
-              size: 64,
+              size: context.w(48),
               color: Colors.grey[400],
             ),
           ),
         ),
         Positioned(
-          top: 12,
-          left: 12,
+          top: context.h(12),
+          left: context.w(12),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            padding: EdgeInsets.symmetric(
+              horizontal: context.w(10),
+              vertical: context.h(6),
+            ),
             decoration: BoxDecoration(
               color: Colors.amber,
-              borderRadius: BorderRadius.circular(4),
+              borderRadius: BorderRadius.circular(context.r(6)),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.star, color: Colors.white, size: 16),
-                const SizedBox(width: 4),
+                Icon(Icons.star, color: Colors.white, size: context.w(14)),
+                SizedBox(width: context.w(4)),
                 Text(
                   '${widget.rating} Star',
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.w600,
-                    fontSize: 12,
+                    fontSize: context.fs(11),
                   ),
                 ),
               ],
@@ -110,8 +113,8 @@ class _PhotoGallerySectionState extends State<PhotoGallerySection> {
           ),
         ),
         Positioned(
-          top: 12,
-          right: 12,
+          top: context.h(12),
+          right: context.w(12),
           child: GestureDetector(
             onTap: () {
               print('PhotoGallerySection: Heart button pressed');
@@ -124,21 +127,21 @@ class _PhotoGallerySectionState extends State<PhotoGallerySection> {
                 });
               },
               child: Container(
-                padding: const EdgeInsets.all(5),
+                padding: EdgeInsets.all(context.w(5)),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withOpacity(0.1),
-                      blurRadius: 4,
+                      blurRadius: context.r(4),
                     ),
                   ],
                 ),
-                child:  Icon(
+                child: Icon(
                   isFavorite ? Icons.favorite : Icons.favorite_border,
                   color: isFavorite ? Colors.red : Colors.black,
-                  size: 21,
+                  size: context.w(20),
                 ),
               ),
             ),
@@ -146,19 +149,22 @@ class _PhotoGallerySectionState extends State<PhotoGallerySection> {
         ),
         if (widget.images.length > 1)
           Positioned(
-            bottom: 12,
-            right: 12,
+            bottom: context.h(12),
+            right: context.w(12),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              padding: EdgeInsets.symmetric(
+                horizontal: context.w(8),
+                vertical: context.h(4),
+              ),
               decoration: BoxDecoration(
                 color: Colors.black54,
-                borderRadius: BorderRadius.circular(4),
+                borderRadius: BorderRadius.circular(context.r(6)),
               ),
               child: Text(
                 '${widget.images.length} photos',
-                style: const TextStyle(
+                style: TextStyle(
                   color: Colors.white,
-                  fontSize: 12,
+                  fontSize: context.fs(11),
                 ),
               ),
             ),
@@ -173,15 +179,15 @@ class _PhotoGallerySectionState extends State<PhotoGallerySection> {
         : [];
 
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: EdgeInsets.all(context.w(12)),
       color: Colors.white,
       child: GridView.builder(
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: context.isMobile ? 3 : 4,
-          crossAxisSpacing: 8,
-          mainAxisSpacing: 8,
+          crossAxisSpacing: context.w(8),
+          mainAxisSpacing: context.h(8),
           childAspectRatio: 1,
         ),
         itemCount: visibleImages.length,
@@ -198,14 +204,14 @@ class _PhotoGallerySectionState extends State<PhotoGallerySection> {
             },
             child: Container(
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(context.r(8)),
                 border: Border.all(
                   color: isSelected ? Colors.blue : Colors.transparent,
                   width: 2,
                 ),
               ),
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(context.r(8)),
                 child: Image.network(
                   widget.images[actualIndex],
                   fit: BoxFit.cover,
@@ -231,24 +237,24 @@ class _PhotoGallerySectionState extends State<PhotoGallerySection> {
           Text(
             'All Photos',
             style: TextStyle(
-              fontSize: context.headlineSmall,
+              fontSize: context.fs(19),
               fontWeight: FontWeight.bold,
             ),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: context.h(16)),
           GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: context.isMobile ? 2 : 3,
-              crossAxisSpacing: 8,
-              mainAxisSpacing: 8,
+              crossAxisSpacing: context.w(8),
+              mainAxisSpacing: context.h(8),
               childAspectRatio: 1,
             ),
             itemCount: widget.images.length,
             itemBuilder: (context, index) {
               return ClipRRect(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(context.r(8)),
                 child: Image.network(
                   widget.images[index],
                   fit: BoxFit.cover,

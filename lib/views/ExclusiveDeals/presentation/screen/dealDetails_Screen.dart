@@ -23,7 +23,7 @@ class DealDetailsScreen extends StatelessWidget {
           Padding(
             padding: EdgeInsets.all(context.wp(2)),
             child: Image.asset(
-              "assets/images/wander_nova_logo.jpg",
+              "assets/images/wander_logo.png",
               height: context.hp(4.5),
             ),
           ),
@@ -54,9 +54,9 @@ class DealDetailsScreen extends StatelessWidget {
                   SizedBox(height: context.gapXLarge),
 
                   // Book Now Button
-                  _buildBookNowButton(context),
+                  // _buildBookNowButton(context),
 
-                  SizedBox(height: context.gapXLarge * 2),
+                  // SizedBox(height: context.gapXLarge * 2),
                 ],
               ),
             ),

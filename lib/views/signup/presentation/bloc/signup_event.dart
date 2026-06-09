@@ -11,19 +11,22 @@ class SignupSubmitted extends SignupEvent {
   final String firstname;
   final String lastname;
   final String password;
-  final String phone;
-  final String phoneCode;
+  final String? email;
+  final String? phone;
+  final String? phoneCode;
 
   const SignupSubmitted({
     required this.firstname,
     required this.lastname,
     required this.password,
-    required this.phone,
-    required this.phoneCode,
+    this.email,
+    this.phone,
+    this.phoneCode,
   });
 
   @override
-  List<Object?> get props => [firstname, lastname, password, phone, phoneCode];
+  List<Object?> get props =>
+      [firstname, lastname, password, email, phone, phoneCode];
 }
 
 class SignupReset extends SignupEvent {}

@@ -4,6 +4,7 @@ import 'package:wander_nova/core/resources/app_colours.dart';
 
 import '../views/Holidays/presentation/screen/holidays_screen.dart';
 import '../views/Hotel/screen/hotel_screen.dart';
+import '../views/MMT_Holiday/screen/holiday_screen.dart';
 import '../views/Transport/screen/transport_screen.dart';
 import '../views/home/flight/flight_screen.dart';
 import '../views/visa/presentation/screen/visa_screen.dart';
@@ -95,6 +96,7 @@ class CustomBottomNav extends StatelessWidget {
         else if (index == 3) {
           Navigator.pushReplacement(
             context,
+            // MaterialPageRoute(builder: (_) => const NewHolidayScreen()),
             MaterialPageRoute(builder: (_) => const HolidaysScreen()),
           );
         }

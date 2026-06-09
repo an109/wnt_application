@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
+import 'package:wander_nova/core/resources/app_colours.dart';
 
-import '../../../../UI_helper/currency_converter.dart';
 import '../../../../common_widgets/custom_bottom_nav.dart';
 import '../../../../common_widgets/logo.dart';
 import '../../../../core/services/hotel_session_service.dart';
-import '../../../../core/utils/storage/shared_preference.dart';
 import '../../../../injection_container.dart';
 import '../../../Hotel_Details/presentation/bloc/hotel_details_bloc.dart';
 import '../../../Hotel_Details/presentation/screens/main_hotel_detail_screen.dart';
@@ -41,6 +40,8 @@ class HotelListingScreen extends StatefulWidget {
 class _HotelListingScreenState extends State<HotelListingScreen> {
   final ScrollController _scrollController = ScrollController();
   bool _isFilterApplied = false;
+  static const _blue = Color(0xFF1769F6);
+  static const _pageBg = Color(0xFFF3F6FC);
 
   // Local state to maintain hotel list and prevent flickering
   List<HotelUiModel> _displayedHotels = [];
@@ -57,66 +58,13 @@ class _HotelListingScreenState extends State<HotelListingScreen> {
     _loadInitialHotels();
   }
 
-  // Convert price from API currency to user's preferred currency
-  String _convertPrice(String priceWithCurrency, String apiCurrency) {
-    try {
-      // Extract numeric value from string like "2,500 AED" or "2500"
-      final numericStr = priceWithCurrency.replaceAll(RegExp(r'[^0-9.]'), '');
-      final amount = double.tryParse(numericStr) ?? 0.0;
-
-      // Get user's preferred currency (defaults to INR)
-      final prefs = sl<PreferencesManager>();
-      final targetCurrency = prefs.getPreferredCurrency() ?? 'INR';
-
-      // Skip conversion if same currency
-      if (apiCurrency.toUpperCase() == targetCurrency.toUpperCase()) {
-        return priceWithCurrency;
-      }
-
-      // Convert using cached rates
-      final converted = CurrencyConverter.convert(
-        amount: amount,
-        fromCurrency: apiCurrency,
-        toCurrency: targetCurrency,
-      );
-
-      // Format with symbol and Indian commas if INR
-      if (targetCurrency.toUpperCase() == 'INR') {
-        return '₹${_formatIndianNumber(converted.toInt())}';
-      }
-
-      // Default format for other currencies
-      final symbols = {'USD': '\$', 'EUR': '€', 'GBP': '£', 'AED': 'د.إ'};
-      final symbol = symbols[targetCurrency.toUpperCase()] ?? '$targetCurrency ';
-      return '$symbol${converted.toStringAsFixed(0)}';
-
-    } catch (e) {
-      print('HotelListingScreen: Price conversion error: $e');
-      return priceWithCurrency; // Fallback to original
-    }
-  }
-
-  //  Format number with Indian comma system (reuse from other screens)
-  String _formatIndianNumber(int num) {
-    if (num < 1000) return num.toString();
-    final str = num.toString();
-    final lastThree = str.substring(str.length - 3);
-    final remaining = str.substring(0, str.length - 3);
-    var formatted = '';
-    for (int i = 0; i < remaining.length; i++) {
-      if (i > 0 && (remaining.length - i) % 2 == 0) {
-        formatted += ',';
-      }
-      formatted += remaining[i];
-    }
-    return '$formatted,$lastThree';
-  }
-
   // Add this method to _HotelListingScreenState class
   void _navigateToHotelDetails(HotelUiModel hotel) {
     print('HotelListingScreen: Navigating to details for ${hotel.hotelName}');
     print('HotelListingScreen: Hotel Code: ${hotel.hotelCode}');
-    print('HotelListingScreen: CheckIn: ${widget.checkIn}, CheckOut: ${widget.checkOut}');
+    print(
+      'HotelListingScreen: CheckIn: ${widget.checkIn}, CheckOut: ${widget.checkOut}',
+    );
 
     // Safely extract guest data from paxRooms
     int adults = 1;
@@ -170,7 +118,6 @@ class _HotelListingScreenState extends State<HotelListingScreen> {
   void _onScroll() {
     if (_scrollController.position.pixels >=
         _scrollController.position.maxScrollExtent - 200) {
-
       if (!_isLoadingMore && !_hasReachedMax && _displayedHotels.isNotEmpty) {
         setState(() => _isLoadingMore = true);
 
@@ -264,21 +211,21 @@ class _HotelListingScreenState extends State<HotelListingScreen> {
       ),
       appBar: AppBar(
         title: const WanderNovaLogo(scaleFactor: 0.6),
-        backgroundColor: Colors.white,
+        backgroundColor: _pageBg,
         elevation: 0,
         actions: [
           Padding(
             padding: EdgeInsets.all(context.w(8)),
             child: Image.asset(
-              "assets/images/wander_nova_logo.jpg",
+              "assets/images/wander_logo.png",
               height: 35,
               errorBuilder: (context, error, stackTrace) =>
-              const Icon(Icons.hotel, size: 35),
+                  const Icon(Icons.hotel, size: 35),
             ),
-          )
+          ),
         ],
       ),
-      backgroundColor: const Color(0xffF5F5F5),
+      backgroundColor: _pageBg,
       body: BlocListener<HotelBloc, HotelState>(
         listener: (context, state) {
           if (state is HotelError) {
@@ -302,8 +249,6 @@ class _HotelListingScreenState extends State<HotelListingScreen> {
             final newHotels = state.hotels
                 .map((entity) => HotelUiModel.fromEntity(entity))
                 .toList();
-
-
 
             setState(() {
               if (state.currentPage == 1) {
@@ -362,7 +307,7 @@ class _HotelListingScreenState extends State<HotelListingScreen> {
 
     return RefreshIndicator(
       onRefresh: () async => _onRefresh(),
-      color: Theme.of(context).primaryColor,
+      color: _blue,
       child: ListView.builder(
         key: const ValueKey('hotel_list'),
         controller: _scrollController,
@@ -379,22 +324,23 @@ class _HotelListingScreenState extends State<HotelListingScreen> {
               child: Center(
                 child: _isLoadingMore
                     ? SizedBox(
-                  height: context.iconMedium,
-                  width: context.iconMedium,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      Theme.of(context).primaryColor,
-                    ),
-                  ),
-                )
+                        height: context.iconMedium,
+                        width: context.iconMedium,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: const AlwaysStoppedAnimation<Color>(
+                            _blue,
+                          ),
+                        ),
+                      )
                     : const SizedBox.shrink(),
               ),
             );
           }
           return HotelCard(
             hotel: _displayedHotels[index],
-            onSelectRoom: () => _navigateToHotelDetails(_displayedHotels[index]),
+            onSelectRoom: () =>
+                _navigateToHotelDetails(_displayedHotels[index]),
           );
         },
       ),
@@ -463,7 +409,7 @@ class _HotelListingScreenState extends State<HotelListingScreen> {
 
     return FloatingActionButton.small(
       onPressed: _clearFilters,
-      backgroundColor: Theme.of(context).primaryColor,
+      backgroundColor: _blue,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -484,7 +430,7 @@ class _HotelListingScreenState extends State<HotelListingScreen> {
                 style: TextStyle(
                   fontSize: context.labelSmall,
                   fontWeight: FontWeight.bold,
-                  color: Theme.of(context).primaryColor,
+                  color: _blue,
                 ),
               ),
             ),
@@ -497,25 +443,26 @@ class _HotelListingScreenState extends State<HotelListingScreen> {
 class HotelCard extends StatelessWidget {
   final HotelUiModel hotel;
   final VoidCallback? onSelectRoom;
+  static const _blue = Color(0xFF1769F6);
+  static const _navy = Color(0xFF071638);
+  static const _border = Color(0xFFE2E7F0);
+  static const _muted = Color(0xFF6B7280);
 
-  const HotelCard({
-    super.key,
-    required this.hotel,
-    this.onSelectRoom,
-  });
+  const HotelCard({super.key, required this.hotel, this.onSelectRoom});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: EdgeInsets.only(bottom: context.gapLarge),
+      margin: EdgeInsets.only(bottom: context.gapMedium),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(context.borderRadius),
+        borderRadius: BorderRadius.circular(context.r(10)),
+        border: Border.all(color: _border),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(.06),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            color: _navy.withValues(alpha: 0.07),
+            blurRadius: context.r(16),
+            offset: Offset(0, context.h(10)),
           ),
         ],
       ),
@@ -523,12 +470,10 @@ class HotelCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           ClipRRect(
-            borderRadius: BorderRadius.only(
-              topLeft: Radius.circular(context.borderRadius),
-              topRight: Radius.circular(context.borderRadius),
-            ),
+            borderRadius:
+                BorderRadius.vertical(top: Radius.circular(context.r(10))),
             child: AspectRatio(
-              aspectRatio: context.isTablet ? 2.2 : 1.45,
+              aspectRatio: context.isTablet ? 2.7 : 1.78,
               child: Stack(
                 fit: StackFit.expand,
                 children: [
@@ -541,7 +486,7 @@ class HotelCard extends StatelessWidget {
                         child: CircularProgressIndicator(
                           value: loadingProgress.expectedTotalBytes != null
                               ? loadingProgress.cumulativeBytesLoaded /
-                              loadingProgress.expectedTotalBytes!
+                                    loadingProgress.expectedTotalBytes!
                               : null,
                           strokeWidth: 2,
                         ),
@@ -568,142 +513,115 @@ class HotelCard extends StatelessWidget {
                           vertical: context.gapSmall / 2,
                         ),
                         decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(6),
-                          color: Colors.red.withOpacity(.9),
+                          borderRadius: BorderRadius.circular(context.r(10)),
+                          color: const Color(0xFFFF4D4F),
                         ),
                         child: Text(
                           'Non-refundable',
                           style: TextStyle(
                             color: Colors.white,
-                            fontSize: context.labelSmall,
-                            fontWeight: FontWeight.w600,
+                            fontSize: context.fs(11),
+                            fontWeight: FontWeight.w800,
                           ),
                         ),
                       ),
                     ),
+                  Positioned(
+                    right: context.gapMedium,
+                    bottom: context.gapMedium,
+                    child: _RatingPill(rating: hotel.rating),
+                  ),
                 ],
               ),
             ),
           ),
 
           Padding(
-            padding: EdgeInsets.all(context.w(12)),
+            padding: EdgeInsets.fromLTRB(
+              context.w(12),
+              context.w(12),
+              context.w(12),
+              context.w(14),
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        hotel.hotelName,
-                        style: TextStyle(
-                          fontSize: context.titleLarge,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.black,
-                        ),
-                      ),
-                    ),
-                    SizedBox(width: context.gapSmall),
-                    _RatingWidget(rating: hotel.rating),
-                  ],
+                Text(
+                  hotel.hotelName,
+                  style: TextStyle(
+                    fontSize: context.fs(16),
+                    fontWeight: FontWeight.w800,
+                    color: _navy,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
 
-                SizedBox(height: context.gapSmall),
+                SizedBox(height: context.h(8)),
 
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(
-                      Icons.location_on_outlined,
-                      size: context.iconSmall,
-                      color: Colors.grey.shade600,
-                    ),
-                    SizedBox(width: context.gapSmall),
-                    Expanded(
-                      child: Text(
-                        '${hotel.cityName}, ${hotel.countryName}',
-                        style: TextStyle(
-                          fontSize: context.bodyMedium,
-                          color: Colors.grey.shade700,
-                        ),
-                      ),
-                    ),
-                  ],
+                _InfoRow(
+                  icon: Icons.location_on_outlined,
+                  text: '${hotel.cityName}, ${hotel.countryName}',
                 ),
 
-                SizedBox(height: context.gapMedium),
+                if (hotel.roomInfo.trim().isNotEmpty) ...[
+                  SizedBox(height: context.h(7)),
+                  _InfoRow(icon: Icons.bed_outlined, text: hotel.roomInfo),
+                ],
 
-                Row(
-                  children: [
-                    Icon(
-                      Icons.bed_outlined,
-                      size: context.iconSmall,
-                      color: Colors.grey.shade600,
-                    ),
-                    SizedBox(width: context.gapSmall),
-                    Expanded(
-                      child: Text(
-                        hotel.roomInfo,
-                        style: TextStyle(
-                          fontSize: context.bodyMedium,
-                          fontWeight: FontWeight.w500,
-                          color: Colors.grey.shade800,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-
-                if (hotel.mealType.isNotEmpty && hotel.mealType != 'Room_Only')
+                if (hotel.mealType.isNotEmpty &&
+                    hotel.mealType != 'Room_Only') ...[
+                  SizedBox(height: context.h(10)),
                   Container(
                     padding: EdgeInsets.symmetric(
-                      horizontal: context.gapSmall,
-                      vertical: context.gapSmall / 2,
+                      horizontal: context.w(10),
+                      vertical: context.h(6),
                     ),
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(6),
-                      color: Colors.green.withOpacity(.1),
+                      borderRadius: BorderRadius.circular(context.r(12)),
+                      color: const Color(0xFFEFFAF2),
+                      border: Border.all(color: const Color(0xFFD7F3DE)),
                     ),
                     child: Text(
                       hotel.mealType.replaceAll('_', ' '),
                       style: TextStyle(
                         color: Colors.green.shade700,
-                        fontSize: context.labelSmall,
-                        fontWeight: FontWeight.w600,
+                        fontSize: context.fs(11),
+                        fontWeight: FontWeight.w800,
                       ),
                     ),
                   ),
+                ],
 
-                SizedBox(height: context.gapLarge),
+                SizedBox(height: context.h(14)),
+                Container(height: 1, color: _border),
+                SizedBox(height: context.h(12)),
 
                 context.isTablet || context.isDesktop
                     ? Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Expanded(child: _PriceSection(hotel: hotel)),
-                    SizedBox(width: context.gapLarge),
-                    Expanded(
-                      child: _ButtonsSection(
-                        hotel: hotel,
-                        onSelectRoom: onSelectRoom,
-                      ),
-                    ),
-                  ],
-                )
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Expanded(child: _PriceSection(hotel: hotel)),
+                          SizedBox(width: context.gapLarge),
+                          Expanded(
+                            child: _ButtonsSection(
+                              hotel: hotel,
+                              onSelectRoom: onSelectRoom,
+                            ),
+                          ),
+                        ],
+                      )
                     : Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _PriceSection(hotel: hotel),
-                    SizedBox(height: context.gapMedium),
-                    _ButtonsSection(
-                      hotel: hotel,
-                      onSelectRoom: onSelectRoom,
-                    ),
-                  ],
-                ),
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _PriceSection(hotel: hotel),
+                          SizedBox(height: context.gapSmall),
+                          _ButtonsSection(
+                            hotel: hotel,
+                            onSelectRoom: onSelectRoom,
+                          ),
+                        ],
+                      ),
               ],
             ),
           ),
@@ -713,46 +631,115 @@ class HotelCard extends StatelessWidget {
   }
 }
 
+class _InfoRow extends StatelessWidget {
+  final IconData icon;
+  final String text;
+
+  const _InfoRow({required this.icon, required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, size: context.w(16), color: HotelCard._muted),
+        SizedBox(width: context.gapSmall),
+        Expanded(
+          child: Text(
+            text,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: context.fs(13),
+              color: HotelCard._muted,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _RatingPill extends StatelessWidget {
+  final int rating;
+
+  const _RatingPill({required this.rating});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: context.w(10),
+        vertical: context.h(6),
+      ),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.94),
+        borderRadius: BorderRadius.circular(context.r(14)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.12),
+            blurRadius: context.r(10),
+            offset: Offset(0, context.h(4)),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: List.generate(
+          5,
+          (index) => Icon(
+            index < rating ? Icons.star_rounded : Icons.star_border_rounded,
+            color: Colors.amber,
+            size: context.w(14),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _ButtonsSection extends StatelessWidget {
   final HotelUiModel hotel;
   final VoidCallback? onSelectRoom;
 
-  const _ButtonsSection({
-    required this.hotel,
-    this.onSelectRoom,
-  });
+  const _ButtonsSection({required this.hotel, this.onSelectRoom});
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        SizedBox(
-          width: double.infinity,
-          height: context.buttonHeight + 6,
-          child: ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(context.borderRadius),
-              ),
-            ),
-            onPressed: onSelectRoom ?? () {
-              print('HotelCard: Select Room pressed for ${hotel.hotelCode}');
+    return SizedBox(
+      width: double.infinity,
+      height: context.h(48),
+      child: ElevatedButton(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AppColors.primary,
+          elevation: 0,
+          padding: EdgeInsets.zero,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(context.r(8)),
+          ),
+        ),
+        onPressed:
+            onSelectRoom ??
+            () {
+              print('HotelCard: Book Now pressed for ${hotel.hotelCode}');
             },
-            child: Text(
-              'Select Room',
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.arrow_forward_rounded,
+                color: Colors.white, size: context.w(16)),
+            SizedBox(width: context.w(8)),
+            Text(
+              'Book Now',
               style: TextStyle(
-                fontSize: context.bodyLarge,
-                fontWeight: FontWeight.w600,
+                fontSize: context.fs(14),
+                fontWeight: FontWeight.w800,
                 color: Colors.white,
               ),
             ),
-          ),
+          ],
         ),
-
-        SizedBox(height: context.gapMedium),
-
-      ],
+      ),
     );
   }
 }
@@ -764,99 +751,44 @@ class _PriceSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          padding: EdgeInsets.symmetric(
-            horizontal: context.gapMedium,
-            vertical: context.gapSmall,
-          ),
-          decoration: BoxDecoration(
-            color: Colors.green,
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Row(
-            children: [
-              Icon(
-                Icons.star,
-                color: Colors.white,
-                size: context.iconSmall,
-              ),
-              SizedBox(width: context.gapSmall / 2),
-              Text(
-                hotel.rating.toString(),
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: context.bodyLarge,
-                ),
-              ),
-            ],
-          ),
-        ),
-
-        const Spacer(),
-
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.end,
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.baseline,
+          textBaseline: TextBaseline.alphabetic,
           children: [
             Text(
               hotel.price,
               style: TextStyle(
-                fontSize: context.headlineSmall,
-                fontWeight: FontWeight.bold,
-                color: Colors.black,
+                fontSize: context.fs(20),
+                fontWeight: FontWeight.w900,
+                color: HotelCard._navy,
               ),
             ),
+            SizedBox(width: context.gapSmall),
             Text(
               'per night',
               style: TextStyle(
-                color: Colors.grey.shade700,
-                fontSize: context.bodyMedium,
-              ),
-            ),
-            SizedBox(height: context.gapSmall / 2),
-            Text(
-              'Total: ${hotel.price}',
-              style: TextStyle(
-                fontWeight: FontWeight.w500,
-                fontSize: context.bodyMedium,
-                color: Colors.grey.shade800,
-              ),
-            ),
-            Text(
-              '+ ${hotel.taxes} taxes',
-              style: TextStyle(
-                color: Colors.grey.shade700,
-                fontSize: context.bodySmall,
+                color: HotelCard._muted,
+                fontSize: context.fs(12),
+                fontWeight: FontWeight.w600,
               ),
             ),
           ],
         ),
-      ],
-    );
-  }
-}
-
-class _RatingWidget extends StatelessWidget {
-  final int rating;
-
-  const _RatingWidget({required this.rating});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: List.generate(
-        5,
-            (index) => Padding(
-          padding: EdgeInsets.only(left: context.gapSmall / 3),
-          child: Icon(
-            index < rating ? Icons.star : Icons.star_border,
-            color: Colors.amber,
-            size: context.iconSmall,
+        SizedBox(height: context.h(3)),
+        Text(
+          'Total ${hotel.price} + ${hotel.taxes} taxes',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: context.fs(11),
+            color: HotelCard._muted,
           ),
         ),
-      ),
+      ],
     );
   }
 }

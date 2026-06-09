@@ -212,7 +212,6 @@ class _TPollBookingScreenState extends State<TPollBookingScreen> {
   void _proceedToPayment() {
     print('=== CONTINUE TO PAYMENT TAPPED ===');
 
-    final displaySymbol = _getDisplayCurrencySymbol();
     final convertedTotal = _totalPrice;
 
     Navigator.push(
@@ -315,7 +314,7 @@ class _TPollBookingScreenState extends State<TPollBookingScreen> {
           Padding(
             padding: EdgeInsets.all(context.wp(2)),
             child: Image.asset(
-              "assets/images/wander_nova_logo.jpg",
+              "assets/images/wander_logo.png",
               height: context.hp(4.5),
             ),
           )

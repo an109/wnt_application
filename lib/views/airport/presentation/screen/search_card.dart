@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
+import 'package:wander_nova/common_widgets/compact_date_picker_dialog.dart';
 import '../../domain/entities/airport_entities.dart';
 import '../bloc/airport_bloc.dart';
 import '../bloc/airport_event.dart';
@@ -16,6 +17,16 @@ class SearchCard extends StatefulWidget {
 }
 
 class _SearchCardState extends State<SearchCard> {
+  // Brand palette
+  static const Color _blue = Color(0xff1663F7);
+  static const Color _orange = Color(0xffF97316);
+  static const Color _navy = Color(0xff07163B);
+  static const Color _muted = Color(0xff6B7280);
+
+  // MakeMyTrip-style soft field surfaces
+  static const Color _fieldFill = Color(0xffF6F7FB);
+  static const Color _fieldBorder = Color(0xffECEEF4);
+
   bool isRoundTrip = false;
 
   // Store selected airports
@@ -33,6 +44,8 @@ class _SearchCardState extends State<SearchCard> {
   @override
   void initState() {
     super.initState();
+    // Auto-select today's date for departure (user can still change it).
+    departureDate = DateUtils.dateOnly(DateTime.now());
     // Load initial airports when widget first builds
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<AirportBloc>().add(LoadAirports());
@@ -67,6 +80,7 @@ class _SearchCardState extends State<SearchCard> {
     }
 
     try {
+
       Navigator.of(context).push(
         MaterialPageRoute(
           builder: (_) => FlightSearchScreen(
@@ -99,30 +113,43 @@ class _SearchCardState extends State<SearchCard> {
     }
   }
 
+  void _swapAirports() {
+    setState(() {
+      final temp = fromAirport;
+      fromAirport = toAirport;
+      toAirport = temp;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: EdgeInsets.symmetric(horizontal: context.w(14)),
-      padding: EdgeInsets.all(context.w(14)),
+      margin: EdgeInsets.symmetric(horizontal: context.w(4)),
+      padding: EdgeInsets.fromLTRB(
+        context.w(8),
+        context.h(6),
+        context.w(8),
+        context.h(8),
+      ),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(context.borderRadiusLarge),
+        borderRadius: BorderRadius.circular(context.r(6)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: context.w(20), // 20px on design
-            offset: context.shadowOffsetMedium,
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: context.w(18),
+            offset: Offset(0, context.h(6)),
           ),
         ],
       ),
       child: Column(
         children: [
-          /// Trip Type Toggle
+          /// Trip Type Toggle — One Way / Round Trip / Multi City
           Container(
-            padding: EdgeInsets.all(context.gapXSmall),
+            // padding: EdgeInsets.all(context.w(1)),
             decoration: BoxDecoration(
-              color: const Color(0xffF5F6FA),
-              borderRadius: BorderRadius.circular(context.borderRadiusLarge),
+              color: _fieldFill,
+              borderRadius: BorderRadius.circular(context.r(4)),
             ),
             child: Row(
               children: [
@@ -130,7 +157,10 @@ class _SearchCardState extends State<SearchCard> {
                   child: _tripButton(
                     title: "One Way",
                     selected: !isRoundTrip,
-                    onTap: () => setState(() => isRoundTrip = false),
+                    onTap: () => setState(() {
+                      isRoundTrip = false;
+                      returnDate = null;
+                    }),
                   ),
                 ),
                 Expanded(
@@ -140,120 +170,138 @@ class _SearchCardState extends State<SearchCard> {
                     onTap: () => setState(() => isRoundTrip = true),
                   ),
                 ),
+                Expanded(
+                  child: _tripButton(
+                    title: "Multi City",
+                    selected: false,
+                    comingSoon: true,
+                    onTap: _onMultiCityTap,
+                  ),
+                ),
               ],
             ),
           ),
 
-          SizedBox(height: context.gapMedium),
+          SizedBox(height: context.h(12)),
 
-          /// FROM - TO with Swap Button
+          /// FROM - TO connected box with Swap Button on the boundary (MMT)
           Stack(
-            alignment: Alignment.center,
+            clipBehavior: Clip.none,
             children: [
-              Column(
-                children: [
-                  // FROM field
-                  AirportSearchDropdown(
-                    title: "FROM",
-                    hint: "Search airports...",
-                    initialSubtitle: "Select origin airport",
-                    selectedAirport: fromAirport,
-                    onAirportSelected: (airport) {
-                      if (airport == null) {
-                        setState(() {
-                          fromAirport = null;
-                        });
-                        return;
-                      }
+              Container(
+                clipBehavior: Clip.antiAlias,
+                decoration: BoxDecoration(
+                  color: _fieldFill,
+                  borderRadius: BorderRadius.circular(context.r(6)),
+                  border: Border.all(color: _fieldBorder, width: 1),
+                ),
+                child: Column(
+                  children: [
+                    AirportSearchDropdown(
+                      title: "FROM",
+                      hint: "Search airports",
+                      initialSubtitle: "Select origin airport",
+                      selectedAirport: fromAirport,
+                      onAirportSelected: (airport) {
+                        if (airport == null) {
+                          setState(() {
+                            fromAirport = null;
+                          });
+                          return;
+                        }
 
-                      if (toAirport != null &&
-                          toAirport!.airportCode == airport.airportCode) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              'Origin and destination cannot be the same airport',
-                              style: TextStyle(fontSize: context.bodyMedium),
+                        if (toAirport != null &&
+                            toAirport!.airportCode == airport.airportCode) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                'Origin and destination cannot be the same airport',
+                                style: TextStyle(fontSize: context.bodyMedium),
+                              ),
+                              backgroundColor: Colors.red,
+                              duration: Duration(
+                                seconds: context.gapMedium.toInt(),
+                              ),
                             ),
-                            backgroundColor: Colors.red,
-                            duration: Duration(seconds: context.gapMedium.toInt()),
-                          ),
-                        );
-                        return;
-                      }
-                      setState(() {
-                        fromAirport = airport;
-                      });
-                    },
-                  ),
-
-                  SizedBox(height: context.gapSmall),
-                  Divider(
-                    color: Colors.grey,
-                    height: context.dividerThin,
-                    thickness: context.dividerThin,
-                  ),
-                  SizedBox(height: context.gapSmall),
-
-                  // TO field
-                  AirportSearchDropdown(
-                    title: "TO",
-                    hint: "Search airports...",
-                    initialSubtitle: "Select destination airport",
-                    selectedAirport: toAirport,
-                    onAirportSelected: (airport) {
-                      if (airport == null) {
+                          );
+                          return;
+                        }
                         setState(() {
-                          toAirport = null;
+                          fromAirport = airport;
                         });
-                        return;
-                      }
+                      },
+                    ),
 
-                      if (fromAirport != null &&
-                          fromAirport!.airportCode == airport.airportCode) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              'Origin and destination cannot be the same airport',
-                              style: TextStyle(fontSize: context.bodyMedium),
+                    Divider(
+                      height: 1,
+                      thickness: 1,
+                      color: _fieldBorder,
+                      indent: context.w(41),
+                    ),
+
+                    AirportSearchDropdown(
+                      title: "TO",
+                      hint: "Search airports",
+                      initialSubtitle: "Select destination airport",
+                      selectedAirport: toAirport,
+                      onAirportSelected: (airport) {
+                        if (airport == null) {
+                          setState(() {
+                            toAirport = null;
+                          });
+                          return;
+                        }
+
+                        if (fromAirport != null &&
+                            fromAirport!.airportCode == airport.airportCode) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                'Origin and destination cannot be the same airport',
+                                style: TextStyle(fontSize: context.bodyMedium),
+                              ),
+                              backgroundColor: Colors.red,
+                              duration: Duration(
+                                seconds: context.gapMedium.toInt(),
+                              ),
                             ),
-                            backgroundColor: Colors.red,
-                            duration: Duration(seconds: context.gapMedium.toInt()),
-                          ),
-                        );
-                        return;
-                      }
-                      setState(() {
-                        toAirport = airport;
-                      });
-                    },
-                  ),
-                ],
+                          );
+                          return;
+                        }
+                        setState(() {
+                          toAirport = airport;
+                        });
+                      },
+                    ),
+                  ],
+                ),
               ),
 
-              /// Swap Button
-              Positioned(
-                right: 0,
-                child: GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      final temp = fromAirport;
-                      fromAirport = toAirport;
-                      toAirport = temp;
-                    });
-                  },
-                  child: Container(
-                    padding: EdgeInsets.all(context.gapXXSmall),
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                    ),
-                    child: CircleAvatar(
-                      radius: context.avatarRadius,
-                      backgroundColor: const Color(0xff1663F7),
+              /// Swap button straddling the FROM/TO boundary
+              Positioned.fill(
+                child: Align(
+                  alignment: Alignment(0.93, 0),
+                  child: GestureDetector(
+                    onTap: _swapAirports,
+                    child: Container(
+                      width: context.w(34),
+                      height: context.w(34),
+                      decoration: BoxDecoration(
+                        color: _blue,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 2),
+                        boxShadow: [
+                          BoxShadow(
+                            color: _blue.withValues(alpha: 0.30),
+                            blurRadius: context.w(8),
+                            offset: Offset(0, context.h(2)),
+                          ),
+                        ],
+                      ),
                       child: Icon(
                         Icons.swap_vert,
                         color: Colors.white,
-                        size: context.iconSmall,
+                        size: context.w(18),
                       ),
                     ),
                   ),
@@ -262,69 +310,85 @@ class _SearchCardState extends State<SearchCard> {
             ],
           ),
 
-          SizedBox(height: context.gapMedium),
+          SizedBox(height: context.h(4)),
 
-          /// Date Fields
-          Row(
-            children: [
-              Expanded(
-                child: _clickableDateTile(
-                  context,
-                  icon: Icons.calendar_today_outlined,
-                  label: "DEPARTURE",
-                  date: departureDate,
-                  placeholder: "Select date",
-                  onTap: () => _pickDate(isReturn: false),
-                ),
+          /// Date Fields — connected box with a center divider (MMT style)
+          Container(
+            decoration: BoxDecoration(
+              color: _fieldFill,
+              border: Border.all(color: _fieldBorder, width: 1),
+              borderRadius: BorderRadius.circular(context.r(6)),
+            ),
+            child: IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: _clickableDateTile(
+                      context,
+                      icon: Icons.flight_takeoff,
+                      label: "DEPARTURE",
+                      date: departureDate,
+                      placeholder: "Select date",
+                      onTap: () => _pickDate(isReturn: false),
+                    ),
+                  ),
+                  Container(width: 1, color: _fieldBorder),
+                  Expanded(
+                    child: _clickableDateTile(
+                      context,
+                      icon: Icons.flight_land,
+                      label: "RETURN",
+                      date: returnDate,
+                      placeholder: isRoundTrip ? "Select date" : "One Way",
+                      muted: !isRoundTrip,
+                      onTap: () {
+                        if (!isRoundTrip) {
+                          setState(() => isRoundTrip = true);
+                        }
+                        _pickDate(isReturn: true);
+                      },
+                    ),
+                  ),
+                ],
               ),
-              SizedBox(width: context.w(10)),
-              Expanded(
-                child: _clickableDateTile(
-                  context,
-                  icon: Icons.calendar_today_outlined,
-                  label: "RETURN",
-                  date: returnDate,
-                  placeholder: isRoundTrip ? "Select date" : "One way",
-                  enabled: isRoundTrip,
-                  onTap: isRoundTrip ? () => _pickDate(isReturn: true) : null,
-                ),
-              ),
-            ],
+            ),
           ),
 
-          SizedBox(height: context.gapMedium),
+          SizedBox(height: context.h(4)),
 
           /// Travellers & Class Section
           _clickableInfoTile(
             context,
             icon: Icons.person_outline,
             title: "TRAVELLERS & CLASS",
-            subtitle: "${adults + children + infants} Traveller${(adults + children + infants) > 1 ? 's' : ''}",
+            subtitle:
+                "${adults + children + infants} Traveller${(adults + children + infants) > 1 ? 's' : ''}",
             additionalText: travelClass,
             onTap: _openTravellerSheet,
           ),
 
-          SizedBox(height: context.gapLarge),
+          SizedBox(height: context.h(10)),
 
           /// SEARCH Button
           SizedBox(
             width: double.infinity,
-            height: context.buttonHeight + context.gapXXSmall,
+            height: context.h(45),
             child: ElevatedButton.icon(
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xffF97316),
+                backgroundColor: _orange,
                 foregroundColor: Colors.white,
                 elevation: 0,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(context.borderRadiusMedium),
+                  borderRadius: BorderRadius.circular(context.r(14)),
                 ),
               ),
               onPressed: _performSearch,
-              icon: Icon(Icons.search, size: context.iconMedium),
+              icon: Icon(Icons.search, size: context.w(18)),
               label: Text(
                 "Search Flights",
                 style: TextStyle(
-                  fontSize: context.titleSmall,
+                  fontSize: context.fs(14),
                   fontWeight: FontWeight.w700,
                   letterSpacing: context.letterSpacingNormal,
                 ),
@@ -336,131 +400,210 @@ class _SearchCardState extends State<SearchCard> {
     );
   }
 
+  void _onMultiCityTap() {
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Multi City booking is coming soon!',
+          style: TextStyle(fontSize: context.bodyMedium),
+        ),
+        backgroundColor: _blue,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
   Widget _tripButton({
     required String title,
     required bool selected,
     required VoidCallback onTap,
+    bool comingSoon = false,
   }) {
     return GestureDetector(
       onTap: onTap,
+      behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 250),
-        padding: EdgeInsets.symmetric(vertical: context.h(10)), // 10px on design
+        padding: EdgeInsets.symmetric(vertical: context.h(9)),
         decoration: BoxDecoration(
-          color: selected ? const Color(0xff1663F7) : Colors.transparent,
-          borderRadius: BorderRadius.circular(context.borderRadiusLarge),
+          color: selected ? _blue : Colors.transparent,
+          borderRadius: BorderRadius.circular(context.r(11)),
+          boxShadow: selected
+              ? [
+                  BoxShadow(
+                    color: _blue.withValues(alpha: 0.28),
+                    blurRadius: context.w(8),
+                    offset: Offset(0, context.h(2)),
+                  ),
+                ]
+              : null,
         ),
-        child: Center(
-          child: Text(
-            title,
-            style: TextStyle(
-              fontSize: context.bodyLarge,
-              fontWeight: FontWeight.w700,
-              color: selected ? Colors.white : Colors.grey.shade700,
-              letterSpacing: context.letterSpacingNormal,
+        child: Stack(
+          clipBehavior: Clip.none,
+          alignment: Alignment.center,
+          children: [
+            Text(
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: context.fs(13),
+                fontWeight: FontWeight.w700,
+                color: selected
+                    ? Colors.white
+                    : (comingSoon ? _muted : const Color(0xff2C2F36)),
+                letterSpacing: context.letterSpacingNormal,
+              ),
             ),
-          ),
+            if (comingSoon)
+              Positioned(
+                top: -context.h(9),
+                right: -context.w(2),
+                child: Container(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: context.w(4),
+                    vertical: context.h(1),
+                  ),
+                  decoration: BoxDecoration(
+                    color: _orange,
+                    borderRadius: BorderRadius.circular(context.r(6)),
+                  ),
+                  child: Text(
+                    'SOON',
+                    style: TextStyle(
+                      fontSize: context.fs(7),
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                ),
+              ),
+          ],
         ),
       ),
     );
   }
 
   Widget _clickableDateTile(
-      BuildContext context, {
-        required IconData icon,
-        required String label,
-        required DateTime? date,
-        required String placeholder,
-        bool enabled = true,
-        VoidCallback? onTap,
-      }) {
-    return Opacity(
-      opacity: enabled ? 1 : 0.5,
-      child: IgnorePointer(
-        ignoring: !enabled,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(context.borderRadiusMedium),
-          onTap: onTap,
-          child: Container(
-            padding: EdgeInsets.symmetric(
-              horizontal: context.w(12),
-              vertical: context.h(14),
-            ),
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.grey.shade300, width: context.dividerThin),
-              borderRadius: BorderRadius.circular(context.borderRadiusMedium),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    required DateTime? date,
+    required String placeholder,
+    bool muted = false,
+    VoidCallback? onTap,
+  }) {
+    final hasDate = date != null;
+    return InkWell(
+      borderRadius: BorderRadius.circular(context.r(12)),
+      onTap: onTap,
+      child: Container(
+        constraints: BoxConstraints(minHeight: context.h(56)),
+        padding: EdgeInsets.symmetric(
+          horizontal: context.w(12),
+          vertical: context.h(9),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Row(
               children: [
-                Row(
-                  children: [
-                    Icon(
-                      icon,
-                      size: context.iconSmall,
-                      color: const Color(0xff0D1B3D),
-                    ),
-                    SizedBox(width: context.gapSmall),
-                    Text(
-                      label,
-                      style: TextStyle(
-                        fontSize: context.labelSmall,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.grey.shade700,
-                        letterSpacing: context.letterSpacingWider,
-                      ),
-                    ),
-                  ],
-                ),
-                SizedBox(height: context.gapXXSmall),
+                Icon(icon, size: context.w(15), color: _navy),
+                SizedBox(width: context.w(6)),
                 Text(
-                  date != null
-                      ? "${DateFormat('dd MMM').format(date)}\n${DateFormat('EEEE').format(date)}"
-                      : placeholder,
+                  label,
                   style: TextStyle(
-                    fontSize: context.bodyLarge,
+                    fontSize: context.fs(10),
                     fontWeight: FontWeight.w700,
-                    color: date != null ? const Color(0xff0D1B3D) : Colors.grey.shade500,
-                    height: context.isMobile ? 1.2 : (context.isTablet ? 1.3 : 1.4),
+                    color: _muted,
                     letterSpacing: context.letterSpacingNormal,
                   ),
                 ),
               ],
             ),
-          ),
+            SizedBox(height: context.h(5)),
+            if (hasDate)
+              RichText(
+                text: TextSpan(
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    color: _navy,
+                    letterSpacing: context.letterSpacingNormal,
+                  ),
+                  children: [
+                    TextSpan(
+                      text: DateFormat('dd MMM').format(date),
+                      style: TextStyle(fontSize: context.fs(15)),
+                    ),
+                    TextSpan(
+                      text: "  '${DateFormat('yy').format(date)}",
+                      style: TextStyle(
+                        fontSize: context.fs(12),
+                        fontWeight: FontWeight.w600,
+                        color: _muted,
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            else
+              Text(
+                placeholder,
+                style: TextStyle(
+                  fontSize: context.fs(14),
+                  fontWeight: FontWeight.w700,
+                  color: muted
+                      ? const Color(0xffAAB0BC)
+                      : const Color(0xff777777),
+                  letterSpacing: context.letterSpacingNormal,
+                ),
+              ),
+            SizedBox(height: context.h(2)),
+            Text(
+              hasDate ? DateFormat('EEEE').format(date) : ' ',
+              style: TextStyle(
+                fontSize: context.fs(11),
+                fontWeight: FontWeight.w600,
+                color: _muted,
+                letterSpacing: context.letterSpacingNormal,
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 
   Widget _clickableInfoTile(
-      BuildContext context, {
-        required IconData icon,
-        required String title,
-        required String subtitle,
-        required String additionalText,
-        required VoidCallback onTap,
-      }) {
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required String additionalText,
+    required VoidCallback onTap,
+  }) {
     return InkWell(
-      borderRadius: BorderRadius.circular(context.borderRadiusMedium),
+      borderRadius: BorderRadius.circular(context.r(6)),
       onTap: onTap,
       child: Container(
+        constraints: BoxConstraints(minHeight: context.h(50)),
         padding: EdgeInsets.symmetric(
-          horizontal: context.w(12), // 12px on design
-          vertical: context.h(10), // 10px on design
+          horizontal: context.w(12),
+          vertical: context.h(9),
         ),
         decoration: BoxDecoration(
-          border: Border.all(color: Colors.grey.shade300, width: context.dividerThin),
-          borderRadius: BorderRadius.circular(context.borderRadiusMedium),
+          color: _fieldFill,
+          border: Border.all(color: _fieldBorder, width: 1),
+          borderRadius: BorderRadius.circular(context.r(6)),
         ),
         child: Row(
           children: [
-            Icon(
-              icon,
-              size: context.iconMedium,
-              color: const Color(0xff0D1B3D),
-            ),
-            SizedBox(width: context.gapMedium),
+            Icon(icon, size: context.w(18), color: const Color(0xff07163B)),
+            SizedBox(width: context.w(12)),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -468,27 +611,27 @@ class _SearchCardState extends State<SearchCard> {
                   Text(
                     title,
                     style: TextStyle(
-                      fontSize: context.labelSmall,
+                      fontSize: context.fs(10),
                       fontWeight: FontWeight.w700,
-                      color: Colors.grey.shade700,
-                      letterSpacing: context.letterSpacingWider,
+                      color: const Color(0xff4B5563),
+                      letterSpacing: context.letterSpacingNormal,
                     ),
                   ),
-                  SizedBox(height: context.gapXXSmall),
+                  SizedBox(height: context.h(3)),
                   Text(
                     subtitle,
                     style: TextStyle(
-                      fontSize: context.bodyLarge,
+                      fontSize: context.fs(14),
                       fontWeight: FontWeight.w700,
-                      color: const Color(0xff0D1B3D),
+                      color: const Color(0xff07163B),
                       letterSpacing: context.letterSpacingNormal,
                     ),
                   ),
                   Text(
                     additionalText,
                     style: TextStyle(
-                      fontSize: context.bodySmall,
-                      color: Colors.grey.shade600,
+                      fontSize: context.fs(12),
+                      color: const Color(0xff737780),
                       letterSpacing: context.letterSpacingNormal,
                     ),
                   ),
@@ -497,7 +640,7 @@ class _SearchCardState extends State<SearchCard> {
             ),
             Icon(
               Icons.keyboard_arrow_down,
-              size: context.iconMedium,
+              size: context.w(18),
               color: Colors.grey.shade600,
             ),
           ],
@@ -645,7 +788,9 @@ class _SearchCardState extends State<SearchCard> {
                     backgroundColor: const Color(0xffF97316),
                     elevation: 0,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(context.borderRadiusMedium),
+                      borderRadius: BorderRadius.circular(
+                        context.borderRadiusMedium,
+                      ),
                     ),
                     padding: EdgeInsets.symmetric(
                       horizontal: context.w(24), // 24px on design
@@ -710,7 +855,7 @@ class _SearchCardState extends State<SearchCard> {
           runSpacing: context.gapXSmall,
           children: List.generate(
             10,
-                (index) => GestureDetector(
+            (index) => GestureDetector(
               onTap: () => onSelected(index),
               child: Container(
                 width: context.w(30), // 30px on design
@@ -779,28 +924,26 @@ class _SearchCardState extends State<SearchCard> {
   }
 
   void _pickDate({required bool isReturn}) async {
-    DateTime now = DateTime.now();
-    final ThemeData theme = Theme.of(context);
+    final now = DateUtils.dateOnly(DateTime.now());
+    final firstDate = isReturn && departureDate != null
+        ? DateUtils.dateOnly(departureDate!)
+        : now;
+    final initialDate = isReturn && returnDate != null
+        ? DateUtils.dateOnly(returnDate!)
+        : isReturn && departureDate != null
+        ? DateUtils.dateOnly(departureDate!)
+        : departureDate != null
+        ? DateUtils.dateOnly(departureDate!)
+        : now;
 
-    DateTime? picked = await showDatePicker(
+    final picked = await showDialog<DateTime>(
       context: context,
-      initialDate: isReturn && departureDate != null && departureDate!.isAfter(now)
-          ? departureDate!
-          : now,
-      firstDate: now,
-      lastDate: DateTime(2030),
-      builder: (context, child) {
-        return Theme(
-          data: theme.copyWith(
-            colorScheme: const ColorScheme.light(
-              primary: Color(0xff1663F7),
-              onPrimary: Colors.white,
-              onSurface: Colors.black,
-            ),
-          ),
-          child: child!,
-        );
-      },
+      barrierDismissible: true,
+      builder: (dialogContext) => CompactDatePickerDialog(
+        initialDate: initialDate.isBefore(firstDate) ? firstDate : initialDate,
+        firstDate: firstDate,
+        lastDate: DateTime(2030, 12, 31),
+      ),
     );
 
     if (picked != null) {

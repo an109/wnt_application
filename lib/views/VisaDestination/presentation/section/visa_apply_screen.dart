@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../../../UI_helper/currency_converter.dart';
 import '../../../../UI_helper/navigation_queue.dart';
 import '../../../../UI_helper/responsive_layout.dart';
+import '../../../../core/services/currency_service.dart';
 import '../../../../core/utils/storage/shared_preference.dart';
 import '../../../VisaApplication/Screen/visa_Application_screen.dart';
 import '../../../login/presentation/screen/login.dart';
 import '../../domain/entity/visaDestin_Entity.dart';
+import '../../../../UI_helper/currency_converter.dart';
 
 class VisaApplyPopup extends StatefulWidget {
   final String destinationName;
@@ -33,11 +36,16 @@ class _VisaApplyPopupState extends State<VisaApplyPopup>
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
 
-  VisaTypeEntity? _selectedVisaType;  // Changed to store actual visa type object
+  VisaTypeEntity? _selectedVisaType;
   String? _selectedTravellers;
   String _countryCode = '+91';
   bool _isExpanded = true;
   bool _isSubmitting = false;
+
+  // Currency
+  String _preferredCurrency = 'INR';
+  String _preferredSymbol = '₹';
+  double _conversionRate = 1.0;
 
   late final AnimationController _animationController;
   late final Animation<double> _fadeAnimation;
@@ -67,28 +75,32 @@ class _VisaApplyPopupState extends State<VisaApplyPopup>
     return match != null ? int.tryParse(match.group(1)!) ?? 1 : 1;
   }
 
-  /// Calculate total price based on selected visa type price × travellers
-  String _calculateTotalPrice() {
-    if (_selectedVisaType == null) {
-      // Fallback to base price if no visa selected
-      final base = double.tryParse(widget.price) ?? 0;
-      final count = _getTravellerCount(_selectedTravellers);
-      final total = base * count;
-      return total.toStringAsFixed(total % 1 == 0 ? 0 : 2);
-    }
-
-    final base = _selectedVisaType!.feesInr;
-    final count = _getTravellerCount(_selectedTravellers);
-    final total = base * count;
-    return total.toStringAsFixed(total % 1 == 0 ? 0 : 2);
+  /// Raw visa fee in its own feesCurrency (e.g. 90 USD).
+  double get _rawVisaPrice {
+    if (_selectedVisaType != null) return _selectedVisaType!.feesInr.toDouble();
+    return double.tryParse(widget.price) ?? 0;
   }
 
-  /// Get current visa price
-  num get _currentVisaPrice {
-    if (_selectedVisaType != null) {
-      return _selectedVisaType!.feesInr;
-    }
-    return double.tryParse(widget.price) ?? 0;
+  /// Converted single-visa price in the user's preferred currency.
+  /// Uses CurrencyConverter (cached rates) so it handles per-type currencies.
+  double get _convertedVisaPrice {
+    final sourceCurrency = _selectedVisaType?.feesCurrency ?? 'USD';
+    final amount = _rawVisaPrice;
+    final preferred = CurrencyConverter.getPreferredCurrency();
+
+    // Direct conversion using CurrencyConverter
+    return CurrencyConverter.convert(
+      amount: amount,
+      fromCurrency: sourceCurrency,
+      toCurrency: preferred,
+    );
+  }
+
+  /// Formatted total (converted price × travellers).
+  String _calculateTotalPrice() {
+    final total = _convertedVisaPrice * _getTravellerCount(_selectedTravellers);
+    final formatted = total.toStringAsFixed(total % 1 == 0 ? 0 : 2);
+    return formatted;
   }
 
   /// Build dynamic price display
@@ -111,7 +123,7 @@ class _VisaApplyPopupState extends State<VisaApplyPopup>
             ),
             const Spacer(),
             Text(
-              '${widget.currency} $total',
+              '$_preferredSymbol$total',
               style: TextStyle(
                 fontSize: context.titleLarge,
                 fontWeight: FontWeight.w800,
@@ -126,7 +138,7 @@ class _VisaApplyPopupState extends State<VisaApplyPopup>
           Padding(
             padding: EdgeInsets.only(top: context.gapXSmall),
             child: Text(
-              '${widget.currency} ${_currentVisaPrice.toStringAsFixed(_currentVisaPrice % 1 == 0 ? 0 : 2)} × $count traveller${count > 1 ? 's' : ''}',
+              '$_preferredSymbol${_convertedVisaPrice.toStringAsFixed(_convertedVisaPrice % 1 == 0 ? 0 : 2)} × $count traveller${count > 1 ? 's' : ''}',
               style: TextStyle(
                 fontSize: context.labelSmall,
                 color: Colors.grey.shade500,
@@ -180,6 +192,24 @@ class _VisaApplyPopupState extends State<VisaApplyPopup>
     if (widget.visaTypes.isNotEmpty) {
       _selectedVisaType = widget.visaTypes.first;
     }
+
+    _loadCurrency();
+  }
+
+  Future<void> _loadCurrency() async {
+    final preferred = CurrencyConverter.getPreferredCurrency();
+    // Use the actual fees_currency from the first visa type (e.g. "USD").
+    final sourceCurrency = widget.visaTypes.isNotEmpty
+        ? widget.visaTypes.first.feesCurrency
+        : (widget.currency.isNotEmpty ? widget.currency : 'USD');
+    final rate =
+        await CurrencyService.instance.getRate(sourceCurrency, preferred);
+    if (!mounted) return;
+    setState(() {
+      _preferredCurrency = preferred;
+      _preferredSymbol = CurrencyConverter.getSymbol(preferred);
+      _conversionRate = rate;
+    });
   }
 
   @override
@@ -374,7 +404,7 @@ class _VisaApplyPopupState extends State<VisaApplyPopup>
                     ),
                   )
                       : Text(
-                    'Apply Visa • ${widget.currency} ${_calculateTotalPrice()}',
+                    'Apply Visa • $_preferredSymbol${_calculateTotalPrice()}',
                     style: TextStyle(
                       fontSize: context.labelLarge,
                       fontWeight: FontWeight.w700,
@@ -815,7 +845,7 @@ class _VisaApplyPopupState extends State<VisaApplyPopup>
       'visaEntry': _selectedVisaType?.entry,
       'travellers': _getTravellerCount(_selectedTravellers),
       'totalAmount': _calculateTotalPrice(),
-      'currency': widget.currency,
+      'currency': _preferredCurrency,
       'email': _emailController.text.trim(),
       'phone': '$_countryCode ${_phoneController.text.trim()}',
       'countryCode': _countryCode,

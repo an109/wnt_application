@@ -9,14 +9,14 @@ import '../bloc/T_locationEvent.dart';
 import '../bloc/T_locationState.dart';
 
 class T_locationSearchTile extends StatefulWidget {
-  final String title;
+  final String? title;
   final String hint;
   final String initialSubtitle;
   final ValueChanged<T_locationEntity> onLocationSelected;
 
   const T_locationSearchTile({
     Key? key,
-    required this.title,
+     this.title,
     required this.hint,
     required this.initialSubtitle,
     required this.onLocationSelected,
@@ -32,7 +32,6 @@ class _T_locationSearchTileState extends State<T_locationSearchTile> {
   final FocusNode _focusNode = FocusNode();
   final LayerLink _layerLink = LayerLink();
   Timer? _debounce;
-  bool _isSearching = false;
   T_locationEntity? _selectedLocation;
   OverlayEntry? _overlayEntry;
 
@@ -73,8 +72,6 @@ class _T_locationSearchTileState extends State<T_locationSearchTile> {
       return;
     }
 
-    setState(() => _isSearching = true);
-
     //  FIX: Reopen overlay when typing (in case it was closed)
     if (_focusNode.hasFocus) {
       _openOverlay();
@@ -89,7 +86,6 @@ class _T_locationSearchTileState extends State<T_locationSearchTile> {
     setState(() {
       _selectedLocation = location;
       _controller.text = location.label;
-      _isSearching = false;
     });
     _focusNode.unfocus();
     _closeOverlay();
@@ -100,7 +96,6 @@ class _T_locationSearchTileState extends State<T_locationSearchTile> {
     setState(() {
       _selectedLocation = null;
       _controller.clear();
-      _isSearching = false;
     });
     _focusNode.unfocus();
     _closeOverlay();
@@ -156,7 +151,7 @@ class _T_locationSearchTileState extends State<T_locationSearchTile> {
                         border: Border.all(color: Colors.grey.shade300),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.08),
+                            color: Colors.black.withValues(alpha: 0.08),
                             blurRadius: 15,
                             offset: const Offset(0, 4),
                           ),
@@ -304,86 +299,117 @@ class _T_locationSearchTileState extends State<T_locationSearchTile> {
 
   @override
   Widget build(BuildContext context) {
+    const primaryBlue = Color(0xFF1769F6);
+    const textDark = Color(0xFF071638);
+    const mutedText = Color(0xFF6B7280);
+
     return CompositedTransformTarget(
       link: _layerLink,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            widget.title,
-            style: TextStyle(
-              fontSize: context.labelLarge,
-              color: Colors.grey.shade700,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 1,
+          // Padding(
+          //   padding:  EdgeInsets.only(left: context.r(8)),
+          //   child: Text(
+          //     widget.title,
+          //     style: TextStyle(
+          //       fontSize: context.fs(11),
+          //       color: mutedText,
+          //       fontWeight: FontWeight.w800,
+          //     ),
+          //   ),
+          // ),
+          SizedBox(height: context.h(7)),
+          Container(
+            padding: EdgeInsets.symmetric(
+              horizontal: context.w(12),
+              vertical: context.h(10),
             ),
-          ),
-          SizedBox(height: context.hp(2)),
-          Row(
-            children: [
-              Icon(
-                Icons.location_on_outlined,
-                size: context.iconLarge,
-                color: const Color(0xff0D1B3D),
-              ),
-              SizedBox(width: context.wp(3)),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Focus(
-                      onFocusChange: (focused) {
-                        if (focused) setState(() => _isSearching = true);
-                      },
-                      child: SizedBox(
-                        height: 20,
-                        child: TextField(
-                          controller: _controller,
-                          focusNode: _focusNode,
-                          decoration: InputDecoration(
-                            hintText: _selectedLocation?.label ?? widget.hint,
-                            hintStyle: TextStyle(
-                              fontSize: context.titleSmall,
-                              fontWeight: FontWeight.w700,
-                              color: const Color(0xff0D1B3D),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF9FAFC),
+              borderRadius: BorderRadius.circular(context.r(16)),
+              // border: Border.all(color: const Color(0xFFE1E6EF)),
+            ),
+            child: Row(
+              children: [
+                // Container(
+                //   height: context.w(34),
+                //   width: context.w(34),
+                //   decoration: BoxDecoration(
+                //     color: const Color(0xFFEFF6FF),
+                //     borderRadius: BorderRadius.circular(context.r(12)),
+                //   ),
+                //   child: Icon(
+                //     Icons.location_on_outlined,
+                //     size: context.w(19),
+                //     color: primaryBlue,
+                //   ),
+                // ),
+                // SizedBox(width: context.w(11)),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Focus(
+                        child: SizedBox(
+                          height: context.h(22),
+                          child: TextField(
+                            controller: _controller,
+                            focusNode: _focusNode,
+                            decoration: InputDecoration(
+                              hintText: _selectedLocation?.label ?? widget.hint,
+                              hintStyle: TextStyle(
+                                fontSize: context.fs(15),
+                                fontWeight: FontWeight.w800,
+                                color: textDark,
+                              ),
+                              border: InputBorder.none,
+                              isDense: true,
+                              contentPadding: EdgeInsets.zero,
+                              suffixIcon: _selectedLocation != null
+                                  ? IconButton(
+                                      icon: Icon(
+                                        Icons.clear,
+                                        size: context.w(16),
+                                        color: mutedText,
+                                      ),
+                                      onPressed: _clearSelection,
+                                      padding: EdgeInsets.zero,
+                                      constraints: BoxConstraints(
+                                        minHeight: context.w(24),
+                                        minWidth: context.w(24),
+                                      ),
+                                    )
+                                  : null,
                             ),
-                            border: InputBorder.none,
-                            isDense: true,
-                            contentPadding: EdgeInsets.zero,
-                            suffixIcon: _selectedLocation != null
-                                ? IconButton(
-                                    icon: Icon(
-                                      Icons.clear,
-                                      size: context.iconSmall,
-                                    ),
-                                    onPressed: _clearSelection,
-                                  )
-                                : null,
+                            style: TextStyle(
+                              fontSize: context.fs(15),
+                              fontWeight: FontWeight.w800,
+                              color: textDark,
+                            ),
+                            onChanged: _onSearchChanged,
                           ),
-                          style: TextStyle(
-                            fontSize: context.titleSmall,
-                            fontWeight: FontWeight.w700,
-                            color: const Color(0xff0D1B3D),
-                          ),
-                          onChanged: _onSearchChanged,
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      _selectedLocation?.formattedAddress ??
-                          widget.initialSubtitle,
-                      style: TextStyle(
-                        fontSize: context.bodyMedium,
-                        color: Colors.grey.shade600,
+                      SizedBox(height: context.h(2)),
+                      Text(
+                        _selectedLocation?.formattedAddress ??
+                            widget.initialSubtitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: context.fs(12),
+                          color: mutedText,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ],
       ),

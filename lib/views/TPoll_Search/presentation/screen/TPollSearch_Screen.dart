@@ -180,7 +180,7 @@ class _TpollSearchResultsPageState extends State<TpollSearchResultsPage> {
         Padding(
           padding: EdgeInsets.all(context.wp(2)),
           child: Image.asset(
-            "assets/images/wander_nova_logo.jpg",
+            "assets/images/wander_logo.png",
             height: context.hp(4.5),
           ),
         ),

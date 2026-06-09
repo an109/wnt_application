@@ -1,25 +1,29 @@
-import 'package:dio/dio.dart';
+// import 'package:dio/dio.dart'; // Razorpay flow (commented out)
 import 'package:flutter/material.dart';
-import 'package:razorpay_flutter/razorpay_flutter.dart';
+import 'package:intl/intl.dart';
+// import 'package:razorpay_flutter/razorpay_flutter.dart'; // Razorpay flow (commented out)
 import 'package:wander_nova/injection_container.dart' as di;
 import '../../../../UI_helper/responsive_layout.dart';
 import '../../../../common_widgets/logo.dart';
 import '../../../../core/constants/urls.dart';
-import '../../../../core/network/dio_client.dart';
+// import '../../../../core/network/dio_client.dart'; // Razorpay flow (commented out)
 import '../../../../core/utils/storage/shared_preference.dart';
+import '../../data/ccavenue_service.dart';
+import 'ccavenue_payment_page.dart';
 import '../../../flight_booking/data/models/booking_request_model.dart';
 import '../../../flight_booking/presentation/bloc/booking_bloc.dart';
 import '../../../flight_booking/presentation/bloc/booking_event.dart';
 import '../../../flight_booking/presentation/bloc/booking_state.dart';
 import '../../../flight_search/presentation/screen/booking_screen.dart';
 import '../../../flight_ticket/data/models/ticket_request_model.dart';
-import '../../../flight_ticket/domain/entities/ticket_entity.dart';
 import '../../../flight_ticket/presentation/bloc/ticket_bloc.dart';
 import '../../../flight_ticket/presentation/bloc/ticket_event.dart';
 import '../../../flight_ticket/presentation/bloc/ticket_state.dart';
 import '../../../flight_ticket/presentation/screen/ticket_voucher_screen.dart';
+import '../../../flight_ssr/presentation/screen/ssr/ssr_price_formatter.dart';
 
-class FlightPaymentScreen extends StatefulWidget {
+class FlightPaymentScreen
+    extends StatefulWidget {
   final FlightRouteSegment route;
   final String traceId;
   final String resultIndex;
@@ -40,15 +44,19 @@ class FlightPaymentScreen extends StatefulWidget {
 }
 
 class _FlightPaymentScreenState extends State<FlightPaymentScreen> {
-  late final Razorpay _razorpay;
+  // late final Razorpay _razorpay; // Razorpay flow (commented out)
+  final CCAvenueService _ccavenueService = CCAvenueService();
   late final BookingBloc _bookingBloc;
   late final TicketBloc _ticketBloc;
 
   bool _isCreatingOrder = false;
   String? _error;
-  String? _razorpayPaymentId;
 
   BookingPassengerModel? _builtPassenger;
+  static const _blue = Color(0xFF1769F6);
+  static const _navy = Color(0xFF071638);
+  static const _pageBg = Color(0xFFF3F6FC);
+  static const _border = Color(0xFFE2E7F0);
 
   @override
   void initState() {
@@ -56,10 +64,11 @@ class _FlightPaymentScreenState extends State<FlightPaymentScreen> {
     _bookingBloc = di.sl<BookingBloc>();
     _ticketBloc = di.sl<TicketBloc>();
 
-    _razorpay = Razorpay();
-    _razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, _handlePaymentSuccess);
-    _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _handlePaymentError);
-    _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleExternalWallet);
+    // ----- Razorpay flow (commented out) -----
+    // _razorpay = Razorpay();
+    // _razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, _handlePaymentSuccess);
+    // _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _handlePaymentError);
+    // _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleExternalWallet);
 
     _builtPassenger = _buildPassengerFromForm();
 
@@ -69,7 +78,7 @@ class _FlightPaymentScreenState extends State<FlightPaymentScreen> {
 
   @override
   void dispose() {
-    _razorpay.clear();
+    // _razorpay.clear(); // Razorpay flow (commented out)
     _bookingBloc.close();
     _ticketBloc.close();
     super.dispose();
@@ -84,10 +93,10 @@ class _FlightPaymentScreenState extends State<FlightPaymentScreen> {
       paxType: 1,
       dateOfBirth: '1990-01-01T00:00:00',
       gender: data['gender'] == 'Female' ? 2 : 1,
-      passportNo: data['passport'] ?? '',
+      passportNo: data['passportNumber'] ?? data['passport'] ?? '',
       passportExpiry: _formatPassportExpiry(data['passportExpiry']),
       nationality: _nationalityToCode(data['nationality'] ?? 'India'),
-      contactNo: data['phone'] ?? '',
+      contactNo: data['mobileNumber'] ?? data['phone'] ?? '',
       email: data['email'] ?? '',
       isLeadPax: true,
       baggage: _buildSsrList('baggage'),
@@ -103,15 +112,20 @@ class _FlightPaymentScreenState extends State<FlightPaymentScreen> {
       if (parts.length == 3) {
         return '20${parts[2]}-${parts[1]}-${parts[0]}T00:00:00';
       }
+      final parsed = DateFormat('dd MMM yyyy').parseStrict(raw);
+      return DateFormat("yyyy-MM-dd'T'00:00:00").format(parsed);
     } catch (_) {}
     return '2030-01-01T00:00:00';
   }
 
   String _nationalityToCode(String nationality) {
     const map = {
-      'india': 'IN', 'indian': 'IN',
-      'american': 'US', 'united states': 'US',
-      'british': 'GB', 'uk': 'GB',
+      'india': 'IN',
+      'indian': 'IN',
+      'american': 'US',
+      'united states': 'US',
+      'british': 'GB',
+      'uk': 'GB',
       'canadian': 'CA',
       'australian': 'AU',
     };
@@ -122,18 +136,45 @@ class _FlightPaymentScreenState extends State<FlightPaymentScreen> {
     final sel = widget.ssrSelections;
     if (type == 'baggage' && sel['baggage'] != null) {
       return [
-        {'Code': sel['baggage'], 'Description': 'Extra Baggage', 'AirlineCode': '', 'Amount': 0, 'Origin': '', 'Destination': ''},
+        {
+          'Code': sel['baggage'],
+          'Description': 'Extra Baggage',
+          'AirlineCode': '',
+          'Amount': 0,
+          'Origin': '',
+          'Destination': '',
+        },
       ];
     }
     if (type == 'meal' && sel['meal'] != null) {
       return [
-        {'Code': sel['meal'], 'Description': 'Meal', 'AirlineCode': '', 'Amount': 0, 'Origin': '', 'Destination': ''},
+        {
+          'Code': sel['meal'],
+          'Description': 'Meal',
+          'AirlineCode': '',
+          'Amount': 0,
+          'Origin': '',
+          'Destination': '',
+        },
       ];
     }
     if (type == 'seat' && sel['seat'] != null) {
-      return [
-        {'Code': sel['seat'], 'Description': 'Seat', 'AirlineCode': '', 'Amount': 0, 'Origin': '', 'Destination': ''},
-      ];
+      // Seat can be a single code (legacy) or a list of codes (one per traveller).
+      final raw = sel['seat'];
+      final codes = raw is List ? raw : [raw];
+      return codes
+          .where((code) => code != null)
+          .map(
+            (code) => {
+              'Code': code,
+              'Description': 'Seat',
+              'AirlineCode': '',
+              'Amount': 0,
+              'Origin': '',
+              'Destination': '',
+            },
+          )
+          .toList();
     }
     return [];
   }
@@ -141,67 +182,162 @@ class _FlightPaymentScreenState extends State<FlightPaymentScreen> {
   double get _totalAmount {
     final fare = widget.route.fareQuoteData;
     if (fare != null) return fare.total;
-    final price = double.tryParse(widget.route.price.replaceAll(RegExp(r'[^0-9.]'), ''));
+    final price = double.tryParse(
+      widget.route.price.replaceAll(RegExp(r'[^0-9.]'), ''),
+    );
     return price ?? 0.0;
   }
 
   String get _currency => widget.route.fareQuoteData?.currency ?? 'INR';
+  double get _displayAmount =>
+      SsrPriceFormatter.convertAmount(_totalAmount, _currency);
+  String get _displayCurrency => SsrPriceFormatter.preferredCurrency(_currency);
+  String get _displayTotal => SsrPriceFormatter.format(_totalAmount, _currency);
 
+  // ============================================================
+  // ----- Razorpay flow (commented out) -----
+  // ============================================================
+  // Future<void> _initiatePayment() async {
+  //   setState(() {
+  //     _isCreatingOrder = true;
+  //     _error = null;
+  //   });
+  //
+  //   try {
+  //     final dio = di.sl<DioClient>().instance;
+  //     final response = await dio.post(
+  //       Urls.razorpayCreateOrder,
+  //       data: {
+  //         'amount': (_displayAmount * 100).toInt(),
+  //         'currency': _displayCurrency,
+  //         'reference_id': 'flight_${widget.traceId}',
+  //       },
+  //     );
+  //
+  //     final orderId = response.data['order_id'];
+  //     final keyId = response.data['key_id'];
+  //
+  //     final options = {
+  //       'key': keyId,
+  //       'amount': (_displayAmount * 100).toInt(),
+  //       'currency': _displayCurrency,
+  //       'name': 'WanderNova',
+  //       'description':
+  //           'Flight Booking ${widget.route.from} → ${widget.route.to}',
+  //       'order_id': orderId,
+  //       'prefill': {
+  //         'name':
+  //             '${widget.passengerData['firstName'] ?? ''} ${widget.passengerData['lastName'] ?? ''}',
+  //         'email': widget.passengerData['email'] ?? '',
+  //         'contact':
+  //             widget.passengerData['mobileNumber'] ??
+  //             widget.passengerData['phone'] ??
+  //             '',
+  //       },
+  //       'theme': {'color': '#1769F6'},
+  //     };
+  //
+  //     setState(() {
+  //       _isCreatingOrder = false;
+  //     });
+  //     _razorpay.open(options);
+  //   } on DioException catch (e) {
+  //     setState(() {
+  //       _isCreatingOrder = false;
+  //       _error = 'Could not create payment order. Please try again.';
+  //     });
+  //     print('Razorpay order error: ${e.message}');
+  //   }
+  // }
+  //
+  // void _handlePaymentSuccess(PaymentSuccessResponse response) {
+  //   print('Payment success: ${response.paymentId}');
+  //   _callBookApi();
+  // }
+  //
+  // void _handlePaymentError(PaymentFailureResponse response) {
+  //   setState(() {
+  //     _error = 'Payment failed: ${response.message}';
+  //   });
+  // }
+  //
+  // void _handleExternalWallet(ExternalWalletResponse response) {
+  //   print('External wallet: ${response.walletName}');
+  // }
+
+  // ============================================================
+  // ----- CCAvenue hosted-checkout flow -----
+  // ============================================================
   Future<void> _initiatePayment() async {
-    setState(() { _isCreatingOrder = true; _error = null; });
+    setState(() {
+      _isCreatingOrder = true;
+      _error = null;
+    });
 
     try {
-      final dio = di.sl<DioClient>().instance;
-      final response = await dio.post(
-        Urls.razorpayCreateOrder,
-        data: {
-          'amount': (_totalAmount * 100).toInt(),
-          'currency': _currency,
-          'reference_id': 'flight_${widget.traceId}',
-        },
+      final prefs = di.sl<PreferencesManager>();
+      // Backend requires order_id; keep it short — CCAvenue limits order_id
+      // length (~30 chars). The flight's traceId is carried separately for
+      // the booking call. e.g. "WTXF1780915089370" (17 chars).
+      final orderId = 'WTXF${DateTime.now().millisecondsSinceEpoch}';
+      // CCAvenue requires an amount with at most 2 decimal places; the raw
+      // converted value can have many (e.g. 3072.4812838801904).
+      final amount = double.parse(_displayAmount.toStringAsFixed(2));
+
+      final session = await _ccavenueService.createCheckout(
+        orderId: orderId,
+        amount: amount,
+        currency: _displayCurrency,
+        transactionType: 'flight',
+        userId: prefs.getUserId(),
+        firstName: widget.passengerData['firstName'] ?? '',
+        lastName: widget.passengerData['lastName'] ?? '',
+        email: widget.passengerData['email'] ?? '',
+        phone:
+            widget.passengerData['mobileNumber'] ??
+            widget.passengerData['phone'] ??
+            '',
+        successUrl: Urls.ccavenueSuccessUrl,
+        failureUrl: Urls.ccavenueFailureUrl,
       );
 
-      final orderId = response.data['order_id'];
-      final keyId = response.data['key_id'];
+      if (!mounted) return;
+      setState(() => _isCreatingOrder = false);
 
-      final options = {
-        'key': keyId,
-        'amount': (_totalAmount * 100).toInt(),
-        'currency': _currency,
-        'name': 'WanderNova',
-        'description': 'Flight Booking ${widget.route.from} → ${widget.route.to}',
-        'order_id': orderId,
-        'prefill': {
-          'name': '${widget.passengerData['firstName'] ?? ''} ${widget.passengerData['lastName'] ?? ''}',
-          'email': widget.passengerData['email'] ?? '',
-          'contact': widget.passengerData['phone'] ?? '',
-        },
-        'theme': {'color': '#E71D36'},
-      };
+      final result = await Navigator.of(context).push<PaymentResult>(
+        MaterialPageRoute(
+          builder: (_) => CCAvenuePaymentPage(
+            service: _ccavenueService,
+            session: session,
+          ),
+        ),
+      );
 
-      setState(() { _isCreatingOrder = false; });
-      _razorpay.open(options);
-    } on DioException catch (e) {
+      if (!mounted) return;
+      switch (result) {
+        case PaymentResult.success:
+          _callBookApi();
+          break;
+        case PaymentResult.failure:
+          setState(() => _error = 'Payment failed. Please try again.');
+          break;
+        case PaymentResult.cancelled:
+        case null:
+          setState(() => _error = 'Payment cancelled.');
+          break;
+      }
+    } on CCAvenueException catch (e) {
       setState(() {
         _isCreatingOrder = false;
-        _error = 'Could not create payment order. Please try again.';
+        _error = e.message;
       });
-      print('Razorpay order error: ${e.message}');
+    } catch (e) {
+      setState(() {
+        _isCreatingOrder = false;
+        _error = 'Could not start payment. Please try again.';
+      });
+      print('CCAvenue checkout error: $e');
     }
-  }
-
-  void _handlePaymentSuccess(PaymentSuccessResponse response) {
-    print('Payment success: ${response.paymentId}');
-    _razorpayPaymentId = response.paymentId;
-    _callBookApi();
-  }
-
-  void _handlePaymentError(PaymentFailureResponse response) {
-    setState(() { _error = 'Payment failed: ${response.message}'; });
-  }
-
-  void _handleExternalWallet(ExternalWalletResponse response) {
-    print('External wallet: ${response.walletName}');
   }
 
   void _callBookApi() {
@@ -221,10 +357,14 @@ class _FlightPaymentScreenState extends State<FlightPaymentScreen> {
 
   void _onBookingStateChange(BookingState state) {
     if (state is BookingSuccess) {
-      print('Booking success: PNR=${state.booking.pnr}, BookingId=${state.booking.bookingId}');
+      print(
+        'Booking success: PNR=${state.booking.pnr}, BookingId=${state.booking.bookingId}',
+      );
       _callTicketApi(state.booking.pnr!, state.booking.bookingId!);
     } else if (state is BookingError) {
-      setState(() { _error = 'Booking failed: ${state.message}'; });
+      setState(() {
+        _error = 'Booking failed: ${state.message}';
+      });
     }
   }
 
@@ -246,7 +386,9 @@ class _FlightPaymentScreenState extends State<FlightPaymentScreen> {
 
   void _onTicketStateChange(TicketState state) {
     if (state is TicketSuccess || state is TicketPending) {
-      final ticket = state is TicketSuccess ? state.ticket : (state as TicketPending).ticket;
+      final ticket = state is TicketSuccess
+          ? state.ticket
+          : (state as TicketPending).ticket;
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
@@ -258,7 +400,9 @@ class _FlightPaymentScreenState extends State<FlightPaymentScreen> {
         ),
       );
     } else if (state is TicketError) {
-      setState(() { _error = 'Ticket issuance failed: ${state.message}'; });
+      setState(() {
+        _error = 'Ticket issuance failed: ${state.message}';
+      });
     }
   }
 
@@ -270,7 +414,8 @@ class _FlightPaymentScreenState extends State<FlightPaymentScreen> {
 
   String get _processingMessage {
     if (_isCreatingOrder) return 'Creating payment order...';
-    if (_bookingBloc.state is BookingLoading) return 'Confirming your booking...';
+    if (_bookingBloc.state is BookingLoading)
+      return 'Confirming your booking...';
     if (_ticketBloc.state is TicketLoading) return 'Issuing your ticket...';
     return '';
   }
@@ -278,15 +423,18 @@ class _FlightPaymentScreenState extends State<FlightPaymentScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
+      backgroundColor: _pageBg,
       appBar: AppBar(
         title: const WanderNovaLogo(scaleFactor: 0.6),
-        backgroundColor: Colors.white,
+        backgroundColor: _pageBg,
         elevation: 0,
         actions: [
           Padding(
             padding: EdgeInsets.all(context.w(8)),
-            child: Image.asset('assets/images/wander_nova_logo.jpg', height: 35),
+            child: Image.asset(
+              'assets/images/wander_logo.png',
+              height: 35,
+            ),
           ),
         ],
       ),
@@ -296,7 +444,14 @@ class _FlightPaymentScreenState extends State<FlightPaymentScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             SizedBox(height: context.gapLarge),
-            Text('Complete Payment', style: TextStyle(fontSize: context.titleLarge, fontWeight: FontWeight.bold)),
+            Text(
+              'Complete Payment',
+              style: TextStyle(
+                fontSize: context.titleLarge,
+                fontWeight: FontWeight.bold,
+                color: _navy,
+              ),
+            ),
             SizedBox(height: context.gapLarge),
             _buildFlightSummaryCard(context),
             SizedBox(height: context.gapLarge),
@@ -328,9 +483,19 @@ class _FlightPaymentScreenState extends State<FlightPaymentScreen> {
         children: [
           Row(
             children: [
-              Icon(Icons.flight_takeoff, color: Colors.indigo, size: context.iconMedium),
+              Icon(
+                Icons.flight_takeoff,
+                color: _blue,
+                size: context.iconMedium,
+              ),
               SizedBox(width: context.gapSmall),
-              Text('Flight', style: TextStyle(fontSize: context.titleMedium, fontWeight: FontWeight.bold)),
+              Text(
+                'Flight',
+                style: TextStyle(
+                  fontSize: context.titleMedium,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ],
           ),
           SizedBox(height: context.gapMedium),
@@ -340,22 +505,52 @@ class _FlightPaymentScreenState extends State<FlightPaymentScreen> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(widget.route.from, style: TextStyle(fontSize: context.headlineSmall, fontWeight: FontWeight.bold)),
-                  Text(widget.route.departureTime, style: TextStyle(color: Colors.grey.shade600, fontSize: context.bodySmall)),
+                  Text(
+                    widget.route.from,
+                    style: TextStyle(
+                      fontSize: context.headlineSmall,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Text(
+                    widget.route.departureTime,
+                    style: TextStyle(
+                      color: Colors.grey.shade600,
+                      fontSize: context.bodySmall,
+                    ),
+                  ),
                 ],
               ),
               Icon(Icons.arrow_forward, color: Colors.grey),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Text(widget.route.to, style: TextStyle(fontSize: context.headlineSmall, fontWeight: FontWeight.bold)),
-                  Text(widget.route.arrivalTime, style: TextStyle(color: Colors.grey.shade600, fontSize: context.bodySmall)),
+                  Text(
+                    widget.route.to,
+                    style: TextStyle(
+                      fontSize: context.headlineSmall,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Text(
+                    widget.route.arrivalTime,
+                    style: TextStyle(
+                      color: Colors.grey.shade600,
+                      fontSize: context.bodySmall,
+                    ),
+                  ),
                 ],
               ),
             ],
           ),
           SizedBox(height: context.gapSmall),
-          Text('${widget.route.airline} · ${widget.route.flightNo}', style: TextStyle(color: Colors.grey.shade500, fontSize: context.bodySmall)),
+          Text(
+            '${widget.route.airline} · ${widget.route.flightNo}',
+            style: TextStyle(
+              color: Colors.grey.shade500,
+              fontSize: context.bodySmall,
+            ),
+          ),
         ],
       ),
     );
@@ -370,39 +565,74 @@ class _FlightPaymentScreenState extends State<FlightPaymentScreen> {
         children: [
           Row(
             children: [
-              Icon(Icons.receipt_long, color: Colors.indigo, size: context.iconMedium),
+              Icon(Icons.receipt_long, color: _blue, size: context.iconMedium),
               SizedBox(width: context.gapSmall),
-              Text('Fare Breakdown', style: TextStyle(fontSize: context.titleMedium, fontWeight: FontWeight.bold)),
+              Text(
+                'Fare Breakdown',
+                style: TextStyle(
+                  fontSize: context.titleMedium,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ],
           ),
           SizedBox(height: context.gapLarge),
           if (fare != null) ...[
-            _fareRow(context, 'Base Fare', '${fare.currency} ${fare.baseFare.toStringAsFixed(2)}'),
+            _fareRow(
+              context,
+              'Base Fare',
+              SsrPriceFormatter.format(fare.baseFare, fare.currency),
+            ),
             SizedBox(height: context.gapSmall),
-            _fareRow(context, 'Taxes & Fees', '${fare.currency} ${fare.tax.toStringAsFixed(2)}'),
+            _fareRow(
+              context,
+              'Taxes & Fees',
+              SsrPriceFormatter.format(fare.tax, fare.currency),
+            ),
             Divider(height: context.gapLarge, color: Colors.grey.shade200),
-            _fareRow(context, 'Total Amount', '${fare.currency} ${fare.total.toStringAsFixed(2)}', isTotal: true),
+            _fareRow(
+              context,
+              'Total Amount',
+              SsrPriceFormatter.format(fare.total, fare.currency),
+              isTotal: true,
+            ),
           ] else
-            _fareRow(context, 'Total Amount', widget.route.price, isTotal: true),
+            _fareRow(
+              context,
+              'Total Amount',
+              widget.route.price,
+              isTotal: true,
+            ),
         ],
       ),
     );
   }
 
-  Widget _fareRow(BuildContext context, String label, String value, {bool isTotal = false}) {
+  Widget _fareRow(
+    BuildContext context,
+    String label,
+    String value, {
+    bool isTotal = false,
+  }) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: TextStyle(
-          fontSize: isTotal ? context.bodyLarge : context.bodyMedium,
-          fontWeight: isTotal ? FontWeight.bold : FontWeight.normal,
-          color: isTotal ? Colors.black : Colors.grey.shade700,
-        )),
-        Text(value, style: TextStyle(
-          fontSize: isTotal ? context.bodyLarge : context.bodyMedium,
-          fontWeight: isTotal ? FontWeight.bold : FontWeight.w600,
-          color: isTotal ? const Color(0xFFE71D36) : Colors.black,
-        )),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: isTotal ? context.bodyLarge : context.bodyMedium,
+            fontWeight: isTotal ? FontWeight.bold : FontWeight.normal,
+            color: isTotal ? _navy : Colors.grey.shade700,
+          ),
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: isTotal ? context.bodyLarge : context.bodyMedium,
+            fontWeight: isTotal ? FontWeight.bold : FontWeight.w600,
+            color: isTotal ? _blue : _navy,
+          ),
+        ),
       ],
     );
   }
@@ -413,8 +643,8 @@ class _FlightPaymentScreenState extends State<FlightPaymentScreen> {
       child: Row(
         children: [
           CircleAvatar(
-            backgroundColor: Colors.indigo.shade50,
-            child: Icon(Icons.person, color: Colors.indigo),
+            backgroundColor: _blue.withValues(alpha: 0.09),
+            child: const Icon(Icons.person, color: _blue),
           ),
           SizedBox(width: context.gapMedium),
           Expanded(
@@ -422,10 +652,20 @@ class _FlightPaymentScreenState extends State<FlightPaymentScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '${widget.passengerData['firstName'] ?? ''} ${widget.passengerData['lastName'] ?? ''}'.trim(),
-                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: context.bodyMedium),
+                  '${widget.passengerData['firstName'] ?? ''} ${widget.passengerData['lastName'] ?? ''}'
+                      .trim(),
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: context.bodyMedium,
+                  ),
                 ),
-                Text(widget.passengerData['email'] ?? '', style: TextStyle(color: Colors.grey.shade600, fontSize: context.bodySmall)),
+                Text(
+                  widget.passengerData['email'] ?? '',
+                  style: TextStyle(
+                    color: Colors.grey.shade600,
+                    fontSize: context.bodySmall,
+                  ),
+                ),
               ],
             ),
           ),
@@ -444,9 +684,21 @@ class _FlightPaymentScreenState extends State<FlightPaymentScreen> {
       ),
       child: Row(
         children: [
-          Icon(Icons.error_outline, color: Colors.red.shade700, size: context.iconMedium),
+          Icon(
+            Icons.error_outline,
+            color: Colors.red.shade700,
+            size: context.iconMedium,
+          ),
           SizedBox(width: context.gapMedium),
-          Expanded(child: Text(_error!, style: TextStyle(color: Colors.red.shade800, fontSize: context.bodySmall))),
+          Expanded(
+            child: Text(
+              _error!,
+              style: TextStyle(
+                color: Colors.red.shade800,
+                fontSize: context.bodySmall,
+              ),
+            ),
+          ),
           TextButton(
             onPressed: () => setState(() => _error = null),
             child: const Text('Dismiss'),
@@ -466,9 +718,22 @@ class _FlightPaymentScreenState extends State<FlightPaymentScreen> {
       ),
       child: Row(
         children: [
-          SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.blue.shade700)),
+          SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: Colors.blue.shade700,
+            ),
+          ),
           SizedBox(width: context.gapMedium),
-          Text(_processingMessage, style: TextStyle(color: Colors.blue.shade800, fontSize: context.bodySmall)),
+          Text(
+            _processingMessage,
+            style: TextStyle(
+              color: Colors.blue.shade800,
+              fontSize: context.bodySmall,
+            ),
+          ),
         ],
       ),
     );
@@ -481,15 +746,28 @@ class _FlightPaymentScreenState extends State<FlightPaymentScreen> {
       child: ElevatedButton(
         onPressed: _isProcessing ? null : _initiatePayment,
         style: ElevatedButton.styleFrom(
-          backgroundColor: _isProcessing ? Colors.grey : const Color(0xFFE71D36),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(context.borderRadius)),
-          elevation: 2,
+          backgroundColor: _isProcessing ? Colors.grey : _blue,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
+          elevation: 0,
         ),
         child: _isProcessing
-            ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation(Colors.white)))
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation(Colors.white),
+                ),
+              )
             : Text(
-                'Pay ${_currency} ${_totalAmount.toStringAsFixed(2)}',
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: context.bodyLarge),
+                'Pay $_displayTotal',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: context.bodyLarge,
+                ),
               ),
       ),
     );
@@ -501,8 +779,15 @@ class _FlightPaymentScreenState extends State<FlightPaymentScreen> {
       padding: EdgeInsets.all(context.w(12)),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(context.borderRadius),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 2))],
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: _border),
+        boxShadow: [
+          BoxShadow(
+            color: _navy.withValues(alpha: 0.06),
+            blurRadius: 24,
+            offset: const Offset(0, 14),
+          ),
+        ],
       ),
       child: child,
     );

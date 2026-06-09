@@ -9,13 +9,13 @@ class FlightSearchRequestModel extends FlightSearchRequestEntity {
     required int journeyType,
     required List<FlightSegmentModel> segments,
   }) : super(
-    endUserIp: endUserIp,
-    adultCount: adultCount,
-    childCount: childCount,
-    infantCount: infantCount,
-    journeyType: journeyType,
-    segments: segments,
-  );
+         endUserIp: endUserIp,
+         adultCount: adultCount,
+         childCount: childCount,
+         infantCount: infantCount,
+         journeyType: journeyType,
+         segments: segments,
+       );
 
   Map<String, dynamic> toJson() {
     return {
@@ -24,13 +24,16 @@ class FlightSearchRequestModel extends FlightSearchRequestEntity {
       'ChildCount': childCount,
       'InfantCount': infantCount,
       'JourneyType': journeyType,
+      'BookingMode': 5,
       'Segments': (segments as List<FlightSegmentModel>)
           .map((segment) => segment.toJson())
           .toList(),
     };
   }
 
-  factory FlightSearchRequestModel.fromEntity(FlightSearchRequestEntity entity) {
+  factory FlightSearchRequestModel.fromEntity(
+    FlightSearchRequestEntity entity,
+  ) {
     return FlightSearchRequestModel(
       endUserIp: entity.endUserIp,
       adultCount: entity.adultCount,
@@ -52,12 +55,12 @@ class FlightSegmentModel extends FlightSegmentEntity {
     required String preferredDepartureTime,
     required String preferredArrivalTime,
   }) : super(
-    origin: origin,
-    destination: destination,
-    flightCabinClass: flightCabinClass,
-    preferredDepartureTime: preferredDepartureTime,
-    preferredArrivalTime: preferredArrivalTime,
-  );
+         origin: origin,
+         destination: destination,
+         flightCabinClass: flightCabinClass,
+         preferredDepartureTime: preferredDepartureTime,
+         preferredArrivalTime: preferredArrivalTime,
+       );
 
   Map<String, dynamic> toJson() {
     return {

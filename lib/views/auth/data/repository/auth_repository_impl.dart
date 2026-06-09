@@ -6,6 +6,7 @@ import '../../domain/entity/user_entity.dart';
 import '../../domain/repository/auth_repository.dart';
 import '../../../../core/constants/urls.dart';
 import '../data_source/auth_api_source.dart';
+import '../model/apple_auth_request_model.dart';
 import '../model/google_auth_request_model.dart';
 
 class AuthRepositoryImpl implements AuthRepository {
@@ -58,6 +59,64 @@ class AuthRepositoryImpl implements AuthRepository {
       return DataFailed(
         DioException(
           requestOptions: RequestOptions(path: Urls.googleAuth),
+          error: e.toString(),
+          type: DioExceptionType.unknown,
+        ),
+      );
+    }
+  }
+
+  @override
+  Future<DataState<UserEntity>> appleLogin({
+    required String token,
+    String? firstName,
+    String? lastName,
+    String? email,
+  }) async {
+    try {
+      print('Repository: Starting apple login');
+
+      final requestModel = AppleAuthRequestModel(
+        token: token,
+        firstName: firstName,
+        lastName: lastName,
+        email: email,
+      );
+      final response = await authApiService.appleLogin(requestModel);
+
+      print('Repository: Apple response success: ${response.success}');
+
+      if (response.success == true && response.user != null) {
+        if (response.tokens != null) {
+          final prefs = di.sl<PreferencesManager>();
+          await prefs.saveToken(response.tokens!['access']);
+        }
+        return DataSuccess(response.user!);
+      } else {
+        final errorText = response.message ??
+            (response.error is String
+                ? response.error as String
+                : 'Apple authentication failed');
+        return DataFailed(
+          DioException(
+            requestOptions: RequestOptions(path: Urls.appleAuth),
+            message: errorText,
+            response: Response(
+              requestOptions: RequestOptions(path: Urls.appleAuth),
+              statusCode: 400,
+              data: response.error,
+            ),
+          ),
+        );
+      }
+    } on DioException catch (e) {
+      print('Repository: Apple DioException - ${e.message}');
+      return DataFailed(e);
+    } catch (e) {
+      print('Repository: Apple unknown error - $e');
+      return DataFailed(
+        DioException(
+          requestOptions: RequestOptions(path: Urls.appleAuth),
           error: e.toString(),
           type: DioExceptionType.unknown,
         ),

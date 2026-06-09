@@ -111,8 +111,10 @@ import 'package:wander_nova/views/auth/data/data_source/auth_api_source.dart';
 import 'package:wander_nova/views/auth/data/repository/auth_repository_impl.dart';
 import 'package:wander_nova/views/auth/domain/repository/auth_repository.dart';
 import 'package:wander_nova/views/auth/domain/usecase/google_auth_usecase.dart';
+import 'package:wander_nova/views/auth/domain/usecase/apple_auth_usecase.dart';
 import 'package:wander_nova/views/auth/presentation/bloc/auth_bloc.dart';
 import 'package:wander_nova/views/auth/presentation/sdk/google_sign_in_service.dart';
+import 'package:wander_nova/views/auth/presentation/sdk/apple_sign_in_service.dart';
 import 'package:wander_nova/views/countries/data/data_source/country_api_service.dart';
 import 'package:wander_nova/views/countries/data/repository/country_repository_impl.dart';
 import 'package:wander_nova/views/countries/domain/repository/country_repository.dart';
@@ -222,6 +224,9 @@ Future<void> initializeDependencies() async {
     ),
   );
 
+  //   Register AppleSignInService
+  sl.registerLazySingleton<AppleSignInService>(() => AppleSignInService());
+
 
   // Data Layer
   sl.registerLazySingleton<AirportApiService>(() => AirportApiServiceImpl(sl<DioClient>().instance),);
@@ -315,6 +320,7 @@ Future<void> initializeDependencies() async {
   // Domain Layer - UseCases
   sl.registerLazySingleton<GetAirportsUsecase>(() => GetAirportsUsecase(sl()));
   sl.registerLazySingleton<GoogleLoginUseCase>(() => GoogleLoginUseCase(sl<AuthRepository>()));
+  sl.registerLazySingleton<AppleLoginUseCase>(() => AppleLoginUseCase(sl<AuthRepository>()));
   sl.registerLazySingleton<SearchFlightsUseCase>(() => SearchFlightsUseCase(sl<FlightRepository>()));
   sl.registerLazySingleton<GetFareRulesUsecase>(() => GetFareRulesUsecase(sl<FareRuleRepository>()));
   sl.registerLazySingleton<FareQuoteUsecase>(() => FareQuoteUsecase(sl<FareQuoteRepository>()));
@@ -363,7 +369,7 @@ Future<void> initializeDependencies() async {
 
   // Presentation Layer - Bloc
   sl.registerFactory<AirportBloc>(() => AirportBloc(sl()));
-  sl.registerFactory<AuthBloc>(() => AuthBloc(googleLoginUseCase: sl(), preferencesManager: sl()));
+  sl.registerFactory<AuthBloc>(() => AuthBloc(googleLoginUseCase: sl(), appleLoginUseCase: sl(), preferencesManager: sl()));
   sl.registerFactory<FlightSearchBloc>(() => FlightSearchBloc(sl<SearchFlightsUseCase>()));
   sl.registerFactory<FareRuleBloc>(() => FareRuleBloc(getFareRulesUsecase: sl<GetFareRulesUsecase>()));
   sl.registerFactory<FareQuoteBloc>(() => FareQuoteBloc(fareQuoteUsecase: sl<FareQuoteUsecase>()));

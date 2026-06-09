@@ -1,6 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
-import 'package:razorpay_flutter/razorpay_flutter.dart';
+// import 'package:razorpay_flutter/razorpay_flutter.dart'; // Razorpay flow (commented out)
 import 'package:wander_nova/injection_container.dart' as di;
 import 'package:wander_nova/views/Hotel_Payment/hotel_confirmation_screen.dart';
 import '../../UI_helper/currency_converter.dart';
@@ -10,6 +10,8 @@ import '../../core/constants/urls.dart';
 import '../../core/network/dio_client.dart';
 import '../../core/services/hotel_session_service.dart';
 import '../../core/utils/storage/shared_preference.dart';
+import '../flight_payment/data/ccavenue_service.dart';
+import '../flight_payment/presentation/screen/ccavenue_payment_page.dart';
 
 class HotelPaymentScreen extends StatefulWidget {
   final String bookingCode;
@@ -46,7 +48,8 @@ class HotelPaymentScreen extends StatefulWidget {
 }
 
 class _HotelPaymentScreenState extends State<HotelPaymentScreen> {
-  late final Razorpay _razorpay;
+  // late final Razorpay _razorpay; // Razorpay flow (commented out)
+  final CCAvenueService _ccavenueService = CCAvenueService();
 
   bool _isCreatingOrder = false;
   bool _isBooking = false;
@@ -55,17 +58,18 @@ class _HotelPaymentScreenState extends State<HotelPaymentScreen> {
   @override
   void initState() {
     super.initState();
-    _razorpay = Razorpay();
-    _razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, _handlePaymentSuccess);
-    _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _handlePaymentError);
-    _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleExternalWallet);
+    // ----- Razorpay flow (commented out) -----
+    // _razorpay = Razorpay();
+    // _razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, _handlePaymentSuccess);
+    // _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _handlePaymentError);
+    // _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleExternalWallet);
 
     print(' Payment Screen received - Amount: ${widget.totalFare}, Currency: ${widget.currency}');
   }
 
   @override
   void dispose() {
-    _razorpay.clear();
+    // _razorpay.clear(); // Razorpay flow (commented out)
     super.dispose();
   }
 
@@ -143,6 +147,74 @@ class _HotelPaymentScreenState extends State<HotelPaymentScreen> {
     return symbols[currency.toUpperCase()] ?? '${currency.toUpperCase()} ';
   }
 
+  // ============================================================
+  // ----- Razorpay flow (commented out) -----
+  // ============================================================
+  // Future<void> _initiatePayment() async {
+  //   setState(() {
+  //     _isCreatingOrder = true;
+  //     _error = null;
+  //   });
+  //
+  //   try {
+  //     final dio = di.sl<DioClient>().instance;
+  //     // Backend expects amount in rupees (it converts to paise internally).
+  //     // Razorpay India only supports INR — always force INR.
+  //     final response = await dio.post(
+  //       Urls.razorpayCreateOrder,
+  //       data: {
+  //         'amount': widget.totalFare,          // rupees — backend × 100 → paise
+  //         'currency': 'INR',
+  //         'reference_id': 'hotel_${DateTime.now().millisecondsSinceEpoch}',
+  //       },
+  //     );
+  //
+  //     final orderId = response.data['order_id'];
+  //     final keyId = response.data['key_id'];
+  //
+  //     // SDK expects paise to match the order amount (totalFare × 100)
+  //     final options = {
+  //       'key': keyId,
+  //       'amount': (widget.totalFare * 100).toInt(),   // paise for SDK display
+  //       'currency': 'INR',
+  //       'name': 'WanderNova',
+  //       'description': 'Hotel: ${widget.hotelName}',
+  //       'order_id': orderId,
+  //       'prefill': {
+  //         'name': '${widget.guestFirstName} ${widget.guestLastName}'.trim(),
+  //         'email': widget.email,
+  //         'contact': widget.phone,
+  //       },
+  //       'theme': {'color': '#E71D36'},
+  //     };
+  //
+  //     setState(() => _isCreatingOrder = false);
+  //     _razorpay.open(options);
+  //   } on DioException catch (e) {
+  //     setState(() {
+  //       _isCreatingOrder = false;
+  //       _error = 'Could not create payment order. Please try again.';
+  //     });
+  //     print('Razorpay order error: ${e.message}');
+  //   }
+  // }
+  //
+  // void _handlePaymentSuccess(PaymentSuccessResponse response) {
+  //   print('Hotel payment success: ${response.paymentId}');
+  //   _callBookApi(response.paymentId ?? '');
+  // }
+  //
+  // void _handlePaymentError(PaymentFailureResponse response) {
+  //   setState(() => _error = 'Payment failed: ${response.message}');
+  // }
+  //
+  // void _handleExternalWallet(ExternalWalletResponse response) {
+  //   print('External wallet: ${response.walletName}');
+  // }
+
+  // ============================================================
+  // ----- CCAvenue hosted-checkout flow -----
+  // ============================================================
   Future<void> _initiatePayment() async {
     setState(() {
       _isCreatingOrder = true;
@@ -150,59 +222,61 @@ class _HotelPaymentScreenState extends State<HotelPaymentScreen> {
     });
 
     try {
-      final dio = di.sl<DioClient>().instance;
-      // Backend expects amount in rupees (it converts to paise internally).
-      // Razorpay India only supports INR — always force INR.
-      final response = await dio.post(
-        Urls.razorpayCreateOrder,
-        data: {
-          'amount': widget.totalFare,          // rupees — backend × 100 → paise
-          'currency': 'INR',
-          'reference_id': 'hotel_${DateTime.now().millisecondsSinceEpoch}',
-        },
+      // Backend requires a short order_id (CCAvenue limits length ~30 chars).
+      final orderId = 'WTXH${DateTime.now().millisecondsSinceEpoch}';
+      // Payment is always in INR (totalFare is in rupees); 2-decimal amount.
+      final amount = double.parse(widget.totalFare.toStringAsFixed(2));
+
+      final session = await _ccavenueService.createCheckout(
+        orderId: orderId,
+        amount: amount,
+        currency: 'INR',
+        transactionType: 'hotel',
+        firstName: widget.guestFirstName,
+        lastName: widget.guestLastName,
+        email: widget.email,
+        phone: widget.phone,
+        successUrl: Urls.ccavenueSuccessUrl,
+        failureUrl: Urls.ccavenueFailureUrl,
       );
 
-      final orderId = response.data['order_id'];
-      final keyId = response.data['key_id'];
-
-      // SDK expects paise to match the order amount (totalFare × 100)
-      final options = {
-        'key': keyId,
-        'amount': (widget.totalFare * 100).toInt(),   // paise for SDK display
-        'currency': 'INR',
-        'name': 'WanderNova',
-        'description': 'Hotel: ${widget.hotelName}',
-        'order_id': orderId,
-        'prefill': {
-          'name': '${widget.guestFirstName} ${widget.guestLastName}'.trim(),
-          'email': widget.email,
-          'contact': widget.phone,
-        },
-        'theme': {'color': '#E71D36'},
-      };
-
+      if (!mounted) return;
       setState(() => _isCreatingOrder = false);
-      _razorpay.open(options);
-    } on DioException catch (e) {
+
+      final result = await Navigator.of(context).push<PaymentResult>(
+        MaterialPageRoute(
+          builder: (_) => CCAvenuePaymentPage(
+            service: _ccavenueService,
+            session: session,
+          ),
+        ),
+      );
+
+      if (!mounted) return;
+      switch (result) {
+        case PaymentResult.success:
+          _callBookApi(session.orderId);
+          break;
+        case PaymentResult.failure:
+          setState(() => _error = 'Payment failed. Please try again.');
+          break;
+        case PaymentResult.cancelled:
+        case null:
+          setState(() => _error = 'Payment cancelled.');
+          break;
+      }
+    } on CCAvenueException catch (e) {
       setState(() {
         _isCreatingOrder = false;
-        _error = 'Could not create payment order. Please try again.';
+        _error = e.message;
       });
-      print('Razorpay order error: ${e.message}');
+    } catch (e) {
+      setState(() {
+        _isCreatingOrder = false;
+        _error = 'Could not start payment. Please try again.';
+      });
+      print('CCAvenue checkout error: $e');
     }
-  }
-
-  void _handlePaymentSuccess(PaymentSuccessResponse response) {
-    print('Hotel payment success: ${response.paymentId}');
-    _callBookApi(response.paymentId ?? '');
-  }
-
-  void _handlePaymentError(PaymentFailureResponse response) {
-    setState(() => _error = 'Payment failed: ${response.message}');
-  }
-
-  void _handleExternalWallet(ExternalWalletResponse response) {
-    print('External wallet: ${response.walletName}');
   }
 
   Future<void> _callBookApi(String razorpayPaymentId) async {

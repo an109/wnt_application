@@ -43,9 +43,19 @@ class RoomsRatesSection extends StatefulWidget {
 
 class _RoomsRatesSectionState extends State<RoomsRatesSection> {
   String _selectedFilter = 'All';
-  final List<String> _filters = ['All', 'Room Only', 'Breakfast', 'Half Board', 'Full Board'];
+  final List<String> _filters = [
+    'All',
+    'Room Only',
+    'Breakfast',
+    'Half Board',
+    'Full Board',
+  ];
   final TextEditingController _searchController = TextEditingController();
   List<RoomEntity> _filteredRooms = [];
+  static const _blue = Color(0xFF1769F6);
+  static const _navy = Color(0xFF071638);
+  static const _muted = Color(0xFF6B7280);
+  static const _border = Color(0xFFE2E7F0);
 
   @override
   void initState() {
@@ -71,7 +81,9 @@ class _RoomsRatesSectionState extends State<RoomsRatesSection> {
   }
 
   void _applyFilters() {
-    print('RoomsRatesSection: Applying filter: $_selectedFilter, search: "${_searchController.text}"');
+    print(
+      'RoomsRatesSection: Applying filter: $_selectedFilter, search: "${_searchController.text}"',
+    );
 
     List<RoomEntity> filtered = List.from(widget.rooms);
 
@@ -83,7 +95,9 @@ class _RoomsRatesSectionState extends State<RoomsRatesSection> {
           case 'room only':
             return mealType == 'room_only';
           case 'breakfast':
-            return mealType == 'breakfast' || mealType == 'breakfast_for_2' || mealType == 'break_fast';
+            return mealType == 'breakfast' ||
+                mealType == 'breakfast_for_2' ||
+                mealType == 'break_fast';
           case 'half board':
             return mealType == 'half_board';
           case 'full board':
@@ -100,7 +114,8 @@ class _RoomsRatesSectionState extends State<RoomsRatesSection> {
       filtered = filtered.where((room) {
         final roomName = room.name.join(' ').toLowerCase();
         final inclusion = room.inclusion.toLowerCase();
-        return roomName.contains(searchQuery) || inclusion.contains(searchQuery);
+        return roomName.contains(searchQuery) ||
+            inclusion.contains(searchQuery);
       }).toList();
     }
 
@@ -113,10 +128,12 @@ class _RoomsRatesSectionState extends State<RoomsRatesSection> {
 
   @override
   Widget build(BuildContext context) {
-    print('RoomsRatesSection: Building with ${_filteredRooms.length} visible rooms');
+    print(
+      'RoomsRatesSection: Building with ${_filteredRooms.length} visible rooms',
+    );
 
     return Container(
-      color: Colors.white,
+      color: const Color(0xFFF3F6FC),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -141,17 +158,19 @@ class _RoomsRatesSectionState extends State<RoomsRatesSection> {
           Text(
             'Rooms & Rates',
             style: TextStyle(
-              fontSize: context.headlineMedium,
-              fontWeight: FontWeight.bold,
-              color: Colors.black87,
+              fontSize: context.fs(20),
+              fontWeight: FontWeight.w800,
+              color: _navy,
+              height: 1.1,
             ),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: context.h(8)),
           Text(
             'Choose from ${widget.rooms.length} available room options',
             style: TextStyle(
-              fontSize: context.sp(14),
-              color: Colors.grey[600],
+              fontSize: context.fs(12),
+              color: _muted,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],
@@ -166,7 +185,7 @@ class _RoomsRatesSectionState extends State<RoomsRatesSection> {
         child: Text(
           'No rooms match your filters',
           style: TextStyle(
-            fontSize: context.sp(14),
+            fontSize: context.fs(12),
             color: Colors.grey[600],
             fontStyle: FontStyle.italic,
           ),
@@ -197,16 +216,16 @@ class _RoomsRatesSectionState extends State<RoomsRatesSection> {
             Text(
               'Filter by:',
               style: TextStyle(
-                fontSize: context.sp(14),
-                fontWeight: FontWeight.w600,
-                color: Colors.grey[700],
+                fontSize: context.fs(12),
+                fontWeight: FontWeight.w800,
+                color: _muted,
               ),
             ),
-            const SizedBox(width: 12),
+            SizedBox(width: context.w(12)),
             ..._filters.map((filter) {
               final isSelected = _selectedFilter == filter;
               return Padding(
-                padding: const EdgeInsets.only(right: 8),
+                padding: EdgeInsets.only(right: context.w(8)),
                 child: FilterChip(
                   label: Text(filter),
                   selected: isSelected,
@@ -217,12 +236,17 @@ class _RoomsRatesSectionState extends State<RoomsRatesSection> {
                     });
                     _applyFilters();
                   },
-                  backgroundColor: Colors.grey[100],
-                  selectedColor: Colors.blue[50],
-                  checkmarkColor: Colors.blue,
+                  backgroundColor: Colors.white,
+                  selectedColor: const Color(0xFFEAF2FF),
+                  checkmarkColor: _blue,
+                  side: BorderSide(color: isSelected ? _blue : _border),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(context.r(10)),
+                  ),
                   labelStyle: TextStyle(
-                    color: isSelected ? Colors.blue : Colors.black87,
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                    color: isSelected ? _blue : _navy,
+                    fontSize: context.fs(12),
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
               );
@@ -291,7 +315,8 @@ class _RoomsRatesSectionState extends State<RoomsRatesSection> {
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
         itemCount: _filteredRooms.length,
-        separatorBuilder: (context, index) => SizedBox(height: context.gapMedium),
+        separatorBuilder: (context, index) =>
+            SizedBox(height: context.gapMedium),
         itemBuilder: (context, index) {
           final room = _filteredRooms[index];
           return RoomCard(
@@ -312,16 +337,17 @@ class _RoomsRatesSectionState extends State<RoomsRatesSection> {
               // Safe values with null checks and type conversion
               final String hotelImage = widget.hotelDetails?.image ?? '';
               final String hotelName = widget.hotelName;
-              final int hotelRating = (widget.hotelDetails?.hotelRating ?? 0).toInt();
+              final int hotelRating = (widget.hotelDetails?.hotelRating ?? 0)
+                  .toInt();
               final String address = widget.hotelDetails?.address ?? '';
-              final List<String>? hotelFacilities = widget.hotelDetails?.hotelFacilities;
+              final List<String>? hotelFacilities =
+                  widget.hotelDetails?.hotelFacilities;
               final String? hotelDescription = widget.hotelDetails?.description;
 
               print('Hotel image is : ${widget.hotelDetails?.image}');
               print('Hotel name is : ${widget.hotelDetails?.hotelName}');
               print('Hotel rating is : ${widget.hotelDetails?.hotelRating}');
               print('Hotel address is : ${widget.hotelDetails?.address}');
-
 
               Navigator.push(
                 context,
@@ -354,7 +380,10 @@ class _RoomsRatesSectionState extends State<RoomsRatesSection> {
 
   Widget _buildEmptyState() {
     return Container(
-      padding: context.responsivePadding.copyWith(top: context.gapLarge, bottom: context.gapLarge),
+      padding: context.responsivePadding.copyWith(
+        top: context.gapLarge,
+        bottom: context.gapLarge,
+      ),
       child: Column(
         children: [
           Icon(

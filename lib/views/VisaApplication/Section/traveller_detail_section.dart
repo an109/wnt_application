@@ -74,6 +74,20 @@ class _TravellerDetailsSectionState extends State<TravellerDetailsSection> with 
   }
 
   @override
+  void didUpdateWidget(covariant TravellerDetailsSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Auto expand when this step becomes active, collapse when it isn't.
+    if (widget.isActive != oldWidget.isActive) {
+      _isExpanded = widget.isActive;
+      if (_isExpanded) {
+        _animationController.forward();
+      } else {
+        _animationController.reverse();
+      }
+    }
+  }
+
+  @override
   void dispose() {
     _animationController.dispose();
     _firstNameController.dispose();

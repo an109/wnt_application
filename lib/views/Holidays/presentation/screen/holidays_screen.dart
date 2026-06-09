@@ -70,7 +70,7 @@ class _HolidaysScreenState extends State<HolidaysScreen> {
             Padding(
               padding: EdgeInsets.all(context.wp(2)),
               child: Image.asset(
-                "assets/images/wander_nova_logo.jpg",
+                "assets/images/wander_logo.png",
                 height: context.hp(4.5),
               ),
             ),
@@ -89,8 +89,8 @@ class _HolidaysScreenState extends State<HolidaysScreen> {
                     /// BACKGROUND IMAGE
                     SizedBox(
                       height: context.isMobile
-                          ? context.hp(63)
-                          : context.hp(68),
+                          ? context.hp(45)
+                          : context.hp(50),
                       width: double.infinity,
                       child:
                       _holidayHeroImage != null &&
@@ -132,36 +132,36 @@ class _HolidaysScreenState extends State<HolidaysScreen> {
                       ignoring: true,
                       child: Container(
                         height: context.isMobile
-                            ? context.hp(63)
-                            : context.hp(68),
+                            ? context.hp(45)
+                            : context.hp(50),
                         color: Colors.black.withOpacity(0.35),
                       ),
                     ),
 
                     /// TITLE
-                    Positioned(
-                      top: context.hp(6),
-                      left: context.wp(5),
-                      child: Row(
-                        children: [
-                          SizedBox(width: context.wp(2.2)),
-                          Text(
-                            "Holiday Packages",
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: context.isMobile ? 24 : 32,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                    // Positioned(
+                    //   top: context.hp(6),
+                    //   left: context.wp(5),
+                    //   child: Row(
+                    //     children: [
+                    //       SizedBox(width: context.wp(2.2)),
+                    //       Text(
+                    //         "Holiday Packages",
+                    //         style: TextStyle(
+                    //           color: Colors.white,
+                    //           fontSize: context.isMobile ? 24 : 32,
+                    //           fontWeight: FontWeight.bold,
+                    //         ),
+                    //       ),
+                    //     ],
+                    //   ),
+                    // ),
 
                     /// SEARCH / BANNER CARD
                     Positioned(
-                      left: context.wp(4.7),
-                      right: context.wp(4.7),
-                      bottom: -context.hp(-9),
+                      left: context.wp(2),
+                      right: context.wp(2),
+                      bottom: -context.hp(-2),
                       child: const Material(
                         color: Colors.transparent,
                         child: HolidaysSearchCard(),

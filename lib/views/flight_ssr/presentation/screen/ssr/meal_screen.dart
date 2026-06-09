@@ -582,7 +582,6 @@
 //   }
 // }
 
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../../UI_helper/responsive_layout.dart';
@@ -591,6 +590,7 @@ import '../../../domain/entities/ssr_entity.dart';
 import '../../bloc/ssr_bloc.dart';
 import '../../bloc/ssr_event.dart';
 import '../../bloc/ssr_state.dart';
+import 'ssr_price_formatter.dart';
 
 class MealScreen extends StatefulWidget {
   final String traceId;
@@ -792,7 +792,8 @@ class _MealScreenState extends State<MealScreen> {
       return _buildEmptyState();
     }
 
-    final currentSegmentIndex = widget.selectedSegmentIndex ?? _currentSegmentIndex;
+    final currentSegmentIndex =
+        widget.selectedSegmentIndex ?? _currentSegmentIndex;
 
     if (currentSegmentIndex >= mealSegments.length) {
       return _buildEmptyState();
@@ -801,7 +802,9 @@ class _MealScreenState extends State<MealScreen> {
     final segmentMeals = mealSegments[currentSegmentIndex];
 
     // Filter out "NoMeal" option for better UX
-    final availableMeals = segmentMeals.where((m) => m.code != 'NoMeal').toList();
+    final availableMeals = segmentMeals
+        .where((m) => m.code != 'NoMeal')
+        .toList();
 
     if (availableMeals.isEmpty) {
       return _buildEmptyState();
@@ -814,28 +817,27 @@ class _MealScreenState extends State<MealScreen> {
           _buildFlightInfoCard(availableMeals.first),
 
         // Segment selector (if multiple segments)
-        if (mealSegments.length > 1)
-          _buildSegmentSelector(mealSegments.length),
+        if (mealSegments.length > 1) _buildSegmentSelector(mealSegments.length),
 
         // Meal options list
         Expanded(
           child: availableMeals.isEmpty
               ? _buildEmptyState()
               : ListView.builder(
-            padding: EdgeInsets.all(context.w(12)),
-            itemCount: availableMeals.length,
-            itemBuilder: (context, index) {
-              final option = availableMeals[index];
-              final isSelected = _selectedMealCode == option.code;
+                  padding: EdgeInsets.all(context.w(12)),
+                  itemCount: availableMeals.length,
+                  itemBuilder: (context, index) {
+                    final option = availableMeals[index];
+                    final isSelected = _selectedMealCode == option.code;
 
-              return _buildMealOptionCard(
-                context,
-                option: option,
-                isSelected: isSelected,
-                onTap: () => _handleMealSelection(index, option),
-              );
-            },
-          ),
+                    return _buildMealOptionCard(
+                      context,
+                      option: option,
+                      isSelected: isSelected,
+                      onTap: () => _handleMealSelection(index, option),
+                    );
+                  },
+                ),
         ),
       ],
     );
@@ -855,7 +857,7 @@ class _MealScreenState extends State<MealScreen> {
         borderRadius: BorderRadius.circular(context.borderRadius),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 12,
             offset: const Offset(0, 2),
           ),
@@ -941,9 +943,11 @@ class _MealScreenState extends State<MealScreen> {
         child: ListView.separated(
           scrollDirection: Axis.horizontal,
           itemCount: segmentCount,
-          separatorBuilder: (context, index) => SizedBox(width: context.gapSmall),
+          separatorBuilder: (context, index) =>
+              SizedBox(width: context.gapSmall),
           itemBuilder: (context, index) {
-            final isSelected = index == (widget.selectedSegmentIndex ?? _currentSegmentIndex);
+            final isSelected =
+                index == (widget.selectedSegmentIndex ?? _currentSegmentIndex);
 
             return GestureDetector(
               onTap: () {
@@ -967,12 +971,12 @@ class _MealScreenState extends State<MealScreen> {
                   ),
                   boxShadow: isSelected
                       ? [
-                    BoxShadow(
-                      color: Colors.orange.withOpacity(0.3),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ]
+                          BoxShadow(
+                            color: Colors.orange.withValues(alpha: 0.3),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ]
                       : null,
                 ),
                 child: Center(
@@ -994,11 +998,11 @@ class _MealScreenState extends State<MealScreen> {
   }
 
   Widget _buildMealOptionCard(
-      BuildContext context, {
-        required MealOptionEntity option,
-        required bool isSelected,
-        required VoidCallback onTap,
-      }) {
+    BuildContext context, {
+    required MealOptionEntity option,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
     return Container(
       margin: EdgeInsets.only(bottom: context.gapMedium),
       child: Material(
@@ -1012,12 +1016,14 @@ class _MealScreenState extends State<MealScreen> {
               color: isSelected ? Colors.orange.shade50 : Colors.white,
               borderRadius: BorderRadius.circular(context.borderRadius),
               border: Border.all(
-                color: isSelected ? Colors.orange.shade400 : Colors.grey.shade200,
+                color: isSelected
+                    ? Colors.orange.shade400
+                    : Colors.grey.shade200,
                 width: isSelected ? 1.5 : 1,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.03),
+                  color: Colors.black.withValues(alpha: 0.03),
                   blurRadius: 8,
                   offset: const Offset(0, 2),
                 ),
@@ -1034,7 +1040,9 @@ class _MealScreenState extends State<MealScreen> {
                     borderRadius: BorderRadius.circular(context.borderRadius),
                     boxShadow: [
                       BoxShadow(
-                        color: _getMealColor(option.code).withOpacity(0.3),
+                        color: _getMealColor(
+                          option.code,
+                        ).withValues(alpha: 0.3),
                         blurRadius: 8,
                         offset: const Offset(0, 2),
                       ),
@@ -1060,7 +1068,9 @@ class _MealScreenState extends State<MealScreen> {
                         return Center(
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+                            valueColor: const AlwaysStoppedAnimation<Color>(
+                              Colors.white,
+                            ),
                           ),
                         );
                       },
@@ -1113,7 +1123,7 @@ class _MealScreenState extends State<MealScreen> {
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(
-                      option.displayPrice,
+                      SsrPriceFormatter.format(option.price, option.currency),
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: context.bodyLarge,
@@ -1126,7 +1136,11 @@ class _MealScreenState extends State<MealScreen> {
                       Padding(
                         padding: EdgeInsets.only(top: context.gapSmall / 2),
                         child: Text(
-                          '${option.currency} ${(option.price / option.quantity).toStringAsFixed(2)}/item',
+                          SsrPriceFormatter.unit(
+                            option.price / option.quantity,
+                            option.currency,
+                            'item',
+                          ),
                           style: TextStyle(
                             color: Colors.grey.shade500,
                             fontSize: context.labelSmall,
@@ -1198,7 +1212,8 @@ class _MealScreenState extends State<MealScreen> {
     if (state is SsrLoaded) {
       final meals = state.ssrData.mealOptions;
       if (meals != null && meals.isNotEmpty) {
-        final segmentIndex = widget.selectedSegmentIndex ?? _currentSegmentIndex;
+        final segmentIndex =
+            widget.selectedSegmentIndex ?? _currentSegmentIndex;
         if (segmentIndex < meals.length) {
           return meals[segmentIndex];
         }
@@ -1220,7 +1235,8 @@ class _MealScreenState extends State<MealScreen> {
 
   // Helper methods for meal images
   Color _getMealColor(String code) {
-    if (code.contains('VGML') || code.contains('VLML')) return Colors.green.shade400;
+    if (code.contains('VGML') || code.contains('VLML'))
+      return Colors.green.shade400;
     if (code.contains('DBML')) return Colors.teal.shade400;
     if (code.contains('HNML')) return Colors.orange.shade400;
     if (code.contains('KSML')) return Colors.purple.shade400;

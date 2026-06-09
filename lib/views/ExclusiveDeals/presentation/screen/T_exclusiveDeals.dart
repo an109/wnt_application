@@ -108,12 +108,11 @@ class _TransportExclusiveDealsSectionState
           //     letterSpacing: 0.5,
           //   ),
           // ),
-
           SizedBox(height: context.gapLarge),
 
           /// TABS
           SizedBox(
-            height: context.h(30),
+            height: context.h(34),
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
               itemCount: 4,
@@ -134,18 +133,19 @@ class _TransportExclusiveDealsSectionState
                   child: Container(
                     margin: EdgeInsets.only(right: context.gapLarge),
                     child: Column(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
                           tabs[index],
                           style: TextStyle(
-                            fontSize: context.bodyMedium,
+                            fontSize: context.bodySmall,
                             fontWeight: FontWeight.w600,
                             color: isSelected
                                 ? const Color(0xff005B7F)
                                 : Colors.black54,
                           ),
                         ),
-                        SizedBox(height: context.gapSmall),
+                        SizedBox(height: context.gapXSmall),
                         AnimatedContainer(
                           duration: const Duration(milliseconds: 250),
                           height: context.dividerMedium,
@@ -287,8 +287,8 @@ class _TransportExclusiveDealsSectionState
     return Container(
       width: double.infinity,
       height: context.isMobile
-          ? context.hp(130)
-          : (context.isTablet ? context.h(160) : context.h(190)),
+          ? context.hp(30)
+          : (context.isTablet ? context.h(60) : context.h(90)),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(context.borderRadius),
         color: Colors.red.shade50,

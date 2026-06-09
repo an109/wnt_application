@@ -10,7 +10,6 @@ import '../../../common_widgets/logo.dart';
 import '../../../injection_container.dart';
 import '../../ExclusiveDeals/presentation/bloc/exclusive_deals_bloc.dart';
 import '../../ExclusiveDeals/presentation/screen/T_exclusiveDeals.dart';
-import '../../Hotel/section/exclusive_deals/company_info.dart';
 import '../../MainApi/presentation/bloc/general_setting_bloc.dart';
 import '../../MainApi/presentation/bloc/general_settings_event.dart';
 import '../../home/presentation/screen_sections/about_company_section.dart';
@@ -26,20 +25,16 @@ class TransportBookingScreen extends StatefulWidget {
   const TransportBookingScreen({super.key});
 
   @override
-  State<TransportBookingScreen> createState() =>
-      _TransportBookingScreenState();
+  State<TransportBookingScreen> createState() => _TransportBookingScreenState();
 }
 
-class _TransportBookingScreenState
-    extends State<TransportBookingScreen> {
-
+class _TransportBookingScreenState extends State<TransportBookingScreen> {
   bool isOneWay = true;
 
   DateTime selectedDate = DateTime.now();
   // DateTime selectedDate = DateTime.now();
 
-  TimeOfDay selectedTime =
-  const TimeOfDay(hour: 9, minute: 0);
+  TimeOfDay selectedTime = const TimeOfDay(hour: 9, minute: 0);
 
   @override
   Widget build(BuildContext context) {
@@ -54,7 +49,7 @@ class _TransportBookingScreenState
           Padding(
             padding: EdgeInsets.all(context.w(8)),
             child: Image.asset(
-              "assets/images/wander_nova_logo.jpg",
+              "assets/images/wander_logo.png",
               height: 35,
             ),
           ),
@@ -62,110 +57,49 @@ class _TransportBookingScreenState
       ),
 
       body: Container(
-        color: const Color(0xFFF8F9FA),
+        color: const Color(0xFFF3F6FC),
         child: CustomScrollView(
           physics: context.scrollPhysics,
           slivers: [
             SliverToBoxAdapter(
-              child: Stack(
-                clipBehavior: Clip.none,
-                children: [
-
-                  // BACKGROUND IMAGE
-                  SizedBox(
-                    height: context.hp(68),
-                    width: double.infinity,
-                    child: Image.network(
-                      "https://images.unsplash.com/photo-1566073771259-6a8506099945?q=80&w=1200&auto=format&fit=crop",
-                      fit: BoxFit.cover,
-                    ),
-                  ),
-
-                  // OVERLAY
-                  IgnorePointer(
-                    ignoring: true,
-                    child: Container(
-                      height: context.hp(68),
-                      color: Colors.white.withOpacity(0.15),
-                    ),
-                  ),
-
-                  // TOP TEXT
-                  Positioned(
-                    top: context.hp(4),
-                    left: context.wp(6),
-                    right: context.wp(6),
-                    child: Column(
-                      crossAxisAlignment:
-                      CrossAxisAlignment.start,
-                      children: [
-
-                        SizedBox(
-                          width: context.wp(70),
-                          child: Text(
-                            "Comfortable Rides,\nOn Time, Every Time",
-                            style: TextStyle(
-                              fontSize: context.sp(24),
-                              fontWeight: FontWeight.w800,
-                              color: const Color(0xff0D2B5C),
-                              height: 1.1,
-                            ),
-                          ),
-                        ),
-
-                        SizedBox(height: context.hp(1.4)),
-
-                        Text(
-                          "Airport transfers, city rides, intercity travel\nand more.",
-                          style: TextStyle(
-                            fontSize: context.bodyLarge,
-                            color: const Color(0xff1F2A44),
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  // BOOKING CARD
-                  Positioned(
-                    left: context.wp(4),
-                    right: context.wp(4),
-                    bottom: -context.hp(-2),
-
-                    child: TransportBookingCard(
+              child: Container(
+                width: double.infinity,
+                padding: EdgeInsets.fromLTRB(
+                  context.w(10),
+                  context.h(5),
+                  context.w(10),
+                  context.h(8),
+                ),
+                decoration: const BoxDecoration(color: Color(0xFFF3F6FC)),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TransportBookingCard(
                       isOneWay: isOneWay,
                       selectedDate: selectedDate,
                       selectedTime: selectedTime,
-
                       onTripTypeChanged: (value) {
                         setState(() {
                           isOneWay = value;
                         });
                       },
-
                       onDateChanged: (date) {
                         setState(() {
                           selectedDate = date;
                         });
                       },
-
                       onTimeChanged: (time) {
                         setState(() {
                           selectedTime = time;
                         });
                       },
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
 
-
-
-            const SliverToBoxAdapter(
-              child: WhyBookTransportSection(),
-            ),
+            const SliverToBoxAdapter(child: WhyBookTransportSection()),
 
             SliverToBoxAdapter(
               child: BlocProvider<ExclusiveDealsBloc>(
@@ -174,18 +108,15 @@ class _TransportBookingScreenState
               ),
             ),
 
-            const SliverToBoxAdapter(
-                child: PopularDestinations()
-            ),
+            const SliverToBoxAdapter(child: PopularDestinations()),
 
-            const SliverToBoxAdapter(
-                child: TrendingPackages()
-            ),
+            const SliverToBoxAdapter(child: TrendingPackages()),
 
             SliverToBoxAdapter(
               child: BlocProvider(
-                create: (_) => sl<GeneralSettingsBloc>()
-                  ..add(const LoadFaqList(domain: 'thewandernova.com')),
+                create: (_) =>
+                    sl<GeneralSettingsBloc>()
+                      ..add(const LoadFaqList(domain: 'thewandernova.com')),
                 child: const FAQSection(),
               ),
             ),
@@ -208,14 +139,11 @@ class _TransportBookingScreenState
                 child: const ServicesInfoSection(),
               ),
             ),
-
           ],
         ),
       ),
 
-      bottomNavigationBar: const CustomBottomNav(
-        currentIndex: 4,
-      ),
+      bottomNavigationBar: const CustomBottomNav(currentIndex: 4),
     );
   }
 }

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:wander_nova/UI_helper/currency_converter.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
-import 'package:wander_nova/views/flight_search/presentation/screen/filter_drawer.dart';
 import 'package:wander_nova/views/flight_search/presentation/screen/traveller_info_card.dart';
 
 import '../../../../common_widgets/custom_bottom_nav.dart';
@@ -115,6 +115,9 @@ class FlightBookingScreen extends StatefulWidget {
   final String? traceId;
   final String price;
 
+  /// Number of travellers — used to cap seat selection on the SSR screen.
+  final int travellerCount;
+
   const FlightBookingScreen({
     super.key,
     required this.routes,
@@ -123,6 +126,7 @@ class FlightBookingScreen extends StatefulWidget {
     this.resultIndex,
     this.traceId,
     required this.price,
+    this.travellerCount = 1,
   });
 
   @override
@@ -134,12 +138,14 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
 
   final _formKey = GlobalKey<TravellerFormState>();
 
-  DateTime? _departureDate;
-  DateTime? _returnDate;
-
   bool _isLoadingFareQuote = false;
   String? _fareQuoteError;
   FlightRouteSegment? _updatedRouteWithFareQuote;
+
+  static const _blue = Color(0xFF1769F6);
+  static const _navy = Color(0xFF071638);
+  static const _pageBg = Color(0xFFF3F6FC);
+  static const _border = Color(0xFFE2E7F0);
 
   @override
   void initState() {
@@ -220,6 +226,79 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
     );
   }
 
+  bool get _isInternationalRoute {
+    if (widget.routes.isEmpty) return false;
+    final route = widget.routes.first;
+    final fromCode = _extractAirportCode(route.from);
+    final toCode = _extractAirportCode(route.to);
+    return !_indianAirportCodes.contains(fromCode) ||
+        !_indianAirportCodes.contains(toCode);
+  }
+
+  String _extractAirportCode(String value) {
+    final match = RegExp(r'\(([A-Z]{3})\)').firstMatch(value.toUpperCase());
+    if (match != null) return match.group(1)!;
+
+    final compact = value.trim().toUpperCase();
+    if (compact.length == 3) return compact;
+    return compact.split(RegExp(r'[\s,/-]+')).first;
+  }
+
+  String _convertFareAmount(double amount, String currency) {
+    try {
+      final prefs = di.sl<PreferencesManager>();
+      final targetCurrency = prefs.getPreferredCurrency() ?? 'INR';
+      final sourceCurrency = currency.isEmpty ? 'INR' : currency;
+
+      final converted =
+          sourceCurrency.toUpperCase() == targetCurrency.toUpperCase()
+          ? amount
+          : CurrencyConverter.convert(
+              amount: amount,
+              fromCurrency: sourceCurrency,
+              toCurrency: targetCurrency,
+            );
+
+      return CurrencyConverter.format(converted, targetCurrency);
+    } catch (e) {
+      return CurrencyConverter.format(amount, currency);
+    }
+  }
+
+  static const Set<String> _indianAirportCodes = {
+    'AMD',
+    'ATQ',
+    'BBI',
+    'BDQ',
+    'BHO',
+    'BLR',
+    'BOM',
+    'CCU',
+    'CJB',
+    'COK',
+    'DED',
+    'DEL',
+    'GAU',
+    'GOI',
+    'GOX',
+    'HYD',
+    'IDR',
+    'IXC',
+    'IXR',
+    'JAI',
+    'LKO',
+    'MAA',
+    'NAG',
+    'PAT',
+    'PNQ',
+    'RPR',
+    'SXR',
+    'TRV',
+    'UDR',
+    'VNS',
+    'VTZ',
+  };
+
   @override
   void dispose() {
     print('FlightBookingScreen: Disposing bloc');
@@ -227,44 +306,21 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
     super.dispose();
   }
 
-  Future<void> _pickDate(BuildContext context, bool isDeparture) async {
-    final picked = await showDatePicker(
-      context: context,
-      firstDate: DateTime.now(),
-      lastDate: DateTime(2035),
-      initialDate: DateTime.now(),
-    );
-
-    if (picked != null) {
-      setState(() {
-        if (isDeparture) {
-          _departureDate = picked;
-        } else {
-          _returnDate = picked;
-        }
-      });
-      print(
-        'FlightBookingScreen: Date picked: ${isDeparture ? 'departure' : 'return'} = $picked',
-      );
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return BlocProvider.value(
       value: _fareQuoteBloc,
       child: Scaffold(
-        backgroundColor: const Color(0xFFF5F7FA),
-        drawer: const FlightFilterDrawer(),
+        backgroundColor: _pageBg,
         appBar: AppBar(
           title: const WanderNovaLogo(scaleFactor: 0.6),
-          backgroundColor: Colors.white,
+          backgroundColor: _pageBg,
           elevation: 0,
           actions: [
             Padding(
               padding: EdgeInsets.all(context.w(8)),
               child: Image.asset(
-                "assets/images/wander_nova_logo.jpg",
+                "assets/images/wander_logo.png",
                 height: 35,
               ),
             ),
@@ -282,14 +338,12 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
               SizedBox(height: context.gapLarge),
               if (!widget.isLoggedIn) _buildLoginCard(context),
               SizedBox(height: context.gapLarge),
+              _buildBookingSteps(),
+              SizedBox(height: context.gapLarge),
 
-              // Traveller Information Section - Using the new widget
               TravellerInformationSection(
-                formKey: _formKey,
-                onDepartureDateTap: () => _pickDate(context, true),
-                onReturnDateTap: () => _pickDate(context, false),
-                departureDate: _departureDate,
-                returnDate: _returnDate,
+                key: _formKey,
+                isInternational: _isInternationalRoute,
               ),
 
               SizedBox(height: context.hp(3)),
@@ -310,12 +364,13 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
       padding: EdgeInsets.all(context.w(12)),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(context.borderRadius),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: _border),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
+            color: _navy.withValues(alpha: 0.06),
+            blurRadius: 24,
+            offset: const Offset(0, 14),
           ),
         ],
       ),
@@ -328,11 +383,11 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
                 padding: EdgeInsets.all(context.gapSmall),
                 decoration: BoxDecoration(
                   color: Colors.indigo.shade50,
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(14),
                 ),
                 child: Icon(
                   Icons.flight_takeoff,
-                  color: Colors.indigo,
+                  color: _blue,
                   size: context.iconMedium,
                 ),
               ),
@@ -346,6 +401,7 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: context.bodyLarge,
+                        color: _navy,
                       ),
                     ),
                     Text(
@@ -378,14 +434,14 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
                     children: [
                       Icon(
                         Icons.info_outline,
-                        color: Colors.indigoAccent,
+                        color: _blue,
                         size: context.iconSmall,
                       ),
                       SizedBox(width: 4),
                       Text(
                         "Fare Rules",
                         style: TextStyle(
-                          color: Colors.indigoAccent,
+                          color: _blue,
                           fontWeight: FontWeight.w600,
                           fontSize: context.labelMedium,
                         ),
@@ -407,6 +463,7 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
                     style: TextStyle(
                       fontSize: context.headlineSmall,
                       fontWeight: FontWeight.bold,
+                      color: _navy,
                     ),
                   ),
                   SizedBox(height: 4),
@@ -444,7 +501,7 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
                             child: Icon(
                               Icons.flight,
                               size: context.iconSmall,
-                              color: Colors.red,
+                              color: _blue,
                             ),
                           ),
                           Expanded(
@@ -529,9 +586,9 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
     return Container(
       padding: EdgeInsets.symmetric(horizontal: context.gapSmall, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -570,12 +627,13 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
       padding: EdgeInsets.all(context.w(12)),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(context.borderRadius),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: _border),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
+            color: _navy.withValues(alpha: 0.06),
+            blurRadius: 24,
+            offset: const Offset(0, 14),
           ),
         ],
       ),
@@ -584,17 +642,14 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
         children: [
           Row(
             children: [
-              Icon(
-                Icons.receipt_long,
-                color: Colors.indigo,
-                size: context.iconMedium,
-              ),
+              Icon(Icons.receipt_long, color: _blue, size: context.iconMedium),
               SizedBox(width: context.gapSmall),
               Text(
                 'Fare Breakdown',
                 style: TextStyle(
                   fontSize: context.titleMedium,
                   fontWeight: FontWeight.bold,
+                  color: _navy,
                 ),
               ),
             ],
@@ -604,27 +659,27 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
             _fareRow(
               context,
               'Base Fare',
-              '${fare.currency} ${fare.baseFare.toStringAsFixed(2)}',
+              _convertFareAmount(fare.baseFare, fare.currency),
             ),
             SizedBox(height: context.gapSmall),
             _fareRow(
               context,
               'Taxes & Fees',
-              '${fare.currency} ${fare.tax.toStringAsFixed(2)}',
+              _convertFareAmount(fare.tax, fare.currency),
             ),
             if (fare.serviceFee > 0) ...[
               SizedBox(height: context.gapSmall),
               _fareRow(
                 context,
                 'Service Fee',
-                '${fare.currency} ${fare.serviceFee.toStringAsFixed(2)}',
+                _convertFareAmount(fare.serviceFee, fare.currency),
               ),
             ],
             Divider(height: context.gapLarge, color: Colors.grey.shade200),
             _fareRow(
               context,
               'Total Fare',
-              '${fare.currency} ${fare.total.toStringAsFixed(2)}',
+              _convertFareAmount(fare.total, fare.currency),
               isTotal: true,
             ),
           ] else ...[
@@ -663,7 +718,7 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
           style: TextStyle(
             fontSize: isTotal ? context.bodyLarge : context.bodyMedium,
             fontWeight: isTotal ? FontWeight.bold : FontWeight.w500,
-            color: isTotal ? Colors.black : Colors.grey.shade700,
+            color: isTotal ? _navy : Colors.grey.shade700,
           ),
         ),
         Text(
@@ -671,10 +726,69 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
           style: TextStyle(
             fontSize: isTotal ? context.bodyLarge : context.bodyMedium,
             fontWeight: isTotal ? FontWeight.bold : FontWeight.w600,
-            color: isTotal ? const Color(0xFFE71D36) : Colors.black,
+            color: isTotal ? _blue : _navy,
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildBookingSteps() {
+    const steps = [
+      (Icons.flight_takeoff_rounded, 'Flight'),
+      (Icons.call_outlined, 'Contact'),
+      (Icons.person_outline_rounded, 'Traveller'),
+      (Icons.payments_outlined, 'Pay'),
+    ];
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: _border),
+      ),
+      child: Row(
+        children: [
+          for (int i = 0; i < steps.length; i++) ...[
+            Expanded(
+              child: Column(
+                children: [
+                  Container(
+                    width: 34,
+                    height: 34,
+                    decoration: BoxDecoration(
+                      color: i <= 2 ? _blue : const Color(0xFFF0F3F8),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      steps[i].$1,
+                      size: 17,
+                      color: i <= 2 ? Colors.white : const Color(0xFF8A93A3),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    steps[i].$2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: i <= 2 ? _navy : const Color(0xFF8A93A3),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (i != steps.length - 1)
+              Container(
+                width: 16,
+                height: 1,
+                color: i < 2 ? _blue.withValues(alpha: 0.45) : _border,
+              ),
+          ],
+        ],
+      ),
     );
   }
 
@@ -686,7 +800,7 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
         borderRadius: BorderRadius.circular(context.borderRadius),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -840,11 +954,11 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
                 _validateAndProceed();
               },
         style: ElevatedButton.styleFrom(
-          backgroundColor: _isLoadingFareQuote ? Colors.grey : const Color(0xFFE71D36),
+          backgroundColor: _isLoadingFareQuote ? Colors.grey : _blue,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(context.borderRadius),
+            borderRadius: BorderRadius.circular(18),
           ),
-          elevation: 2,
+          elevation: 0,
         ),
         child: _isLoadingFareQuote
             ? const SizedBox(
@@ -868,10 +982,13 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
   }
 
   void _validateAndProceed() {
-    if (_formKey.currentState == null || !_formKey.currentState!.validateForm()) {
+    if (_formKey.currentState == null ||
+        !_formKey.currentState!.validateForm()) {
       print('FlightBookingScreen: Validation failed');
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill in all required passenger details')),
+        const SnackBar(
+          content: Text('Please fill in all required passenger details'),
+        ),
       );
       return;
     }
@@ -892,6 +1009,7 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
           passengerData: travellerData,
           fareQuoteData: route.fareQuoteData,
           route: route,
+          travellerCount: widget.travellerCount,
         ),
       ),
     );

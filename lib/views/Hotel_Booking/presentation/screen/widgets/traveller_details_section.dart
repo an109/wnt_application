@@ -12,7 +12,8 @@ class TravellerDetailsSection extends StatefulWidget {
   });
 
   @override
-  State<TravellerDetailsSection> createState() => TravellerDetailsSectionState();
+  State<TravellerDetailsSection> createState() =>
+      TravellerDetailsSectionState();
 }
 
 class TravellerDetailsSectionState extends State<TravellerDetailsSection> {
@@ -22,12 +23,17 @@ class TravellerDetailsSectionState extends State<TravellerDetailsSection> {
   final List<String> _selectedTitles = [];
   final List<String> _selectedGenders = [];
   final List<String> _selectedNationalities = [];
+  static const _blue = Color(0xFF1769F6);
+  static const _navy = Color(0xFF071638);
+  static const _border = Color(0xFFE2E7F0);
 
   /// Returns [title, firstName, lastName] of the first adult, or empty strings.
   List<String> getFirstAdultData() {
     if (_firstNameControllers.isEmpty) return ['Mr', '', ''];
     return [
-      _selectedTitles.isNotEmpty && _selectedTitles[0].isNotEmpty ? _selectedTitles[0] : 'Mr',
+      _selectedTitles.isNotEmpty && _selectedTitles[0].isNotEmpty
+          ? _selectedTitles[0]
+          : 'Mr',
       _firstNameControllers[0].text.trim(),
       _lastNameControllers[0].text.trim(),
     ];
@@ -60,10 +66,15 @@ class TravellerDetailsSectionState extends State<TravellerDetailsSection> {
     super.dispose();
   }
 
-  Future<void> _selectDate(BuildContext context, TextEditingController controller) async {
+  Future<void> _selectDate(
+    BuildContext context,
+    TextEditingController controller,
+  ) async {
     final DateTime? picked = await showDatePicker(
       context: context,
-      initialDate: DateTime.now().subtract(const Duration(days: 18 * 365)), // 18 years ago
+      initialDate: DateTime.now().subtract(
+        const Duration(days: 18 * 365),
+      ), // 18 years ago
       firstDate: DateTime(1900),
       lastDate: DateTime.now(),
       builder: (context, child) {
@@ -92,12 +103,13 @@ class TravellerDetailsSectionState extends State<TravellerDetailsSection> {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(context.borderRadius),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: _border),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
+            color: _navy.withValues(alpha: 0.06),
+            blurRadius: 24,
+            offset: const Offset(0, 14),
           ),
         ],
       ),
@@ -105,35 +117,40 @@ class TravellerDetailsSectionState extends State<TravellerDetailsSection> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: context.responsivePadding,
+            padding: const EdgeInsets.fromLTRB(18, 18, 18, 12),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   'Traveller Details',
-                  style: TextStyle(
-                    fontSize: context.headlineSmall,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
+                  style: const TextStyle(
+                    fontSize: 25,
+                    fontWeight: FontWeight.w800,
+                    color: _navy,
+                    height: 1.1,
                   ),
                 ),
                 const SizedBox(height: 12),
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.blue[50],
-                    borderRadius: BorderRadius.circular(8),
+                    color: const Color(0xFFEAF2FF),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: const Color(0xFFD8E7FF)),
                   ),
                   child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(Icons.info_outline, color: Colors.blue[700], size: context.sp(16)),
+                      const Icon(Icons.info_outline, color: _blue, size: 18),
                       const SizedBox(width: 8),
                       Expanded(
-                        child: Text(
+                        child: const Text(
                           'Please make sure you enter the Name as per your Government photo id.',
                           style: TextStyle(
-                            fontSize: context.sp(14),
-                            color: Colors.blue[900],
+                            fontSize: 13,
+                            color: _navy,
+                            height: 1.35,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ),
@@ -143,7 +160,10 @@ class TravellerDetailsSectionState extends State<TravellerDetailsSection> {
               ],
             ),
           ),
-          ...List.generate(widget.adults, (index) => _buildAdultForm(context, index)),
+          ...List.generate(
+            widget.adults,
+            (index) => _buildAdultForm(context, index),
+          ),
         ],
       ),
     );
@@ -154,9 +174,10 @@ class TravellerDetailsSectionState extends State<TravellerDetailsSection> {
       initiallyExpanded: index == 0,
       title: Text(
         'Room 1 — Adult ${index + 1}',
-        style: TextStyle(
-          fontSize: context.titleMedium,
-          fontWeight: FontWeight.w600,
+        style: const TextStyle(
+          fontSize: 17,
+          fontWeight: FontWeight.w800,
+          color: _navy,
         ),
       ),
       children: [
@@ -174,7 +195,7 @@ class TravellerDetailsSectionState extends State<TravellerDetailsSection> {
                       'Title *',
                       ['Mr', 'Mrs', 'Ms', 'Dr'],
                       _selectedTitles[index],
-                          (value) {
+                      (value) {
                         setState(() {
                           _selectedTitles[index] = value!;
                         });
@@ -210,7 +231,7 @@ class TravellerDetailsSectionState extends State<TravellerDetailsSection> {
                       'Gender *',
                       ['Male', 'Female', 'Other'],
                       _selectedGenders[index],
-                          (value) {
+                      (value) {
                         setState(() {
                           _selectedGenders[index] = value!;
                         });
@@ -238,7 +259,7 @@ class TravellerDetailsSectionState extends State<TravellerDetailsSection> {
                       'Nationality *',
                       ['India (IN)', 'USA (US)', 'UAE (AE)', 'UK (GB)'],
                       _selectedNationalities[index],
-                          (value) {
+                      (value) {
                         setState(() {
                           _selectedNationalities[index] = value!;
                         });
@@ -254,7 +275,11 @@ class TravellerDetailsSectionState extends State<TravellerDetailsSection> {
     );
   }
 
-  Widget _buildTextField(BuildContext context, String label, TextEditingController controller) {
+  Widget _buildTextField(
+    BuildContext context,
+    String label,
+    TextEditingController controller,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -270,7 +295,10 @@ class TravellerDetailsSectionState extends State<TravellerDetailsSection> {
         TextField(
           controller: controller,
           decoration: InputDecoration(
-            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 12,
+            ),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
               borderSide: BorderSide(color: Colors.grey[300]!),
@@ -290,12 +318,12 @@ class TravellerDetailsSectionState extends State<TravellerDetailsSection> {
   }
 
   Widget _buildDropdownField(
-      BuildContext context,
-      String label,
-      List<String> items,
-      String value,
-      ValueChanged<String?> onChanged,
-      ) {
+    BuildContext context,
+    String label,
+    List<String> items,
+    String value,
+    ValueChanged<String?> onChanged,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -318,17 +346,11 @@ class TravellerDetailsSectionState extends State<TravellerDetailsSection> {
             child: DropdownButton<String>(
               value: items.contains(value) ? value : null,
               isExpanded: true,
-              hint: Text(
-                'Select',
-                style: TextStyle(color: Colors.grey[400]),
-              ),
+              hint: Text('Select', style: TextStyle(color: Colors.grey[400])),
               items: items.map((item) {
                 return DropdownMenuItem(
                   value: item,
-                  child: Text(
-                    item,
-                    style: TextStyle(fontSize: context.sp(14)),
-                  ),
+                  child: Text(item, style: TextStyle(fontSize: context.sp(14))),
                 );
               }).toList(),
               onChanged: onChanged,
@@ -339,7 +361,11 @@ class TravellerDetailsSectionState extends State<TravellerDetailsSection> {
     );
   }
 
-  Widget _buildDateField(BuildContext context, String label, TextEditingController controller) {
+  Widget _buildDateField(
+    BuildContext context,
+    String label,
+    TextEditingController controller,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -356,7 +382,10 @@ class TravellerDetailsSectionState extends State<TravellerDetailsSection> {
           controller: controller,
           readOnly: true,
           decoration: InputDecoration(
-            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 12,
+            ),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
               borderSide: BorderSide(color: Colors.grey[300]!),
@@ -369,7 +398,11 @@ class TravellerDetailsSectionState extends State<TravellerDetailsSection> {
               borderRadius: BorderRadius.circular(8),
               borderSide: const BorderSide(color: Colors.blue, width: 2),
             ),
-            suffixIcon: Icon(Icons.calendar_today, size: 18, color: Colors.grey[600]),
+            suffixIcon: Icon(
+              Icons.calendar_today,
+              size: 18,
+              color: Colors.grey[600],
+            ),
           ),
           onTap: () => _selectDate(context, controller),
         ),

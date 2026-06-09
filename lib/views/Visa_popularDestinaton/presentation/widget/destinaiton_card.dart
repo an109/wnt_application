@@ -21,18 +21,25 @@ class DestinationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    const primaryBlue = Color(0xFF1769F6);
+    const textDark = Color(0xFF071638);
+    const mutedText = Color(0xFF6B7280);
+    final cardWidth = context.isMobile ? context.w(188) : context.w(248);
+    final imageHeight = context.isMobile ? context.h(132) : context.h(158);
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: context.isMobile ? context.wp(60) : context.wp(25),
+        width: cardWidth,
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(context.borderRadiusLarge),
+          borderRadius: BorderRadius.circular(context.r(18)),
+          border: Border.all(color: const Color(0xFFE6EAF2)),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.08),
-              blurRadius: context.wp(2.5),
-              offset: Offset(0, context.hp(0.5)),
+              color: const Color(0xFF071638).withValues(alpha: 0.08),
+              blurRadius: 18,
+              offset: const Offset(0, 8),
             ),
           ],
         ),
@@ -45,17 +52,17 @@ class DestinationCard extends StatelessWidget {
               children: [
                 ClipRRect(
                   borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(context.borderRadiusLarge),
-                    topRight: Radius.circular(context.borderRadiusLarge),
+                    topLeft: Radius.circular(context.r(18)),
+                    topRight: Radius.circular(context.r(18)),
                   ),
                   child: Image.network(
                     image,
-                    height: context.isMobile ? context.hp(21) : context.hp(18),
+                    height: imageHeight,
                     width: double.infinity,
                     fit: BoxFit.cover,
                     errorBuilder: (context, error, stackTrace) {
                       return Container(
-                        height: context.isMobile ? context.hp(21) : context.hp(18),
+                        height: imageHeight,
                         width: double.infinity,
                         color: Colors.grey.shade200,
                         child: Icon(
@@ -68,12 +75,12 @@ class DestinationCard extends StatelessWidget {
                     loadingBuilder: (context, child, loadingProgress) {
                       if (loadingProgress == null) return child;
                       return Container(
-                        height: context.isMobile ? context.hp(21) : context.hp(18),
+                        height: imageHeight,
                         width: double.infinity,
                         color: Colors.grey.shade100,
                         child: Center(
                           child: CircularProgressIndicator(
-                            color: const Color(0xff21409A),
+                            color: primaryBlue,
                             strokeWidth: 2,
                           ),
                         ),
@@ -84,97 +91,130 @@ class DestinationCard extends StatelessWidget {
 
                 /// PRICE BADGE - Centered
                 Positioned(
-                  bottom: -context.hp(3),
-                  left: 0,
-                  right: 0,
-                  child: Center(
-                    child: Container(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: context.wp(5),
-                        vertical: context.hp(1),
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xff21409A),
-                        borderRadius: BorderRadius.circular(context.borderRadiusLarge),
-                      ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            "STARTING",
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: context.sp(10),
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: context.letterSpacingWide,
-                            ),
+                  right: context.w(12),
+                  bottom: -context.h(22),
+                  child: Container(
+                    constraints: BoxConstraints(
+                      maxWidth: cardWidth - context.w(28),
+                    ),
+                    padding: EdgeInsets.symmetric(
+                      horizontal: context.w(14),
+                      vertical: context.h(8),
+                    ),
+                    decoration: BoxDecoration(
+                      color: primaryBlue,
+                      borderRadius: BorderRadius.circular(context.r(16)),
+                      boxShadow: [
+                        BoxShadow(
+                          color: primaryBlue.withValues(alpha: 0.24),
+                          blurRadius: 14,
+                          offset: const Offset(0, 6),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          "Starting from",
+                          textAlign: TextAlign.right,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: context.fs(10),
+                            fontWeight: FontWeight.w600,
                           ),
-                          Text(
-                            price,
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w800,
-                              fontSize: context.sp(20),
-                            ),
+                        ),
+                        SizedBox(height: context.h(1)),
+                        Text(
+                          price,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.right,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w800,
+                            fontSize: context.fs(18),
                           ),
-                          Text(
-                            "ONLY",
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: context.sp(10),
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: context.letterSpacingWide,
-                            ),
-                          ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
               ],
             ),
 
-            SizedBox(height: context.hp(6)),
+            SizedBox(height: context.h(30)),
 
             /// CONTENT SECTION - Center Aligned
             Padding(
-              padding: EdgeInsets.symmetric(horizontal: context.gapMedium),
+              padding: EdgeInsets.fromLTRB(
+                context.w(14),
+                0,
+                context.w(14),
+                context.h(14),
+              ),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     country,
-                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.left,
                     style: TextStyle(
-                      fontSize: context.bodyLarge,
-                      fontWeight: FontWeight.w700,
+                      fontSize: context.fs(16),
+                      fontWeight: FontWeight.w800,
+                      color: textDark,
                       height: 1.2,
                     ),
                   ),
-                  SizedBox(height: context.gapXSmall),
+                  SizedBox(height: context.h(6)),
                   Text(
                     type,
-                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.left,
                     style: TextStyle(
-                      fontSize: context.bodyMedium,
-                      color: Colors.black54,
+                      fontSize: context.fs(12),
+                      color: mutedText,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
-                  SizedBox(height: context.gapMedium),
-                  Text(
-                    "Processing Time: $processing",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: context.bodySmall,
-                      color: Colors.black87,
-                      fontWeight: FontWeight.w500,
+                  SizedBox(height: context.h(10)),
+                  Container(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: context.w(10),
+                      vertical: context.h(6),
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEFF6FF),
+                      borderRadius: BorderRadius.circular(context.r(999)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.schedule_rounded,
+                          size: context.w(13),
+                          color: primaryBlue,
+                        ),
+                        SizedBox(width: context.w(5)),
+                        Flexible(
+                          child: Text(
+                            processing,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: context.fs(11),
+                              color: primaryBlue,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  SizedBox(height: context.gapMedium),
                 ],
               ),
             ),

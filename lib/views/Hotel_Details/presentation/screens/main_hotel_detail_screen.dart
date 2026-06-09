@@ -12,7 +12,6 @@ import '../bloc/hotel_details_bloc.dart';
 import '../bloc/hotel_details_event.dart';
 import '../bloc/hotel_details_state.dart';
 
-
 class HotelDetailsScreen extends StatefulWidget {
   final String hotelCode;
   final String checkIn;
@@ -35,22 +34,29 @@ class HotelDetailsScreen extends StatefulWidget {
 
 class _HotelDetailsScreenState extends State<HotelDetailsScreen> {
   int _selectedTabIndex = 0;
-  final List<String> _tabs = ['ROOM & RATES', 'PHOTOS', 'HOTEL AMENITIES', 'MAP'];
-  GoogleMapController? _mapController;
-  bool _isMapLoading = false;
-  bool _hasMapError = false;
+  final List<String> _tabs = ['Rooms', 'Photos', 'Amenities', 'Map'];
+  static const _blue = Color(0xFF1769F6);
+  static const _navy = Color(0xFF071638);
+  static const _pageBg = Color(0xFFF3F6FC);
+  static const _border = Color(0xFFE2E7F0);
+  static const _muted = Color(0xFF6B7280);
 
   Widget? _cachedMapWidget;
   LatLng? _cachedHotelPosition;
-  String? _cachedHotelName;
   String? _cachedAddress;
 
   @override
   void initState() {
     super.initState();
-    print('HotelDetailsScreen: Initializing with hotel code: ${widget.hotelCode}');
-    print('HotelDetailsScreen: Check-in: ${widget.checkIn}, Check-out: ${widget.checkOut}');
-    print('HotelDetailsScreen: Adults: ${widget.adults}, Children: ${widget.children}');
+    print(
+      'HotelDetailsScreen: Initializing with hotel code: ${widget.hotelCode}',
+    );
+    print(
+      'HotelDetailsScreen: Check-in: ${widget.checkIn}, Check-out: ${widget.checkOut}',
+    );
+    print(
+      'HotelDetailsScreen: Adults: ${widget.adults}, Children: ${widget.children}',
+    );
 
     // Fetch hotel details on init
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -69,21 +75,21 @@ class _HotelDetailsScreenState extends State<HotelDetailsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[100],
+      backgroundColor: _pageBg,
       appBar: AppBar(
         title: const WanderNovaLogo(scaleFactor: 0.6),
-        backgroundColor: Colors.white,
+        backgroundColor: _pageBg,
         elevation: 0,
         actions: [
           Padding(
             padding: EdgeInsets.all(context.w(8)),
             child: Image.asset(
-              "assets/images/wander_nova_logo.jpg",
-              height: 35,
+              "assets/images/wander_logo.png",
+              height: context.h(35),
               errorBuilder: (context, error, stackTrace) =>
-              const Icon(Icons.hotel, size: 35),
+                  Icon(Icons.hotel, size: context.w(35)),
             ),
-          )
+          ),
         ],
       ),
       body: BlocConsumer<HotelDetailsBloc, HotelDetailsState>(
@@ -106,14 +112,15 @@ class _HotelDetailsScreenState extends State<HotelDetailsScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.error_outline, size: 64, color: Colors.red),
-                  const SizedBox(height: 16),
+                  Icon(Icons.error_outline,
+                      size: context.w(56), color: Colors.red),
+                  SizedBox(height: context.h(16)),
                   Text(
                     'Error: ${state.message}',
                     style: TextStyle(fontSize: context.sp(16)),
                     textAlign: TextAlign.center,
                   ),
-                  const SizedBox(height: 16),
+                  SizedBox(height: context.h(16)),
                   ElevatedButton(
                     onPressed: () {
                       context.read<HotelDetailsBloc>().add(
@@ -129,13 +136,15 @@ class _HotelDetailsScreenState extends State<HotelDetailsScreen> {
                 ],
               ),
             );
-          } else if (state is HotelDetailsLoaded && state.hotelDetails.isNotEmpty) {
+          } else if (state is HotelDetailsLoaded &&
+              state.hotelDetails.isNotEmpty) {
             final hotel = state.hotelDetails.first;
-            print('HotelDetailsScreen: Building UI for hotel - ${hotel.hotelName}');
+            print(
+              'HotelDetailsScreen: Building UI for hotel - ${hotel.hotelName}',
+            );
 
             if (_cachedHotelPosition != hotel.hotelLatLng) {
               _cachedHotelPosition = hotel.hotelLatLng;
-              _cachedHotelName = hotel.hotelName;
               _cachedAddress = hotel.address;
               _cachedMapWidget = null; // Invalidate cache when position changes
             }
@@ -153,7 +162,7 @@ class _HotelDetailsScreenState extends State<HotelDetailsScreen> {
                   _buildHotelInfo(hotel),
                   _buildTabs(),
                   _buildTabContent(hotel),
-                  const SizedBox(height: 80),
+                  SizedBox(height: context.h(60)),
                 ],
               ),
             );
@@ -166,61 +175,74 @@ class _HotelDetailsScreenState extends State<HotelDetailsScreen> {
     );
   }
 
-
   Widget _buildHotelInfo(hotel) {
     return Container(
-      padding: context.responsivePadding,
-      color: Colors.white,
+      padding: EdgeInsets.fromLTRB(
+        context.responsivePadding.left,
+        context.gapLarge,
+        context.responsivePadding.right,
+        context.gapMedium,
+      ),
+      color: _pageBg,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             hotel.hotelName,
             style: TextStyle(
-              fontSize: context.headlineSmall,
-              fontWeight: FontWeight.bold,
-              color: Colors.black87,
+              fontSize: context.fs(20),
+              fontWeight: FontWeight.w800,
+              color: _navy,
+              height: 1.15,
             ),
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: context.h(10)),
           Row(
             children: [
               _buildStarRating(hotel.hotelRating),
-              const SizedBox(width: 8),
+              SizedBox(width: context.w(10)),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                padding: EdgeInsets.symmetric(
+                  horizontal: context.w(10),
+                  vertical: context.h(6),
+                ),
                 decoration: BoxDecoration(
                   color: Colors.amber,
-                  borderRadius: BorderRadius.circular(4),
+                  borderRadius: BorderRadius.circular(context.r(10)),
                 ),
                 child: Text(
                   '${hotel.hotelRating} Star',
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: context.sp(12),
+                    fontSize: context.fs(11),
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: context.h(12)),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(Icons.location_on, size: context.w(16), color: _muted),
+              SizedBox(width: context.w(8)),
+              Expanded(
+                child: Text(
+                  hotel.address,
+                  style: TextStyle(
+                    fontSize: context.fs(13),
+                    color: _muted,
+                    height: 1.35,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Icon(Icons.location_on, size: context.sp(16), color: Colors.grey[600]),
-              const SizedBox(width: 4),
-              Expanded(
-                child: Text(
-                  hotel.address,
-                  style: TextStyle(
-                    fontSize: context.sp(14),
-                    color: Colors.grey[700],
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
+          SizedBox(height: context.h(16)),
           _buildBookingInfo(),
         ],
       ),
@@ -233,7 +255,7 @@ class _HotelDetailsScreenState extends State<HotelDetailsScreen> {
         return Icon(
           index < rating ? Icons.star : Icons.star_border,
           color: Colors.amber,
-          size: context.sp(16),
+          size: context.w(15),
         );
       }),
     );
@@ -241,135 +263,119 @@ class _HotelDetailsScreenState extends State<HotelDetailsScreen> {
 
   Widget _buildBookingInfo() {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: EdgeInsets.all(context.w(12)),
       decoration: BoxDecoration(
-        color: Colors.grey[100],
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'CHECK IN',
-                  style: TextStyle(
-                    fontSize: context.sp(10),
-                    color: Colors.grey[600],
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  widget.checkIn,
-                  style: TextStyle(
-                    fontSize: context.sp(16),
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            width: 1,
-            height: 40,
-            color: Colors.grey[300],
-          ),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'CHECK OUT',
-                  style: TextStyle(
-                    fontSize: context.sp(10),
-                    color: Colors.grey[600],
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  widget.checkOut,
-                  style: TextStyle(
-                    fontSize: context.sp(16),
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            width: 1,
-            height: 40,
-            color: Colors.grey[300],
-          ),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'ROOMS & GUESTS',
-                  style: TextStyle(
-                    fontSize: context.sp(10),
-                    color: Colors.grey[600],
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '${widget.adults} Adult${widget.adults > 1 ? 's' : ''}${widget.children > 0 ? ', ${widget.children} Child${widget.children > 1 ? 'ren' : 'ren'}' : ''}',
-                  style: TextStyle(
-                    fontSize: context.sp(16),
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                  ),
-                ),
-              ],
-            ),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(context.r(14)),
+        border: Border.all(color: _border.withValues(alpha: 0.5), width: 0.6),
+        boxShadow: [
+          BoxShadow(
+            color: _navy.withValues(alpha: 0.05),
+            blurRadius: context.r(16),
+            offset: Offset(0, context.h(8)),
           ),
         ],
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxWidth < 430;
+          final items = [
+            _BookingInfoItem(label: 'Check in', value: widget.checkIn),
+            _BookingInfoItem(label: 'Check out', value: widget.checkOut),
+            _BookingInfoItem(
+              label: 'Guests',
+              value:
+                  '${widget.adults} Adult${widget.adults > 1 ? 's' : ''}${widget.children > 0 ? ', ${widget.children} Child${widget.children > 1 ? 'ren' : ''}' : ''}',
+            ),
+          ];
+          if (compact) {
+            return Wrap(
+              spacing: context.w(10),
+              runSpacing: context.h(10),
+              children: items
+                  .map(
+                    (item) => SizedBox(
+                      width: (constraints.maxWidth - context.w(10)) / 2,
+                      child: item,
+                    ),
+                  )
+                  .toList(),
+            );
+          }
+          return Row(
+            children: [
+              for (int i = 0; i < items.length; i++) ...[
+                Expanded(child: items[i]),
+                if (i != items.length - 1)
+                  Container(
+                    width: 0.6,
+                    height: context.h(34),
+                    margin: EdgeInsets.symmetric(horizontal: context.w(4)),
+                    color: _border.withValues(alpha: 0.5),
+                  ),
+              ],
+            ],
+          );
+        },
       ),
     );
   }
 
   Widget _buildTabs() {
     return Container(
-      color: Colors.white,
+      color: _pageBg,
+      padding: EdgeInsets.symmetric(
+        horizontal: context.w(12),
+        vertical: context.h(10),
+      ),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         physics: context.scrollPhysics,
         child: Row(
           children: List.generate(_tabs.length, (index) {
             final isSelected = _selectedTabIndex == index;
-            return GestureDetector(
-              onTap: () {
-                print('HotelDetailsScreen: Tab $index selected - ${_tabs[index]}');
-                setState(() {
-                  _selectedTabIndex = index;
-                });
-              },
-              child: Container(
-                padding: EdgeInsets.symmetric(
-                  horizontal: context.isMobile ? 16 : 24,
-                  vertical: 16,
-                ),
-                decoration: BoxDecoration(
-                  border: Border(
-                    bottom: BorderSide(
-                      color: isSelected ? Colors.blue : Colors.transparent,
-                      width: 2,
-                    ),
+            return Padding(
+              // Gap between tab pills (MMT style)
+              padding: EdgeInsets.only(right: context.w(10)),
+              child: GestureDetector(
+                onTap: () {
+                  print(
+                    'HotelDetailsScreen: Tab $index selected - ${_tabs[index]}',
+                  );
+                  setState(() {
+                    _selectedTabIndex = index;
+                  });
+                },
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  curve: Curves.easeOut,
+                  padding: EdgeInsets.symmetric(
+                    horizontal: context.w(18),
+                    vertical: context.h(9),
                   ),
-                ),
-                child: Text(
-                  _tabs[index],
-                  style: TextStyle(
-                    fontSize: context.sp(14),
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                    color: isSelected ? Colors.blue : Colors.grey[600],
+                  decoration: BoxDecoration(
+                    color: isSelected ? _blue : Colors.white,
+                    borderRadius: BorderRadius.circular(context.r(12)),
+                    border: Border.all(
+                      color: isSelected ? _blue : _border,
+                    ),
+                    boxShadow: isSelected
+                        ? [
+                            BoxShadow(
+                              color: _blue.withValues(alpha: 0.25),
+                              blurRadius: context.r(10),
+                              offset: Offset(0, context.h(4)),
+                            ),
+                          ]
+                        : null,
+                  ),
+                  child: Text(
+                    _tabs[index],
+                    style: TextStyle(
+                      fontSize: context.fs(12),
+                      fontWeight: FontWeight.w700,
+                      color: isSelected ? Colors.white : _muted,
+                    ),
                   ),
                 ),
               ),
@@ -422,9 +428,12 @@ class _HotelDetailsScreenState extends State<HotelDetailsScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.location_off, size: 48, color: Colors.grey[400]),
-            const SizedBox(height: 8),
-            Text('Location not available', style: TextStyle(color: Colors.grey[600])),
+            Icon(Icons.location_off, size: context.w(44), color: Colors.grey[400]),
+            SizedBox(height: context.h(8)),
+            Text(
+              'Location not available',
+              style: TextStyle(color: Colors.grey[600]),
+            ),
           ],
         ),
       );
@@ -439,54 +448,54 @@ class _HotelDetailsScreenState extends State<HotelDetailsScreen> {
           Text(
             'Location',
             style: TextStyle(
-              fontSize: context.headlineSmall,
+              fontSize: context.titleSmall,
               fontWeight: FontWeight.bold,
             ),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: context.h(12)),
           Container(
-            height: 250,
+            height: context.h(220),
             width: double.infinity,
             decoration: BoxDecoration(
               color: Colors.grey[200],
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(context.r(12)),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
-                  blurRadius: 8,
-                  offset: const Offset(0, 4),
+                  color: Colors.black.withValues(alpha: 0.1),
+                  blurRadius: context.r(8),
+                  offset: Offset(0, context.h(4)),
                 ),
               ],
             ),
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-                child: InkWell(
-                  onTap: _openInGoogleMaps,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
-                      color: Colors.grey.shade200,
-                    ),
-                    child: Stack(
-                      children: [
-                        Center(
-                          child: Icon(
-                            Icons.location_on,
-                            size: 80,
-                            color: Colors.red,
-                          ),
-                        ),
-                      ],
-                    ),
+              borderRadius: BorderRadius.circular(context.r(12)),
+              child: InkWell(
+                onTap: _openInGoogleMaps,
+                child: Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(context.r(12)),
+                    color: Colors.grey.shade200,
                   ),
-                )
+                  child: Stack(
+                    children: [
+                      Center(
+                        child: Icon(
+                          Icons.location_on,
+                          size: context.w(64),
+                          color: Colors.red,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: context.h(12)),
           Row(
             children: [
-              Icon(Icons.location_on, size: 18, color: Colors.red[400]),
-              const SizedBox(width: 4),
+              Icon(Icons.location_on, size: context.w(16), color: Colors.red[400]),
+              SizedBox(width: context.w(4)),
               Expanded(
                 child: Text(
                   _cachedAddress ?? '',
@@ -498,15 +507,15 @@ class _HotelDetailsScreenState extends State<HotelDetailsScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: context.h(16)),
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
               onPressed: () => _openInGoogleMaps(),
-              icon: const Icon(Icons.directions, size: 18),
+              icon: Icon(Icons.directions, size: context.w(16)),
               label: const Text('Get Directions'),
               style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 12),
+                padding: EdgeInsets.symmetric(vertical: context.h(12)),
               ),
             ),
           ),
@@ -515,13 +524,13 @@ class _HotelDetailsScreenState extends State<HotelDetailsScreen> {
     );
   }
 
-
-// Helper method to open in external Google Maps app
+  // Helper method to open in external Google Maps app
   void _openInGoogleMaps() async {
     final position = _cachedHotelPosition;
     if (position == null) return;
 
-    final url = 'https://www.google.com/maps/search/?api=1&query=${position.latitude},${position.longitude}';
+    final url =
+        'https://www.google.com/maps/search/?api=1&query=${position.latitude},${position.longitude}';
 
     try {
       final uri = Uri.parse(url);
@@ -531,10 +540,54 @@ class _HotelDetailsScreenState extends State<HotelDetailsScreen> {
     } catch (e) {
       print('Error opening maps: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not open maps')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Could not open maps')));
       }
     }
+  }
+}
+
+class _BookingInfoItem extends StatelessWidget {
+  final String label;
+  final String value;
+
+  const _BookingInfoItem({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.symmetric(
+        horizontal: context.w(6),
+        vertical: context.h(3),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label.toUpperCase(),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: context.fs(10),
+              color: _HotelDetailsScreenState._muted,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          SizedBox(height: context.h(3)),
+          Text(
+            value,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: context.fs(13),
+              color: _HotelDetailsScreenState._navy,
+              fontWeight: FontWeight.w800,
+              height: 1.2,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

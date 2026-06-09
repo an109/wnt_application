@@ -1,551 +1,3 @@
-// import 'dart:async';
-//
-// import 'package:flutter/material.dart';
-// import 'package:wander_nova/UI_helper/responsive_layout.dart';
-// import '../../../../injection_container.dart';
-// import '../../../TPoll_Search/presentation/screen/TPollSearch_Screen.dart';
-// import '../../../T_Search/presentation/bloc/T_SearchBloc.dart';
-// import '../../../T_Search/presentation/bloc/T_SearchEvent.dart';
-// import '../../../T_Search/presentation/bloc/T_SearchState.dart';
-// import '../../domain/entities/T_locationEntity.dart';
-// import '../widget/T_locationSearchDropdown.dart';
-//
-// class TransportBookingCard extends StatefulWidget {
-//   final bool isOneWay;
-//   final DateTime selectedDate;
-//   final TimeOfDay selectedTime;
-//
-//   final ValueChanged<bool> onTripTypeChanged;
-//   final ValueChanged<DateTime> onDateChanged;
-//   final ValueChanged<TimeOfDay> onTimeChanged;
-//   final ValueChanged<T_locationEntity>? onPickupSelected;
-//   final ValueChanged<T_locationEntity>? onDropoffSelected;
-//
-//   const TransportBookingCard({
-//     super.key,
-//     required this.isOneWay,
-//     required this.selectedDate,
-//     required this.selectedTime,
-//     required this.onTripTypeChanged,
-//     required this.onDateChanged,
-//     required this.onTimeChanged,
-//     this.onPickupSelected,
-//     this.onDropoffSelected,
-//   });
-//
-//   @override
-//   State<TransportBookingCard> createState() => _TransportBookingCardState();
-// }
-//
-// class _TransportBookingCardState extends State<TransportBookingCard> {
-//   T_locationEntity? _selectedPickup;
-//   T_locationEntity? _selectedDropoff;
-//   int _passengerCount = 1;
-//   late DateTime _returnDate;
-//   late TimeOfDay _returnTime;
-//
-//   @override
-//   void initState() {
-//     super.initState();
-//
-//     _returnDate = widget.selectedDate.add(const Duration(days: 1));
-//     _returnTime = widget.selectedTime;
-//   }
-//
-//   @override
-//   Widget build(BuildContext context) {
-//     return Material(
-//       color: Colors.transparent,
-//       child: Container(
-//         width: double.infinity,
-//         padding: EdgeInsets.all(context.wp(5)),
-//         decoration: BoxDecoration(
-//           color: Colors.white,
-//           borderRadius: BorderRadius.circular(context.borderRadius + 10),
-//           boxShadow: [
-//             BoxShadow(
-//               color: Colors.black.withOpacity(0.08),
-//               blurRadius: 20,
-//               offset: const Offset(0, 6),
-//             ),
-//           ],
-//         ),
-//         child: Column(
-//           crossAxisAlignment: CrossAxisAlignment.start,
-//           children: [
-//             // TRIP TYPE
-//             Container(
-//               padding: const EdgeInsets.all(2),
-//               decoration: BoxDecoration(
-//                 color: const Color(0xffF5F6FA),
-//                 borderRadius: BorderRadius.circular(40),
-//               ),
-//               child: Row(
-//                 children: [
-//                   Expanded(
-//                     child: _tripButton(
-//                       title: "One Way",
-//                       selected: widget.isOneWay,
-//                       onTap: () => widget.onTripTypeChanged(true),
-//                     ),
-//                   ),
-//                   Expanded(
-//                     child: _tripButton(
-//                       title: "Round Trip",
-//                       selected: !widget.isOneWay,
-//                       onTap: () => widget.onTripTypeChanged(false),
-//                     ),
-//                   ),
-//                 ],
-//               ),
-//             ),
-//
-//             SizedBox(height: context.hp(1.5)),
-//
-//             Row(
-//               children: [
-//                 Icon(
-//                   Icons.directions_car_outlined,
-//                   size: context.iconMedium,
-//                   color: const Color(0xff0D1B3D),
-//                 ),
-//                 SizedBox(width: context.wp(2)),
-//                 Text(
-//                   "Book Ground Transport",
-//                   style: TextStyle(
-//                     fontSize: context.titleMedium,
-//                     fontWeight: FontWeight.w700,
-//                     color: const Color(0xff0D1B3D),
-//                   ),
-//                 ),
-//               ],
-//             ),
-//
-//             SizedBox(height: context.hp(1.5)),
-//
-//             // PICKUP LOCATION - UI identical to original _locationTile
-//             T_locationSearchTile(
-//               title: "PICKUP FROM",
-//               hint: "Enter pickup location",
-//               initialSubtitle: "City, airport, hotel...",
-//               onLocationSelected: (location) {
-//                 setState(() => _selectedPickup = location);
-//                 widget.onPickupSelected?.call(location);
-//               },
-//             ),
-//
-//             const Divider(height: 20),
-//
-//             // DROPOFF LOCATION - UI identical to original _locationTile
-//             T_locationSearchTile(
-//               title: "DROP-OFF AT",
-//               hint: "Enter drop-off location",
-//               initialSubtitle: "City, airport, hotel...",
-//               onLocationSelected: (location) {
-//                 setState(() => _selectedDropoff = location);
-//                 widget.onDropoffSelected?.call(location);
-//               },
-//             ),
-//
-//             const Divider(height: 18),
-//
-//             Text(
-//               "PICKUP DATE & TIME",
-//               style: TextStyle(
-//                 fontSize: context.labelLarge,
-//                 color: Colors.grey.shade700,
-//                 fontWeight: FontWeight.w700,
-//                 letterSpacing: 1,
-//               ),
-//             ),
-//
-//             SizedBox(height: context.hp(1.2)),
-//
-//             Row(
-//               children: [
-//                 Expanded(
-//                   child: _clickableInfoTile(
-//                     context,
-//                     icon: Icons.calendar_today_outlined,
-//                     text: _formatDate(widget.selectedDate),
-//                     onTap: () async {
-//                       final picked = await showDatePicker(
-//                         context: context,
-//                         initialDate: widget.selectedDate,
-//                         firstDate: widget.selectedDate.isBefore(DateTime.now())
-//                             ? widget.selectedDate
-//                             : DateTime.now(),
-//                         lastDate: DateTime(2035),
-//                       );
-//                       if (picked != null) {
-//                         widget.onDateChanged(picked);
-//                       }
-//                     },
-//                   ),
-//                 ),
-//                 SizedBox(width: context.wp(3)),
-//                 Expanded(
-//                   child: _clickableInfoTile(
-//                     context,
-//                     icon: Icons.access_time,
-//                     text: _formatTime(widget.selectedTime),
-//                     onTap: () async {
-//                       final picked = await showTimePicker(
-//                         context: context,
-//                         initialTime: widget.selectedTime,
-//                       );
-//                       if (picked != null) {
-//                         widget.onTimeChanged(picked);
-//                       }
-//                     },
-//                   ),
-//                 ),
-//               ],
-//             ),
-//
-//             if (!widget.isOneWay) ...[
-//               SizedBox(height: context.hp(2)),
-//
-//               Text(
-//                 "RETURN DATE & TIME",
-//                 style: TextStyle(
-//                   fontSize: context.labelLarge,
-//                   color: Colors.grey.shade700,
-//                   fontWeight: FontWeight.w700,
-//                   letterSpacing: 1,
-//                 ),
-//               ),
-//
-//               SizedBox(height: context.hp(2)),
-//
-//               Row(
-//                 children: [
-//                   Expanded(
-//                     child: _clickableInfoTile(
-//                       context,
-//                       icon: Icons.calendar_today_outlined,
-//                       text: _formatDate(_returnDate),
-//                       onTap: () async {
-//                         final picked = await showDatePicker(
-//                           context: context,
-//                           initialDate: _returnDate,
-//                           firstDate: widget.selectedDate,
-//                           lastDate: DateTime(2035),
-//                         );
-//
-//                         if (picked != null) {
-//                           setState(() => _returnDate = picked);
-//                         }
-//                       },
-//                     ),
-//                   ),
-//
-//                   SizedBox(width: context.wp(3)),
-//
-//                   Expanded(
-//                     child: _clickableInfoTile(
-//                       context,
-//                       icon: Icons.access_time,
-//                       text: _formatTime(_returnTime),
-//                       onTap: () async {
-//                         final picked = await showTimePicker(
-//                           context: context,
-//                           initialTime: _returnTime,
-//                         );
-//
-//                         if (picked != null) {
-//                           setState(() => _returnTime = picked);
-//                         }
-//                       },
-//                     ),
-//                   ),
-//                 ],
-//               ),
-//             ],
-//
-//             const Divider(height: 20),
-//
-//             Text(
-//               "PASSENGERS",
-//               style: TextStyle(
-//                 fontSize: context.labelLarge,
-//                 color: Colors.grey.shade700,
-//                 fontWeight: FontWeight.w700,
-//                 letterSpacing: 1,
-//               ),
-//             ),
-//
-//             // SizedBox(height: context.hp(2)),
-//             SizedBox(height: context.gapSmall),
-//
-//             Row(
-//               children: [
-//                 Icon(
-//                   Icons.person_outline,
-//                   size: context.iconMedium,
-//                   color: const Color(0xff0D1B3D),
-//                 ),
-//
-//                 SizedBox(width: context.wp(2)),
-//
-//                 Text(
-//                   "$_passengerCount Pax",
-//                   style: TextStyle(
-//                     fontSize: context.bodyLarge,
-//                     fontWeight: FontWeight.w700,
-//                     color: const Color(0xff0D1B3D),
-//                   ),
-//                 ),
-//
-//                 const Spacer(),
-//
-//                 // Minus Button
-//                 InkWell(
-//                   onTap: () {
-//                     if (_passengerCount > 1) {
-//                       setState(() => _passengerCount--);
-//                     }
-//                   },
-//                   borderRadius: BorderRadius.circular(8),
-//                   child: Icon(
-//                     Icons.remove,
-//                     size: context.iconMedium,
-//                     color: const Color(0xff0D1B3D),
-//                   ),
-//                 ),
-//
-//                 SizedBox(width: context.wp(2)),
-//
-//                 // Plus Button
-//                 InkWell(
-//                   onTap: () {
-//                     setState(() => _passengerCount++);
-//                   },
-//                   borderRadius: BorderRadius.circular(8),
-//                   child: Container(
-//                     padding: const EdgeInsets.all(4),
-//                     decoration: BoxDecoration(
-//                       color: const Color(0xff1663F7).withOpacity(0.1),
-//                       borderRadius: BorderRadius.circular(8),
-//                     ),
-//                     child: Icon(
-//                       Icons.add,
-//                       size: context.iconMedium,
-//                       color: const Color(0xff1663F7),
-//                     ),
-//                   ),
-//                 ),
-//               ],
-//             ),
-//             SizedBox(height: context.hp(1.5)),
-//
-//            /// SEARCH BUTTON
-//             SizedBox(
-//               width: double.infinity,
-//               height: context.buttonHeight + 12,
-//               child: ElevatedButton.icon(
-//                 style: ElevatedButton.styleFrom(
-//                   backgroundColor: const Color(0xffF97316),
-//                   foregroundColor: Colors.white,
-//                   elevation: 0,
-//                   shape: RoundedRectangleBorder(
-//                     borderRadius: BorderRadius.circular(context.borderRadius),
-//                   ),
-//                 ),
-//                 onPressed: (_selectedPickup != null && _selectedDropoff != null)
-//                     ? () async {
-//                   // DEBUG PRINT 1: Button pressed
-//                   print('DEBUG: Search button pressed');
-//                   print('DEBUG: Pickup: ${_selectedPickup?.label}, Dropoff: ${_selectedDropoff?.label}');
-//
-//                   // Format pickup datetime for API
-//                   final pickupDatetime = "${widget.selectedDate.toIso8601String().split('T')[0]}T${widget.selectedTime.hour.toString().padLeft(2, '0')}:${widget.selectedTime.minute.toString().padLeft(2, '0')}:00";
-//                   final returnDatetime = !widget.isOneWay
-//                       ? "${_returnDate.toIso8601String().split('T')[0]}T${_returnTime.hour.toString().padLeft(2, '0')}:${_returnTime.minute.toString().padLeft(2, '0')}:00"
-//                       : null;
-//                   final startAddress = _selectedPickup!.iataCode.isNotEmpty
-//                       ? _selectedPickup!.iataCode
-//                       : _selectedPickup!.formattedAddress;
-//                   final endAddress = _selectedDropoff!.iataCode.isNotEmpty
-//                       ? _selectedDropoff!.iataCode
-//                       : _selectedDropoff!.formattedAddress;
-//
-//                   print('DEBUG: API params - start: $startAddress, end: $endAddress, datetime: $pickupDatetime');
-//
-//                   // Get bloc instance
-//                   final transportBloc = sl<TransportSearchBloc>();
-//                   print('DEBUG: Got TransportSearchBloc instance: ${transportBloc.runtimeType}');
-//
-//                   // Add search event
-//                   final event = SearchTransport(
-//                     startAddress: startAddress,
-//                     endAddress: endAddress,
-//                     pickupDatetime: pickupDatetime,
-//                     numPassengers: _passengerCount,
-//                     currency: 'INR',
-//                     mode: widget.isOneWay ? TripMode.oneWay : TripMode.roundTrip,
-//                     returnDatetime: returnDatetime,
-//                   );
-//                   print('DEBUG: Adding event: ${event.runtimeType}');
-//                   transportBloc.add(event);
-//
-//                   // Listen for result
-//                   StreamSubscription<TransportSearchState>? subscription;
-//                   subscription = transportBloc.stream.listen((state) {
-//                     print('DEBUG: Bloc state changed: ${state.runtimeType}');
-//
-//                     if (state is TransportSearchSuccess) {
-//                       final searchId = state.transportSearch.local.searchId;
-//                       print('Transport Search Success - search_id: $searchId');
-//                       subscription?.cancel();
-//                       Navigator.push(
-//                         context,
-//                         MaterialPageRoute(
-//                           builder: (context) => TpollSearchResultsPage(
-//                             searchId: searchId,
-//                             startAddress: startAddress,
-//                             endAddress: endAddress,
-//                             pickupDate: widget.selectedDate,
-//                             numPassengers: _passengerCount,
-//                           ),
-//                         ),
-//                       );
-//                     } else if (state is TransportSearchFailed) {
-//                       print('Transport Search Failed: ${state.dataState.error?.message ?? 'Unknown error'}');
-//                       print('DEBUG: Full error: ${state.dataState.error}');
-//                       subscription?.cancel();
-//                       ScaffoldMessenger.of(context).showSnackBar(
-//                         SnackBar(
-//                           content: Text('Search failed: ${state.dataState.error?.message ?? 'Please try again'}'),
-//                           backgroundColor: Colors.red,
-//                         ),
-//                       );
-//                     } else if (state is TransportSearchLoading) {
-//                       print('DEBUG: Transport search loading...');
-//                     }
-//                   });
-//                 }
-//                     : null,
-//                 icon: Icon(Icons.search, size: context.iconMedium),
-//                 label: Text(
-//                   "Search Rides",
-//                   style: TextStyle(
-//                     fontSize: context.titleSmall,
-//                     fontWeight: FontWeight.w700,
-//                   ),
-//                 ),
-//               ),
-//             ),
-//
-//             SizedBox(height: context.hp(1)),
-//
-//             Row(
-//               children: [
-//                 Icon(
-//                   Icons.verified_user_outlined,
-//                   color: Colors.green,
-//                   size: context.iconMedium,
-//                 ),
-//                 SizedBox(width: context.wp(2)),
-//                 Expanded(
-//                   child: Text(
-//                     "Free cancellation on most rides",
-//                     style: TextStyle(
-//                       color: Colors.green,
-//                       fontWeight: FontWeight.w700,
-//                       fontSize: context.bodyMedium,
-//                     ),
-//                   ),
-//                 ),
-//               ],
-//             ),
-//           ],
-//         ),
-//       ),
-//     );
-//   }
-//
-//   Widget _tripButton({
-//     required String title,
-//     required bool selected,
-//     required VoidCallback onTap,
-//   }) {
-//     return GestureDetector(
-//       onTap: onTap,
-//       child: AnimatedContainer(
-//         duration: const Duration(milliseconds: 250),
-//         padding: const EdgeInsets.symmetric(vertical: 14),
-//         decoration: BoxDecoration(
-//           color: selected ? const Color(0xff1663F7) : Colors.transparent,
-//           borderRadius: BorderRadius.circular(40),
-//         ),
-//         child: Center(
-//           child: Text(
-//             title,
-//             style: TextStyle(
-//               fontSize: 16,
-//               fontWeight: FontWeight.w700,
-//               color: selected ? Colors.white : Colors.grey.shade700,
-//             ),
-//           ),
-//         ),
-//       ),
-//     );
-//   }
-//
-//   Widget _clickableInfoTile(
-//       BuildContext context, {
-//         required IconData icon,
-//         required String text,
-//         required VoidCallback onTap,
-//       }) {
-//     return InkWell(
-//       borderRadius: BorderRadius.circular(context.borderRadius),
-//       onTap: onTap,
-//       child: Container(
-//         padding: EdgeInsets.symmetric(
-//           horizontal: context.wp(3),
-//           vertical: context.hp(1.8),
-//         ),
-//         decoration: BoxDecoration(
-//           border: Border.all(color: Colors.grey.shade300),
-//           borderRadius: BorderRadius.circular(context.borderRadius),
-//         ),
-//         child: Row(
-//           children: [
-//             Icon(
-//               icon,
-//               size: context.iconMedium,
-//               color: const Color(0xff0D1B3D),
-//             ),
-//             SizedBox(width: context.wp(3)),
-//             Expanded(
-//               child: Text(
-//                 text,
-//                 style: TextStyle(
-//                   fontSize: context.bodyLarge,
-//                   fontWeight: FontWeight.w700,
-//                   color: const Color(0xff0D1B3D),
-//                 ),
-//               ),
-//             ),
-//           ],
-//         ),
-//       ),
-//     );
-//   }
-//
-//   String _formatDate(DateTime date) {
-//     return "${date.day}/${date.month}/${date.year}";
-//   }
-//
-//   String _formatTime(TimeOfDay time) {
-//     final hour = time.hour.toString().padLeft(2, '0');
-//     final minute = time.minute.toString().padLeft(2, '0');
-//     return "$hour:$minute";
-//   }
-// }
-
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -557,7 +9,6 @@ import '../../../T_Search/presentation/bloc/T_SearchEvent.dart';
 import '../../../T_Search/presentation/bloc/T_SearchState.dart';
 import '../../domain/entities/T_locationEntity.dart';
 import '../widget/T_locationSearchDropdown.dart';
-import 'package:wander_nova/core/resources/app_colours.dart';
 
 class TransportBookingCard extends StatefulWidget {
   final bool isOneWay;
@@ -587,455 +38,447 @@ class TransportBookingCard extends StatefulWidget {
 }
 
 class _TransportBookingCardState extends State<TransportBookingCard> {
+  // MakeMyTrip brand colors
+  static const Color _mmtBlue = Color(0xFF0066E5);
+  static const Color _mmtOrange = Color(0xFFF97316);
+  static const Color _mmtNavy = Color(0xFF07163B);
+  static const Color _mmtMuted = Color(0xFF6B7280);
+  static const Color _mmtFieldFill = Color(0xFFF6F7FB);
+  static const Color _mmtFieldBorder = Color(0xFFECEEF4);
+  static const Color _mmtGreen = Color(0xFF22A652);
+
   T_locationEntity? _selectedPickup;
   T_locationEntity? _selectedDropoff;
   int _passengerCount = 1;
   late DateTime _returnDate;
   late TimeOfDay _returnTime;
+  late DateTime _pickupDate;
 
   @override
   void initState() {
     super.initState();
+    _pickupDate = widget.selectedDate.add(const Duration(days: 1));
     _returnDate = widget.selectedDate.add(const Duration(days: 1));
     _returnTime = widget.selectedTime;
   }
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: Container(
-        width: double.infinity,
-        padding: EdgeInsets.all(context.wp(3.5)), // Reduced from 5
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(context.borderRadius + 5),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.08),
-              blurRadius: 15, // Reduced from 20
-              offset: const Offset(0, 4), // Reduced from 6
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(context.w(12)),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(context.r(12)),
+        boxShadow: [
+          BoxShadow(
+            color: _mmtNavy.withValues(alpha: 0.06),
+            blurRadius: context.w(16),
+            offset: Offset(0, context.h(4)),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          /// Trip Type Toggle - MMT Style
+          Container(
+            padding: EdgeInsets.all(context.w(2)),
+            decoration: BoxDecoration(
+              color: _mmtFieldFill,
+              borderRadius: BorderRadius.circular(context.r(40)),
             ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min, // Added to minimize vertical space
-          children: [
-
-            // SizedBox(height: context.hp(0.8)), // Reduced from 1.5
-
-            // Title row - more compact
-            Row(
+            child: Row(
               children: [
-                Icon(
-                  Icons.directions_car_outlined,
-                  size: context.iconMedium, // Changed from iconMedium
-                  color: AppColors.accent,
+                Expanded(
+                  child: _tripButton(
+                    title: "One Way",
+                    selected: widget.isOneWay,
+                    onTap: () => widget.onTripTypeChanged(true),
+                  ),
                 ),
-                SizedBox(width: context.wp(2)), // Reduced from 2
-                Text(
-                  "Book Transport",
-                  style: TextStyle(
-                    fontSize: context.titleSmall, // Changed from titleMedium
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.accent,
+                Expanded(
+                  child: _tripButton(
+                    title: "Round Trip",
+                    selected: !widget.isOneWay,
+                    onTap: () => widget.onTripTypeChanged(false),
                   ),
                 ),
               ],
             ),
+          ),
 
-            SizedBox(height: context.hp(0.8)),
+          SizedBox(height: context.h(12)),
 
-            // TRIP TYPE - Made more compact
-            Container(
-              padding: const EdgeInsets.all(1.8), // Reduced from 2
-              decoration: BoxDecoration(
-                color: const Color(0xffF5F6FA),
-                borderRadius: BorderRadius.circular(30), // Reduced from 40
+          /// PICKUP & DROPOFF - Connected Box Style (MMT Signature)
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                decoration: BoxDecoration(
+                  color: _mmtFieldFill,
+                  borderRadius: BorderRadius.circular(context.r(8)),
+                  border: Border.all(color: _mmtFieldBorder, width: 1),
+                ),
+                child: Column(
+                  children: [
+                    T_locationSearchTile(
+                      // title: "PICKUP FROM",
+                      hint: "Enter pickup location",
+                      initialSubtitle: "Select pickup point",
+                      onLocationSelected: (location) {
+                        setState(() => _selectedPickup = location);
+                        widget.onPickupSelected?.call(location);
+                      },
+                    ),
+                    Divider(
+                      height: 1,
+                      thickness: 1,
+                      color: _mmtFieldBorder,
+                      indent: context.w(41),
+                    ),
+                    T_locationSearchTile(
+                      // title: "DROP-OFF AT",
+                      hint: "Enter drop-off location",
+                      initialSubtitle: "Select drop-off point",
+                      onLocationSelected: (location) {
+                        setState(() => _selectedDropoff = location);
+                        widget.onDropoffSelected?.call(location);
+                      },
+                    ),
+                  ],
+                ),
               ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: _tripButton(
-                      title: "One Way",
-                      selected: widget.isOneWay,
-                      onTap: () => widget.onTripTypeChanged(true),
+              /// Swap Button - MMT Style
+              Positioned.fill(
+                child: Align(
+                  alignment: Alignment(0.93, 0),
+                  child: GestureDetector(
+                    onTap: _swapLocations,
+                    child: Container(
+                      width: context.w(32),
+                      height: context.w(32),
+                      decoration: BoxDecoration(
+                        color: _mmtBlue,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 2),
+                        boxShadow: [
+                          BoxShadow(
+                            color: _mmtBlue.withValues(alpha: 0.3),
+                            blurRadius: context.w(8),
+                            offset: Offset(0, context.h(2)),
+                          ),
+                        ],
+                      ),
+                      child: Icon(
+                        Icons.swap_vert,
+                        color: Colors.white,
+                        size: context.w(16),
+                      ),
                     ),
                   ),
-                  Expanded(
-                    child: _tripButton(
-                      title: "Round Trip",
-                      selected: !widget.isOneWay,
-                      onTap: () => widget.onTripTypeChanged(false),
+                ),
+              ),
+            ],
+          ),
+
+          SizedBox(height: context.h(4)),
+
+          /// DATE & TIME - Connected Box (MMT Style)
+          Container(
+            decoration: BoxDecoration(
+              color: _mmtFieldFill,
+              border: Border.all(color: _mmtFieldBorder, width: 1),
+              borderRadius: BorderRadius.circular(context.r(8)),
+            ),
+            child: Column(
+              children: [
+                /// Pickup Date & Time Row
+                Padding(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: context.w(12),
+                    vertical: context.h(10),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: _mmtDateTile(
+                          icon: Icons.flight_takeoff,
+                          label: "PICKUP",
+                          date: _pickupDate,
+                          onTap: () async {
+                            final picked = await showDatePicker(
+                              context: context,
+                              initialDate: _pickupDate,
+                              firstDate: widget.selectedDate.isBefore(DateTime.now())
+                                  ? widget.selectedDate
+                                  : DateTime.now(),
+                              lastDate: DateTime(2035),
+                            );
+                            if (picked != null) {
+                              setState(() {
+                                _pickupDate = picked;
+                                _returnDate = picked.add(const Duration(days: 1));
+                              });
+                              widget.onDateChanged(picked);
+                            }
+                          },
+                        ),
+                      ),
+                      Container(
+                        width: 1,
+                        height: context.h(32),
+                        color: _mmtFieldBorder,
+                        margin: EdgeInsets.symmetric(horizontal: context.w(8)),
+                      ),
+                      Expanded(
+                        child: _mmtTimeTile(
+                          icon: Icons.access_time_outlined,
+                          label: "TIME",
+                          time: widget.selectedTime,
+                          onTap: () async {
+                            final picked = await showTimePicker(
+                              context: context,
+                              initialTime: widget.selectedTime,
+                            );
+                            if (picked != null) {
+                              widget.onTimeChanged(picked);
+                            }
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                if (!widget.isOneWay) ...[
+                  Divider(height: 1, thickness: 1, color: _mmtFieldBorder),
+
+                  /// Return Date & Time Row
+                  Padding(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: context.w(12),
+                      vertical: context.h(10),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: _mmtDateTile(
+                            icon: Icons.flight_land,
+                            label: "RETURN",
+                            date: _returnDate,
+                            onTap: () async {
+                              final picked = await showDatePicker(
+                                context: context,
+                                initialDate: _returnDate,
+                                firstDate: widget.selectedDate,
+                                lastDate: DateTime(2035),
+                              );
+                              if (picked != null) {
+                                setState(() {
+                                  _returnDate = picked;
+                                  if (_returnDate.isBefore(_pickupDate)) {
+                                    _returnDate = _pickupDate.add(const Duration(days: 2));
+                                  }
+                                });
+                              }
+                            },
+                          ),
+                        ),
+                        Container(
+                          width: 1,
+                          height: context.h(32),
+                          color: _mmtFieldBorder,
+                          margin: EdgeInsets.symmetric(horizontal: context.w(8)),
+                        ),
+                        Expanded(
+                          child: _mmtTimeTile(
+                            icon: Icons.access_time_outlined,
+                            label: "TIME",
+                            time: _returnTime,
+                            onTap: () async {
+                              final picked = await showTimePicker(
+                                context: context,
+                                initialTime: _returnTime,
+                              );
+                              if (picked != null) {
+                                setState(() => _returnTime = picked);
+                              }
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+
+          SizedBox(height: context.h(4)),
+
+          /// Passengers & Travellers - MMT Style
+          _mmtInfoTile(
+            context,
+            icon: Icons.person_outline,
+            title: "TRAVELLERS",
+            value: "$_passengerCount Traveller${_passengerCount > 1 ? 's' : ''}",
+            onTap: _openPassengerSheet,
+          ),
+
+          SizedBox(height: context.h(12)),
+
+          /// SEARCH BUTTON - MMT Orange Style
+          SizedBox(
+            width: double.infinity,
+            height: context.h(44),
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _mmtOrange,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(context.r(12)),
+                ),
+              ),
+              onPressed: (_selectedPickup != null && _selectedDropoff != null)
+                  ? _performSearch
+                  : null,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.search, size: context.w(16)),
+                  SizedBox(width: context.w(8)),
+                  Text(
+                    "Search Rides",
+                    style: TextStyle(
+                      fontSize: context.fs(14),
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.5,
                     ),
                   ),
                 ],
               ),
             ),
+          ),
 
-            //
+          SizedBox(height: context.h(8)),
 
-            SizedBox(height: context.hp(0.8)), // Reduced from 1.5
-
-            // PICKUP LOCATION - more compact version
-            T_locationSearchTile(
-              title: "PICKUP FROM",
-              hint: "Enter pickup",
-              initialSubtitle: "City, airport, hotel...",
-              onLocationSelected: (location) {
-                setState(() => _selectedPickup = location);
-                widget.onPickupSelected?.call(location);
-              },
+          /// Free Cancellation Badge
+          Container(
+            padding: EdgeInsets.symmetric(
+              horizontal: context.w(8),
+              vertical: context.h(5),
             ),
-
-            const Divider(height: 12), // Reduced from 20
-
-            // DROPOFF LOCATION
-            T_locationSearchTile(
-              title: "DROP-OFF AT",
-              hint: "Enter drop-off",
-              initialSubtitle: "City, airport, hotel...",
-              onLocationSelected: (location) {
-                setState(() => _selectedDropoff = location);
-                widget.onDropoffSelected?.call(location);
-              },
+            decoration: BoxDecoration(
+              color: _mmtGreen.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(context.r(20)),
             ),
-
-            const Divider(height: 10), // Reduced from 18
-
-            // DATE & TIME SECTION - Made more compact
-            // Row for "PICKUP DATE & TIME" and "PASSENGERS" side by side
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Left side - Date & Time
-                Expanded(
-                  flex: 2,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        "PICKUP",
-                        style: TextStyle(
-                          fontSize: context.labelSmall, // Changed from labelLarge
-                          color: Colors.grey.shade700,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.8, // Reduced from 1
-                        ),
-                      ),
-                      SizedBox(height: context.hp(0.6)),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _clickableInfoTile(
-                              context,
-                              icon: Icons.calendar_today_outlined,
-                              text: _formatDate(widget.selectedDate),
-                              onTap: () async {
-                                final picked = await showDatePicker(
-                                  context: context,
-                                  initialDate: widget.selectedDate,
-                                  firstDate: widget.selectedDate.isBefore(DateTime.now())
-                                      ? widget.selectedDate
-                                      : DateTime.now(),
-                                  lastDate: DateTime(2035),
-                                );
-                                if (picked != null) {
-                                  widget.onDateChanged(picked);
-                                }
-                              },
-                              compact: true,
-                            ),
-                          ),
-                          SizedBox(width: context.wp(2)),
-                          Expanded(
-                            child: _clickableInfoTile(
-                              context,
-                              icon: Icons.access_time,
-                              text: _formatTime(widget.selectedTime),
-                              onTap: () async {
-                                final picked = await showTimePicker(
-                                  context: context,
-                                  initialTime: widget.selectedTime,
-                                );
-                                if (picked != null) {
-                                  widget.onTimeChanged(picked);
-                                }
-                              },
-                              compact: true,
-                            ),
-                          ),
-                        ],
-                      ),
-
-                      if (!widget.isOneWay) ...[
-                        SizedBox(height: context.hp(0.8)),
-                        Text(
-                          "RETURN",
-                          style: TextStyle(
-                            fontSize: context.labelSmall,
-                            color: Colors.grey.shade700,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0.8,
-                          ),
-                        ),
-                        SizedBox(height: context.hp(0.6)),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _clickableInfoTile(
-                                context,
-                                icon: Icons.calendar_today_outlined,
-                                text: _formatDate(_returnDate),
-                                onTap: () async {
-                                  final picked = await showDatePicker(
-                                    context: context,
-                                    initialDate: _returnDate,
-                                    firstDate: widget.selectedDate,
-                                    lastDate: DateTime(2035),
-                                  );
-                                  if (picked != null) {
-                                    setState(() => _returnDate = picked);
-                                  }
-                                },
-                                compact: true,
-                              ),
-                            ),
-                            SizedBox(width: context.wp(2)),
-                            Expanded(
-                              child: _clickableInfoTile(
-                                context,
-                                icon: Icons.access_time,
-                                text: _formatTime(_returnTime),
-                                onTap: () async {
-                                  final picked = await showTimePicker(
-                                    context: context,
-                                    initialTime: _returnTime,
-                                  );
-                                  if (picked != null) {
-                                    setState(() => _returnTime = picked);
-                                  }
-                                },
-                                compact: true,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-
-                SizedBox(width: context.wp(3)),
-
-                // Right side - Passengers
-                Expanded(
-                  flex: 1,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        "PASSENGERS",
-                        style: TextStyle(
-                          fontSize: context.labelSmall,
-                          color: Colors.grey.shade700,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.8,
-                        ),
-                      ),
-                      SizedBox(height: context.hp(0.6)),
-                      Container(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: context.wp(2),
-                          vertical: context.hp(0.8),
-                        ),
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.grey.shade300),
-                          borderRadius: BorderRadius.circular(context.borderRadiusSmall),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.person_outline,
-                              size: context.iconSmall,
-                              color: const Color(0xff0D1B3D),
-                            ),
-                            SizedBox(width: context.wp(1.5)),
-                            Expanded(
-                              child: Text(
-                                "$_passengerCount",
-                                style: TextStyle(
-                                  fontSize: context.bodyLarge,
-                                  fontWeight: FontWeight.w700,
-                                  color: const Color(0xff0D1B3D),
-                                ),
-                              ),
-                            ),
-                            InkWell(
-                              onTap: () {
-                                if (_passengerCount > 1) {
-                                  setState(() => _passengerCount--);
-                                }
-                              },
-                              borderRadius: BorderRadius.circular(6),
-                              child: Icon(
-                                Icons.remove,
-                                size: context.iconSmall,
-                                color: const Color(0xff0D1B3D),
-                              ),
-                            ),
-                            SizedBox(width: context.wp(1.5)),
-                            InkWell(
-                              onTap: () {
-                                setState(() => _passengerCount++);
-                              },
-                              borderRadius: BorderRadius.circular(6),
-                              child: Container(
-                                padding: const EdgeInsets.all(3),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xff1663F7).withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: Icon(
-                                  Icons.add,
-                                  size: context.iconSmall,
-                                  color: const Color(0xff1663F7),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-
-            SizedBox(height: context.hp(1)), // Reduced from 1.5
-
-            /// SEARCH BUTTON - More compact
-            SizedBox(
-              width: double.infinity,
-              height: context.buttonHeightSmall, // Changed from buttonHeight + 12
-              child: ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xffF97316),
-                  foregroundColor: Colors.white,
-                  elevation: 0,
-                  padding: EdgeInsets.symmetric(vertical: context.hp(0.8)), // Added padding control
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(context.borderRadiusSmall),
-                  ),
-                ),
-                onPressed: (_selectedPickup != null && _selectedDropoff != null)
-                    ? () async {
-                  print('DEBUG: Search button pressed');
-                  print('DEBUG: Pickup: ${_selectedPickup?.label}, Dropoff: ${_selectedDropoff?.label}');
-
-                  final pickupDatetime = "${widget.selectedDate.toIso8601String().split('T')[0]}T${widget.selectedTime.hour.toString().padLeft(2, '0')}:${widget.selectedTime.minute.toString().padLeft(2, '0')}:00";
-                  final returnDatetime = !widget.isOneWay
-                      ? "${_returnDate.toIso8601String().split('T')[0]}T${_returnTime.hour.toString().padLeft(2, '0')}:${_returnTime.minute.toString().padLeft(2, '0')}:00"
-                      : null;
-                  final startAddress = _selectedPickup!.iataCode.isNotEmpty
-                      ? _selectedPickup!.iataCode
-                      : _selectedPickup!.formattedAddress;
-                  final endAddress = _selectedDropoff!.iataCode.isNotEmpty
-                      ? _selectedDropoff!.iataCode
-                      : _selectedDropoff!.formattedAddress;
-
-                  print('DEBUG: API params - start: $startAddress, end: $endAddress, datetime: $pickupDatetime');
-
-                  final transportBloc = sl<TransportSearchBloc>();
-                  print('DEBUG: Got TransportSearchBloc instance: ${transportBloc.runtimeType}');
-
-                  final event = SearchTransport(
-                    startAddress: startAddress,
-                    endAddress: endAddress,
-                    pickupDatetime: pickupDatetime,
-                    numPassengers: _passengerCount,
-                    currency: 'INR',
-                    mode: widget.isOneWay ? TripMode.oneWay : TripMode.roundTrip,
-                    returnDatetime: returnDatetime,
-                  );
-                  print('DEBUG: Adding event: ${event.runtimeType}');
-                  transportBloc.add(event);
-
-                  StreamSubscription<TransportSearchState>? subscription;
-                  subscription = transportBloc.stream.listen((state) {
-                    print('DEBUG: Bloc state changed: ${state.runtimeType}');
-
-                    if (state is TransportSearchSuccess) {
-                      final searchId = state.transportSearch.local.searchId;
-                      print('Transport Search Success - search_id: $searchId');
-                      subscription?.cancel();
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => TpollSearchResultsPage(
-                            searchId: searchId,
-                            startAddress: startAddress,
-                            endAddress: endAddress,
-                            pickupDate: widget.selectedDate,
-                            numPassengers: _passengerCount,
-                          ),
-                        ),
-                      );
-                    } else if (state is TransportSearchFailed) {
-                      print('Transport Search Failed: ${state.dataState.error?.message ?? 'Unknown error'}');
-                      print('DEBUG: Full error: ${state.dataState.error}');
-                      subscription?.cancel();
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Search failed: ${state.dataState.error?.message ?? 'Please try again'}'),
-                          backgroundColor: Colors.red,
-                        ),
-                      );
-                    } else if (state is TransportSearchLoading) {
-                      print('DEBUG: Transport search loading...');
-                    }
-                  });
-                }
-                    : null,
-                icon: Icon(Icons.search, size: context.iconSmall), // Changed from iconMedium
-                label: Text(
-                  "Search Rides",
-                  style: TextStyle(
-                    fontSize: context.bodyMedium, // Changed from titleSmall
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ),
-
-            SizedBox(height: context.hp(0.5)), // Reduced from 1
-
-            // Cancellation text - more compact
-            Row(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
                   Icons.verified_user_outlined,
-                  color: Colors.green,
-                  size: context.iconXSmall, // Changed from iconMedium
+                  color: _mmtGreen,
+                  size: context.w(12),
                 ),
-                SizedBox(width: context.wp(1.5)), // Reduced from 2
-                Expanded(
-                  child: Text(
-                    "Free cancellation on most rides",
-                    style: TextStyle(
-                      color: Colors.green,
-                      fontWeight: FontWeight.w600, // Reduced from w700
-                      fontSize: context.bodySmall, // Changed from bodyMedium
-                    ),
+                SizedBox(width: context.w(5)),
+                Text(
+                  "Free cancellation on most rides",
+                  style: TextStyle(
+                    color: _mmtGreen,
+                    fontWeight: FontWeight.w600,
+                    fontSize: context.fs(11),
                   ),
                 ),
               ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
+  }
+
+  void _swapLocations() {
+    setState(() {
+      final temp = _selectedPickup;
+      _selectedPickup = _selectedDropoff;
+      _selectedDropoff = temp;
+    });
+  }
+
+  void _performSearch() async {
+    print('DEBUG: Search button pressed');
+    print('DEBUG: Pickup: ${_selectedPickup?.label}, Dropoff: ${_selectedDropoff?.label}');
+
+    final pickupDatetime =
+        "${_pickupDate.toIso8601String().split('T')[0]}T${widget.selectedTime.hour.toString().padLeft(2, '0')}:${widget.selectedTime.minute.toString().padLeft(2, '0')}:00";
+
+    final returnDatetime = !widget.isOneWay
+        ? "${_returnDate.toIso8601String().split('T')[0]}T${_returnTime.hour.toString().padLeft(2, '0')}:${_returnTime.minute.toString().padLeft(2, '0')}:00"
+        : null;
+
+    final startAddress = _selectedPickup!.iataCode.isNotEmpty
+        ? _selectedPickup!.iataCode
+        : _selectedPickup!.formattedAddress;
+    final endAddress = _selectedDropoff!.iataCode.isNotEmpty
+        ? _selectedDropoff!.iataCode
+        : _selectedDropoff!.formattedAddress;
+
+    print('DEBUG: Displayed pickup date: ${_formatDate(_pickupDate)}');
+    print('DEBUG: API pickup datetime: $pickupDatetime');
+    print('DEBUG: API params - start: $startAddress, end: $endAddress, datetime: $pickupDatetime');
+
+    final transportBloc = sl<TransportSearchBloc>();
+    print('DEBUG: Got TransportSearchBloc instance: ${transportBloc.runtimeType}');
+
+    final event = SearchTransport(
+      startAddress: startAddress,
+      endAddress: endAddress,
+      pickupDatetime: pickupDatetime,
+      numPassengers: _passengerCount,
+      currency: 'INR',
+      mode: widget.isOneWay ? TripMode.oneWay : TripMode.roundTrip,
+      returnDatetime: returnDatetime,
+    );
+    print('DEBUG: Adding event: ${event.runtimeType}');
+    transportBloc.add(event);
+
+    StreamSubscription<TransportSearchState>? subscription;
+    subscription = transportBloc.stream.listen((state) {
+      print('DEBUG: Bloc state changed: ${state.runtimeType}');
+
+      if (state is TransportSearchSuccess) {
+        final searchId = state.transportSearch.local.searchId;
+        print('Transport Search Success - search_id: $searchId');
+        subscription?.cancel();
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => TpollSearchResultsPage(
+              searchId: searchId,
+              startAddress: startAddress,
+              endAddress: endAddress,
+              pickupDate: _pickupDate,
+              numPassengers: _passengerCount,
+            ),
+          ),
+        );
+      } else if (state is TransportSearchFailed) {
+        print('Transport Search Failed: ${state.dataState.error?.message ?? 'Unknown error'}');
+        print('DEBUG: Full error: ${state.dataState.error}');
+        subscription?.cancel();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Search failed: ${state.dataState.error?.message ?? 'Please try again'}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      } else if (state is TransportSearchLoading) {
+        print('DEBUG: Transport search loading...');
+      }
+    });
   }
 
   Widget _tripButton({
@@ -1046,19 +489,19 @@ class _TransportBookingCardState extends State<TransportBookingCard> {
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200), // Reduced from 250
-        padding: const EdgeInsets.symmetric(vertical: 14), // Reduced from 14
+        duration: const Duration(milliseconds: 200),
+        padding: EdgeInsets.symmetric(vertical: context.h(9)),
         decoration: BoxDecoration(
-          color: selected ? const Color(0xff1663F7) : Colors.transparent,
-          borderRadius: BorderRadius.circular(30), // Reduced from 40
+          color: selected ? _mmtBlue : Colors.transparent,
+          borderRadius: BorderRadius.circular(context.r(40)),
         ),
         child: Center(
           child: Text(
             title,
             style: TextStyle(
-              fontSize: 13, // Fixed smaller size
+              fontSize: context.fs(13),
               fontWeight: FontWeight.w700,
-              color: selected ? Colors.white : Colors.grey.shade700,
+              color: selected ? Colors.white : _mmtNavy,
             ),
           ),
         ),
@@ -1066,46 +509,302 @@ class _TransportBookingCardState extends State<TransportBookingCard> {
     );
   }
 
-  Widget _clickableInfoTile(
+  Widget _mmtDateTile({
+    required IconData icon,
+    required String label,
+    required DateTime date,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(context.r(6)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: context.w(13), color: _mmtMuted),
+              SizedBox(width: context.w(5)),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: context.fs(9),
+                  fontWeight: FontWeight.w700,
+                  color: _mmtMuted,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: context.h(4)),
+          Text(
+            _formatDate(date),
+            style: TextStyle(
+              fontSize: context.fs(13),
+              fontWeight: FontWeight.w700,
+              color: _mmtNavy,
+            ),
+          ),
+          Text(
+            _getDayOfWeek(date),
+            style: TextStyle(
+              fontSize: context.fs(9),
+              fontWeight: FontWeight.w500,
+              color: _mmtMuted,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _mmtTimeTile({
+    required IconData icon,
+    required String label,
+    required TimeOfDay time,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(context.r(6)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: context.w(13), color: _mmtMuted),
+              SizedBox(width: context.w(5)),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: context.fs(9),
+                  fontWeight: FontWeight.w700,
+                  color: _mmtMuted,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: context.h(4)),
+          Text(
+            _formatTime(time),
+            style: TextStyle(
+              fontSize: context.fs(13),
+              fontWeight: FontWeight.w700,
+              color: _mmtNavy,
+            ),
+          ),
+          SizedBox(height: context.fs(9)),
+        ],
+      ),
+    );
+  }
+
+  Widget _mmtInfoTile(
       BuildContext context, {
         required IconData icon,
-        required String text,
+        required String title,
+        required String value,
         required VoidCallback onTap,
-        bool compact = false,
       }) {
     return InkWell(
-      borderRadius: BorderRadius.circular(context.borderRadiusSmall),
       onTap: onTap,
+      borderRadius: BorderRadius.circular(context.r(8)),
       child: Container(
         padding: EdgeInsets.symmetric(
-          horizontal: context.wp(2), // Reduced from 3
-          vertical: context.hp(1), // Reduced from 1.8
+          horizontal: context.w(12),
+          vertical: context.h(10),
         ),
         decoration: BoxDecoration(
-          border: Border.all(color: Colors.grey.shade300, width: 0.8), // Thinner border
-          borderRadius: BorderRadius.circular(context.borderRadiusSmall),
+          color: _mmtFieldFill,
+          border: Border.all(color: _mmtFieldBorder, width: 1),
+          borderRadius: BorderRadius.circular(context.r(8)),
         ),
         child: Row(
           children: [
-            Icon(
-              icon,
-              size: context.iconSmall, // Changed from iconMedium
-              color: const Color(0xff0D1B3D),
-            ),
-            SizedBox(width: context.wp(2)), // Reduced from 3
+            Icon(icon, size: context.w(16), color: _mmtNavy),
+            SizedBox(width: context.w(10)),
             Expanded(
-              child: Text(
-                text,
-                style: TextStyle(
-                  fontSize: context.bodyMedium, // Changed from bodyLarge
-                  fontWeight: FontWeight.w600, // Reduced from w700
-                  color: const Color(0xff0D1B3D),
-                ),
-                overflow: TextOverflow.ellipsis,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: context.fs(9),
+                      fontWeight: FontWeight.w700,
+                      color: _mmtMuted,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  SizedBox(height: context.h(2)),
+                  Text(
+                    value,
+                    style: TextStyle(
+                      fontSize: context.fs(13),
+                      fontWeight: FontWeight.w700,
+                      color: _mmtNavy,
+                    ),
+                  ),
+                ],
               ),
+            ),
+            Icon(
+              Icons.keyboard_arrow_down,
+              size: context.w(16),
+              color: _mmtMuted,
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _openPassengerSheet() {
+    // Create a local copy of passenger count for dialog state
+    int tempPassengerCount = _passengerCount;
+
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (BuildContext dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(context.r(16)),
+              ),
+              title: Text(
+                "Select Travellers",
+                style: TextStyle(
+                  fontSize: context.fs(16),
+                  fontWeight: FontWeight.w700,
+                  color: _mmtNavy,
+                ),
+              ),
+              content: Container(
+                width: double.infinity,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _passengerRow(
+                      title: "Adults (12+ Years)",
+                      value: tempPassengerCount,
+                      onIncrement: () {
+                        setDialogState(() {
+                          tempPassengerCount++;
+                        });
+                      },
+                      onDecrement: () {
+                        if (tempPassengerCount > 1) {
+                          setDialogState(() {
+                            tempPassengerCount--;
+                          });
+                        }
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: Text(
+                    "CANCEL",
+                    style: TextStyle(
+                      fontSize: context.fs(12),
+                      fontWeight: FontWeight.w600,
+                      color: _mmtMuted,
+                    ),
+                  ),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    // Apply the changes to the main state
+                    setState(() {
+                      _passengerCount = tempPassengerCount;
+                    });
+                    Navigator.pop(dialogContext);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _mmtOrange,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(context.r(8)),
+                    ),
+                  ),
+                  child: Text(
+                    "APPLY",
+                    style: TextStyle(
+                      fontSize: context.fs(12),
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _passengerRow({
+    required String title,
+    required int value,
+    required VoidCallback onIncrement,
+    required VoidCallback onDecrement,
+  }) {
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: context.h(8)),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: context.fs(13),
+              fontWeight: FontWeight.w500,
+              color: _mmtNavy,
+            ),
+          ),
+          Row(
+            children: [
+              InkWell(
+                onTap: onDecrement,
+                child: Container(
+                  padding: EdgeInsets.all(context.w(6)),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: _mmtFieldFill,
+                  ),
+                  child: Icon(Icons.remove, size: context.w(14), color: _mmtMuted),
+                ),
+              ),
+              SizedBox(width: context.w(12)),
+              Text(
+                value.toString(),
+                style: TextStyle(
+                  fontSize: context.fs(14),
+                  fontWeight: FontWeight.w700,
+                  color: _mmtNavy,
+                ),
+              ),
+              SizedBox(width: context.w(12)),
+              InkWell(
+                onTap: onIncrement,
+                child: Container(
+                  padding: EdgeInsets.all(context.w(6)),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: _mmtOrange.withValues(alpha: 0.1),
+                  ),
+                  child: Icon(Icons.add, size: context.w(14), color: _mmtOrange),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -1118,5 +817,10 @@ class _TransportBookingCardState extends State<TransportBookingCard> {
     final hour = time.hour.toString().padLeft(2, '0');
     final minute = time.minute.toString().padLeft(2, '0');
     return "$hour:$minute";
+  }
+
+  String _getDayOfWeek(DateTime date) {
+    const days = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+    return days[date.weekday - 1];
   }
 }

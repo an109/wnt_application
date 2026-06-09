@@ -1,65 +1,34 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:wander_nova/UI_helper/responsive_layout.dart';
 
-// Traveller Information Widget with Login Statement
 class TravellerInformationSection extends StatefulWidget {
-  final GlobalKey<TravellerFormState>? formKey;
-  final VoidCallback onDepartureDateTap;
-  final VoidCallback onReturnDateTap;
-  final DateTime? departureDate;
-  final DateTime? returnDate;
+  final bool isInternational;
 
-  const TravellerInformationSection({
-    super.key,
-    this.formKey,
-    required this.onDepartureDateTap,
-    required this.onReturnDateTap,
-    this.departureDate,
-    this.returnDate,
-  });
+  const TravellerInformationSection({super.key, this.isInternational = false});
 
   @override
-  State<TravellerInformationSection> createState() => _TravellerInformationSectionState();
+  TravellerFormState createState() => TravellerFormState();
 }
 
-class _TravellerInformationSectionState extends State<TravellerInformationSection> with TravellerFormMixin {
-  final _internalFormKey = GlobalKey<FormState>();
+class TravellerFormState extends State<TravellerInformationSection> {
+  final _formKey = GlobalKey<FormState>();
 
-  // List to manage multiple travelers - initialized with one adult
-  List<TravellerData> _travelers = [];
-  List<bool> _expandedStates = [];
-
-  // Controllers for the first traveler (initial)
   final _firstNameController = TextEditingController();
   final _lastNameController = TextEditingController();
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
-  final _passportController = TextEditingController();
-  final _destinationController = TextEditingController();
-  final _hotelController = TextEditingController();
-
-  // New controllers
   final _genderController = TextEditingController();
   final _nationalityController = TextEditingController();
+  final _passportController = TextEditingController();
   final _passportExpiryController = TextEditingController();
-  bool _requiresWheelchair = false;
 
-  @override
-  void initState() {
-    super.initState();
-    // Initialize with one traveler (Adult 1)
-    _travelers = [
-      TravellerData(id: '1', title: 'Adult 1'),
-    ];
-    _expandedStates = [true]; // Start expanded
-  }
+  bool _travellerExpanded = true;
 
-  void _toggleExpansion(int index) {
-    setState(() {
-      _expandedStates[index] = !_expandedStates[index];
-    });
-  }
+  static const _blue = Color(0xFF1769F6);
+  static const _navy = Color(0xFF071638);
+  static const _surface = Color(0xFFFFFFFF);
+  static const _fieldFill = Color(0xFFF8FAFE);
+  static const _border = Color(0xFFE2E7F0);
 
   @override
   void dispose() {
@@ -67,362 +36,302 @@ class _TravellerInformationSectionState extends State<TravellerInformationSectio
     _lastNameController.dispose();
     _emailController.dispose();
     _phoneController.dispose();
-    _passportController.dispose();
-    _destinationController.dispose();
-    _hotelController.dispose();
     _genderController.dispose();
     _nationalityController.dispose();
+    _passportController.dispose();
     _passportExpiryController.dispose();
     super.dispose();
   }
 
-  @override
-  TextEditingController get firstNameController => _firstNameController;
-  @override
-  TextEditingController get lastNameController => _lastNameController;
-  @override
-  TextEditingController get emailController => _emailController;
-  @override
-  TextEditingController get phoneController => _phoneController;
-  @override
-  TextEditingController get passportController => _passportController;
-  @override
-  TextEditingController get destinationController => _destinationController;
-  @override
-  TextEditingController get hotelController => _hotelController;
+  bool validateForm() {
+    return _formKey.currentState?.validate() ?? false;
+  }
+
+  Map<String, dynamic> getTravellerData() {
+    return {
+      'firstName': _firstNameController.text.trim(),
+      'lastName': _lastNameController.text.trim(),
+      'mobileNumber': _phoneController.text.trim(),
+      'email': _emailController.text.trim(),
+      'gender': _genderController.text.trim(),
+      'nationality': _nationalityController.text.trim(),
+      'isInternational': widget.isInternational,
+      if (widget.isInternational)
+        'passportNumber': _passportController.text.trim(),
+      if (widget.isInternational)
+        'passportExpiry': _passportExpiryController.text.trim(),
+    };
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(height: context.gapLarge),
-
-        // Traveller Information Section
-        _buildTravellerSection(context),
-      ],
-    );
-  }
-
-  Widget _buildTravellerSection(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          "Traveller Information",
-          style: TextStyle(
-            fontSize: context.titleLarge,
-            fontWeight: FontWeight.bold,
+    return Form(
+      key: _formKey,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _sectionTitle('Contact Information'),
+          const SizedBox(height: 12),
+          _buildCard(
+            child: _responsiveFields(context, [
+              _buildTextField(
+                controller: _phoneController,
+                label: 'Mobile Number',
+                hintText: '+91 98765 43210',
+                icon: Icons.call_outlined,
+                keyboardType: TextInputType.phone,
+                validator: _required('Mobile number'),
+              ),
+              _buildTextField(
+                controller: _emailController,
+                label: 'Email',
+                hintText: 'name@example.com',
+                icon: Icons.mail_outline,
+                keyboardType: TextInputType.emailAddress,
+                validator: (value) {
+                  final text = value?.trim() ?? '';
+                  if (text.isEmpty) return 'Email is required';
+                  final isValid = RegExp(
+                    r'^[\w\.-]+@([\w-]+\.)+[\w-]{2,}$',
+                  ).hasMatch(text);
+                  return isValid ? null : 'Enter a valid email';
+                },
+              ),
+            ]),
           ),
-        ),
-        SizedBox(height: context.gapLarge),
-
-        // List of collapsible traveler cards
-        ...List.generate(_travelers.length, (index) {
-          return _buildCollapsibleTravellerCard(context, index);
-        }),
-      ],
-    );
-  }
-
-  Widget _buildCollapsibleTravellerCard(BuildContext context, int index) {
-    final traveler = _travelers[index];
-    final isExpanded = _expandedStates[index];
-
-    return Container(
-      margin: EdgeInsets.only(bottom: context.gapMedium),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(context.borderRadius),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          )
+          const SizedBox(height: 22),
+          _sectionTitle('Traveller Information'),
+          const SizedBox(height: 12),
+          _buildTravellerCard(context),
         ],
       ),
+    );
+  }
+
+  Widget _buildTravellerCard(BuildContext context) {
+    return _buildCard(
+      padding: EdgeInsets.zero,
       child: Column(
-        mainAxisSize: MainAxisSize.min,
         children: [
-          // Collapsible Header
           InkWell(
-            onTap: () => _toggleExpansion(index),
-            borderRadius: BorderRadius.circular(context.borderRadius),
-            child: Container(
-              padding: EdgeInsets.all(context.w(12)),
+            onTap: () =>
+                setState(() => _travellerExpanded = !_travellerExpanded),
+            borderRadius: BorderRadius.circular(24),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(18, 16, 16, 14),
               child: Row(
                 children: [
-                  Expanded(
+                  Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      color: _blue.withValues(alpha: 0.09),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.person_outline,
+                      color: _blue,
+                      size: 21,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
                     child: Text(
-                      traveler.title,
+                      'Adult 1',
                       style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: context.titleMedium,
+                        color: _navy,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
                       ),
                     ),
                   ),
                   AnimatedRotation(
-                    duration: const Duration(milliseconds: 300),
-                    turns: isExpanded ? 0.5 : 0.0,
-                    child: Icon(
-                      Icons.expand_more,
-                      color: Colors.grey.shade600,
+                    turns: _travellerExpanded ? 0.5 : 0,
+                    duration: const Duration(milliseconds: 220),
+                    child: const Icon(
+                      Icons.keyboard_arrow_down_rounded,
+                      color: Color(0xFF667085),
                     ),
                   ),
                 ],
               ),
             ),
           ),
-
-          // Expanded Content with smooth animation
           AnimatedSize(
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeInOut,
-            alignment: Alignment.topCenter,
-            child: isExpanded
-                ? Container(
-              padding: EdgeInsets.all(context.w(12)),
-              child: _buildTravellerForm(context, index),
-            )
-                : const SizedBox.shrink(),
+            duration: const Duration(milliseconds: 240),
+            curve: Curves.easeOutCubic,
+            child: !_travellerExpanded
+                ? const SizedBox.shrink()
+                : Padding(
+                    padding: const EdgeInsets.fromLTRB(18, 4, 18, 20),
+                    child: Column(
+                      children: [
+                        _responsiveFields(context, [
+                          _buildTextField(
+                            controller: _firstNameController,
+                            label: 'First Name',
+                            hintText: 'John',
+                            icon: Icons.badge_outlined,
+                            textCapitalization: TextCapitalization.words,
+                            validator: _required('First name'),
+                          ),
+                          _buildTextField(
+                            controller: _lastNameController,
+                            label: 'Last Name',
+                            hintText: 'Doe',
+                            icon: Icons.badge_outlined,
+                            textCapitalization: TextCapitalization.words,
+                            validator: _required('Last name'),
+                          ),
+                        ]),
+                        const SizedBox(height: 14),
+                        _responsiveFields(context, [
+                          _buildDropdownField(
+                            controller: _genderController,
+                            label: 'Gender',
+                            icon: Icons.wc_outlined,
+                            items: const ['Male', 'Female', 'Other'],
+                            validator: _required('Gender'),
+                          ),
+                          _buildTextField(
+                            controller: _nationalityController,
+                            label: 'Nationality',
+                            hintText: 'Indian',
+                            icon: Icons.public_outlined,
+                            textCapitalization: TextCapitalization.words,
+                            validator: _required('Nationality'),
+                          ),
+                        ]),
+                        if (widget.isInternational) ...[
+                          const SizedBox(height: 18),
+                          _inlineNote(
+                            'Passport details are required for international flights.',
+                          ),
+                          const SizedBox(height: 12),
+                          _responsiveFields(context, [
+                            _buildTextField(
+                              controller: _passportController,
+                              label: 'Passport Number',
+                              hintText: 'A1234567',
+                              icon: Icons.credit_card_outlined,
+                              textCapitalization: TextCapitalization.characters,
+                              validator: _required('Passport number'),
+                            ),
+                            _buildPassportExpiryField(),
+                          ]),
+                        ],
+                      ],
+                    ),
+                  ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildTravellerForm(BuildContext context, int index) {
-    return Form(
-      key: _internalFormKey,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
+  Widget _responsiveFields(BuildContext context, List<Widget> children) {
+    final width = MediaQuery.sizeOf(context).width;
+    final useColumns = width >= 390;
+
+    if (!useColumns || children.length == 1) {
+      return Column(
         children: [
-          // Title field with red asterisk
-          _buildRequiredTitle(context, "Title *"),
-          SizedBox(height: context.gapSmall),
-          Row(
-            children: [
-              Expanded(
-                child: _buildTextField(
-                  context,
-                  controller: _firstNameController,
-                  label: "First Name *",
-                  hintText: "John",
-                  isRequired: true,
-                  validator: (value) => value?.isEmpty ?? true ? 'First name is required' : null,
-                ),
-              ),
-              SizedBox(width: context.gapMedium),
-              Expanded(
-                child: _buildTextField(
-                  context,
-                  controller: _lastNameController,
-                  label: "Last Name *",
-                  hintText: "Doe",
-                  isRequired: true,
-                  validator: (value) => value?.isEmpty ?? true ? 'Last name is required' : null,
-                ),
-              ),
-            ],
+          for (int i = 0; i < children.length; i++) ...[
+            if (i > 0) const SizedBox(height: 14),
+            children[i],
+          ],
+        ],
+      );
+    }
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(child: children[0]),
+        const SizedBox(width: 14),
+        Expanded(child: children[1]),
+      ],
+    );
+  }
+
+  Widget _buildCard({required Widget child, EdgeInsets? padding}) {
+    return Container(
+      width: double.infinity,
+      padding: padding ?? const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: _surface,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: _border),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0B1B3A).withValues(alpha: 0.06),
+            blurRadius: 24,
+            offset: const Offset(0, 14),
           ),
-          SizedBox(height: context.gapMedium),
+        ],
+      ),
+      child: child,
+    );
+  }
 
-          // Mobile Number & Email
-          Row(
-            children: [
-              Expanded(
-                child: _buildTextField(
-                  context,
-                  controller: _phoneController,
-                  label: "Mobile Number *",
-                  hintText: "+1 234 567 8900",
-                  keyboardType: TextInputType.phone,
-                  isRequired: true,
-                  validator: (value) => value?.isEmpty ?? true ? 'Mobile number is required' : null,
-                ),
-              ),
-              SizedBox(width: context.gapMedium),
-              Expanded(
-                child: _buildTextField(
-                  context,
-                  controller: _emailController,
-                  label: "Email *",
-                  hintText: "john.doe@example.com",
-                  keyboardType: TextInputType.emailAddress,
-                  isRequired: true,
-                  validator: (value) {
-                    if (value?.isEmpty ?? true) return 'Email is required';
-                    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value!)) {
-                      return 'Enter a valid email';
-                    }
-                    return null;
-                  },
-                ),
-              ),
-            ],
+  Widget _sectionTitle(String title) {
+    return Text(
+      title,
+      style: const TextStyle(
+        color: Color(0xFF1E2430),
+        fontSize: 24,
+        fontWeight: FontWeight.w800,
+      ),
+    );
+  }
+
+  Widget _inlineNote(String text) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF8E8),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFFFD59D)),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.info_outline_rounded,
+            size: 18,
+            color: Color(0xFFF79009),
           ),
-          SizedBox(height: context.gapMedium),
-
-          // Gender & Nationality
-          Row(
-            children: [
-              Expanded(
-                child: _buildDropdownField(
-                  context,
-                  controller: _genderController,
-                  label: "Gender *",
-                  items: ['Male', 'Female', 'Other'],
-                  isRequired: true,
-                  validator: (value) => value?.isEmpty ?? true ? 'Gender is required' : null,
-                ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(
+                color: Color(0xFF77520F),
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
               ),
-              SizedBox(width: context.gapMedium),
-              Expanded(
-                child: _buildTextField(
-                  context,
-                  controller: _nationalityController,
-                  label: "Nationality *",
-                  hintText: "e.g., American",
-                  isRequired: true,
-                  validator: (value) => value?.isEmpty ?? true ? 'Nationality is required' : null,
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: context.gapMedium),
-
-          // Passport Number & Passport Expiry
-          Row(
-            children: [
-              Expanded(
-                child: _buildTextField(
-                  context,
-                  controller: _passportController,
-                  label: "Passport Number *",
-                  hintText: "A12345678",
-                  isRequired: true,
-                  validator: (value) => value?.isEmpty ?? true ? 'Passport number is required' : null,
-                ),
-              ),
-              SizedBox(width: context.gapMedium),
-              Expanded(
-                child: _buildDatePickerField(
-                  context,
-                  controller: _passportExpiryController,
-                  label: "Passport Expiry *",
-                  isRequired: true,
-                  validator: (value) => value?.isEmpty ?? true ? 'Passport expiry is required' : null,
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: context.gapMedium),
-
-          // Wheelchair Checkbox
-          // CheckboxListTile(
-          //   value: _requiresWheelchair,
-          //   onChanged: (bool? value) {
-          //     setState(() {
-          //       _requiresWheelchair = value ?? false;
-          //     });
-          //   },
-          //   title: Text(
-          //     "I require wheelchair (optional)",
-          //     style: TextStyle(
-          //       fontSize: context.bodySmall,
-          //       color: Colors.grey.shade700,
-          //     ),
-          //   ),
-          //   controlAffinity: ListTileControlAffinity.leading,
-          //   dense: true,
-          //   contentPadding: EdgeInsets.zero,
-          //   activeColor: Colors.red.shade600,
-          // ),
-
-          SizedBox(height: context.gapLarge),
-
-          // Travel Details Section (from parent)
-          Text(
-            "Travel Details",
-            style: TextStyle(
-              fontWeight: FontWeight.w600,
-              fontSize: context.bodyLarge,
             ),
-          ),
-          SizedBox(height: context.gapMedium),
-
-          Row(
-            children: [
-              Expanded(
-                child: _buildDateField(
-                  context,
-                  label: "Departure Date *",
-                  value: widget.departureDate,
-                  onTap: widget.onDepartureDateTap,
-                ),
-              ),
-              SizedBox(width: context.gapMedium),
-              Expanded(
-                child: _buildDateField(
-                  context,
-                  label: "Return Date *",
-                  value: widget.returnDate,
-                  onTap: widget.onReturnDateTap,
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: context.gapLarge),
-
-          Text(
-            "Destination Details",
-            style: TextStyle(
-              fontWeight: FontWeight.w600,
-              fontSize: context.bodyLarge,
-            ),
-          ),
-          SizedBox(height: context.gapMedium),
-
-          _buildTextField(
-            context,
-            controller: _destinationController,
-            label: "Destination City/Country *",
-            hintText: "Dubai, UAE",
-            isRequired: true,
-            validator: (value) => value?.isEmpty ?? true ? 'Destination is required' : null,
-          ),
-          SizedBox(height: context.gapMedium),
-
-          _buildTextField(
-            context,
-            controller: _hotelController,
-            label: "Hotel/Resort Preference",
-            hintText: "Optional",
-            isRequired: false,
-            validator: null,
           ),
         ],
       ),
     );
   }
 
-  Widget _buildRequiredTitle(BuildContext context, String title) {
+  Widget _label(String label) {
     return RichText(
       text: TextSpan(
-        text: title.split('*')[0],
-        style: TextStyle(
-          fontWeight: FontWeight.w500,
-          fontSize: context.bodySmall,
-          color: Colors.grey.shade700,
+        text: label,
+        style: const TextStyle(
+          color: Color(0xFF4B5565),
+          fontSize: 13,
+          fontWeight: FontWeight.w700,
         ),
-        children: [
+        children: const [
           TextSpan(
             text: ' *',
             style: TextStyle(
-              color: Colors.red.shade600,
-              fontWeight: FontWeight.bold,
+              color: Color(0xFFFF4D4F),
+              fontWeight: FontWeight.w800,
             ),
           ),
         ],
@@ -430,325 +339,156 @@ class _TravellerInformationSectionState extends State<TravellerInformationSectio
     );
   }
 
-  Widget _buildTextField(
-      BuildContext context, {
-        required TextEditingController controller,
-        required String label,
-        String? hintText,
-        TextInputType? keyboardType,
-        String? Function(String?)? validator,
-        bool isRequired = false,
-      }) {
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String label,
+    required String hintText,
+    required IconData icon,
+    required String? Function(String?) validator,
+    TextInputType? keyboardType,
+    TextCapitalization textCapitalization = TextCapitalization.none,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        isRequired ? _buildRequiredTitle(context, label) : Text(
-          label,
-          style: TextStyle(
-            fontWeight: FontWeight.w500,
-            fontSize: context.bodySmall,
-            color: Colors.grey.shade700,
-          ),
-        ),
-        SizedBox(height: context.gapSmall),
+        _label(label),
+        const SizedBox(height: 8),
         TextFormField(
           controller: controller,
           keyboardType: keyboardType,
+          textCapitalization: textCapitalization,
           validator: validator,
-          decoration: InputDecoration(
-            hintText: hintText,
-            hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: context.bodySmall),
-            filled: true,
-            fillColor: Colors.grey.shade50,
-            contentPadding: EdgeInsets.symmetric(
-              horizontal: context.gapMedium,
-              vertical: context.gapMedium,
-            ),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(context.borderRadius),
-              borderSide: BorderSide(color: Colors.grey.shade300),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(context.borderRadius),
-              borderSide: BorderSide(color: Colors.grey.shade300),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(context.borderRadius),
-              borderSide: BorderSide(color: Colors.red.shade300, width: 2),
-            ),
-            errorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(context.borderRadius),
-              borderSide: BorderSide(color: Colors.red.shade300),
-            ),
+          style: const TextStyle(
+            color: _navy,
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
           ),
+          decoration: _inputDecoration(hintText: hintText, icon: icon),
         ),
       ],
     );
   }
 
-  Widget _buildDropdownField(
-      BuildContext context, {
-        required TextEditingController controller,
-        required String label,
-        required List<String> items,
-        String? Function(String?)? validator,
-        bool isRequired = false,
-      }) {
+  Widget _buildDropdownField({
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+    required List<String> items,
+    required String? Function(String?) validator,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        isRequired ? _buildRequiredTitle(context, label) : Text(
-          label,
-          style: TextStyle(
-            fontWeight: FontWeight.w500,
-            fontSize: context.bodySmall,
-            color: Colors.grey.shade700,
-          ),
-        ),
-        SizedBox(height: context.gapSmall),
+        _label(label),
+        const SizedBox(height: 8),
         DropdownButtonFormField<String>(
           value: controller.text.isEmpty ? null : controller.text,
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: Colors.grey.shade50,
-            contentPadding: EdgeInsets.symmetric(
-              horizontal: context.gapMedium,
-              vertical: context.gapMedium,
-            ),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(context.borderRadius),
-              borderSide: BorderSide(color: Colors.grey.shade300),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(context.borderRadius),
-              borderSide: BorderSide(color: Colors.grey.shade300),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(context.borderRadius),
-              borderSide: BorderSide(color: Colors.red.shade300, width: 2),
-            ),
-          ),
-          items: items.map((item) {
-            return DropdownMenuItem<String>(
-              value: item,
-              child: Text(item),
-            );
-          }).toList(),
-          onChanged: (value) {
-            controller.text = value ?? '';
-          },
+          isExpanded: true,
+          icon: const Icon(Icons.keyboard_arrow_down_rounded),
           validator: validator,
-          hint: Text('Select $label'),
+          decoration: _inputDecoration(hintText: 'Select', icon: icon),
+          items: items
+              .map(
+                (item) => DropdownMenuItem<String>(
+                  value: item,
+                  child: Text(
+                    item,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                ),
+              )
+              .toList(),
+          onChanged: (value) => setState(() => controller.text = value ?? ''),
         ),
       ],
     );
   }
 
-  Widget _buildDatePickerField(
-      BuildContext context, {
-        required TextEditingController controller,
-        required String label,
-        String? Function(String?)? validator,
-        bool isRequired = false,
-      }) {
+  Widget _buildPassportExpiryField() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        isRequired ? _buildRequiredTitle(context, label) : Text(
-          label,
-          style: TextStyle(
-            fontWeight: FontWeight.w500,
-            fontSize: context.bodySmall,
-            color: Colors.grey.shade700,
+        _label('Passport Expiry'),
+        const SizedBox(height: 8),
+        TextFormField(
+          controller: _passportExpiryController,
+          readOnly: true,
+          validator: _required('Passport expiry'),
+          style: const TextStyle(
+            color: _navy,
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
           ),
-        ),
-        SizedBox(height: context.gapSmall),
-        InkWell(
+          decoration: _inputDecoration(
+            hintText: 'Select date',
+            icon: Icons.calendar_today_outlined,
+          ),
           onTap: () async {
-            DateTime? pickedDate = await showDatePicker(
+            final pickedDate = await showDatePicker(
               context: context,
-              initialDate: DateTime.now(),
+              initialDate: DateTime.now().add(const Duration(days: 365)),
               firstDate: DateTime.now(),
-              lastDate: DateTime.now().add(const Duration(days: 365 * 10)),
+              lastDate: DateTime.now().add(const Duration(days: 365 * 20)),
+              builder: (context, child) {
+                return Theme(
+                  data: Theme.of(context).copyWith(
+                    colorScheme: const ColorScheme.light(
+                      primary: _blue,
+                      onPrimary: Colors.white,
+                      onSurface: _navy,
+                    ),
+                  ),
+                  child: child!,
+                );
+              },
             );
             if (pickedDate != null) {
-              controller.text = DateFormat('dd/MM/yyyy').format(pickedDate);
-              setState(() {});
+              _passportExpiryController.text = DateFormat(
+                'dd MMM yyyy',
+              ).format(pickedDate);
             }
           },
-          borderRadius: BorderRadius.circular(context.borderRadius),
-          child: Container(
-            padding: EdgeInsets.symmetric(
-              horizontal: context.gapMedium,
-              vertical: context.gapMedium,
-            ),
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.grey.shade300),
-              borderRadius: BorderRadius.circular(context.borderRadius),
-              color: Colors.grey.shade50,
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  controller.text.isEmpty ? "Select Date" : controller.text,
-                  style: TextStyle(
-                    color: controller.text.isEmpty ? Colors.grey.shade400 : Colors.black,
-                    fontSize: context.bodySmall,
-                  ),
-                ),
-                Icon(
-                  Icons.calendar_today_outlined,
-                  color: Colors.grey.shade600,
-                  size: context.iconSmall,
-                ),
-              ],
-            ),
-          ),
         ),
       ],
     );
   }
 
-  Widget _buildDateField(
-      BuildContext context, {
-        required String label,
-        required DateTime? value,
-        required VoidCallback onTap,
-      }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildRequiredTitle(context, label),
-        SizedBox(height: context.gapSmall),
-        InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(context.borderRadius),
-          child: Container(
-            padding: EdgeInsets.symmetric(
-              horizontal: context.gapMedium,
-              vertical: context.gapMedium,
-            ),
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.grey.shade300),
-              borderRadius: BorderRadius.circular(context.borderRadius),
-              color: Colors.grey.shade50,
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  value == null
-                      ? "Select Date"
-                      : DateFormat('dd MMM yyyy').format(value),
-                  style: TextStyle(
-                    color: value == null ? Colors.grey.shade400 : Colors.black,
-                    fontSize: context.bodySmall,
-                  ),
-                ),
-                Icon(
-                  Icons.calendar_today_outlined,
-                  color: Colors.grey.shade600,
-                  size: context.iconSmall,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
+  InputDecoration _inputDecoration({
+    required String hintText,
+    required IconData icon,
+  }) {
+    return InputDecoration(
+      hintText: hintText,
+      hintStyle: const TextStyle(
+        color: Color(0xFFB8BEC9),
+        fontSize: 14,
+        fontWeight: FontWeight.w600,
+      ),
+      prefixIcon: Icon(icon, color: _navy, size: 19),
+      filled: true,
+      fillColor: _fieldFill,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 15),
+      border: _outline(_border),
+      enabledBorder: _outline(_border),
+      focusedBorder: _outline(_blue, width: 1.5),
+      errorBorder: _outline(const Color(0xFFFFA4A4)),
+      focusedErrorBorder: _outline(const Color(0xFFFF4D4F), width: 1.5),
+      errorStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
     );
   }
 
-  bool validateForm() {
-    return _internalFormKey.currentState?.validate() ?? false;
+  OutlineInputBorder _outline(Color color, {double width = 1}) {
+    return OutlineInputBorder(
+      borderRadius: BorderRadius.circular(16),
+      borderSide: BorderSide(color: color, width: width),
+    );
   }
 
-  Map<String, dynamic> getTravellerData() {
-    return {
-      'firstName': _firstNameController.text,
-      'lastName': _lastNameController.text,
-      'email': _emailController.text,
-      'phone': _phoneController.text,
-      'gender': _genderController.text,
-      'nationality': _nationalityController.text,
-      'passport': _passportController.text,
-      'passportExpiry': _passportExpiryController.text,
-      'requiresWheelchair': _requiresWheelchair,
-      'destination': _destinationController.text,
-      'hotel': _hotelController.text,
-      'departureDate': widget.departureDate,
-      'returnDate': widget.returnDate,
+  String? Function(String?) _required(String label) {
+    return (value) {
+      if ((value ?? '').trim().isEmpty) return '$label is required';
+      return null;
     };
-  }
-}
-
-// Data class for traveler
-class TravellerData {
-  final String id;
-  String title;
-
-  TravellerData({
-    required this.id,
-    required this.title,
-  });
-}
-
-// Mixin for form validation and data access
-mixin TravellerFormMixin {
-  TextEditingController get firstNameController;
-  TextEditingController get lastNameController;
-  TextEditingController get emailController;
-  TextEditingController get phoneController;
-  TextEditingController get passportController;
-  TextEditingController get destinationController;
-  TextEditingController get hotelController;
-
-  bool validateForm() {
-    final formKey = (this is _TravellerInformationSectionState)
-        ? (this as _TravellerInformationSectionState)._internalFormKey
-        : null;
-
-    if (formKey != null) {
-      return formKey.currentState?.validate() ?? false;
-    }
-    return false;
-  }
-
-  Map<String, dynamic> getTravellerData() {
-    return {
-      'firstName': firstNameController.text,
-      'lastName': lastNameController.text,
-      'email': emailController.text,
-      'phone': phoneController.text,
-      'passport': passportController.text,
-      'destination': destinationController.text,
-      'hotel': hotelController.text,
-    };
-  }
-}
-
-// Global key for accessing form state from parent
-class TravellerFormState extends State<TravellerInformationSection> {
-  @override
-  Widget build(BuildContext context) {
-    return widget;
-  }
-
-  bool validateForm() {
-    final state = this.widget as TravellerInformationSection;
-    final internalState = state.formKey?.currentState;
-    if (internalState is _TravellerInformationSectionState) {
-      return internalState!.validateForm();
-    }
-    return false;
-  }
-
-  Map<String, dynamic> getTravellerData() {
-    final state = this.widget as TravellerInformationSection;
-    final internalState = state.formKey?.currentState;
-    if (internalState is _TravellerInformationSectionState) {
-      return internalState!.getTravellerData();
-    }
-    return {};
   }
 }

@@ -66,6 +66,7 @@ class VisaDestinationRepositoryImpl implements VisaDestinationRepository {
         popular: type.popular,
         validity: type.validity,
         processing: type.processing,
+        feesCurrency: type.feesCurrency,
       ))
           .toList(),
       priceIncludesHeading: model.priceIncludesHeading,

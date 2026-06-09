@@ -1,20 +1,30 @@
 class Urls {
-  // static const String baseUrl = 'http://192.168.1.37:8000/api/';
-  static const String baseUrl = 'https://thewandernova.com/api/';
-  // static const String basesUrl = 'http://192.168.1.37:8000/api';
-  static const String basesUrl = 'https://thewandernova.com/api';
+  static const String baseUrl = 'http://192.168.29.79:8001/api/';
+  // static const String baseUrl = 'https://thewandernova.com/api/';
+  static const String basesUrl = 'http://192.168.29.79:8001/api';
+  // static const String basesUrl = 'https://thewandernova.com/api';
 
   static const String airports = '$basesUrl/flights/airports';
   static const String flightSearch = '$basesUrl/tbo/Search/';
   static const String fareRule = '$basesUrl/tbo/FareRule/';
   static const String fareQuote = '$basesUrl/tbo/FareQuote/';
-  static const String googleAuth = '/auth/google/';
+  static const String googleAuth = '$basesUrl/auth/google/';
+  static const String googleLogin = '$basesUrl/auth/google_login/';
+  static const String appleAuth = '$basesUrl/auth/apple/';
+  static const String resetPassword = '$basesUrl/auth/reset-password/';
   static const String ssr = '$basesUrl/tbo/SSR/';
   static const String book = '$basesUrl/tbo/Book/';
   static const String ticket = '$basesUrl/tbo/Ticket/';
   static const String getBookingDetails = '$basesUrl/tbo/GetBookingDetails/';
   static const String razorpayCreateOrder = '${baseUrl}payments/razorpay/create-order/';
   static const String razorpayVerify = '${baseUrl}payments/razorpay/verify/';
+
+  // ----- CCAvenue (hosted checkout) -----
+  static const String ccavenueCreateCheckout = '${baseUrl}payments/ccavenue/create-checkout/';
+  static String ccavenueStatus(String orderId) => '${baseUrl}payments/ccavenue/status/$orderId/';
+
+  static const String ccavenueSuccessUrl = 'https://wandernova.com/payment/success';
+  static const String ccavenueFailureUrl = 'https://wandernova.com/payment/failed';
   static const String hotelsByCity = '$basesUrl/tbo-hotel/hotels-by-city/';
   static const String hotelDetails = '$basesUrl/tbo-hotel/hotel-details/';
   static const String hotelPrebook = '$basesUrl/tbo-hotel/prebook/';

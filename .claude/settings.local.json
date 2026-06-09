@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(flutter build *)",
+      "Bash(./gradlew assembleDebug)",
+      "Bash(xattr gradlew *)",
+      "Bash(java -version)",
+      "Bash(sh ./gradlew --version)",
+      "Bash(flutter analyze *)",
+      "Bash(sed -n '1,80p' lib/views/flight_destination/presentation/bloc/destination_event.dart)",
+      "Bash(sed -n '1,80p' lib/views/flight_destination/presentation/bloc/destination_state.dart)",
+      "Bash(head -n 819 lib/views/airport/presentation/screen/search_card.dart)",
+      "Bash(mv /tmp/sc.dart lib/views/airport/presentation/screen/search_card.dart)",
+      "Bash(flutter pub *)",
+      "Bash(grep -rm1 \"applicationId\" android/app/build.gradle)",
+      "Bash(keytool -list -v -alias androiddebugkey -keystore ~/.android/debug.keystore -storepass android -keypass android)"
+    ]
+  }
+}

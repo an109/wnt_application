@@ -130,9 +130,10 @@ class FlightModel extends FlightEntity {
     String? origin, String? originName, String? destination, String? destinationName,
     String? departureTime, String? arrivalTime, String? duration, String? cabinClass,
     double? baseFare, double? tax, double? totalFare, String? currency, int? seatsAvailable,
-    String? traceId, bool isRoundTrip = false, String? returnDepartureTime,
+    String? traceId, int? stops, bool isRoundTrip = false, String? returnDepartureTime,
     String? returnArrivalTime, String? returnDuration, String? returnOrigin,
     String? returnOriginName, String? returnDestination, String? returnDestinationName,
+    int? returnStops,
   }) : super(
     resultIndex: resultIndex, airlineCode: airlineCode, airlineName: airlineName,
     flightNumber: flightNumber, origin: origin, originName: originName,
@@ -140,10 +141,11 @@ class FlightModel extends FlightEntity {
     departureTime: departureTime, arrivalTime: arrivalTime, duration: duration,
     cabinClass: cabinClass, baseFare: baseFare, tax: tax, totalFare: totalFare,
     currency: currency, seatsAvailable: seatsAvailable, traceId: traceId,
-    isRoundTrip: isRoundTrip, returnDepartureTime: returnDepartureTime,
+    stops: stops, isRoundTrip: isRoundTrip, returnDepartureTime: returnDepartureTime,
     returnArrivalTime: returnArrivalTime, returnDuration: returnDuration,
     returnOrigin: returnOrigin, returnOriginName: returnOriginName,
     returnDestination: returnDestination, returnDestinationName: returnDestinationName,
+    returnStops: returnStops,
   );
 
   factory FlightModel.fromJson(Map<String, dynamic> json, {String? responseTraceId}) {
@@ -152,16 +154,23 @@ class FlightModel extends FlightEntity {
 
     Map<String, dynamic>? firstSegment;
     Map<String, dynamic>? returnSegment;
+    int? stops;
+    int? returnStops;
 
     // Check if it's a round trip (Segments array has more than 1 element)
     final isRoundTrip = segments != null && segments.length > 1;
 
     if (segments != null && segments.isNotEmpty && segments[0] is List && (segments[0] as List).isNotEmpty) {
-      firstSegment = (segments[0] as List).first as Map<String, dynamic>;
+      final outboundLegs = segments[0] as List;
+      firstSegment = outboundLegs.first as Map<String, dynamic>;
+      // Stops = number of connecting legs (non-stop when there is a single leg).
+      stops = outboundLegs.length - 1;
     }
 
-    if (isRoundTrip && segments![1] is List && (segments[1] as List).isNotEmpty) {
-      returnSegment = (segments[1] as List).first as Map<String, dynamic>;
+    if (isRoundTrip && segments[1] is List && (segments[1] as List).isNotEmpty) {
+      final returnLegs = segments[1] as List;
+      returnSegment = returnLegs.first as Map<String, dynamic>;
+      returnStops = returnLegs.length - 1;
     }
 
     final origin = firstSegment?['Origin'] as Map<String, dynamic>?;
@@ -193,6 +202,8 @@ class FlightModel extends FlightEntity {
       totalFare: (fare?['OfferedFare'] as num?)?.toDouble(),
       currency: fare?['Currency'] as String?,
       seatsAvailable: firstSegment?['NoOfSeatAvailable'] as int?,
+      stops: stops,
+      returnStops: returnStops,
       isRoundTrip: isRoundTrip,
       returnDepartureTime: returnOrigin?['DepTime'] as String?,
       returnArrivalTime: returnDestination?['ArrTime'] as String?,

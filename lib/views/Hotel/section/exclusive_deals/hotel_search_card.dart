@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
+import 'package:wander_nova/common_widgets/compact_date_picker_dialog.dart';
 import '../../../../injection_container.dart';
 import '../../../Hotel_Details/presentation/screens/widgets/room_config.dart';
 import '../../../Hotel_api/presentation/bloc/hotel_bloc.dart';
@@ -20,12 +21,16 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
   DateTime? _checkInDate;
   DateTime? _checkOutDate;
   DestinationEntity? _selectedDestination;
-  String _guestNationality = 'India';
+  static const _blue = Color(0xFF1769F6);
+  static const _navy = Color(0xFF071638);
+  static const _border = Color(0xFFE2E7F0);
+  static const _muted = Color(0xFF6B7280);
+
+  /// Guest nationality is resolved internally (defaults to India / 'IN').
+  /// It is not shown in the UI and will later be set based on the user's IP.
+  static const String _guestNationalityCode = 'IN';
 
   List<RoomConfig> _rooms = [RoomConfig()];
-
-  final FocusNode _destinationFocusNode = FocusNode();
-  final FocusNode _nationalityFocusNode = FocusNode();
 
   @override
   void initState() {
@@ -34,13 +39,6 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
     // Auto-select dates on initialization
     _checkInDate = DateTime.now();
     _checkOutDate = DateTime.now().add(const Duration(days: 1));
-  }
-
-  @override
-  void dispose() {
-    _destinationFocusNode.dispose();
-    _nationalityFocusNode.dispose();
-    super.dispose();
   }
 
   String _getRoomSummary() {
@@ -73,9 +71,7 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
               ),
               child: Container(
                 width: double.infinity,
-                constraints: BoxConstraints(
-                  maxHeight: context.h(480),
-                ),
+                constraints: BoxConstraints(maxHeight: context.h(480)),
                 child: Column(
                   children: [
                     _buildModalHeader(() {
@@ -102,16 +98,14 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
                       child: TextButton.icon(
                         onPressed: tempRooms.length < 5
                             ? () {
-                          setModalState(() {
-                            tempRooms.add(RoomConfig());
-                          });
-                        }
+                                setModalState(() {
+                                  tempRooms.add(RoomConfig());
+                                });
+                              }
                             : null,
                         icon: Icon(Icons.add_circle_outline),
                         label: Text('Add another room'),
-                        style: TextButton.styleFrom(
-                          foregroundColor: Colors.redAccent,
-                        ),
+                        style: TextButton.styleFrom(foregroundColor: _blue),
                       ),
                     ),
                     SizedBox(height: context.gapMedium),
@@ -129,9 +123,7 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
     return Container(
       padding: EdgeInsets.all(context.w(12)),
       decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(color: Colors.grey.shade200),
-        ),
+        border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -150,7 +142,7 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
           ElevatedButton(
             onPressed: onApply,
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.redAccent,
+              backgroundColor: _blue,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(context.r(8)),
               ),
@@ -163,10 +155,10 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
   }
 
   Widget _buildRoomConfigCard(
-      List<RoomConfig> rooms,
-      int index,
-      StateSetter setModalState,
-      ) {
+    List<RoomConfig> rooms,
+    int index,
+    StateSetter setModalState,
+  ) {
     RoomConfig room = rooms[index];
 
     return Container(
@@ -268,10 +260,12 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
                           ),
                         ),
                         items: List.generate(12, (i) => i + 1)
-                            .map((age) => DropdownMenuItem(
-                          value: age,
-                          child: Text('$age years'),
-                        ))
+                            .map(
+                              (age) => DropdownMenuItem(
+                                value: age,
+                                child: Text('$age years'),
+                              ),
+                            )
                             .toList(),
                         onChanged: (value) {
                           if (value != null) {
@@ -350,7 +344,7 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
                 width: context.w(32), // 32px on design
                 height: context.w(32), // 32px on design
                 decoration: BoxDecoration(
-                  color: Colors.redAccent,
+                  color: _blue,
                   borderRadius: BorderRadius.circular(context.r(8)),
                 ),
                 child: Icon(
@@ -366,31 +360,25 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
     );
   }
 
-  Future<void> _selectDate(
-      BuildContext context,
-      bool isCheckIn,
-      ) async {
-    final DateTime? picked = await showDatePicker(
+  Future<void> _selectDate(BuildContext context, bool isCheckIn) async {
+    final firstDate = isCheckIn
+        ? DateUtils.dateOnly(DateTime.now())
+        : DateUtils.dateOnly(_checkInDate ?? DateTime.now());
+    final rawInitial = isCheckIn
+        ? (_checkInDate ?? DateTime.now())
+        : (_checkOutDate ??
+              (_checkInDate ?? DateTime.now()).add(const Duration(days: 1)));
+    final initialDate = DateUtils.dateOnly(rawInitial);
+
+    final DateTime? picked = await showDialog<DateTime>(
       context: context,
-      initialDate: isCheckIn
-          ? (_checkInDate ?? DateTime.now())
-          : (_checkOutDate ?? DateTime.now().add(const Duration(days: 1))),
-      firstDate: DateTime.now(),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: ColorScheme.light(
-              primary: Theme.of(context).primaryColor,
-              onPrimary: Colors.white,
-              surface: Colors.white,
-              onSurface: Colors.black,
-            ),
-            dialogBackgroundColor: Colors.white,
-          ),
-          child: child!,
-        );
-      },
+      barrierDismissible: true,
+      builder: (dialogContext) => CompactDatePickerDialog(
+        initialDate: initialDate.isBefore(firstDate) ? firstDate : initialDate,
+        firstDate: firstDate,
+        lastDate: DateTime.now().add(const Duration(days: 365)),
+        accentColor: _blue,
+      ),
     );
 
     if (picked != null && mounted) {
@@ -471,7 +459,10 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
       return {
         'Adults': room.adults,
         'Children': room.children,
-        'ChildrenAges': List.generate(room.children, (childIndex) => room.childAges[childIndex]),
+        'ChildrenAges': List.generate(
+          room.children,
+          (childIndex) => room.childAges[childIndex],
+        ),
       };
     });
 
@@ -485,7 +476,7 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
             cityCode: cityCode,
             checkIn: checkInFormatted,
             checkOut: checkOutFormatted,
-            guestNationality: 'IN',
+            guestNationality: _guestNationalityCode,
             paxRooms: paxRooms,
           ),
         ),
@@ -497,38 +488,26 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.all(context.w(12)), // 12px on design
+      padding: EdgeInsets.all(context.w(12)),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(context.borderRadius),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: _border),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.12),
-            blurRadius: context.h(12), // 12px on design
-            offset: Offset(0, context.h(4)), // 4px on design
+            color: _navy.withValues(alpha: 0.06),
+            blurRadius: 24,
+            offset: const Offset(0, 14),
           ),
         ],
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          /// TOP TWO FIELDS
-          Row(
-            children: [
-              Expanded(
-                child: _buildNationalityField(context),
-              ),
-              Container(
-                width: context.dividerThin,
-                height: context.h(96), // 96px on design
-                color: Colors.grey.shade300,
-              ),
-              Expanded(
-                child: _buildDestinationField(context),
-              ),
-            ],
-          ),
+          /// DESTINATION (full width — guest nationality is resolved internally)
+          _buildDestinationField(context),
 
-          SizedBox(height: context.gapLarge),
+          _sectionDivider(context),
 
           /// DATE SECTION
           Row(
@@ -539,93 +518,38 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
                   title: 'Check-In',
                   date: _formatDate(_checkInDate),
                   day: _formatDay(_checkInDate),
+                  icon: Icons.calendar_today_outlined,
                   onTap: () => _selectDate(context, true),
                 ),
               ),
-              SizedBox(width: context.gapMedium),
+              Container(
+                width: context.w(1),
+                height: context.h(46),
+                margin: EdgeInsets.symmetric(horizontal: context.w(10)),
+                color: _border,
+              ),
               Expanded(
                 child: _buildDateField(
                   context,
                   title: 'Check-Out',
                   date: _formatDate(_checkOutDate),
                   day: _formatDay(_checkOutDate),
+                  icon: Icons.calendar_today_outlined,
                   onTap: () => _selectDate(context, false),
                 ),
               ),
             ],
           ),
 
-          SizedBox(height: context.gapLarge),
+          _sectionDivider(context),
 
-          /// ROOM + BUTTON
+          /// ROOM + SEARCH BUTTON
           Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Expanded(
-                child: GestureDetector(
-                  onTap: _showRoomSelectionModal,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'ROOMS & GUESTS',
-                        style: TextStyle(
-                          fontSize: context.labelMedium,
-                          color: Colors.grey.shade600,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      SizedBox(height: context.gapSmall),
-                      Text(
-                        _getRoomSummary(),
-                        style: TextStyle(
-                          fontSize: context.titleLarge,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      SizedBox(height: context.gapSmall),
-                      Text(
-                        'Tap to configure',
-                        style: TextStyle(
-                          fontSize: context.bodySmall,
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              SizedBox(width: context.gapMedium),
-              Expanded(
-                child: SizedBox(
-                  height: context.buttonHeight + context.h(10), // 10px extra
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.redAccent,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(context.borderRadius),
-                      ),
-                    ),
-                    onPressed: _onSearchPressed,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          'SEARCH',
-                          style: TextStyle(
-                            fontSize: context.labelLarge,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
-                        SizedBox(width: context.gapSmall),
-                        const Icon(Icons.search, color: Colors.white),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
+              Expanded(flex: 5, child: _buildRoomsField(context)),
+              SizedBox(width: context.w(12)),
+              Expanded(flex: 4, child: _buildSearchButton(context)),
             ],
           ),
         ],
@@ -633,140 +557,104 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
     );
   }
 
-  Widget _buildNationalityField(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: context.gapMedium),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'GUEST NATIONALITY'.toUpperCase(),
-                  style: TextStyle(
-                    fontSize: context.labelMedium,
-                    color: Colors.grey.shade600,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-              Icon(
-                Icons.keyboard_arrow_down,
-                size: context.iconMedium,
-                color: Colors.grey.shade600,
-              ),
-            ],
-          ),
-          SizedBox(height: context.gapSmall),
-          GestureDetector(
-            onTap: () => _showNationalityPicker(context),
-            child: Text(
-              _guestNationality,
-              style: TextStyle(
-                fontSize: context.titleLarge,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-          SizedBox(height: context.gapSmall),
-          Text(
-            'For rates & pricing',
-            style: TextStyle(
-              fontSize: context.bodySmall,
-              color: Colors.grey.shade600,
-            ),
-          ),
-        ],
+  Widget _sectionDivider(BuildContext context) {
+    return Divider(height: context.h(18), thickness: 0.7, color: _border);
+  }
+
+  /// Small rounded square that holds a leading icon (Image #3 style).
+  Widget _iconBox(BuildContext context, IconData icon) {
+    return Container(
+      width: 42,
+      height: 42,
+      decoration: BoxDecoration(
+        color: const Color(0xFFF1F5FF),
+        borderRadius: BorderRadius.circular(14),
       ),
+      child: Icon(icon, size: 20, color: _navy),
+    );
+  }
+
+  TextStyle _labelStyle(BuildContext context) {
+    return TextStyle(
+      fontSize: 12,
+      color: _muted,
+      fontWeight: FontWeight.w800,
+      letterSpacing: 0,
     );
   }
 
   Widget _buildDestinationField(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: context.gapMedium),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _iconBox(context, Icons.location_on_outlined),
+        SizedBox(width: context.w(10)),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: Text(
-                  'ENTER YOUR DESTINATION'.toUpperCase(),
-                  style: TextStyle(
-                    fontSize: context.labelMedium,
-                    color: Colors.grey.shade600,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-              Icon(
-                Icons.keyboard_arrow_down,
-                size: context.iconMedium,
-                color: Colors.grey.shade600,
+              Text('DESTINATION', style: _labelStyle(context)),
+              SizedBox(height: context.h(2)),
+              DestinationSearchField(
+                label: 'Enter destination',
+                hint: 'Select Destination...',
+                onDestinationSelected: (destination) {
+                  setState(() {
+                    _selectedDestination = destination;
+                  });
+                },
               ),
             ],
           ),
-          SizedBox(height: context.gapSmall),
-          DestinationSearchField(
-            label: 'Enter destination',
-            hint: 'Select Destination...',
-            onDestinationSelected: (destination) {
-              setState(() {
-                _selectedDestination = destination;
-              });
-            },
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
   Widget _buildDateField(
-      BuildContext context, {
-        required String title,
-        required String date,
-        required String day,
-        required VoidCallback onTap,
-      }) {
+    BuildContext context, {
+    required String title,
+    required String date,
+    required String day,
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
     return GestureDetector(
       onTap: onTap,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      behavior: HitTestBehavior.opaque,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Row(
-            children: [
-              Icon(
-                Icons.calendar_today_outlined,
-                size: context.iconSmall,
-                color: Colors.grey.shade600,
-              ),
-              SizedBox(width: context.gapSmall),
-              Text(
-                title.toUpperCase(),
-                style: TextStyle(
-                  fontSize: context.labelMedium,
-                  color: Colors.grey.shade600,
-                  fontWeight: FontWeight.w600,
+          _iconBox(context, icon),
+          SizedBox(width: context.w(10)),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title.toUpperCase(), style: _labelStyle(context)),
+                SizedBox(height: context.h(2)),
+                Text(
+                  date,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    color: date == 'Select Date'
+                        ? const Color(0xFFB8BEC9)
+                        : _navy,
+                  ),
                 ),
-              ),
-            ],
-          ),
-          SizedBox(height: context.gapSmall),
-          Text(
-            date,
-            style: TextStyle(
-              fontSize: context.titleLarge,
-              fontWeight: FontWeight.bold,
-              color: date == 'Select Date' ? Colors.grey.shade400 : Colors.black,
-            ),
-          ),
-          SizedBox(height: context.gapSmall),
-          Text(
-            day,
-            style: TextStyle(
-              fontSize: context.bodySmall,
-              color: Colors.grey.shade600,
+                if (day.isNotEmpty)
+                  Text(
+                    day,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: _muted,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+              ],
             ),
           ),
         ],
@@ -774,69 +662,78 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
     );
   }
 
-  void _showNationalityPicker(BuildContext context) {
-    final List<String> nationalities = [
-      'India',
-      'United States',
-      'United Kingdom',
-      'United Arab Emirates',
-      'Australia',
-      'Canada',
-      'Germany',
-      'France',
-      'Singapore',
-      'Malaysia',
-    ];
-
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Padding(
-                padding: EdgeInsets.all(context.w(12)), // 12px on design
-                child: Text(
-                  'Select Nationality',
+  Widget _buildRoomsField(BuildContext context) {
+    return GestureDetector(
+      onTap: _showRoomSelectionModal,
+      behavior: HitTestBehavior.opaque,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          _iconBox(context, Icons.king_bed_outlined),
+          SizedBox(width: context.w(10)),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('ROOMS & GUESTS', style: _labelStyle(context)),
+                SizedBox(height: context.h(2)),
+                Text(
+                  _getRoomSummary(),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: context.titleLarge,
-                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    color: _navy,
                   ),
                 ),
-              ),
-              const Divider(height: 1),
-              Expanded(
-                child: ListView.builder(
-                  itemCount: nationalities.length,
-                  itemBuilder: (context, index) {
-                    final nationality = nationalities[index];
-                    return ListTile(
-                      title: Text(nationality),
-                      trailing: _guestNationality == nationality
-                          ? Icon(
-                        Icons.check,
-                        color: Theme.of(context).primaryColor,
-                      )
-                          : null,
-                      onTap: () {
-                        setState(() {
-                          _guestNationality = nationality;
-                        });
-                        Navigator.pop(context);
-                      },
-                    );
-                  },
+                SizedBox(height: context.h(2)),
+                const Text(
+                  'Tap to configure',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: _muted,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        );
-      },
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSearchButton(BuildContext context) {
+    return SizedBox(
+      height: 48,
+      child: ElevatedButton(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: _blue,
+          elevation: 0,
+          padding: EdgeInsets.symmetric(horizontal: context.w(10)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+        onPressed: _onSearchPressed,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              'SEARCH',
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+                color: Colors.white,
+                letterSpacing: 0,
+              ),
+            ),
+            SizedBox(width: context.w(6)),
+            const Icon(Icons.search, color: Colors.white, size: 17),
+          ],
+        ),
+      ),
     );
   }
 }

@@ -4,7 +4,7 @@ class GoogleAuthResponseModel {
   final bool? success;
   final String? message;
   final UserEntity? user;
-  final Map<String, dynamic>? error;
+  final dynamic error; // can be a Map (validation errors) or a String
   final Map<String, dynamic>? tokens;
   final bool? created;
   final Map<String, dynamic>? rawData;
