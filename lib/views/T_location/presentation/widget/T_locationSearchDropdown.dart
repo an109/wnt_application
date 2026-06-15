@@ -12,6 +12,7 @@ class T_locationSearchTile extends StatefulWidget {
   final String? title;
   final String hint;
   final String initialSubtitle;
+  final T_locationEntity? initialLocation;
   final ValueChanged<T_locationEntity> onLocationSelected;
 
   const T_locationSearchTile({
@@ -19,6 +20,7 @@ class T_locationSearchTile extends StatefulWidget {
      this.title,
     required this.hint,
     required this.initialSubtitle,
+    this.initialLocation,
     required this.onLocationSelected,
   }) : super(key: key);
 
@@ -40,6 +42,25 @@ class _T_locationSearchTileState extends State<T_locationSearchTile> {
     super.initState();
     _bloc = sl<T_locationBloc>();
     _focusNode.addListener(_onFocusChange);
+    if (widget.initialLocation != null) {
+      _selectedLocation = widget.initialLocation;
+      _controller.text = widget.initialLocation!.label;
+    }
+  }
+
+  @override
+  void didUpdateWidget(T_locationSearchTile oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Reflect a prefilled value supplied asynchronously by the parent.
+    if (widget.initialLocation != oldWidget.initialLocation) {
+      if (widget.initialLocation != null) {
+        _selectedLocation = widget.initialLocation;
+        _controller.text = widget.initialLocation!.label;
+      } else {
+        _selectedLocation = null;
+        _controller.clear();
+      }
+    }
   }
 
   @override

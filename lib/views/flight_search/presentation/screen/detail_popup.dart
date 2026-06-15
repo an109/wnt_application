@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import 'package:wander_nova/views/flight_search/presentation/screen/booking_screen.dart';
@@ -643,22 +644,43 @@ class FlightDetailsPopup extends StatelessWidget {
     String code, {
     required double size,
   }) {
+    // Real airline logo from the Kiwi CDN (by IATA code), with a graceful
+    // fallback to the coloured initials badge when the logo is missing/offline.
+    final logoCode = airlineCode.trim().toUpperCase();
+
+    Widget initialsTile() => Container(
+          color: _airlineColor(code),
+          alignment: Alignment.center,
+          child: Text(
+            code.length > 2 ? code.substring(0, 2) : code,
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: context.fs(10),
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        );
+
     return Container(
       width: size,
       height: size,
-      decoration: BoxDecoration(
-        color: _airlineColor(code),
+      clipBehavior: Clip.antiAlias,
+      decoration: const BoxDecoration(
+        color: Colors.white,
         shape: BoxShape.circle,
       ),
-      alignment: Alignment.center,
-      child: Text(
-        code.length > 2 ? code.substring(0, 2) : code,
-        style: TextStyle(
-          color: Colors.white,
-          fontSize: context.fs(10),
-          fontWeight: FontWeight.w900,
-        ),
-      ),
+      child: logoCode.isEmpty
+          ? initialsTile()
+          : CachedNetworkImage(
+              imageUrl: 'https://images.kiwi.com/airlines/64/$logoCode.png',
+              fit: BoxFit.contain,
+              imageBuilder: (context, imageProvider) => Padding(
+                padding: EdgeInsets.all(context.w(3)),
+                child: Image(image: imageProvider, fit: BoxFit.contain),
+              ),
+              placeholder: (_, __) => initialsTile(),
+              errorWidget: (_, __, ___) => initialsTile(),
+            ),
     );
   }
 

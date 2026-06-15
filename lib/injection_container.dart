@@ -57,6 +57,16 @@ import 'package:wander_nova/views/Profile/domain/usecase/get_profile_usecase.dar
 import 'package:wander_nova/views/Profile/domain/usecase/patch_profile_usecase.dart';
 import 'package:wander_nova/views/Profile/domain/usecase/update_profile_usecase.dart';
 import 'package:wander_nova/views/Profile/presentation/bloc/profile_bloc.dart';
+import 'package:wander_nova/views/ReferCode/data/data_source/referral_api_service.dart';
+import 'package:wander_nova/views/ReferCode/data/repository/referral_repository_impl.dart';
+import 'package:wander_nova/views/ReferCode/domain/repository/referral_repository.dart';
+import 'package:wander_nova/views/ReferCode/domain/usecase/get_referral_usecase.dart';
+import 'package:wander_nova/views/ReferCode/presentation/bloc/referral_bloc.dart';
+import 'package:wander_nova/views/ReferCredit/data/data_source/transaction_api_service.dart';
+import 'package:wander_nova/views/ReferCredit/data/repository/transaction_repository_impl.dart';
+import 'package:wander_nova/views/ReferCredit/domain/repository/transaction_repository.dart';
+import 'package:wander_nova/views/ReferCredit/domain/usecase/get_transaction_usecase.dart';
+import 'package:wander_nova/views/ReferCredit/presentation/bloc/transaction_bloc.dart';
 import 'package:wander_nova/views/TPoll_Search/data/data_source/TPoll_Search_api-service.dart';
 import 'package:wander_nova/views/TPoll_Search/data/repository/TPoll_search_repository_impl.dart';
 import 'package:wander_nova/views/TPoll_Search/domain/repository/TPoll_Search_repository.dart';
@@ -102,6 +112,11 @@ import 'package:wander_nova/views/Visa_popularDestinaton/data/repository/visa_de
 import 'package:wander_nova/views/Visa_popularDestinaton/domain/repository/visa_destination_repository.dart';
 import 'package:wander_nova/views/Visa_popularDestinaton/domain/usecase/get_visa_destination_usecase.dart';
 import 'package:wander_nova/views/Visa_popularDestinaton/presentation/bloc/visa_destination_bloc.dart';
+import 'package:wander_nova/views/WalletStatus/data/data_source/loyality_api_service.dart';
+import 'package:wander_nova/views/WalletStatus/data/repository/loyality_repository_impl.dart';
+import 'package:wander_nova/views/WalletStatus/domain/repository/loyality_repository.dart';
+import 'package:wander_nova/views/WalletStatus/domain/usecase/get_loyality_usecase.dart';
+import 'package:wander_nova/views/WalletStatus/presentation/bloc/loyalty_bloc.dart';
 import 'package:wander_nova/views/airport/data/data_source/airport_api_service.dart';
 import 'package:wander_nova/views/airport/data/repository/airport_repositories_impl.dart';
 import 'package:wander_nova/views/airport/domain/repository/airport_repositories.dart';
@@ -266,6 +281,9 @@ Future<void> initializeDependencies() async {
   sl.registerFactory<ProfileApiService>(() => ProfileApiServiceImpl(sl<DioClient>().instance));
   sl.registerFactory<MyBookingApiService>(() => MyBookingApiServiceImpl(sl<DioClient>().instance));
   sl.registerFactory<UpcomingTripApiService>(() => UpcomingTripApiServiceImpl(sl<DioClient>().instance));
+  sl.registerFactory<ReferralApiService>(() => ReferralApiServiceImpl(sl<DioClient>().instance));
+  sl.registerFactory<LoyaltyApiService>(() => LoyaltyApiServiceImpl(sl<DioClient>().instance));
+  sl.registerFactory<TransactionApiService>(() => TransactionApiServiceImpl(sl<DioClient>().instance));
 
 
 
@@ -311,6 +329,10 @@ Future<void> initializeDependencies() async {
   sl.registerLazySingleton<ProfileRepository>(() => ProfileRepositoryImpl(sl<ProfileApiService>()));
   sl.registerLazySingleton<MyBookingRepository>(() => MyBookingRepositoryImpl(sl<MyBookingApiService>(), sl<PreferencesManager>()));
   sl.registerLazySingleton<UpcomingTripRepository>(() => UpcomingTripRepositoryImpl(apiService: sl<UpcomingTripApiService>()));
+  sl.registerLazySingleton<ReferralRepository>(() => ReferralRepositoryImpl(sl()),);
+  sl.registerLazySingleton<LoyaltyRepository>(() => LoyaltyRepositoryImpl(sl()));
+  sl.registerLazySingleton<TransactionRepository>(() => TransactionRepositoryImpl(sl()),);
+
 
 
 
@@ -362,6 +384,9 @@ Future<void> initializeDependencies() async {
   sl.registerLazySingleton<PatchProfileUseCase>(() => PatchProfileUseCase(sl()));
   sl.registerLazySingleton<GetBookingsUseCase>(() => GetBookingsUseCase(sl<MyBookingRepository>()));
   sl.registerLazySingleton<GetUpcomingTripsUseCase>(() => GetUpcomingTripsUseCase(sl<UpcomingTripRepository>()));
+  sl.registerLazySingleton<GetReferralUseCase>(() => GetReferralUseCase(sl()));
+  sl.registerLazySingleton<GetUserLoyaltyUseCase>(() => GetUserLoyaltyUseCase(sl()));
+  sl.registerLazySingleton<GetTransactionsUseCase>(() => GetTransactionsUseCase(sl<TransactionRepository>()));
 
 
 
@@ -414,5 +439,10 @@ Future<void> initializeDependencies() async {
       patchProfileUseCase: sl<PatchProfileUseCase>()));
   sl.registerFactory(() => MyBookingBloc(sl<GetBookingsUseCase>()));
   sl.registerFactory<UpcomingTripBloc>(() => UpcomingTripBloc(getUpcomingTripsUseCase: sl<GetUpcomingTripsUseCase>()));
+  sl.registerFactory<ReferralBloc>(() => ReferralBloc(sl()));
+  sl.registerFactory<LoyaltyBloc>(() => LoyaltyBloc(sl()));
+  sl.registerFactory<TransactionBloc>(() => TransactionBloc(getTransactionsUseCase: sl()));
+
+
 
 }

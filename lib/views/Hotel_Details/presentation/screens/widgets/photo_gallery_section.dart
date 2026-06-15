@@ -83,35 +83,35 @@ class _PhotoGallerySectionState extends State<PhotoGallerySection> {
             ),
           ),
         ),
-        Positioned(
-          top: context.h(12),
-          left: context.w(12),
-          child: Container(
-            padding: EdgeInsets.symmetric(
-              horizontal: context.w(10),
-              vertical: context.h(6),
-            ),
-            decoration: BoxDecoration(
-              color: Colors.amber,
-              borderRadius: BorderRadius.circular(context.r(6)),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.star, color: Colors.white, size: context.w(14)),
-                SizedBox(width: context.w(4)),
-                Text(
-                  '${widget.rating} Star',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                    fontSize: context.fs(11),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
+        // Positioned(
+        //   top: context.h(12),
+        //   left: context.w(12),
+        //   child: Container(
+        //     padding: EdgeInsets.symmetric(
+        //       horizontal: context.w(10),
+        //       vertical: context.h(6),
+        //     ),
+        //     decoration: BoxDecoration(
+        //       color: Colors.amber,
+        //       borderRadius: BorderRadius.circular(context.r(6)),
+        //     ),
+        //     child: Row(
+        //       mainAxisSize: MainAxisSize.min,
+        //       children: [
+        //         Icon(Icons.star, color: Colors.white, size: context.w(14)),
+        //         SizedBox(width: context.w(4)),
+        //         Text(
+        //           '${widget.rating} Star',
+        //           style: TextStyle(
+        //             color: Colors.white,
+        //             fontWeight: FontWeight.w600,
+        //             fontSize: context.fs(11),
+        //           ),
+        //         ),
+        //       ],
+        //     ),
+        //   ),
+        // ),
         Positioned(
           top: context.h(12),
           right: context.w(12),

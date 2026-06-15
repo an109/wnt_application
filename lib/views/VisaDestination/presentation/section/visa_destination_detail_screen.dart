@@ -42,8 +42,8 @@ class _VisaDestinationDetailPageState
     final sourceCurrency = widget.destination.visaTypes.isNotEmpty
         ? widget.destination.visaTypes.first.feesCurrency
         : (widget.destination.priceCurrency.isNotEmpty
-            ? widget.destination.priceCurrency
-            : 'USD');
+        ? widget.destination.priceCurrency
+        : 'USD');
     final rate = await CurrencyService.instance.getRate(sourceCurrency, preferred);
     if (!mounted) return;
     setState(() {
@@ -66,7 +66,8 @@ class _VisaDestinationDetailPageState
       converted = amount.toDouble() * _conversionRate;
     }
     final formatted = converted.toStringAsFixed(converted % 1 == 0 ? 0 : 2);
-    return '$_preferredSymbol$formatted';
+    return '$formatted';
+    // return '$_preferredSymbol$formatted';
   }
 
   @override
@@ -82,10 +83,10 @@ class _VisaDestinationDetailPageState
         backgroundColor: Colors.white,
         actions: [
           Padding(
-            padding: EdgeInsets.all(context.wp(2)),
+            padding: EdgeInsets.all(context.w(2)), // Was: context.wp(2)
             child: Image.asset(
               "assets/images/wander_logo.png",
-              height: context.hp(4.5),
+              height: context.h(4.5), // Was: context.hp(4.5)
             ),
           )
         ],
@@ -107,7 +108,7 @@ class _VisaDestinationDetailPageState
         child: SafeArea(
           top: false,
           child: SizedBox(
-            height: 46,
+            height: context.h(46),
             child: ElevatedButton(
               onPressed: () {
                 showModalBottomSheet(
@@ -118,7 +119,7 @@ class _VisaDestinationDetailPageState
                     destinationName: widget.destination.name,
                     price: widget.destination.price,
                     currency: widget.destination.priceCurrency,
-                    visaTypes: widget.destination.visaTypes,  // ← Pass the actual visa types
+                    visaTypes: widget.destination.visaTypes,
                     onSuccess: () {
                       // Optional: Refresh data or show confirmation
                     },
@@ -129,13 +130,13 @@ class _VisaDestinationDetailPageState
                 elevation: 0,
                 backgroundColor: const Color(0xff0D47A1),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(context.r(10)),
                 ),
               ),
-              child: const Text(
+              child: Text(
                 "Apply Visa",
                 style: TextStyle(
-                  fontSize: 13,
+                  fontSize: context.fs(13),
                   fontWeight: FontWeight.w700,
                   color: Colors.white,
                 ),
@@ -165,13 +166,13 @@ class _VisaDestinationDetailPageState
             if (widget.destination.VisaIntroParagraph?.isNotEmpty == true)
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
+                  padding: EdgeInsets.fromLTRB(context.w(12), context.h(10), context.w(12), context.h(4)),
                   child: Text(
                     widget.destination.VisaIntroParagraph!,
-                    style: const TextStyle(
-                      fontSize: 12,
+                    style: TextStyle(
+                      fontSize: context.fs(12),
                       height: 1.5,
-                      color: Color(0xff4B5563),
+                      color: const Color(0xff4B5563),
                     ),
                   ),
                 ),
@@ -212,7 +213,7 @@ class _VisaDestinationDetailPageState
                   "Application review",
                   "Receive approved visa",
                 ],
-                iconColor: Color(0xff0D47A1),
+                iconColor: const Color(0xff0D47A1),
               ),
             ),
 
@@ -229,7 +230,7 @@ class _VisaDestinationDetailPageState
                   "Can I track my application?",
                   "Will I get refund if rejected?",
                 ],
-                iconColor: Color(0xffFF6B00),
+                iconColor: const Color(0xffFF6B00),
               ),
             ),
 
@@ -296,9 +297,9 @@ class _VisaDestinationDetailPageState
 
               /// CONTENT
               Positioned(
-                left: 14,
-                right: 14,
-                bottom: 14,
+                left: context.w(14),
+                right: context.w(14),
+                bottom: context.h(14),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -306,7 +307,7 @@ class _VisaDestinationDetailPageState
                     /// COUNTRY
                     Text(
                       "${widget.destination.name} Visa",
-                      style:  TextStyle(
+                      style: TextStyle(
                         color: Colors.white,
                         fontSize: context.fs(24),
                         fontWeight: FontWeight.w800,
@@ -314,19 +315,19 @@ class _VisaDestinationDetailPageState
                       ),
                     ),
 
-                    const SizedBox(height: 6),
+                    SizedBox(height: context.h(6)),
 
                     /// REGION
                     Text(
                       widget.destination.region,
                       style: TextStyle(
                         color: Colors.white.withOpacity(0.9),
-                        fontSize: 12,
+                        fontSize: context.fs(12),
                         fontWeight: FontWeight.w500,
                       ),
                     ),
 
-                    const SizedBox(height: 14),
+                    SizedBox(height: context.h(14)),
 
                     /// INFO ROW
                     Row(
@@ -340,7 +341,7 @@ class _VisaDestinationDetailPageState
                           ),
                         ),
 
-                        const SizedBox(width: 10),
+                        SizedBox(width: context.w(10)),
 
                         Expanded(
                           child: _heroMiniCard(
@@ -348,6 +349,7 @@ class _VisaDestinationDetailPageState
                             title: "Starting From",
                             value: _formatVisaPrice(
                               double.tryParse(widget.destination.price) ?? 0,
+                              sourceCurrency: widget.destination.priceCurrency,
                             ),
                           ),
                         ),
@@ -369,13 +371,13 @@ class _VisaDestinationDetailPageState
     required String value,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 10,
-        vertical: 10,
+      padding: EdgeInsets.symmetric(
+        horizontal: context.w(10),
+        vertical: context.h(10),
       ),
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.14),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(context.r(14)),
         border: Border.all(
           color: Colors.white.withOpacity(0.15),
         ),
@@ -384,20 +386,20 @@ class _VisaDestinationDetailPageState
         children: [
 
           Container(
-            width: 30,
-            height: 30,
+            width: context.w(30),
+            height: context.w(30),
             decoration: BoxDecoration(
               color: Colors.white.withOpacity(0.16),
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(context.r(10)),
             ),
             child: Icon(
               icon,
               color: Colors.white,
-              size: 16,
+              size: context.iconSmall,
             ),
           ),
 
-          const SizedBox(width: 8),
+          SizedBox(width: context.w(8)),
 
           Expanded(
             child: Column(
@@ -410,67 +412,24 @@ class _VisaDestinationDetailPageState
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: Colors.white.withOpacity(0.8),
-                    fontSize: 10,
+                    fontSize: context.fs(10),
                     fontWeight: FontWeight.w500,
                   ),
                 ),
 
-                const SizedBox(height: 2),
+                SizedBox(height: context.h(2)),
 
                 Text(
                   value,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: Colors.white,
-                    fontSize: 12,
+                    fontSize: context.fs(12),
                     fontWeight: FontWeight.w700,
                   ),
                 ),
               ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _smallInfoTile({
-    required String title,
-    required String value,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 10,
-        vertical: 8,
-      ),
-      decoration: BoxDecoration(
-        color: const Color(0xffF4F7FB),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: 10,
-              color: Colors.grey.shade600,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-
-          const SizedBox(height: 3),
-
-          Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              color: Color(0xff0D1B3D),
             ),
           ),
         ],
@@ -487,9 +446,9 @@ class _VisaDestinationDetailPageState
     ];
 
     return Container(
-      height: 46,
+      height: context.h(46),
       color: Colors.white,
-      padding: const EdgeInsets.symmetric(horizontal: 10),
+      padding: EdgeInsets.symmetric(horizontal: context.w(10)),
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         itemCount: tabs.length,
@@ -504,22 +463,22 @@ class _VisaDestinationDetailPageState
             },
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 220),
-              margin: const EdgeInsets.only(right: 10, top: 6, bottom: 6),
-              padding: const EdgeInsets.symmetric(
-                horizontal: 14,
-                vertical: 6,
+              margin: EdgeInsets.only(right: context.w(10), top: context.h(6), bottom: context.h(6)),
+              padding: EdgeInsets.symmetric(
+                horizontal: context.w(14),
+                vertical: context.h(6),
               ),
               decoration: BoxDecoration(
                 color: selected
                     ? const Color(0xff0D47A1)
                     : const Color(0xffF1F5F9),
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(context.r(20)),
               ),
               child: Center(
                 child: Text(
                   tabs[index],
                   style: TextStyle(
-                    fontSize: 11,
+                    fontSize: context.fs(11),
                     fontWeight: FontWeight.w600,
                     color: selected
                         ? Colors.white
@@ -536,25 +495,25 @@ class _VisaDestinationDetailPageState
 
   Widget _buildVisaTypes() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
+      padding: EdgeInsets.fromLTRB(context.w(12), context.h(10), context.w(12), 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
 
-          const Text(
+          Text(
             "Types Of Visa",
             style: TextStyle(
-              fontSize: 16,
+              fontSize: context.fs(16),
               fontWeight: FontWeight.w700,
-              color: Color(0xff0D1B3D),
+              color: const Color(0xff0D1B3D),
             ),
           ),
 
-          const SizedBox(height: 10),
+          SizedBox(height: context.h(10)),
 
           ...widget.destination.visaTypes.map(
                 (visa) => Padding(
-              padding: const EdgeInsets.only(bottom: 10),
+              padding: EdgeInsets.only(bottom: context.h(10)),
               child: _compactVisaCard(visa),
             ),
           ),
@@ -566,10 +525,10 @@ class _VisaDestinationDetailPageState
 
   Widget _compactVisaCard(VisaTypeEntity visa) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: EdgeInsets.all(context.w(12)),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(context.r(12)),
         border: Border.all(
           color: visa.popular
               ? const Color(0xff0D47A1)
@@ -589,28 +548,28 @@ class _VisaDestinationDetailPageState
                   visa.title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 14,
+                  style: TextStyle(
+                    fontSize: context.fs(14),
                     fontWeight: FontWeight.w700,
-                    color: Color(0xff0D1B3D),
+                    color: const Color(0xff0D1B3D),
                   ),
                 ),
               ),
 
               if (visa.popular)
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 7,
-                    vertical: 3,
+                  padding: EdgeInsets.symmetric(
+                    horizontal: context.w(7),
+                    vertical: context.h(3),
                   ),
                   decoration: BoxDecoration(
                     color: const Color(0xff0D47A1),
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(context.r(20)),
                   ),
-                  child: const Text(
+                  child: Text(
                     "Popular",
                     style: TextStyle(
-                      fontSize: 9,
+                      fontSize: context.fs(9),
                       color: Colors.white,
                       fontWeight: FontWeight.w600,
                     ),
@@ -619,12 +578,12 @@ class _VisaDestinationDetailPageState
             ],
           ),
 
-          const SizedBox(height: 8),
+          SizedBox(height: context.h(8)),
 
           /// DETAILS
           Wrap(
-            spacing: 10,
-            runSpacing: 4,
+            spacing: context.w(10),
+            runSpacing: context.h(4),
             children: [
 
               _miniText("Stay", visa.stay),
@@ -634,7 +593,7 @@ class _VisaDestinationDetailPageState
             ],
           ),
 
-          const SizedBox(height: 10),
+          SizedBox(height: context.h(10)),
 
           /// PRICE
           Row(
@@ -651,30 +610,6 @@ class _VisaDestinationDetailPageState
                 ),
               ),
 
-              // SizedBox(
-              //   height: 34,
-              //   child: ElevatedButton(
-              //     onPressed: () {},
-              //     style: ElevatedButton.styleFrom(
-              //       elevation: 0,
-              //       backgroundColor: const Color(0xff0D47A1),
-              //       padding: const EdgeInsets.symmetric(
-              //         horizontal: 14,
-              //       ),
-              //       shape: RoundedRectangleBorder(
-              //         borderRadius: BorderRadius.circular(8),
-              //       ),
-              //     ),
-              //     child: const Text(
-              //       "Apply",
-              //       style: TextStyle(
-              //         fontSize: 11,
-              //         fontWeight: FontWeight.w600,
-              //         color: Colors.white,
-              //       ),
-              //     ),
-              //   ),
-              // ),
             ],
           )
         ],
@@ -694,7 +629,7 @@ class _VisaDestinationDetailPageState
           TextSpan(
             text: "$title: ",
             style: TextStyle(
-              fontSize: 11,
+              fontSize: context.fs(11),
               color: Colors.grey.shade500,
               fontWeight: FontWeight.w500,
             ),
@@ -702,9 +637,9 @@ class _VisaDestinationDetailPageState
 
           TextSpan(
             text: value,
-            style: const TextStyle(
-              fontSize: 11,
-              color: Color(0xff0D1B3D),
+            style: TextStyle(
+              fontSize: context.fs(11),
+              color: const Color(0xff0D1B3D),
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -724,11 +659,11 @@ class _VisaDestinationDetailPageState
     required Color iconColor,
   }) {
     return Container(
-      margin: const EdgeInsets.fromLTRB(12, 10, 12, 0),
-      padding: const EdgeInsets.all(12),
+      margin: EdgeInsets.fromLTRB(context.w(12), context.h(10), context.w(12), 0),
+      padding: EdgeInsets.all(context.w(12)),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(context.r(12)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -739,50 +674,50 @@ class _VisaDestinationDetailPageState
 
               Icon(
                 icon,
-                size: 18,
+                size: context.iconMedium,
                 color: iconColor,
               ),
 
-              const SizedBox(width: 8),
+              SizedBox(width: context.w(8)),
 
               Text(
                 title,
-                style: const TextStyle(
-                  fontSize: 15,
+                style: TextStyle(
+                  fontSize: context.fs(15),
                   fontWeight: FontWeight.w700,
-                  color: Color(0xff0D1B3D),
+                  color: const Color(0xff0D1B3D),
                 ),
               ),
             ],
           ),
 
-          const SizedBox(height: 12),
+          SizedBox(height: context.h(12)),
 
           ...items.map(
                 (e) => Padding(
-              padding: const EdgeInsets.only(bottom: 8),
+              padding: EdgeInsets.only(bottom: context.h(8)),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
 
                   Padding(
-                    padding: const EdgeInsets.only(top: 3),
+                    padding: EdgeInsets.only(top: context.h(3)),
                     child: Icon(
                       Icons.check_circle,
-                      size: 14,
+                      size: context.iconSmall,
                       color: iconColor,
                     ),
                   ),
 
-                  const SizedBox(width: 8),
+                  SizedBox(width: context.w(8)),
 
                   Expanded(
                     child: Text(
                       e,
-                      style: const TextStyle(
-                        fontSize: 12,
+                      style: TextStyle(
+                        fontSize: context.fs(12),
                         height: 1.4,
-                        color: Color(0xff374151),
+                        color: const Color(0xff374151),
                       ),
                     ),
                   ),

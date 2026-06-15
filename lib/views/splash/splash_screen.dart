@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-
 import '../../UI_helper/navigation_queue.dart';
 import '../../UI_helper/responsive_layout.dart';
 import '../home/presentation/screens/home_screen.dart';
@@ -27,7 +26,7 @@ class _SplashScreenState extends State<SplashScreen>
 
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 3800),
+      duration: const Duration(milliseconds: 2800),
     );
 
     _controller.forward();
@@ -73,33 +72,83 @@ class _SplashScreenState extends State<SplashScreen>
     super.dispose();
   }
 
+  Widget _loadingDots() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: List.generate(
+        3,
+            (index) => Container(
+          margin: const EdgeInsets.symmetric(horizontal: 4),
+          width: 8,
+          height: 8,
+          decoration: const BoxDecoration(
+            shape: BoxShape.circle,
+            color: Colors.black,
+          ),
+        )
+            .animate(
+          onPlay: (controller) => controller.repeat(),
+          delay: Duration(milliseconds: index * 200),
+        )
+            .scale(
+          begin: const Offset(0.5, 0.5),
+          end: const Offset(1.0, 1.0),
+          duration: 600.ms,
+        )
+            .then()
+            .scale(
+          begin: const Offset(1.0, 1.0),
+          end: const Offset(0.5, 0.5),
+          duration: 600.ms,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      body: Center(
-        child: AnimatedBuilder(
-          animation: _controller,
-          builder: (context, child) {
-            final t = Curves.easeInOutCubic.transform(_controller.value);
+      body: Stack(
+        children:[
+          Center(
+          child: AnimatedBuilder(
+            animation: _controller,
+            builder: (context, child) {
+              final t = Curves.easeInOutCubic.transform(_controller.value);
 
-            // smooth zoom progression
-            final scale = 0.6 + (t * 2.5);
+              // smooth zoom progression
+              final scale = 0.6 + (t * 2);
 
-            return Transform.scale(
-              scale: scale,
-              child: Opacity(
-                opacity: (1.0 - (_controller.value * 0.6)).clamp(0.0, 1.0),
-                child: Image.asset(
-                  'assets/images/wander_nova_logo.jpg',
-                  height: context.h(180), // 180px on design
-                  fit: BoxFit.contain,
-                  filterQuality: FilterQuality.high,
+              return Transform.scale(
+                scale: scale,
+                child: Opacity(
+                  opacity: (1.0 - (_controller.value * 0.6)).clamp(0.0, 1.0),
+                  child: Image.asset(
+                    'assets/images/wander_nova_logo.jpg',
+                    height: context.h(150),
+                    fit: BoxFit.contain,
+                    filterQuality: FilterQuality.high,
+                  ),
                 ),
-              ),
-            );
-          },
+              );
+            },
+          ),
+
         ),
+          // Positioned(
+          //   bottom: 70,
+          //   left: 40,
+          //   right: 40,
+          //   child: ClipRRect(
+          //     borderRadius: BorderRadius.circular(20),
+          //     child: LinearProgressIndicator(
+          //       minHeight: 4,
+          //       backgroundColor: Colors.grey.shade200,
+          //     ),
+          //   ),
+          // ),
+        ],
       ),
     );
   }

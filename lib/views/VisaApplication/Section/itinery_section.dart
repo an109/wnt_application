@@ -1,5 +1,5 @@
-// itinerary_section.dart
 import 'package:flutter/material.dart';
+import 'package:wander_nova/UI_helper/responsive_layout.dart';
 
 class ItinerarySection extends StatefulWidget {
   final int stepNumber;
@@ -100,8 +100,8 @@ class _ItinerarySectionState extends State<ItinerarySection> with SingleTickerPr
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8, offset: const Offset(0, 2))],
+        borderRadius: BorderRadius.circular(context.r(8)),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: context.w(8), offset: Offset(0, context.h(2)))],
       ),
       child: Column(
         children: [
@@ -111,7 +111,7 @@ class _ItinerarySectionState extends State<ItinerarySection> with SingleTickerPr
             },
             borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
             child: Container(
-              padding: const EdgeInsets.all(12),
+              padding: EdgeInsets.all(context.w(12)),
               decoration: BoxDecoration(
                 color: widget.isActive ? const Color(0xffE3F2FD) : widget.isCompleted ? Colors.green.shade50 : Colors.white,
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
@@ -119,25 +119,25 @@ class _ItinerarySectionState extends State<ItinerarySection> with SingleTickerPr
               child: Row(
                 children: [
                   Container(
-                    width: 24,
-                    height: 24,
+                    width: context.w(24),
+                    height: context.w(24),
                     decoration: BoxDecoration(
                       color: widget.isCompleted ? Colors.green : widget.isActive ? const Color(0xff0D47A1) : Colors.grey.shade300,
                       shape: BoxShape.circle,
                     ),
                     child: Center(
                       child: widget.isCompleted
-                          ? const Icon(Icons.check, size: 12, color: Colors.white)
-                          : Text('${widget.stepNumber}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.white)),
+                          ? Icon(Icons.check, size: context.iconXSmall, color: Colors.white)
+                          : Text('${widget.stepNumber}', style: TextStyle(fontSize: context.fs(11), fontWeight: FontWeight.w600, color: Colors.white)),
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  const Expanded(child: Text('Itinerary', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600))),
+                  SizedBox(width: context.w(8)),
+                  Expanded(child: Text('Itinerary', style: TextStyle(fontSize: context.fs(12), fontWeight: FontWeight.w600))),
                   AnimatedRotation(
                     turns: _isExpanded ? 0.5 : 0.0,
                     duration: const Duration(milliseconds: 200),
                     curve: Curves.easeInOut,
-                    child: Icon(Icons.keyboard_arrow_down, size: 20, color: Colors.grey.shade600),
+                    child: Icon(Icons.keyboard_arrow_down, size: context.iconMedium, color: Colors.grey.shade600),
                   ),
                 ],
               ),
@@ -157,34 +157,34 @@ class _ItinerarySectionState extends State<ItinerarySection> with SingleTickerPr
 
   Widget _buildForm() {
     return Padding(
-      padding: const EdgeInsets.all(12),
+      padding: EdgeInsets.all(context.w(12)),
       child: Form(
         key: _formKey,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildVisaTypeDropdown(),
-            const SizedBox(height: 12),
+            SizedBox(height: context.h(12)),
             Row(
               children: [
                 Expanded(child: _buildDateField(label: 'Onward Date *', date: _onwardDate, onTap: () => _selectDate(true))),
-                const SizedBox(width: 8),
+                SizedBox(width: context.w(8)),
                 Expanded(child: _buildDateField(label: 'Return Date *', date: _returnDate, onTap: () => _selectDate(false))),
               ],
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: context.h(12)),
             _buildTravellersDropdown(),
-            const SizedBox(height: 16),
+            SizedBox(height: context.h(16)),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: _onContinue,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xff0D47A1),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(context.r(6))),
+                  padding: EdgeInsets.symmetric(vertical: context.h(10)),
                 ),
-                child: const Text('CONTINUE', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white)),
+                child: Text('CONTINUE', style: TextStyle(fontSize: context.fs(11), fontWeight: FontWeight.w700, color: Colors.white)),
               ),
             ),
           ],
@@ -197,18 +197,18 @@ class _ItinerarySectionState extends State<ItinerarySection> with SingleTickerPr
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Visa type *', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w500)),
-        const SizedBox(height: 4),
+        Text('Visa type *', style: TextStyle(fontSize: context.fs(10), fontWeight: FontWeight.w500)),
+        SizedBox(height: context.h(4)),
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10),
-          decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(6), border: Border.all(color: Colors.grey.shade200)),
+          padding: EdgeInsets.symmetric(horizontal: context.w(10)),
+          decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(context.r(6)), border: Border.all(color: Colors.grey.shade200)),
           child: DropdownButtonHideUnderline(
             child: DropdownButton<String>(
               value: _selectedVisaType,
               isExpanded: true,
-              icon: const Icon(Icons.arrow_drop_down, size: 14),
+              icon: Icon(Icons.arrow_drop_down, size: context.iconSmall),
               items: widget.visaType != null
-                  ? [DropdownMenuItem<String>(value: widget.visaType.title, child: Text(widget.visaType.title, style: const TextStyle(fontSize: 11)))]
+                  ? [DropdownMenuItem<String>(value: widget.visaType.title, child: Text(widget.visaType.title, style: TextStyle(fontSize: context.fs(11))))]
                   : [],
               onChanged: null,
             ),
@@ -222,18 +222,18 @@ class _ItinerarySectionState extends State<ItinerarySection> with SingleTickerPr
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w500)),
-        const SizedBox(height: 4),
+        Text(label, style: TextStyle(fontSize: context.fs(10), fontWeight: FontWeight.w500)),
+        SizedBox(height: context.h(4)),
         InkWell(
           onTap: onTap,
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(6), border: Border.all(color: Colors.grey.shade200)),
+            padding: EdgeInsets.symmetric(horizontal: context.w(10), vertical: context.h(8)),
+            decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(context.r(6)), border: Border.all(color: Colors.grey.shade200)),
             child: Row(
               children: [
-                Icon(Icons.calendar_today, size: 14, color: Colors.grey.shade600),
-                const SizedBox(width: 6),
-                Expanded(child: Text(date != null ? '${date.day}/${date.month}/${date.year}' : 'dd/mm/yyyy', style: TextStyle(fontSize: 11, color: date != null ? Colors.black87 : Colors.grey.shade500))),
+                Icon(Icons.calendar_today, size: context.iconSmall, color: Colors.grey.shade600),
+                SizedBox(width: context.w(6)),
+                Expanded(child: Text(date != null ? '${date.day}/${date.month}/${date.year}' : 'dd/mm/yyyy', style: TextStyle(fontSize: context.fs(11), color: date != null ? Colors.black87 : Colors.grey.shade500))),
               ],
             ),
           ),
@@ -246,18 +246,18 @@ class _ItinerarySectionState extends State<ItinerarySection> with SingleTickerPr
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Travellers', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w500)),
-        const SizedBox(height: 4),
+        Text('Travellers', style: TextStyle(fontSize: context.fs(10), fontWeight: FontWeight.w500)),
+        SizedBox(height: context.h(4)),
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10),
-          decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(6), border: Border.all(color: Colors.grey.shade200)),
+          padding: EdgeInsets.symmetric(horizontal: context.w(10)),
+          decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(context.r(6)), border: Border.all(color: Colors.grey.shade200)),
           child: DropdownButtonHideUnderline(
             child: DropdownButton<String>(
               value: _travellers,
               isExpanded: true,
-              icon: const Icon(Icons.arrow_drop_down, size: 14),
+              icon: Icon(Icons.arrow_drop_down, size: context.iconSmall),
               items: List.generate(10, (i) => '${i + 1}')
-                  .map((num) => DropdownMenuItem<String>(value: num, child: Text(num == '1' ? '1 Traveller' : '$num Travellers', style: const TextStyle(fontSize: 11))))
+                  .map((num) => DropdownMenuItem<String>(value: num, child: Text(num == '1' ? '1 Traveller' : '$num Travellers', style: TextStyle(fontSize: context.fs(11)))))
                   .toList(),
               onChanged: null,
               // onChanged: (value) => setState(() => _travellers = value!),

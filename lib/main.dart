@@ -9,6 +9,8 @@ import 'package:wander_nova/views/LogOut/presentation/bloc/logout_bloc.dart';
 import 'package:wander_nova/views/MainApi/presentation/bloc/general_setting_bloc.dart';
 import 'package:wander_nova/views/MyBookings/presentation/bloc/MyBooking_bloc.dart';
 import 'package:wander_nova/views/Profile/presentation/bloc/profile_bloc.dart';
+import 'package:wander_nova/views/ReferCode/presentation/bloc/referral_bloc.dart';
+import 'package:wander_nova/views/ReferCredit/presentation/bloc/transaction_bloc.dart';
 import 'package:wander_nova/views/TPoll_Search/presentation/bloc/TPoll_SearchBloc.dart';
 import 'package:wander_nova/views/TResevation/presentation/bloc/TReservation_bloc.dart';
 import 'package:wander_nova/views/TResult/presentation/bloc/TResult_bloc.dart';
@@ -18,6 +20,7 @@ import 'package:wander_nova/views/UpcomingTrips/presentation/bloc/upcomingTrip_b
 import 'package:wander_nova/views/Verify_otp/presentation/bloc/verify_otp_bloc.dart';
 import 'package:wander_nova/views/VisaDestination/presentation/bloc/visaDestin_bloc.dart';
 import 'package:wander_nova/views/Visa_popularDestinaton/presentation/bloc/visa_destination_bloc.dart';
+import 'package:wander_nova/views/WalletStatus/presentation/bloc/loyalty_bloc.dart';
 import 'package:wander_nova/views/flight_popularDestination/presentation/bloc/destination_bloc.dart';
 import 'package:wander_nova/views/footer/presentation/bloc/footer_setting_bloc.dart';
 import 'package:wander_nova/views/login/presentation/bloc/login_bloc.dart';
@@ -101,6 +104,9 @@ class MyApp extends StatelessWidget {
         BlocProvider(create: (_) => di.sl<ProfileBloc>()),
         BlocProvider(create: (_) => di.sl<MyBookingBloc>()),
         BlocProvider(create: (_) => di.sl<UpcomingTripBloc>()),
+        BlocProvider(create: (_) => di.sl<ReferralBloc>()),
+        BlocProvider(create: (_) => di.sl<LoyaltyBloc>()),
+        BlocProvider(create: (_) => di.sl<TransactionBloc>()),
       ],
 
       child: MaterialApp(

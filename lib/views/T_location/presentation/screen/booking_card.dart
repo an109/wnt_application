@@ -1,7 +1,10 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
+import 'package:wander_nova/core/utils/storage/shared_preference.dart';
 import '../../../../injection_container.dart';
 import '../../../TPoll_Search/presentation/screen/TPollSearch_Screen.dart';
 import '../../../T_Search/presentation/bloc/T_SearchBloc.dart';
@@ -54,12 +57,104 @@ class _TransportBookingCardState extends State<TransportBookingCard> {
   late TimeOfDay _returnTime;
   late DateTime _pickupDate;
 
+  static const String _lastTransportSearchKey = 'last_transport_search_data';
+
   @override
   void initState() {
     super.initState();
     _pickupDate = widget.selectedDate.add(const Duration(days: 1));
     _returnDate = widget.selectedDate.add(const Duration(days: 1));
     _returnTime = widget.selectedTime;
+    // Prefill pickup/drop-off/travellers from the user's last transport search.
+    _loadLastSearch();
+  }
+
+  Future<void> _saveLastSearch() async {
+    try {
+      final prefsManager =
+          await PreferencesManager.create(await SharedPreferences.getInstance());
+
+      final searchData = {
+        'pickup': _locationToJson(_selectedPickup),
+        'dropoff': _locationToJson(_selectedDropoff),
+        'passengerCount': _passengerCount,
+      };
+
+      await prefsManager.setString(
+          _lastTransportSearchKey, jsonEncode(searchData));
+    } catch (e) {
+      debugPrint('Error saving last transport search: $e');
+    }
+  }
+
+  Future<void> _loadLastSearch() async {
+    try {
+      final prefsManager =
+          await PreferencesManager.create(await SharedPreferences.getInstance());
+      final raw = prefsManager.getString(_lastTransportSearchKey);
+      if (raw == null || !mounted) return;
+
+      final lastSearch = jsonDecode(raw) as Map<String, dynamic>;
+
+      setState(() {
+        final pickup = _locationFromJson(lastSearch['pickup']);
+        final dropoff = _locationFromJson(lastSearch['dropoff']);
+        if (pickup != null) _selectedPickup = pickup;
+        if (dropoff != null) _selectedDropoff = dropoff;
+        _passengerCount = lastSearch['passengerCount'] ?? _passengerCount;
+      });
+    } catch (e) {
+      debugPrint('Error loading last transport search: $e');
+    }
+  }
+
+  Map<String, dynamic>? _locationToJson(T_locationEntity? l) {
+    if (l == null) return null;
+    return {
+      'id': l.id,
+      'source': l.source,
+      'type': l.type,
+      'label': l.label,
+      'displayName': l.displayName,
+      'name': l.name,
+      'description': l.description,
+      'formattedAddress': l.formattedAddress,
+      'fullAddress': l.fullAddress,
+      'address': l.address,
+      'city': l.city,
+      'country': l.country,
+      'iataCode': l.iataCode,
+      'icaoCode': l.icaoCode,
+      'placeId': l.placeId,
+      'lat': l.lat,
+      'lng': l.lng,
+      'timezone': l.timezone,
+    };
+  }
+
+  T_locationEntity? _locationFromJson(dynamic json) {
+    if (json == null || json['id'] == null) return null;
+    return T_locationEntity(
+      id: json['id'] ?? '',
+      source: json['source'] ?? '',
+      type: json['type'] ?? '',
+      label: json['label'] ?? '',
+      displayName: json['displayName'] ?? '',
+      name: json['name'] ?? '',
+      description: json['description'] ?? '',
+      formattedAddress: json['formattedAddress'] ?? '',
+      fullAddress: json['fullAddress'] ?? '',
+      address: json['address'] ?? '',
+      city: json['city'] ?? '',
+      country: json['country'] ?? '',
+      iataCode: json['iataCode'] ?? '',
+      icaoCode: json['icaoCode'] ?? '',
+      placeId: json['placeId'] ?? '',
+      lat: (json['lat'] as num?)?.toDouble(),
+      lng: (json['lng'] as num?)?.toDouble(),
+      timezone: json['timezone'] ?? '',
+      raw: null,
+    );
   }
 
   @override
@@ -127,6 +222,7 @@ class _TransportBookingCardState extends State<TransportBookingCard> {
                       // title: "PICKUP FROM",
                       hint: "Enter pickup location",
                       initialSubtitle: "Select pickup point",
+                      initialLocation: _selectedPickup,
                       onLocationSelected: (location) {
                         setState(() => _selectedPickup = location);
                         widget.onPickupSelected?.call(location);
@@ -142,6 +238,7 @@ class _TransportBookingCardState extends State<TransportBookingCard> {
                       // title: "DROP-OFF AT",
                       hint: "Enter drop-off location",
                       initialSubtitle: "Select drop-off point",
+                      initialLocation: _selectedDropoff,
                       onLocationSelected: (location) {
                         setState(() => _selectedDropoff = location);
                         widget.onDropoffSelected?.call(location);
@@ -411,6 +508,9 @@ class _TransportBookingCardState extends State<TransportBookingCard> {
   void _performSearch() async {
     print('DEBUG: Search button pressed');
     print('DEBUG: Pickup: ${_selectedPickup?.label}, Dropoff: ${_selectedDropoff?.label}');
+
+    // Persist this search so the form is prefilled next time.
+    _saveLastSearch();
 
     final pickupDatetime =
         "${_pickupDate.toIso8601String().split('T')[0]}T${widget.selectedTime.hour.toString().padLeft(2, '0')}:${widget.selectedTime.minute.toString().padLeft(2, '0')}:00";

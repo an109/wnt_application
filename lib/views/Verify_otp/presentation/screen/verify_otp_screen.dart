@@ -108,43 +108,21 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
                           Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Container(
-                                height: context.hp(4.5),
-                                width: context.hp(4.5),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xffFFEAEA),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Icon(
-                                  Icons.flight_takeoff_rounded,
-                                  color: const Color(0xffFF3B42),
-                                  size: context.iconMedium,
-                                ),
-                              ),
-                              SizedBox(width: context.wp(3)),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      "WANDER NOVA",
-                                      style: TextStyle(
-                                        fontSize: context.sp(20),
-                                        fontWeight: FontWeight.w800,
-                                        color: Colors.black,
-                                      ),
-                                    ),
-                                    SizedBox(height: context.hp(0.2)),
-                                    Text(
-                                      "Your Reliable Travel Partner.",
-                                      style: TextStyle(
-                                        fontSize: context.sp(12),
-                                        color: Colors.grey.shade600,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
+                              // Container(
+                              //   height: context.hp(4.5),
+                              //   width: context.hp(4.5),
+                              //   decoration: BoxDecoration(
+                              //     color: const Color(0xffFFEAEA),
+                              //     borderRadius: BorderRadius.circular(12),
+                              //   ),
+                              //   child: Icon(
+                              //     Icons.flight_takeoff_rounded,
+                              //     color: const Color(0xffFF3B42),
+                              //     size: context.iconMedium,
+                              //   ),
+                              // ),
+                              SizedBox(width: context.wp(70)),
+
                               GestureDetector(
                                 onTap: () => Navigator.pop(context),
                                 child: Container(
@@ -169,7 +147,7 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
                           Text(
                             'Verify Your ${widget.contactType == ContactType.email ? "Email" : "Phone"}',
                             style: TextStyle(
-                              fontSize: context.sp(24),
+                              fontSize: context.sp(22),
                               fontWeight: FontWeight.w800,
                             ),
                             textAlign: TextAlign.center,
@@ -181,7 +159,7 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
                           Text(
                             'Enter the 6-digit code sent to\n${widget.contact}',
                             style: TextStyle(
-                              fontSize: context.sp(15),
+                              fontSize: context.sp(12),
                               color: Colors.grey.shade600,
                             ),
                             textAlign: TextAlign.center,

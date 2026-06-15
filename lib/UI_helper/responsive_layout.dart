@@ -13,7 +13,7 @@ class Responsive {
   static double safeTop(BuildContext context) => MediaQuery.of(context).padding.top;
   static double safeBottom(BuildContext context) => MediaQuery.of(context).padding.bottom;
 
-  // Get available height after removing safe areas
+  // Get available height after removing safe areasthi
   static double availableHeight(BuildContext context) =>
       screenHeight(context) - safeTop(context) - safeBottom(context);
 

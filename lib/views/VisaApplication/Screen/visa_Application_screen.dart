@@ -107,7 +107,7 @@ class _VisaApplicationScreenState extends State<VisaApplicationScreen> with Tick
 
   @override
   Widget build(BuildContext context) {
-    final isMobile = MediaQuery.of(context).size.width < 768;
+    final isDesktop = context.screenWidth > 1024;
 
     return Scaffold(
       backgroundColor: const Color(0xffF8F9FA),
@@ -117,17 +117,12 @@ class _VisaApplicationScreenState extends State<VisaApplicationScreen> with Tick
             _buildHeader(),
             _buildProgressBar(),
             Expanded(
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final isDesktop = constraints.maxWidth > 1024;
-                  return Padding(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: isDesktop ? 100 : 16,
-                      vertical: 16,
-                    ),
-                    child: isDesktop ? _buildDesktopLayout() : _buildMobileLayout(),
-                  );
-                },
+              child: Padding(
+                padding: EdgeInsets.symmetric(
+                  horizontal: isDesktop ? context.w(100) : context.w(16),
+                  vertical: context.h(16),
+                ),
+                child: isDesktop ? _buildDesktopLayout() : _buildMobileLayout(),
               ),
             ),
           ],
@@ -138,33 +133,33 @@ class _VisaApplicationScreenState extends State<VisaApplicationScreen> with Tick
 
   Widget _buildHeader() {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(context.w(16)),
       color: Colors.white,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             'APPLYING FOR',
-            style: TextStyle(fontSize: 11, color: Colors.grey.shade600, fontWeight: FontWeight.w600),
+            style: TextStyle(fontSize: context.fs(11), color: Colors.grey.shade600, fontWeight: FontWeight.w600),
           ),
-          const SizedBox(height: 4),
+          SizedBox(height: context.h(4)),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
                 widget.destinationName,
-                style:  TextStyle(fontSize: context.fs(20), fontWeight: FontWeight.w700, color: Color(0xff0D1B3D)),
+                style: TextStyle(fontSize: context.fs(20), fontWeight: FontWeight.w700, color: const Color(0xff0D1B3D)),
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: context.w(8)),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                padding: EdgeInsets.symmetric(horizontal: context.w(8), vertical: context.h(4)),
                 decoration: BoxDecoration(
                   color: const Color(0xff00BFA5),
-                  borderRadius: BorderRadius.circular(4),
+                  borderRadius: BorderRadius.circular(context.r(4)),
                 ),
-                child: const Text(
+                child: Text(
                   '99.8% Visa Approval Rate',
-                  style: TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.w600),
+                  style: TextStyle(fontSize: context.fs(10), color: Colors.white, fontWeight: FontWeight.w600),
                 ),
               ),
             ],
@@ -176,7 +171,7 @@ class _VisaApplicationScreenState extends State<VisaApplicationScreen> with Tick
 
   Widget _buildProgressBar() {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+      padding: EdgeInsets.symmetric(vertical: context.h(16), horizontal: context.w(16)),
       color: Colors.white,
       child: AnimatedBuilder(
         animation: _progressAnimation,
@@ -205,24 +200,24 @@ class _VisaApplicationScreenState extends State<VisaApplicationScreen> with Tick
       child: Column(
         children: [
           Container(
-            width: 32,
-            height: 32,
+            width: context.w(32),
+            height: context.w(32),
             decoration: BoxDecoration(
               color: isCompleted || isCurrent ? const Color(0xff0D47A1) : Colors.grey.shade200,
               shape: BoxShape.circle,
             ),
             child: Center(
               child: isCompleted
-                  ? const Icon(Icons.check, size: 16, color: Colors.white)
-                  : Text('$step', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white)),
+                  ? Icon(Icons.check, size: context.iconSmall, color: Colors.white)
+                  : Text('$step', style: TextStyle(fontSize: context.fs(12), fontWeight: FontWeight.w600, color: Colors.white)),
             ),
           ),
-          const SizedBox(height: 6),
+          SizedBox(height: context.h(6)),
           Text(
             label,
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 11,
+              fontSize: context.fs(11),
               fontWeight: isCurrent ? FontWeight.w600 : FontWeight.w400,
               color: isCompleted || isCurrent ? const Color(0xff0D47A1) : Colors.grey.shade500,
             ),
@@ -236,8 +231,8 @@ class _VisaApplicationScreenState extends State<VisaApplicationScreen> with Tick
     final isCompleted = step < _currentStep;
     return Expanded(
       child: Container(
-        height: 2,
-        margin: const EdgeInsets.only(bottom: 24),
+        height: context.h(2),
+        margin: EdgeInsets.only(bottom: context.h(24)),
         color: isCompleted ? const Color(0xff0D47A1) : Colors.grey.shade200,
       ),
     );
@@ -248,7 +243,7 @@ class _VisaApplicationScreenState extends State<VisaApplicationScreen> with Tick
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Expanded(flex: 3, child: _buildFormSections()),
-        const SizedBox(width: 16),
+        SizedBox(width: context.w(16)),
         Expanded(flex: 1, child: _buildFareSummary()),
       ],
     );
@@ -258,7 +253,7 @@ class _VisaApplicationScreenState extends State<VisaApplicationScreen> with Tick
     return Column(
       children: [
         _buildFormSections(),
-        const SizedBox(height: 12),
+        SizedBox(height: context.h(12)),
         _buildFareSummary(),
       ],
     );
@@ -279,7 +274,7 @@ class _VisaApplicationScreenState extends State<VisaApplicationScreen> with Tick
               onContinue: () => _updateStep(2),
               onSave: _saveFormData,
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: context.h(12)),
             TravellerDetailsSection(
               stepNumber: 2,
               isCompleted: _currentStep > 2,
@@ -289,7 +284,7 @@ class _VisaApplicationScreenState extends State<VisaApplicationScreen> with Tick
               onBack: () => _updateStep(1),
               onSave: _saveFormData,
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: context.h(12)),
             PaymentSection(
               stepNumber: 3,
               isCompleted: _currentStep > 3,
@@ -309,7 +304,7 @@ class _VisaApplicationScreenState extends State<VisaApplicationScreen> with Tick
                 );
               },
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: context.h(12)),
             UploadDocumentsSection(
               stepNumber: 4,
               isCompleted: _currentStep > 4,
@@ -317,53 +312,13 @@ class _VisaApplicationScreenState extends State<VisaApplicationScreen> with Tick
               onBack: () => _updateStep(3),
               onSubmit: _showSuccessDialog,
             ),
-            const SizedBox(height: 24),
+            SizedBox(height: context.h(24)),
           ],
         ),
       ),
     );
   }
 
-  // Widget _buildFareSummary() {
-  //   final travellers = _formData['travellers'] ?? 1;
-  //   final basePrice = double.tryParse(widget.price) ?? 0;
-  //   final total = basePrice * travellers;
-  //
-  //   return Container(
-  //     padding: const EdgeInsets.all(12),
-  //     decoration: BoxDecoration(
-  //       color: Colors.white,
-  //       borderRadius: BorderRadius.circular(8),
-  //       boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8, offset: const Offset(0, 2))],
-  //     ),
-  //     child: Column(
-  //       crossAxisAlignment: CrossAxisAlignment.start,
-  //       children: [
-  //         Row(
-  //           children: [
-  //             const Text('Fare Summary', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
-  //             const Spacer(),
-  //             Text('$travellers Traveller${travellers > 1 ? 's' : ''}',
-  //                 style: const TextStyle(fontSize: 10, color: Color(0xff0D47A1), fontWeight: FontWeight.w600)),
-  //           ],
-  //         ),
-  //         const SizedBox(height: 12),
-  //         _buildPriceRow('Base Fare', basePrice.toStringAsFixed(0)),
-  //         const SizedBox(height: 4),
-  //         _buildPriceRow('Taxes & charges', '0'),
-  //         const Divider(height: 12, color: Colors.grey),
-  //         Row(
-  //           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-  //           children: [
-  //             const Text('Grand Total', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
-  //             Text('${widget.currency} ${total.toStringAsFixed(0)}',
-  //                 style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Color(0xffFF6B00))),
-  //           ],
-  //         ),
-  //       ],
-  //     ),
-  //   );
-  // }
   Widget _buildFareSummary() {
     final travellers = _formData['travellers'] ?? 1;
     // Use converted price if loaded, otherwise fallback to original
@@ -373,34 +328,35 @@ class _VisaApplicationScreenState extends State<VisaApplicationScreen> with Tick
     final formattedTotal = total.toStringAsFixed(total % 1 == 0 ? 0 : 2);
 
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: EdgeInsets.all(context.w(12)),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8, offset: const Offset(0, 2))],
+        borderRadius: BorderRadius.circular(context.r(8)),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: context.w(8), offset: Offset(0, context.h(2)))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Text('Fare Summary', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+              Text('Fare Summary', style: TextStyle(fontSize: context.fs(12), fontWeight: FontWeight.w700)),
               const Spacer(),
               Text('$travellers Traveller${travellers > 1 ? 's' : ''}',
-                  style: const TextStyle(fontSize: 10, color: Color(0xff0D47A1), fontWeight: FontWeight.w600)),
+                  style: TextStyle(fontSize: context.fs(10), color: const Color(0xff0D47A1), fontWeight: FontWeight.w600)),
             ],
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: context.h(12)),
           _buildPriceRow('Base Fare', '${basePrice.toStringAsFixed(basePrice % 1 == 0 ? 0 : 2)}'),
-          const SizedBox(height: 4),
+          SizedBox(height: context.h(4)),
           _buildPriceRow('Taxes & charges', '0'),
-          const Divider(height: 12, color: Colors.grey),
+          Divider(height: context.h(12), color: Colors.grey),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Grand Total', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
-              Text('$symbol $formattedTotal',
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Color(0xffFF6B00))),
+              Text('Grand Total', style: TextStyle(fontSize: context.fs(12), fontWeight: FontWeight.w700)),
+              // Text('$symbol $formattedTotal',
+              Text('$formattedTotal',
+                  style: TextStyle(fontSize: context.fs(16), fontWeight: FontWeight.w800, color: const Color(0xffFF6B00))),
             ],
           ),
         ],
@@ -415,12 +371,13 @@ class _VisaApplicationScreenState extends State<VisaApplicationScreen> with Tick
       children: [
         Row(
           children: [
-            Icon(Icons.add_circle_outline, size: 12, color: Colors.grey.shade400),
-            const SizedBox(width: 6),
-            Text(label, style: TextStyle(fontSize: 11, color: Colors.grey.shade700)),
+            Icon(Icons.add_circle_outline, size: context.iconXSmall, color: Colors.grey.shade400),
+            SizedBox(width: context.w(6)),
+            Text(label, style: TextStyle(fontSize: context.fs(11), color: Colors.grey.shade700)),
           ],
         ),
-        Text('$symbol $amount', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+        Text('$amount', style: TextStyle(fontSize: context.fs(11), fontWeight: FontWeight.w600)),
+        // Text('$symbol $amount', style: TextStyle(fontSize: context.fs(11), fontWeight: FontWeight.w600)),
       ],
     );
   }
@@ -429,21 +386,21 @@ class _VisaApplicationScreenState extends State<VisaApplicationScreen> with Tick
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(context.r(12))),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: EdgeInsets.all(context.w(12)),
               decoration: const BoxDecoration(color: Colors.green, shape: BoxShape.circle),
-              child: const Icon(Icons.check, size: 32, color: Colors.white),
+              child: Icon(Icons.check, size: context.iconXLarge, color: Colors.white),
             ),
-            const SizedBox(height: 12),
-            const Text('Application Submitted!', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
-            const SizedBox(height: 8),
+            SizedBox(height: context.h(12)),
+            Text('Application Submitted!', style: TextStyle(fontSize: context.fs(14), fontWeight: FontWeight.w700)),
+            SizedBox(height: context.h(8)),
             Text('Your ${widget.destinationName} visa application submitted successfully.',
-                textAlign: TextAlign.center, style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
-            const SizedBox(height: 16),
+                textAlign: TextAlign.center, style: TextStyle(fontSize: context.fs(11), color: Colors.grey.shade600)),
+            SizedBox(height: context.h(16)),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
@@ -453,10 +410,10 @@ class _VisaApplicationScreenState extends State<VisaApplicationScreen> with Tick
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xff0D47A1),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(context.r(8))),
+                  padding: EdgeInsets.symmetric(vertical: context.h(10)),
                 ),
-                child: const Text('Done', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                child: Text('Done', style: TextStyle(fontSize: context.fs(12), fontWeight: FontWeight.w600)),
               ),
             ),
           ],

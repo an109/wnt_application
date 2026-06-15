@@ -85,7 +85,7 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
     } catch (e, stackTrace) {
       print('LoginBloc: Unexpected error: $e');
       print('Stack trace: $stackTrace');
-      emit(const LoginFailure('An unexpected error occurred. Please try again.'));
+      emit(const LoginFailure('Invalid email or Password'));
     }
   }
 

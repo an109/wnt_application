@@ -203,24 +203,24 @@ class _HotelDetailsScreenState extends State<HotelDetailsScreen> {
             children: [
               _buildStarRating(hotel.hotelRating),
               SizedBox(width: context.w(10)),
-              Container(
-                padding: EdgeInsets.symmetric(
-                  horizontal: context.w(10),
-                  vertical: context.h(6),
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.amber,
-                  borderRadius: BorderRadius.circular(context.r(10)),
-                ),
-                child: Text(
-                  '${hotel.hotelRating} Star',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: context.fs(11),
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
+              // Container(
+              //   padding: EdgeInsets.symmetric(
+              //     horizontal: context.w(10),
+              //     vertical: context.h(6),
+              //   ),
+              //   decoration: BoxDecoration(
+              //     color: Colors.amber,
+              //     borderRadius: BorderRadius.circular(context.r(10)),
+              //   ),
+              //   child: Text(
+              //     '${hotel.hotelRating} Star',
+              //     style: TextStyle(
+              //       color: Colors.white,
+              //       fontSize: context.fs(11),
+              //       fontWeight: FontWeight.w800,
+              //     ),
+              //   ),
+              // ),
             ],
           ),
           SizedBox(height: context.h(12)),

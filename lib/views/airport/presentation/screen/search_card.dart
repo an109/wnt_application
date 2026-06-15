@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import 'package:wander_nova/common_widgets/compact_date_picker_dialog.dart';
+import 'package:wander_nova/core/resources/app_colours.dart';
+import '../../../../core/utils/storage/shared_preference.dart';
 import '../../domain/entities/airport_entities.dart';
 import '../bloc/airport_bloc.dart';
 import '../bloc/airport_event.dart';
@@ -17,15 +20,6 @@ class SearchCard extends StatefulWidget {
 }
 
 class _SearchCardState extends State<SearchCard> {
-  // Brand palette
-  static const Color _blue = Color(0xff1663F7);
-  static const Color _orange = Color(0xffF97316);
-  static const Color _navy = Color(0xff07163B);
-  static const Color _muted = Color(0xff6B7280);
-
-  // MakeMyTrip-style soft field surfaces
-  static const Color _fieldFill = Color(0xffF6F7FB);
-  static const Color _fieldBorder = Color(0xffECEEF4);
 
   bool isRoundTrip = false;
 
@@ -39,6 +33,7 @@ class _SearchCardState extends State<SearchCard> {
   int children = 0;
   int infants = 0;
 
+
   String travelClass = "Economy";
 
   @override
@@ -50,6 +45,110 @@ class _SearchCardState extends State<SearchCard> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<AirportBloc>().add(LoadAirports());
     });
+    // Prefill fields from the user's last search (no bloc dependency needed —
+    // the airport details are already stored in preferences).
+    _loadLastSearch();
+  }
+
+  Future<void> _saveSearchToPreferences() async {
+    final prefsManager = await PreferencesManager.create(await SharedPreferences.getInstance());
+
+    final searchData = {
+      'fromAirport': {
+        'code': fromAirport?.airportCode,
+        'city': fromAirport?.cityName,
+        'name': fromAirport?.airportName,
+        'cityCode': fromAirport?.cityCode,
+        'countryCode': fromAirport?.countryCode,
+      },
+      'toAirport': {
+        'code': toAirport?.airportCode,
+        'city': toAirport?.cityName,
+        'name': toAirport?.airportName,
+        'cityCode': toAirport?.cityCode,
+        'countryCode': toAirport?.countryCode,
+      },
+      'departureDate': departureDate?.toIso8601String(),
+      'returnDate': returnDate?.toIso8601String(),
+      'isRoundTrip': isRoundTrip,
+      'adults': adults,
+      'children': children,
+      'infants': infants,
+      'travelClass': travelClass,
+      'totalTravellers': adults + children + infants,
+      'timestamp': DateTime.now().toIso8601String(),
+    };
+
+    await prefsManager.saveLastSearch(searchData);
+    await prefsManager.addToSearchHistory(searchData);
+  }
+
+  Future<void> _loadLastSearch() async {
+    try {
+      final prefsManager =
+          await PreferencesManager.create(await SharedPreferences.getInstance());
+      final lastSearch = prefsManager.getLastSearch();
+
+      if (lastSearch == null || !mounted) return;
+
+      // Rebuild the airports directly from the saved data — no need to wait for
+      // (or search through) the bloc's airport list.
+      final savedFromAirport = _airportFromJson(lastSearch['fromAirport']);
+      var savedToAirport = _airportFromJson(lastSearch['toAirport']);
+
+      // Don't prefill the same airport for both origin and destination.
+      if (savedFromAirport != null &&
+          savedToAirport != null &&
+          savedFromAirport.airportCode == savedToAirport.airportCode) {
+        savedToAirport = null;
+      }
+
+      setState(() {
+        if (savedFromAirport != null) fromAirport = savedFromAirport;
+        if (savedToAirport != null) toAirport = savedToAirport;
+
+        isRoundTrip = lastSearch['isRoundTrip'] ?? false;
+
+        // Restore dates, but never prefill a date in the past.
+        final today = DateUtils.dateOnly(DateTime.now());
+        if (lastSearch['departureDate'] != null) {
+          final depDate =
+              DateUtils.dateOnly(DateTime.parse(lastSearch['departureDate']));
+          departureDate = depDate.isBefore(today) ? today : depDate;
+        }
+
+        if (lastSearch['returnDate'] != null && isRoundTrip) {
+          final retDate =
+              DateUtils.dateOnly(DateTime.parse(lastSearch['returnDate']));
+          returnDate =
+              (departureDate != null && retDate.isBefore(departureDate!))
+                  ? null
+                  : retDate;
+        } else {
+          returnDate = null;
+        }
+
+        // Restore traveller details.
+        adults = lastSearch['adults'] ?? 1;
+        children = lastSearch['children'] ?? 0;
+        infants = lastSearch['infants'] ?? 0;
+        travelClass = lastSearch['travelClass'] ?? 'Economy';
+      });
+    } catch (e) {
+      debugPrint('Error loading last search: $e');
+    }
+  }
+
+  /// Reconstructs an [AirportEntity] from the map stored in preferences.
+  AirportEntity? _airportFromJson(dynamic json) {
+    if (json == null || json['code'] == null) return null;
+    return AirportEntity(
+      airportCode: json['code'] ?? '',
+      airportName: json['name'] ?? '',
+      cityName: json['city'] ?? '',
+      cityCode: json['cityCode'] ?? '',
+      countryCode: json['countryCode'] ?? '',
+    );
   }
 
   void _performSearch() async {
@@ -80,6 +179,7 @@ class _SearchCardState extends State<SearchCard> {
     }
 
     try {
+      await _saveSearchToPreferences();
 
       Navigator.of(context).push(
         MaterialPageRoute(
@@ -148,7 +248,7 @@ class _SearchCardState extends State<SearchCard> {
           Container(
             // padding: EdgeInsets.all(context.w(1)),
             decoration: BoxDecoration(
-              color: _fieldFill,
+              color: AppColors.fieldFill,
               borderRadius: BorderRadius.circular(context.r(4)),
             ),
             child: Row(
@@ -191,9 +291,9 @@ class _SearchCardState extends State<SearchCard> {
               Container(
                 clipBehavior: Clip.antiAlias,
                 decoration: BoxDecoration(
-                  color: _fieldFill,
+                  color: AppColors.fieldFill,
                   borderRadius: BorderRadius.circular(context.r(6)),
-                  border: Border.all(color: _fieldBorder, width: 1),
+                  border: Border.all(color: AppColors.fieldBorder, width: 1),
                 ),
                 child: Column(
                   children: [
@@ -235,7 +335,7 @@ class _SearchCardState extends State<SearchCard> {
                     Divider(
                       height: 1,
                       thickness: 1,
-                      color: _fieldBorder,
+                      color: AppColors.fieldBorder,
                       indent: context.w(41),
                     ),
 
@@ -287,12 +387,12 @@ class _SearchCardState extends State<SearchCard> {
                       width: context.w(34),
                       height: context.w(34),
                       decoration: BoxDecoration(
-                        color: _blue,
+                        color: AppColors.blue,
                         shape: BoxShape.circle,
                         border: Border.all(color: Colors.white, width: 2),
                         boxShadow: [
                           BoxShadow(
-                            color: _blue.withValues(alpha: 0.30),
+                            color: AppColors.blue.withValues(alpha: 0.30),
                             blurRadius: context.w(8),
                             offset: Offset(0, context.h(2)),
                           ),
@@ -315,8 +415,8 @@ class _SearchCardState extends State<SearchCard> {
           /// Date Fields — connected box with a center divider (MMT style)
           Container(
             decoration: BoxDecoration(
-              color: _fieldFill,
-              border: Border.all(color: _fieldBorder, width: 1),
+              color: AppColors.fieldFill,
+              border: Border.all(color: AppColors.fieldBorder, width: 1),
               borderRadius: BorderRadius.circular(context.r(6)),
             ),
             child: IntrinsicHeight(
@@ -333,7 +433,7 @@ class _SearchCardState extends State<SearchCard> {
                       onTap: () => _pickDate(isReturn: false),
                     ),
                   ),
-                  Container(width: 1, color: _fieldBorder),
+                  Container(width: 1, color: AppColors.fieldBorder),
                   Expanded(
                     child: _clickableDateTile(
                       context,
@@ -376,7 +476,7 @@ class _SearchCardState extends State<SearchCard> {
             height: context.h(45),
             child: ElevatedButton.icon(
               style: ElevatedButton.styleFrom(
-                backgroundColor: _orange,
+                backgroundColor: AppColors.orange,
                 foregroundColor: Colors.white,
                 elevation: 0,
                 shape: RoundedRectangleBorder(
@@ -408,7 +508,7 @@ class _SearchCardState extends State<SearchCard> {
           'Multi City booking is coming soon!',
           style: TextStyle(fontSize: context.bodyMedium),
         ),
-        backgroundColor: _blue,
+        backgroundColor: AppColors.blue,
         behavior: SnackBarBehavior.floating,
         duration: const Duration(seconds: 2),
       ),
@@ -428,12 +528,12 @@ class _SearchCardState extends State<SearchCard> {
         duration: const Duration(milliseconds: 250),
         padding: EdgeInsets.symmetric(vertical: context.h(9)),
         decoration: BoxDecoration(
-          color: selected ? _blue : Colors.transparent,
+          color: selected ? AppColors.blue : Colors.transparent,
           borderRadius: BorderRadius.circular(context.r(11)),
           boxShadow: selected
               ? [
                   BoxShadow(
-                    color: _blue.withValues(alpha: 0.28),
+                    color: AppColors.blue.withValues(alpha: 0.28),
                     blurRadius: context.w(8),
                     offset: Offset(0, context.h(2)),
                   ),
@@ -453,7 +553,7 @@ class _SearchCardState extends State<SearchCard> {
                 fontWeight: FontWeight.w700,
                 color: selected
                     ? Colors.white
-                    : (comingSoon ? _muted : const Color(0xff2C2F36)),
+                    : (comingSoon ? AppColors.muted : const Color(0xff2C2F36)),
                 letterSpacing: context.letterSpacingNormal,
               ),
             ),
@@ -467,7 +567,7 @@ class _SearchCardState extends State<SearchCard> {
                     vertical: context.h(1),
                   ),
                   decoration: BoxDecoration(
-                    color: _orange,
+                    color: AppColors.orange,
                     borderRadius: BorderRadius.circular(context.r(6)),
                   ),
                   child: Text(
@@ -512,14 +612,14 @@ class _SearchCardState extends State<SearchCard> {
           children: [
             Row(
               children: [
-                Icon(icon, size: context.w(15), color: _navy),
+                Icon(icon, size: context.w(15), color: AppColors.navy),
                 SizedBox(width: context.w(6)),
                 Text(
                   label,
                   style: TextStyle(
                     fontSize: context.fs(10),
                     fontWeight: FontWeight.w700,
-                    color: _muted,
+                    color: AppColors.muted,
                     letterSpacing: context.letterSpacingNormal,
                   ),
                 ),
@@ -531,7 +631,7 @@ class _SearchCardState extends State<SearchCard> {
                 text: TextSpan(
                   style: TextStyle(
                     fontWeight: FontWeight.w800,
-                    color: _navy,
+                    color: AppColors.navy,
                     letterSpacing: context.letterSpacingNormal,
                   ),
                   children: [
@@ -544,7 +644,7 @@ class _SearchCardState extends State<SearchCard> {
                       style: TextStyle(
                         fontSize: context.fs(12),
                         fontWeight: FontWeight.w600,
-                        color: _muted,
+                        color: AppColors.muted,
                       ),
                     ),
                   ],
@@ -568,7 +668,7 @@ class _SearchCardState extends State<SearchCard> {
               style: TextStyle(
                 fontSize: context.fs(11),
                 fontWeight: FontWeight.w600,
-                color: _muted,
+                color: AppColors.muted,
                 letterSpacing: context.letterSpacingNormal,
               ),
             ),
@@ -596,8 +696,8 @@ class _SearchCardState extends State<SearchCard> {
           vertical: context.h(9),
         ),
         decoration: BoxDecoration(
-          color: _fieldFill,
-          border: Border.all(color: _fieldBorder, width: 1),
+          color: AppColors.fieldFill,
+          border: Border.all(color: AppColors.fieldBorder, width: 1),
           borderRadius: BorderRadius.circular(context.r(6)),
         ),
         child: Row(

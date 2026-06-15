@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
-import 'package:wander_nova/common_widgets/custom_bottom_nav.dart';
 import 'package:wander_nova/common_widgets/custom_drawer.dart';
 import '../../../../common_widgets/logo.dart';
 import '../../../../common_widgets/new_bottom_nav.dart';

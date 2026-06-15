@@ -82,7 +82,8 @@ class BalanceCard extends StatelessWidget {
             )
           else
             Text(
-              '$currency ${balance.toStringAsFixed(2)}',
+              '${balance.toStringAsFixed(2)}',
+              // '$currency ${balance.toStringAsFixed(2)}',
               style: TextStyle(
                 color: Colors.white,
                 fontSize: context.headlineLarge,
@@ -104,7 +105,8 @@ class BalanceCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(context.borderRadiusSmall),
                 ),
                 child: Text(
-                  'Total Earnings: $currency ${totalEarnings.toStringAsFixed(2)}',
+                  'Total Earnings: ${totalEarnings.toStringAsFixed(2)}',
+                  // 'Total Earnings: $currency ${totalEarnings.toStringAsFixed(2)}',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: context.bodySmall,

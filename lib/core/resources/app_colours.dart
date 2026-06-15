@@ -12,6 +12,13 @@ class AppColors {
   static const divider = Color(0xFFE0E0E0);
   static const shadow = Color(0x1A000000);
   static const OrangeColor = Color(0xFFFF7200);
+  static const blue = Color(0xff1663F7);
+  static const orange = Color(0xffF97316);
+  static const navy = Color(0xff07163B);
+  static const muted = Color(0xff6B7280);
+
+  static const fieldFill = Color(0xffF6F7FB);
+  static const fieldBorder = Color(0xffECEEF4);
 
   static const chipGradient = LinearGradient(
     colors: [Color(0xFF5B86E5), Color(0xFF36D1DC)],

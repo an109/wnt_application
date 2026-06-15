@@ -75,13 +75,13 @@ class _CustomDrawerState extends State<CustomDrawer>
     required List<Widget> children,
   }) {
     return Container(
-      margin: const EdgeInsets.symmetric(
-        horizontal: 8,
-        vertical: 4,
+      margin: EdgeInsets.symmetric(
+        horizontal: context.w(8),
+        vertical: context.h(4),
       ),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(context.r(12)),
         border: Border.all(
           color: Colors.grey.shade200,
           width: 1,
@@ -113,7 +113,7 @@ class _CustomDrawerState extends State<CustomDrawer>
   Widget build(BuildContext context) {
     return Drawer(
       elevation: 0,
-      width: context.isMobile ? null : 320,
+      width: context.isMobile ? null : context.w(320),
       child: Container(
         color: Colors.white,
         child: SafeArea(
@@ -152,7 +152,7 @@ class _CustomDrawerState extends State<CustomDrawer>
 
   List<Widget> _buildLoggedInMenu(BuildContext context) {
     return [
-      const SizedBox(height: 8),
+      SizedBox(height: context.h(8)),
 
       /// MAIN MENU
       _buildSectionContainer(
@@ -200,13 +200,13 @@ class _CustomDrawerState extends State<CustomDrawer>
             title: 'My Wallet Balance',
             onTap: () => _navigateTo(context, '/wallet_balance'),
             trailing: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 8,
-                vertical: 4,
+              padding: EdgeInsets.symmetric(
+                horizontal: context.w(8),
+                vertical: context.h(4),
               ),
               decoration: BoxDecoration(
                 color: Colors.green.shade50,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(context.r(12)),
                 border: Border.all(
                   color: Colors.green.shade200,
                 ),
@@ -244,27 +244,13 @@ class _CustomDrawerState extends State<CustomDrawer>
         ],
       ),
 
-      // /// SUPPORT
-      // _buildSectionContainer(
-      //   context: context,
-      //   children: [
-      //     _buildMenuSection(context, 'SUPPORT'),
-      //     _buildMenuItem(
-      //       context,
-      //       icon: Icons.help_outline,
-      //       title: 'About',
-      //       onTap: () => _navigateTo(context, '/about'),
-      //     ),
-      //   ],
-      // ),
-
       const SizedBox(height: 8),
     ];
   }
 
   List<Widget> _buildGuestMenu(BuildContext context) {
     return [
-      const SizedBox(height: 8),
+      SizedBox(height: context.h(8)),
 
       /// MAIN
       _buildSectionContainer(
@@ -321,7 +307,7 @@ class _CustomDrawerState extends State<CustomDrawer>
         ],
       ),
 
-      const SizedBox(height: 8),
+      SizedBox(height: context.h(8)),
     ];
   }
 
@@ -358,41 +344,32 @@ class _CustomDrawerState extends State<CustomDrawer>
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(context.r(12)),
         child: Container(
           margin: EdgeInsets.symmetric(
-            horizontal: context.horizontalPadding.left - 4,
-            vertical: 2,
+            horizontal: context.horizontalPadding.left - context.w(4),
+            vertical: context.h(2),
           ),
           decoration: BoxDecoration(
             color: isHighlighted
                 ? Colors.blue.shade50.withOpacity(0.3)
                 : Colors.transparent,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(context.r(12)),
           ),
           child: Padding(
             padding: EdgeInsets.symmetric(
-              horizontal: context.horizontalPadding.left - 8,
+              horizontal: context.horizontalPadding.left - context.w(8),
               vertical: context.gapSmall,
             ),
             child: Row(
               children: [
                 // Icon Container
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: isHighlighted
-                        ? Colors.blue.shade100
-                        : Colors.grey.shade100,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(
-                    icon,
-                    size: context.iconMedium,
-                    color: isHighlighted
-                        ? Colors.blue.shade700
-                        : Colors.grey.shade700,
-                  ),
+                Icon(
+                  icon,
+                  size: context.iconSmall,
+                  color: isHighlighted
+                      ? Colors.blue.shade700
+                      : Colors.grey.shade700,
                 ),
                 SizedBox(width: context.gapMedium),
 
@@ -404,7 +381,7 @@ class _CustomDrawerState extends State<CustomDrawer>
                       Text(
                         title,
                         style: TextStyle(
-                          fontSize: context.bodyLarge,
+                          fontSize: context.bodyMedium,
                           fontWeight: isHighlighted
                               ? FontWeight.w700
                               : FontWeight.w500,
@@ -431,15 +408,15 @@ class _CustomDrawerState extends State<CustomDrawer>
                 // Badge or Trailing
                 if (badgeCount != null && badgeCount > 0)
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 6,
-                      vertical: 2,
+                    padding: EdgeInsets.symmetric(
+                      horizontal: context.w(6),
+                      vertical: context.h(2),
                     ),
                     decoration: BoxDecoration(
                       gradient: const LinearGradient(
                         colors: [Colors.red, Colors.redAccent],
                       ),
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(context.r(10)),
                     ),
                     child: Text(
                       '$badgeCount',
@@ -472,7 +449,7 @@ class _CustomDrawerState extends State<CustomDrawer>
         horizontal: context.horizontalPadding.left,
         vertical: context.gapMedium,
       ),
-      child: Divider(color: Colors.grey.shade200, thickness: 1, height: 1),
+      child: Divider(color: Colors.grey.shade200, thickness: context.h(1), height: context.h(1)),
     );
   }
 
@@ -481,7 +458,7 @@ class _CustomDrawerState extends State<CustomDrawer>
       padding: EdgeInsets.all(context.responsivePadding.right),
       decoration: BoxDecoration(
         color: Colors.white,
-        border: Border(top: BorderSide(color: Colors.grey.shade200, width: 1)),
+        border: Border(top: BorderSide(color: Colors.grey.shade200, width: context.h(1))),
       ),
       child: SafeArea(
         top: false,
@@ -513,16 +490,16 @@ class _CustomDrawerState extends State<CustomDrawer>
 
   Widget _buildLogoutButton(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 4),
+      margin: EdgeInsets.symmetric(horizontal: context.w(4)),
       decoration: BoxDecoration(
         color: Colors.red.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(context.r(14)),
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           onTap: () => _showLogoutDialog(context),
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(context.r(14)),
           child: Padding(
             padding: EdgeInsets.symmetric(
               horizontal: context.horizontalPadding.left,
@@ -532,7 +509,7 @@ class _CustomDrawerState extends State<CustomDrawer>
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Container(
-                  padding: const EdgeInsets.all(2),
+                  padding: EdgeInsets.all(context.w(2)),
                   decoration: BoxDecoration(
                     color: Colors.red.withOpacity(0.1),
                     shape: BoxShape.circle,
@@ -562,7 +539,7 @@ class _CustomDrawerState extends State<CustomDrawer>
 
   Widget _buildLoginButton(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 4),
+      margin: EdgeInsets.symmetric(horizontal: context.w(4)),
       child: ElevatedButton(
         onPressed: () {
           Navigator.push(
@@ -575,7 +552,7 @@ class _CustomDrawerState extends State<CustomDrawer>
           foregroundColor: Colors.white,
           minimumSize: Size(double.infinity, context.buttonHeight),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(context.r(14)),
           ),
           elevation: 0,
         ),
@@ -689,8 +666,6 @@ class _CustomDrawerState extends State<CustomDrawer>
             MaterialPageRoute(builder: (_) => SupportScreen()),
           );
           break;
-
-      // Add more cases as needed
       }
     });
   }
@@ -706,14 +681,14 @@ class _CustomDrawerState extends State<CustomDrawer>
         title: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(8),
+              padding: EdgeInsets.all(context.w(8)),
               decoration: BoxDecoration(
                 color: Colors.red.withOpacity(0.1),
                 shape: BoxShape.circle,
               ),
               child: const Icon(Icons.logout_rounded, color: Colors.red),
             ),
-            const SizedBox(width: 12),
+            SizedBox(width: context.w(12)),
             Text(
               'Sign Out',
               style: TextStyle(
@@ -791,7 +766,7 @@ class _CustomDrawerState extends State<CustomDrawer>
               backgroundColor: Colors.red,
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(context.r(8)),
               ),
             ),
             child: Text(

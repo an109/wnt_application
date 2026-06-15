@@ -1,5 +1,5 @@
-// payment_section.dart
 import 'package:flutter/material.dart';
+import 'package:wander_nova/UI_helper/responsive_layout.dart';
 
 import '../../../core/constants/urls.dart';
 import '../../../core/utils/storage/shared_preference.dart';
@@ -8,14 +8,12 @@ import '../../flight_payment/data/ccavenue_service.dart';
 import '../../flight_payment/presentation/screen/ccavenue_payment_page.dart';
 import '../../wallet/data/data_source/wallet_api_service.dart';
 
-/// Step 3 of the visa application — collapses/expands like the other sections.
 /// The user picks Wallet or CCAvenue, then pays via the CCAvenue hosted gateway.
 class PaymentSection extends StatefulWidget {
   final int stepNumber;
   final bool isCompleted;
   final bool isActive;
 
-  /// Total payable, already converted to INR (CCAvenue is charged in INR).
   final double amountInr;
   final Map<String, dynamic> formData;
   final VoidCallback onBack;
@@ -99,12 +97,12 @@ class _PaymentSectionState extends State<PaymentSection>
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(context.r(8)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+            blurRadius: context.w(8),
+            offset: Offset(0, context.h(2)),
           ),
         ],
       ),
@@ -116,7 +114,7 @@ class _PaymentSectionState extends State<PaymentSection>
             },
             borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
             child: Container(
-              padding: const EdgeInsets.all(12),
+              padding: EdgeInsets.all(context.w(12)),
               decoration: BoxDecoration(
                 color: widget.isActive
                     ? const Color(0xffE3F2FD)
@@ -124,13 +122,13 @@ class _PaymentSectionState extends State<PaymentSection>
                     ? Colors.green.shade50
                     : Colors.white,
                 borderRadius:
-                    const BorderRadius.vertical(top: Radius.circular(8)),
+                const BorderRadius.vertical(top: Radius.circular(8)),
               ),
               child: Row(
                 children: [
                   Container(
-                    width: 24,
-                    height: 24,
+                    width: context.w(24),
+                    height: context.w(24),
                     decoration: BoxDecoration(
                       color: widget.isCompleted
                           ? Colors.green
@@ -141,18 +139,18 @@ class _PaymentSectionState extends State<PaymentSection>
                     ),
                     child: Center(
                       child: widget.isCompleted
-                          ? const Icon(Icons.check, size: 12, color: Colors.white)
+                          ? Icon(Icons.check, size: context.iconXSmall, color: Colors.white)
                           : Text(
-                              '${widget.stepNumber}',
-                              style: const TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.white,
-                              ),
-                            ),
+                        '${widget.stepNumber}',
+                        style: TextStyle(
+                          fontSize: context.fs(11),
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  SizedBox(width: context.w(8)),
                   const Expanded(
                     child: Text(
                       'Make Payment',
@@ -164,7 +162,7 @@ class _PaymentSectionState extends State<PaymentSection>
                     duration: const Duration(milliseconds: 200),
                     curve: Curves.easeInOut,
                     child: Icon(Icons.keyboard_arrow_down,
-                        size: 20, color: Colors.grey.shade600),
+                        size: context.iconMedium, color: Colors.grey.shade600),
                   ),
                 ],
               ),
@@ -182,52 +180,52 @@ class _PaymentSectionState extends State<PaymentSection>
 
   Widget _buildBody() {
     return Padding(
-      padding: const EdgeInsets.all(12),
+      padding: EdgeInsets.all(context.w(12)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Select Payment Method',
-            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+            style: TextStyle(fontSize: context.fs(11), fontWeight: FontWeight.w600),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: context.h(12)),
           _buildMethodTile(
             value: 'wallet',
             icon: Icons.account_balance_wallet_outlined,
             title: 'My Wallet',
             subtitle: 'Pay using your wallet balance',
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: context.h(8)),
           _buildMethodTile(
             value: 'ccavenue',
             icon: Icons.credit_card,
             title: 'CCAvenue',
             subtitle: 'Cards, UPI, Net Banking',
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: context.h(16)),
           Container(
-            padding: const EdgeInsets.all(10),
+            padding: EdgeInsets.all(context.w(10)),
             decoration: BoxDecoration(
               color: const Color(0xffF1F5FF),
-              borderRadius: BorderRadius.circular(6),
+              borderRadius: BorderRadius.circular(context.r(6)),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('Amount payable',
-                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                Text('Amount payable',
+                    style: TextStyle(fontSize: context.fs(11), fontWeight: FontWeight.w600)),
                 Text(
-                  '₹ ${widget.amountInr.toStringAsFixed(2)}',
-                  style: const TextStyle(
-                    fontSize: 14,
+                  '${widget.amountInr.toStringAsFixed(2)}',
+                  style: TextStyle(
+                    fontSize: context.fs(14),
                     fontWeight: FontWeight.w800,
-                    color: Color(0xffFF6B00),
+                    color: const Color(0xffFF6B00),
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: context.h(16)),
           Row(
             children: [
               Expanded(
@@ -236,43 +234,43 @@ class _PaymentSectionState extends State<PaymentSection>
                   style: OutlinedButton.styleFrom(
                     side: const BorderSide(color: _navy),
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(6)),
-                    padding: const EdgeInsets.symmetric(vertical: 10),
+                        borderRadius: BorderRadius.circular(context.r(6))),
+                    padding: EdgeInsets.symmetric(vertical: context.h(10)),
                   ),
-                  child: const Text('BACK',
+                  child: Text('BACK',
                       style: TextStyle(
-                          fontSize: 11,
+                          fontSize: context.fs(11),
                           fontWeight: FontWeight.w600,
                           color: _navy)),
                 ),
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: context.w(8)),
               Expanded(
                 child: ElevatedButton(
                   onPressed: _isProcessing ? null : _pay,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: _navy,
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(6)),
-                    padding: const EdgeInsets.symmetric(vertical: 10),
+                        borderRadius: BorderRadius.circular(context.r(6))),
+                    padding: EdgeInsets.symmetric(vertical: context.h(10)),
                   ),
                   child: _isProcessing
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor:
-                                AlwaysStoppedAnimation(Colors.white),
-                          ),
-                        )
+                      ? SizedBox(
+                    width: context.w(16),
+                    height: context.w(16),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor:
+                      const AlwaysStoppedAnimation(Colors.white),
+                    ),
+                  )
                       : Text(
-                          'PAY ₹${widget.amountInr.toStringAsFixed(2)}',
-                          style: const TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              color: Colors.white),
-                        ),
+                    'PAY ${widget.amountInr.toStringAsFixed(2)}',
+                    style: TextStyle(
+                        fontSize: context.fs(11),
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white),
+                  ),
                 ),
               ),
             ],
@@ -292,10 +290,10 @@ class _PaymentSectionState extends State<PaymentSection>
     return GestureDetector(
       onTap: () => setState(() => _selectedMethod = value),
       child: Container(
-        padding: const EdgeInsets.all(12),
+        padding: EdgeInsets.all(context.w(12)),
         decoration: BoxDecoration(
           color: isSelected ? _navy.withOpacity(0.05) : Colors.grey.shade50,
-          borderRadius: BorderRadius.circular(6),
+          borderRadius: BorderRadius.circular(context.r(6)),
           border: Border.all(
             color: isSelected ? _navy : Colors.grey.shade200,
             width: isSelected ? 1.5 : 1,
@@ -303,23 +301,23 @@ class _PaymentSectionState extends State<PaymentSection>
         ),
         child: Row(
           children: [
-            Icon(icon, size: 20, color: isSelected ? _navy : Colors.grey.shade600),
-            const SizedBox(width: 10),
+            Icon(icon, size: context.iconMedium, color: isSelected ? _navy : Colors.grey.shade600),
+            SizedBox(width: context.w(10)),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(title,
-                      style: const TextStyle(
-                          fontSize: 12, fontWeight: FontWeight.w600)),
+                      style: TextStyle(
+                          fontSize: context.fs(12), fontWeight: FontWeight.w600)),
                   Text(subtitle,
                       style: TextStyle(
-                          fontSize: 10, color: Colors.grey.shade600)),
+                          fontSize: context.fs(10), color: Colors.grey.shade600)),
                 ],
               ),
             ),
             if (isSelected)
-              const Icon(Icons.check_circle, size: 18, color: _navy),
+              Icon(Icons.check_circle, size: context.iconMedium, color: _navy),
           ],
         ),
       ),
@@ -361,8 +359,8 @@ class _PaymentSectionState extends State<PaymentSection>
         widget.onPaymentSuccess();
       } else {
         _snack(
-          'Insufficient wallet balance (₹${balance.toStringAsFixed(2)} available). '
-          'Please choose CCAvenue.',
+          'Insufficient wallet balance (${balance.toStringAsFixed(2)} available). '
+              'Please choose CCAvenue.',
         );
       }
     } catch (e) {

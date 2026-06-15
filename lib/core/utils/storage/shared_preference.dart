@@ -18,6 +18,9 @@ class PreferencesManager {
   static const String _preferredCurrencyKey = 'preferred_currency';
   static const String _exchangeRatesKey = 'exchange_rates_cache';
 
+  static const String _lastSearchKey = 'last_search_data';
+  static const String _searchHistoryKey = 'search_history';
+
   // Token methods
   String? getToken() {
     final token = _prefs.getString(_tokenKey);
@@ -48,6 +51,52 @@ class PreferencesManager {
   Future<bool> clearUserData() async {
     await _prefs.remove(_userDataKey);
     return _prefs.setBool(_isLoggedInKey, false);
+  }
+
+  // ============ Last Search ===========
+  Future<bool> saveLastSearch(Map<String, dynamic> searchData) async {
+    final jsonString = jsonEncode(searchData);
+    return _prefs.setString(_lastSearchKey, jsonString);
+  }
+
+  Map<String, dynamic>? getLastSearch() {
+    final jsonString = _prefs.getString(_lastSearchKey);
+    if (jsonString == null) return null;
+    try {
+      return jsonDecode(jsonString) as Map<String, dynamic>;
+    } catch (e) {
+      return null;
+    }
+  }
+
+// Optional: Save search history (keep last 5-10 searches)
+  Future<void> addToSearchHistory(Map<String, dynamic> searchData) async {
+    List<String> history = _prefs.getStringList(_searchHistoryKey) ?? [];
+
+    // Add new search to the beginning
+    history.insert(0, jsonEncode(searchData));
+
+    // Keep only last 10 searches
+    if (history.length > 10) {
+      history = history.sublist(0, 10);
+    }
+
+    await _prefs.setStringList(_searchHistoryKey, history);
+  }
+
+  List<Map<String, dynamic>> getSearchHistory() {
+    final history = _prefs.getStringList(_searchHistoryKey) ?? [];
+    return history.map((item) {
+      try {
+        return jsonDecode(item) as Map<String, dynamic>;
+      } catch (e) {
+        return <String, dynamic>{};
+      }
+    }).where((item) => item.isNotEmpty).toList();
+  }
+
+  Future<void> clearSearchHistory() async {
+    await _prefs.remove(_searchHistoryKey);
   }
 
   // ============ GENERIC METHODS ============

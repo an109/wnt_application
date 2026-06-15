@@ -473,17 +473,18 @@ class _AirportSearchDropdownState extends State<AirportSearchDropdown> {
                           border: InputBorder.none,
                           isDense: true,
                           contentPadding: EdgeInsets.zero,
-                          suffixIcon: widget.selectedAirport != null
-                              ? IconButton(
-                                  padding: EdgeInsets.zero,
-                                  constraints: const BoxConstraints(),
-                                  icon: Icon(
-                                    Icons.clear,
-                                    size: context.iconSmall,
-                                  ),
-                                  onPressed: _clearSelection,
-                                )
-                              : null,
+                          suffixIcon: null,
+                          // suffixIcon: widget.selectedAirport != null
+                          //     ? IconButton(
+                          //         padding: EdgeInsets.zero,
+                          //         constraints: const BoxConstraints(),
+                          //         icon: Icon(
+                          //           Icons.clear,
+                          //           size: context.iconSmall,
+                          //         ),
+                          //         onPressed: _clearSelection,
+                          //       )
+                          //     : null,
                         ),
                         style: TextStyle(
                           fontSize: context.fs(14),

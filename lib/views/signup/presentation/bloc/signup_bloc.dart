@@ -1,5 +1,4 @@
 import 'package:bloc/bloc.dart';
-import 'package:equatable/equatable.dart';
 import '../../../../core/error/data_state.dart';
 import '../../domain/entity/signup_entity.dart';
 import '../../domain/usecase/signup_usecase.dart';

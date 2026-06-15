@@ -14,12 +14,14 @@ import '../bloc/destination_state.dart';
 class DestinationSearchField extends StatefulWidget {
   final String label;
   final String hint;
+  final DestinationEntity? initialDestination;
   final void Function(DestinationEntity)? onDestinationSelected;
 
   const DestinationSearchField({
     super.key,
     required this.label,
     required this.hint,
+    this.initialDestination,
     this.onDestinationSelected,
   });
 
@@ -41,6 +43,25 @@ class _DestinationSearchFieldState extends State<DestinationSearchField> {
   void initState() {
     super.initState();
     _focusNode.addListener(_onFocusChange);
+    if (widget.initialDestination != null) {
+      _controller.text = widget.initialDestination!.displayName;
+      _hasSelection = true;
+    }
+  }
+
+  @override
+  void didUpdateWidget(DestinationSearchField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Reflect a prefilled value supplied asynchronously by the parent.
+    if (widget.initialDestination != oldWidget.initialDestination) {
+      if (widget.initialDestination != null) {
+        _controller.text = widget.initialDestination!.displayName;
+        _hasSelection = true;
+      } else {
+        _controller.clear();
+        _hasSelection = false;
+      }
+    }
   }
 
   @override

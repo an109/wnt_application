@@ -935,8 +935,8 @@ class _LoginSignupScreenState extends State<LoginSignupScreen> {
                   child: Center(
                     child: Container(
                       margin: EdgeInsets.symmetric(
-                        horizontal: context.w(16),  // Added horizontal margin
-                        vertical: context.h(20),     // Added vertical margin
+                        horizontal: context.w(16),
+                        vertical: context.h(20),
                       ),
                       width: context.w(360),
                       constraints: BoxConstraints(maxHeight: context.h(540)), // Reduced from 576

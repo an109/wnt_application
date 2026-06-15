@@ -1,8 +1,7 @@
-// upload_documents_section.dart
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:wander_nova/UI_helper/responsive_layout.dart';
 
-/// Step 4 of the visa application — expands automatically after payment.
 /// User uploads the required documents, then submits the application.
 class UploadDocumentsSection extends StatefulWidget {
   final int stepNumber;
@@ -116,12 +115,12 @@ class _UploadDocumentsSectionState extends State<UploadDocumentsSection>
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(context.r(8)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+            blurRadius: context.w(8),
+            offset: Offset(0, context.h(2)),
           ),
         ],
       ),
@@ -133,7 +132,7 @@ class _UploadDocumentsSectionState extends State<UploadDocumentsSection>
             },
             borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
             child: Container(
-              padding: const EdgeInsets.all(12),
+              padding: EdgeInsets.all(context.w(12)),
               decoration: BoxDecoration(
                 color: widget.isActive
                     ? const Color(0xffE3F2FD)
@@ -141,13 +140,13 @@ class _UploadDocumentsSectionState extends State<UploadDocumentsSection>
                     ? Colors.green.shade50
                     : Colors.white,
                 borderRadius:
-                    const BorderRadius.vertical(top: Radius.circular(8)),
+                const BorderRadius.vertical(top: Radius.circular(8)),
               ),
               child: Row(
                 children: [
                   Container(
-                    width: 24,
-                    height: 24,
+                    width: context.w(24),
+                    height: context.w(24),
                     decoration: BoxDecoration(
                       color: widget.isCompleted
                           ? Colors.green
@@ -158,18 +157,18 @@ class _UploadDocumentsSectionState extends State<UploadDocumentsSection>
                     ),
                     child: Center(
                       child: widget.isCompleted
-                          ? const Icon(Icons.check, size: 12, color: Colors.white)
+                          ? Icon(Icons.check, size: context.iconXSmall, color: Colors.white)
                           : Text(
-                              '${widget.stepNumber}',
-                              style: const TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.white,
-                              ),
-                            ),
+                        '${widget.stepNumber}',
+                        style: TextStyle(
+                          fontSize: context.fs(11),
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  SizedBox(width: context.w(8)),
                   const Expanded(
                     child: Text(
                       'Upload Documents',
@@ -181,7 +180,7 @@ class _UploadDocumentsSectionState extends State<UploadDocumentsSection>
                     duration: const Duration(milliseconds: 200),
                     curve: Curves.easeInOut,
                     child: Icon(Icons.keyboard_arrow_down,
-                        size: 20, color: Colors.grey.shade600),
+                        size: context.iconMedium, color: Colors.grey.shade600),
                   ),
                 ],
               ),
@@ -199,17 +198,17 @@ class _UploadDocumentsSectionState extends State<UploadDocumentsSection>
 
   Widget _buildBody() {
     return Padding(
-      padding: const EdgeInsets.all(12),
+      padding: EdgeInsets.all(context.w(12)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             'Upload clear scans (PDF/JPG/PNG) of the documents below.',
-            style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+            style: TextStyle(fontSize: context.fs(10), color: Colors.grey.shade600),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: context.h(12)),
           ..._requiredDocs.map(_buildDocTile),
-          const SizedBox(height: 8),
+          SizedBox(height: context.h(8)),
           Row(
             children: [
               Expanded(
@@ -218,17 +217,17 @@ class _UploadDocumentsSectionState extends State<UploadDocumentsSection>
                   style: OutlinedButton.styleFrom(
                     side: const BorderSide(color: _navy),
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(6)),
-                    padding: const EdgeInsets.symmetric(vertical: 10),
+                        borderRadius: BorderRadius.circular(context.r(6))),
+                    padding: EdgeInsets.symmetric(vertical: context.h(10)),
                   ),
-                  child: const Text('BACK',
+                  child: Text('BACK',
                       style: TextStyle(
-                          fontSize: 11,
+                          fontSize: context.fs(11),
                           fontWeight: FontWeight.w600,
                           color: _navy)),
                 ),
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: context.w(8)),
               Expanded(
                 child: ElevatedButton(
                   onPressed: _allUploaded ? widget.onSubmit : null,
@@ -236,8 +235,8 @@ class _UploadDocumentsSectionState extends State<UploadDocumentsSection>
                     backgroundColor: _navy,
                     disabledBackgroundColor: Colors.grey.shade300,
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(6)),
-                    padding: const EdgeInsets.symmetric(vertical: 10),
+                        borderRadius: BorderRadius.circular(context.r(6))),
+                    padding: EdgeInsets.symmetric(vertical: context.h(10)),
                   ),
                   child: const Text('SUBMIT APPLICATION',
                       style: TextStyle(
@@ -249,10 +248,10 @@ class _UploadDocumentsSectionState extends State<UploadDocumentsSection>
             ],
           ),
           if (!_allUploaded) ...[
-            const SizedBox(height: 8),
+            SizedBox(height: context.h(8)),
             Text(
               'Please upload all required documents to submit.',
-              style: TextStyle(fontSize: 10, color: Colors.orange.shade800),
+              style: TextStyle(fontSize: context.fs(10), color: Colors.orange.shade800),
             ),
           ],
         ],
@@ -264,11 +263,11 @@ class _UploadDocumentsSectionState extends State<UploadDocumentsSection>
     final file = _uploaded[doc];
     final isDone = file != null;
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(10),
+      margin: EdgeInsets.only(bottom: context.h(8)),
+      padding: EdgeInsets.all(context.w(10)),
       decoration: BoxDecoration(
         color: isDone ? Colors.green.shade50 : Colors.grey.shade50,
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(context.r(6)),
         border: Border.all(
           color: isDone ? Colors.green.shade300 : Colors.grey.shade200,
         ),
@@ -277,23 +276,23 @@ class _UploadDocumentsSectionState extends State<UploadDocumentsSection>
         children: [
           Icon(
             isDone ? Icons.check_circle : Icons.description_outlined,
-            size: 20,
+            size: context.iconMedium,
             color: isDone ? Colors.green : Colors.grey.shade600,
           ),
-          const SizedBox(width: 10),
+          SizedBox(width: context.w(10)),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(doc,
-                    style: const TextStyle(
-                        fontSize: 11, fontWeight: FontWeight.w600)),
+                    style: TextStyle(
+                        fontSize: context.fs(11), fontWeight: FontWeight.w600)),
                 Text(
                   isDone ? file.name : 'Required',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: 10,
+                    fontSize: context.fs(10),
                     color: isDone ? Colors.green.shade700 : Colors.grey.shade500,
                   ),
                 ),
@@ -303,13 +302,13 @@ class _UploadDocumentsSectionState extends State<UploadDocumentsSection>
           TextButton(
             onPressed: () => _pickFor(doc),
             style: TextButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              minimumSize: const Size(0, 32),
+              padding: EdgeInsets.symmetric(horizontal: context.w(10)),
+              minimumSize: Size(0, context.h(32)),
             ),
             child: Text(
               isDone ? 'Replace' : 'Upload',
-              style: const TextStyle(
-                  fontSize: 11, fontWeight: FontWeight.w700, color: _navy),
+              style: TextStyle(
+                  fontSize: context.fs(11), fontWeight: FontWeight.w700, color: _navy),
             ),
           ),
         ],

@@ -513,13 +513,14 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
     final groups = _groupFlights(filtered);
     return Column(
       children: [
-        _buildRouteSummary(filtered),
+        // _buildRouteSummary(filtered),
         _buildDateStrip(),
         _buildSortBar(),
         Expanded(child: _buildFlightList(groups, filtered.length, flights.length)),
       ],
     );
   }
+
 
   // ---------------------------------------------------------------------------
   // Horizontally scrollable date + day strip
@@ -862,6 +863,9 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
       color: const Color(0xffF3F6FF),
       child: CustomScrollView(
         slivers: [
+          SliverToBoxAdapter(
+            child: _buildRouteSummary(_applyFilters(_allFlights)),
+          ),
           SliverToBoxAdapter(
             child: Padding(
               padding: EdgeInsets.fromLTRB(

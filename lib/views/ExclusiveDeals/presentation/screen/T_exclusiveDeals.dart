@@ -91,7 +91,7 @@ class _TransportExclusiveDealsSectionState
         children: [
           /// TITLE
           Text(
-            "Exclusive Deals",
+            "Offers for you",
             style: TextStyle(
               fontSize: context.titleLarge,
               fontWeight: FontWeight.w700,
@@ -108,11 +108,11 @@ class _TransportExclusiveDealsSectionState
           //     letterSpacing: 0.5,
           //   ),
           // ),
-          SizedBox(height: context.gapLarge),
+          SizedBox(height: context.gapMedium),
 
           /// TABS
           SizedBox(
-            height: context.h(34),
+            height: context.h(32),
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
               itemCount: 4,

@@ -1,14 +1,20 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import 'package:wander_nova/common_widgets/compact_date_picker_dialog.dart';
+import 'package:wander_nova/core/utils/storage/shared_preference.dart';
+import '../../../../core/resources/app_colours.dart';
 import '../../../../injection_container.dart';
 import '../../../Hotel_Details/presentation/screens/widgets/room_config.dart';
 import '../../../Hotel_api/presentation/bloc/hotel_bloc.dart';
 import '../../../flight_destination/domain/entities/destination_entity.dart';
 import '../../../flight_destination/presentation/widget/destination_search_field.dart';
 import '../../../Hotel_api/presentation/screen/hotel_listing.dart';
+import 'package:http/http.dart' as http;
 
 class HotelSearchCard extends StatefulWidget {
   const HotelSearchCard({super.key});
@@ -24,13 +30,14 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
   static const _blue = Color(0xFF1769F6);
   static const _navy = Color(0xFF071638);
   static const _border = Color(0xFFE2E7F0);
-  static const _muted = Color(0xFF6B7280);
 
   /// Guest nationality is resolved internally (defaults to India / 'IN').
   /// It is not shown in the UI and will later be set based on the user's IP.
-  static const String _guestNationalityCode = 'IN';
+  String _guestNationalityCode = 'IN';
 
   List<RoomConfig> _rooms = [RoomConfig()];
+
+  static const String _lastHotelSearchKey = 'last_hotel_search_data';
 
   @override
   void initState() {
@@ -39,6 +46,133 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
     // Auto-select dates on initialization
     _checkInDate = DateTime.now();
     _checkOutDate = DateTime.now().add(const Duration(days: 1));
+
+    _detectNationalityFromIP();
+    // Prefill from the user's last hotel search (details are stored in prefs).
+    _loadLastSearch();
+  }
+
+  Future<void> _saveLastSearch() async {
+    try {
+      final prefsManager =
+          await PreferencesManager.create(await SharedPreferences.getInstance());
+
+      final searchData = {
+        'destination': _destinationToJson(_selectedDestination),
+        'checkInDate': _checkInDate?.toIso8601String(),
+        'checkOutDate': _checkOutDate?.toIso8601String(),
+        'rooms': _rooms
+            .map((r) => {
+                  'adults': r.adults,
+                  'children': r.children,
+                  'childAges': r.childAges,
+                })
+            .toList(),
+      };
+
+      await prefsManager.setString(
+          _lastHotelSearchKey, jsonEncode(searchData));
+    } catch (e) {
+      debugPrint('Error saving last hotel search: $e');
+    }
+  }
+
+  Future<void> _loadLastSearch() async {
+    try {
+      final prefsManager =
+          await PreferencesManager.create(await SharedPreferences.getInstance());
+      final raw = prefsManager.getString(_lastHotelSearchKey);
+      if (raw == null || !mounted) return;
+
+      final lastSearch = jsonDecode(raw) as Map<String, dynamic>;
+
+      final savedDestination = _destinationFromJson(lastSearch['destination']);
+      final savedRooms = _roomsFromJson(lastSearch['rooms']);
+      final today = DateUtils.dateOnly(DateTime.now());
+
+      setState(() {
+        if (savedDestination != null) _selectedDestination = savedDestination;
+
+        // Restore dates, but never prefill a date in the past.
+        if (lastSearch['checkInDate'] != null) {
+          final checkIn =
+              DateUtils.dateOnly(DateTime.parse(lastSearch['checkInDate']));
+          _checkInDate = checkIn.isBefore(today) ? today : checkIn;
+        }
+        if (lastSearch['checkOutDate'] != null) {
+          final checkOut =
+              DateUtils.dateOnly(DateTime.parse(lastSearch['checkOutDate']));
+          _checkOutDate =
+              (_checkInDate != null && !checkOut.isAfter(_checkInDate!))
+                  ? _checkInDate!.add(const Duration(days: 1))
+                  : checkOut;
+        }
+
+        if (savedRooms != null && savedRooms.isNotEmpty) _rooms = savedRooms;
+      });
+    } catch (e) {
+      debugPrint('Error loading last hotel search: $e');
+    }
+  }
+
+  Map<String, dynamic>? _destinationToJson(DestinationEntity? d) {
+    if (d == null) return null;
+    return {
+      'id': d.id,
+      'name': d.name,
+      'type': d.type.name,
+      'countryCode': d.countryCode,
+      'countryName': d.countryName,
+      'cityCode': d.cityCode,
+      'additionalInfo': d.additionalInfo,
+    };
+  }
+
+  DestinationEntity? _destinationFromJson(dynamic json) {
+    if (json == null || json['id'] == null) return null;
+    return DestinationEntity(
+      id: json['id'],
+      name: json['name'] ?? '',
+      type: DestinationType.values.firstWhere(
+        (t) => t.name == json['type'],
+        orElse: () => DestinationType.city,
+      ),
+      countryCode: json['countryCode'],
+      countryName: json['countryName'],
+      cityCode: json['cityCode'],
+      additionalInfo: json['additionalInfo'],
+    );
+  }
+
+  List<RoomConfig>? _roomsFromJson(dynamic json) {
+    if (json is! List) return null;
+    return json
+        .map((r) => RoomConfig(
+              adults: r['adults'] ?? 1,
+              children: r['children'] ?? 0,
+              childAges: (r['childAges'] as List?)?.cast<int>() ?? [],
+            ))
+        .toList();
+  }
+
+  Future<void> _detectNationalityFromIP() async {
+    try {
+      final response = await http.get(
+        Uri.parse('http://ip-api.com/json'),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+
+        setState(() {
+          _guestNationalityCode = data['countryCode'] ?? 'IN';
+        });
+
+        print('Detected Country: $_guestNationalityCode');
+      }
+    } catch (e) {
+      print('Failed to detect nationality: $e');
+    }
   }
 
   String _getRoomSummary() {
@@ -320,8 +454,8 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
             GestureDetector(
               onTap: onDecrement,
               child: Container(
-                width: context.w(32), // 32px on design
-                height: context.w(32), // 32px on design
+                width: context.w(32),
+                height: context.w(32),
                 decoration: BoxDecoration(
                   border: Border.all(color: Colors.grey.shade300),
                   borderRadius: BorderRadius.circular(context.r(8)),
@@ -341,8 +475,8 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
             GestureDetector(
               onTap: onIncrement,
               child: Container(
-                width: context.w(32), // 32px on design
-                height: context.w(32), // 32px on design
+                width: context.w(32),
+                height: context.w(32),
                 decoration: BoxDecoration(
                   color: _blue,
                   borderRadius: BorderRadius.circular(context.r(8)),
@@ -440,6 +574,9 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
     print('Guests: $totalAdults adults, $totalChildren children');
     print('Rooms: ${_rooms.length}');
     print('Rooms: $_rooms');
+
+    // Persist this search so the form is prefilled next time.
+    _saveLastSearch();
 
     final checkInFormatted = DateFormat('yyyy-MM-dd').format(_checkInDate!);
     final checkOutFormatted = DateFormat('yyyy-MM-dd').format(_checkOutDate!);
@@ -564,20 +701,20 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
   /// Small rounded square that holds a leading icon (Image #3 style).
   Widget _iconBox(BuildContext context, IconData icon) {
     return Container(
-      width: 42,
-      height: 42,
+      width: 37,
+      height: 37,
       decoration: BoxDecoration(
         color: const Color(0xFFF1F5FF),
         borderRadius: BorderRadius.circular(14),
       ),
-      child: Icon(icon, size: 20, color: _navy),
+      child: Icon(icon, size: 17, color: _navy),
     );
   }
 
   TextStyle _labelStyle(BuildContext context) {
     return TextStyle(
       fontSize: 12,
-      color: _muted,
+      color: AppColors.muted,
       fontWeight: FontWeight.w800,
       letterSpacing: 0,
     );
@@ -598,6 +735,7 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
               DestinationSearchField(
                 label: 'Enter destination',
                 hint: 'Select Destination...',
+                initialDestination: _selectedDestination,
                 onDestinationSelected: (destination) {
                   setState(() {
                     _selectedDestination = destination;
@@ -648,9 +786,9 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
                 if (day.isNotEmpty)
                   Text(
                     day,
-                    style: const TextStyle(
+                    style:  TextStyle(
                       fontSize: 13,
-                      color: _muted,
+                      color: AppColors.muted,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -688,11 +826,11 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
                   ),
                 ),
                 SizedBox(height: context.h(2)),
-                const Text(
+                 Text(
                   'Tap to configure',
                   style: TextStyle(
                     fontSize: 13,
-                    color: _muted,
+                    color: AppColors.muted,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
