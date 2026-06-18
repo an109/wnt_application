@@ -12,9 +12,9 @@ class CurrencyConverter {
     final prefs = sl<PreferencesManager>();
     final rates = prefs.getCachedExchangeRates();
 
-    print('💱 DEBUG: from=$fromCurrency, to=$toCurrency, rates?=${rates != null}');
+    // print('💱 DEBUG: from=$fromCurrency, to=$toCurrency, rates?=${rates != null}');
     if (rates != null) {
-      print('💱 DEBUG: AED=${rates['AED']}, INR=${rates['INR']}');
+      // print('💱 DEBUG: AED=${rates['AED']}, INR=${rates['INR']}');
     }
 
     if (rates == null) return amount;
@@ -23,7 +23,7 @@ class CurrencyConverter {
     if (fromRate == null || toRate == null) return amount;
 
     final result = (amount / fromRate) * toRate;
-    print('💱 CONVERTED: $amount $fromCurrency → $result $toCurrency');
+    // print('💱 CONVERTED: $amount $fromCurrency → $result $toCurrency');
     return result;
   }
 

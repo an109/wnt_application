@@ -129,7 +129,7 @@ class _SpecialServiceScreenState extends State<SpecialServiceScreen> {
             onPressed: () {
               context.read<SsrBloc>().add(
                 LoadSsrData(
-                  endUserIp: '::1',
+                  endUserIp: '122.161.72.69',
                   traceId: widget.traceId,
                   tokenId: widget.tokenId,
                   resultIndex: widget.resultIndex,

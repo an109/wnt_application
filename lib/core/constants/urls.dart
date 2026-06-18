@@ -1,7 +1,7 @@
 class Urls {
-  static const String baseUrl = 'http://192.168.1.37:8001/api/';
+  static const String baseUrl = 'http://192.168.29.79:8000/api/';
   // static const String baseUrl = 'https://thewandernova.com/api/';
-  static const String basesUrl = 'http://192.168.1.37:8001/api';
+  static const String basesUrl = 'http://192.168.29.79:8000/api';
   // static const String basesUrl = 'https://thewandernova.com/api';
 
   static const String airports = '$basesUrl/flights/airports';
@@ -23,6 +23,10 @@ class Urls {
   static const String ccavenueCreateCheckout = '${baseUrl}payments/ccavenue/create-checkout/';
   static String ccavenueStatus(String orderId) => '${baseUrl}payments/ccavenue/status/$orderId/';
 
+  // ----- Server-side ticketing (payment-safe) -----
+  static const String prepareTicket = '${basesUrl}/flights/prepare-ticket/';
+  static const String finalizeTicket = '${basesUrl}/flights/finalize/';
+
   static const String ccavenueSuccessUrl = 'https://wandernova.com/payment/success';
   static const String ccavenueFailureUrl = 'https://wandernova.com/payment/failed';
   static const String hotelsByCity = '$basesUrl/tbo-hotel/hotels-by-city/';
@@ -33,7 +37,7 @@ class Urls {
   static const String hotelCancel = '$basesUrl/tbo-hotel/cancel/';
   static const String hotelHcnStatus = '$basesUrl/tbo-hotel/hcn-status/';
   static const String hotelBookings = '$basesUrl/tbo-hotel/bookings/';
-  static const String hotelBookingsList = '$basesUrl/tbo-hotel/bookings/list/';
+
   static const String hotelDestinationSearch = '$basesUrl/tbo-hotel/destination-search/';
   static const String hotelCachedCountries = '$basesUrl/tbo-hotel/cached-countries/';
   static const String exclusiveDeals = '$basesUrl/exclusive-deals/';
@@ -71,7 +75,10 @@ class Urls {
   static const String logout = '$basesUrl/auth/logout/';
   static const String userProfile = '$basesUrl/user/profile/';
   static const String updateUserProfile = '$basesUrl/user/profile/';
+  // My Bookings ----
   static const String transportBookings = '$basesUrl/transport/bookings/';
+  static const String hotelBookingsList = '$basesUrl/tbo-hotel/bookings/list/';
+
   // Visa Applications / Upcoming Trips
   static const String visaApplications = '$basesUrl/visa-applications/';
   // Referral endpoint

@@ -4,11 +4,10 @@ class BookingResponseModel {
   BookingResponseModel({this.response});
 
   factory BookingResponseModel.fromJson(Map<String, dynamic> json) {
-    return BookingResponseModel(
-      response: json['Response'] != null
-          ? BookingResponseData.fromJson(json['Response'])
-          : null,
-    );
+    // TBO Book returns a flat dict: {"PNR":"...","BookingId":...,"Status":1,...}
+    // Error timeouts wrap in: {"Response":{"Error":{...}}}
+    final inner = (json['Response'] as Map<String, dynamic>?) ?? json;
+    return BookingResponseModel(response: BookingResponseData.fromJson(inner));
   }
 }
 
@@ -34,17 +33,24 @@ class BookingResponseData {
   });
 
   factory BookingResponseData.fromJson(Map<String, dynamic> json) {
+    // Flat TBO response uses "Status":1 for success; wrapped uses "ResponseStatus":1
+    final rawStatus = json['Status'];
+    final status = rawStatus is int ? rawStatus : int.tryParse('$rawStatus');
+    final rawBookingId = json['BookingId'];
+    final bookingId = rawBookingId is int
+        ? rawBookingId
+        : rawBookingId != null ? int.tryParse('$rawBookingId') : null;
     return BookingResponseData(
-      responseStatus: json['ResponseStatus'],
+      responseStatus: json['ResponseStatus'] as int? ?? status,
       error: json['Error'] != null
-          ? BookingErrorData.fromJson(json['Error'])
+          ? BookingErrorData.fromJson(json['Error'] as Map<String, dynamic>)
           : null,
-      traceId: json['TraceId'],
-      pnr: json['PNR'],
-      bookingId: json['BookingId'],
-      isPriceChanged: json['IsPriceChanged'],
-      isTimeChanged: json['IsTimeChanged'],
-      status: json['Status'],
+      traceId: json['TraceId'] as String?,
+      pnr: json['PNR'] as String?,
+      bookingId: bookingId,
+      isPriceChanged: json['IsPriceChanged'] as bool?,
+      isTimeChanged: json['IsTimeChanged'] as bool?,
+      status: status,
     );
   }
 }

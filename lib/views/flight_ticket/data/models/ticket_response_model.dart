@@ -4,11 +4,10 @@ class TicketResponseModel {
   TicketResponseModel({this.response});
 
   factory TicketResponseModel.fromJson(Map<String, dynamic> json) {
-    return TicketResponseModel(
-      response: json['Response'] != null
-          ? TicketResponseData.fromJson(json['Response'])
-          : null,
-    );
+    // TBO Ticket returns a flat dict: {"PNR":"...","BookingId":...,"Status":1,...}
+    // Error timeouts wrap in: {"Response":{"Error":{...}}}
+    final inner = (json['Response'] as Map<String, dynamic>?) ?? json;
+    return TicketResponseModel(response: TicketResponseData.fromJson(inner));
   }
 }
 
@@ -30,17 +29,31 @@ class TicketResponseData {
   });
 
   factory TicketResponseData.fromJson(Map<String, dynamic> json) {
+    // Flat TBO response uses "Status":1 for success; wrapped uses "ResponseStatus":1
+    final rawStatus = json['Status'];
+    final status = rawStatus is int ? rawStatus : int.tryParse('$rawStatus');
+    final rawBookingId = json['BookingId'];
+    final bookingId = rawBookingId is int
+        ? rawBookingId
+        : rawBookingId != null ? int.tryParse('$rawBookingId') : null;
+    // TBO may nest PNR inside Itinerary for some ticket responses
+    final itinerary = json['Itinerary'] as Map<String, dynamic>?;
+    final pnr = (json['PNR'] as String?)?.isNotEmpty == true
+        ? json['PNR'] as String
+        : itinerary?['PNR'] as String?;
+    final passengersList = json['Passengers'] as List?;
     return TicketResponseData(
-      responseStatus: json['ResponseStatus'],
+      responseStatus: json['ResponseStatus'] as int? ?? status,
       error: json['Error'] != null
-          ? TicketErrorData.fromJson(json['Error'])
+          ? TicketErrorData.fromJson(json['Error'] as Map<String, dynamic>)
           : null,
-      traceId: json['TraceId'],
-      pnr: json['PNR'],
-      bookingId: json['BookingId'],
-      passengers: json['Passengers'] != null
-          ? (json['Passengers'] as List)
-              .map((p) => TicketPassengerData.fromJson(p))
+      traceId: json['TraceId'] as String?,
+      pnr: pnr,
+      bookingId: bookingId,
+      passengers: passengersList != null
+          ? passengersList
+              .whereType<Map<String, dynamic>>()
+              .map(TicketPassengerData.fromJson)
               .toList()
           : null,
     );

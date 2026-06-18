@@ -4,11 +4,13 @@ import '../../../../UI_helper/responsive_layout.dart';
 
 class ChangePasswordDialog extends StatefulWidget {
   final String email;
+  final String name;
   final VoidCallback? onSave;
 
   const ChangePasswordDialog({
     super.key,
     required this.email,
+    required this.name,
     this.onSave,
   });
 
@@ -33,6 +35,47 @@ class _ChangePasswordDialogState
   bool _obscureOld = true;
   bool _obscureNew = true;
   bool _obscureConfirm = true;
+  String? _passwordError;
+
+
+  void _validatePassword(String value) {
+    if (value.isEmpty) {
+      setState(() => _passwordError = null);
+      return;
+    }
+
+    if (value.length < 6) {
+      setState(() => _passwordError = 'Minimum 6 characters required');
+      return;
+    }
+
+    if (value.length > 16) {
+      setState(() => _passwordError = 'Maximum 16 characters allowed');
+      return;
+    }
+
+    if (!RegExp(r'[A-Z]').hasMatch(value)) {
+      setState(() => _passwordError = 'Include at least 1 uppercase letter');
+      return;
+    }
+
+    if (!RegExp(r'[a-z]').hasMatch(value)) {
+      setState(() => _passwordError = 'Include at least 1 lowercase letter');
+      return;
+    }
+
+    if (!RegExp(r'[0-9]').hasMatch(value)) {
+      setState(() => _passwordError = 'Include at least 1 number');
+      return;
+    }
+
+    if (!RegExp(r'[!@#$%^&*(),.?":{}|<>]').hasMatch(value)) {
+      setState(() => _passwordError = 'Include at least 1 special character');
+      return;
+    }
+
+    setState(() => _passwordError = null);
+  }
 
   @override
   void dispose() {
@@ -130,7 +173,7 @@ class _ChangePasswordDialogState
                 // ================= EMAIL =================
 
                 Text(
-                  "User Name",
+                  widget.name,
                   style: TextStyle(
                     fontSize: context.bodySmall,
                     color: Colors.grey.shade700,
@@ -313,13 +356,38 @@ class _ChangePasswordDialogState
           child: TextFormField(
             controller: controller,
             obscureText: obscureText,
-            validator: validator,
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return "Please enter new password";
+              }
+              if (value.length < 6) {
+                return "Password must be at least 6 characters";
+              }
+              if (value.length > 16) {
+                return "Maximum 16 characters allowed";
+              }
+              if (!RegExp(r'[A-Z]').hasMatch(value)) {
+                return "Include at least 1 uppercase letter";
+              }
+              if (!RegExp(r'[a-z]').hasMatch(value)) {
+                return "Include at least 1 lowercase letter";
+              }
+              if (!RegExp(r'[0-9]').hasMatch(value)) {
+                return "Include at least 1 number";
+              }
+              if (!RegExp(r'[!@#$%^&*(),.?":{}|<>]').hasMatch(value)) {
+                return "Include at least 1 special character";
+              }
+              return null;
+            },
+            onChanged: _validatePassword,
             style: TextStyle(
               fontSize: context.bodyMedium,
               color: Colors.black87,
             ),
             decoration: InputDecoration(
               hintText: hint,
+              counterText: '',
 
               hintStyle: TextStyle(
                 fontSize: context.bodySmall,
@@ -406,13 +474,14 @@ class _ChangePasswordDialogState
 void showChangePasswordDialog({
   required BuildContext context,
   required String email,
-  VoidCallback? onSave,
+  VoidCallback? onSave, required String name,
 }) {
   showDialog(
     context: context,
     barrierDismissible: false,
     builder: (_) {
       return ChangePasswordDialog(
+        name: name,
         email: email,
         onSave: onSave,
       );

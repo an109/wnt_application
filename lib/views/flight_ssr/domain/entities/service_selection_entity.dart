@@ -47,6 +47,21 @@ class SpecialServiceEntity extends Equatable {
     );
   }
 
+  /// TBO Book/Ticket special-service object — full SSR fields, no stubbing.
+  Map<String, dynamic> toTboJson() => {
+        'AirlineCode': airlineCode,
+        'FlightNumber': flightNumber,
+        'Origin': origin,
+        'Destination': destination,
+        if (departureTime != null) 'DepartureTime': departureTime,
+        'Code': code,
+        'ServiceType': serviceType,
+        'Text': text,
+        'WayType': wayType,
+        'Currency': currency,
+        'Price': price,
+      };
+
   String get displayTitle {
     final titles = {
       'BOF1': 'Bag Out First - 1 Bag',

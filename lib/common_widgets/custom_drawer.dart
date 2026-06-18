@@ -4,7 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../UI_helper/responsive_layout.dart';
 import '../core/utils/storage/shared_preference.dart';
 import '../injection_container.dart';
-import '../views/MyBookings/presentation/screen/MyBooking_Screen.dart';
+import '../views/MyBookings/Screen/MyBooking_Screen.dart';
 import '../views/Dashboard/dashboardScreen.dart';
 import '../views/Dashboard/profile/screen/Profile_screen.dart';
 import '../views/Dashboard/screen/make_payment.dart';
@@ -544,7 +544,12 @@ class _CustomDrawerState extends State<CustomDrawer>
         onPressed: () {
           Navigator.push(
             context,
-            MaterialPageRoute(builder: (context) => const LoginSignupScreen()),
+            PageRouteBuilder(
+              opaque: false,
+              pageBuilder: (_, __, ___) => const LoginSignupScreen(),
+              transitionsBuilder: (_, animation, __, child) =>
+                  FadeTransition(opacity: animation, child: child),
+            ),
           ).then((_) => _loadUserData());
         },
         style: ElevatedButton.styleFrom(
@@ -718,7 +723,7 @@ class _CustomDrawerState extends State<CustomDrawer>
           ),
           ElevatedButton(
             onPressed: () async {
-              Navigator.pop(ctx); // Close dialog
+              Navigator.pop(ctx);
 
               final logoutBloc = sl<LogoutBloc>();
 
@@ -743,6 +748,12 @@ class _CustomDrawerState extends State<CustomDrawer>
                       });
                     }
                   });
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Logged Out Successfully'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
                 }
                 else if (state is LogoutFailed) {
                   print('Logout API failed: ${state.error.message}');

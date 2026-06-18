@@ -41,6 +41,8 @@ class _VisaApplyPopupState extends State<VisaApplyPopup>
   String _countryCode = '+91';
   bool _isExpanded = true;
   bool _isSubmitting = false;
+  String? _emailError;
+  String? _phoneError;
 
   // Currency
   String _preferredCurrency = 'INR';
@@ -62,6 +64,41 @@ class _VisaApplyPopupState extends State<VisaApplyPopup>
     '9 Travellers',
     '10 Travellers',
   ];
+
+  void _validateEmail(String value) {
+    if (value.isEmpty) {
+      setState(() => _emailError = null);
+      return;
+    }
+
+    final emailRegex = RegExp(
+      r'^[\w\-\.]+@([\w\-]+\.)+[\w\-]{2,4}$',
+    );
+
+    setState(() {
+      _emailError =
+      emailRegex.hasMatch(value) ? null : 'Please enter a valid email address';
+    });
+  }
+
+  void _validatePhone(String value) {
+    if (value.isEmpty) {
+      setState(() => _phoneError = null);
+      return;
+    }
+
+    setState(() {
+      if (!RegExp(r'^\d+$').hasMatch(value)) {
+        _phoneError = 'Only numbers are allowed';
+      } else if (value.length < 10) {
+        _phoneError = 'Phone number must be 10 digits';
+      } else if (value.length > 10) {
+        _phoneError = 'Phone number cannot exceed 10 digits';
+      } else {
+        _phoneError = null;
+      }
+    });
+  }
 
   /// Get list of visa type names for dropdown
   List<String> get _visaTypeNames {
@@ -499,6 +536,24 @@ class _VisaApplyPopupState extends State<VisaApplyPopup>
               hint: 'your@email.com',
               icon: Icons.email_outlined,
             ),
+            if (_emailError != null)
+              Padding(
+                padding: EdgeInsets.only(
+                  top: context.gapXSmall,
+                  left: context.wp(1),
+                ),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    _emailError!,
+                    style: TextStyle(
+                      color: Colors.red,
+                      fontSize: context.labelSmall,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ),
             SizedBox(height: context.gapSmall),
             _buildPhoneField(),
             SizedBox(height: context.gapSmall),
@@ -642,6 +697,9 @@ class _VisaApplyPopupState extends State<VisaApplyPopup>
       ),
       child: TextFormField(
         controller: controller,
+        onChanged: label.contains('Email')
+            ? _validateEmail
+            : null,
         decoration: InputDecoration(
           labelText: label,
           hintText: hint,
@@ -720,9 +778,12 @@ class _VisaApplyPopupState extends State<VisaApplyPopup>
           ),
           Expanded(
             child: TextFormField(
+              maxLength: 10,
+              onChanged: _validatePhone,
               controller: _phoneController,
               decoration: InputDecoration(
                 hintText: 'Phone number',
+                counterText: '',
                 hintStyle: TextStyle(
                   fontSize: context.labelMedium,
                   color: Colors.grey.shade400,

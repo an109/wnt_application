@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:wander_nova/injection_container.dart' as di;
+import 'package:wander_nova/views/home/presentation/screens/home_screen.dart';
 import '../../UI_helper/responsive_layout.dart';
 import '../../common_widgets/logo.dart';
 import '../../core/constants/urls.dart';
@@ -537,7 +538,8 @@ class _HotelConfirmationScreenState extends State<HotelConfirmationScreen> {
   }
 
   void _goHome(BuildContext context) {
-    Navigator.of(context).popUntil((route) => route.isFirst);
+    // Navigator.of(context).popUntil((route) => route.isFirst);
+    Navigator.push(context, MaterialPageRoute(builder: (_) => HomeScreen()));
   }
 
   Widget _card(BuildContext context, {required Widget child}) {

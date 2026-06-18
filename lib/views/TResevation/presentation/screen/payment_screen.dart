@@ -8,7 +8,10 @@ import '../../../../injection_container.dart' as di;
 import '../../../flight_payment/data/ccavenue_service.dart';
 import '../../../flight_payment/presentation/screen/ccavenue_payment_page.dart';
 import '../../../wallet/data/data_source/wallet_api_service.dart';
+import '../../../../core/error/data_state.dart';
 import '../../domain/entities/TReservation-entity.dart';
+import '../../domain/usecase/TReservation_usecase.dart';
+import 'booking_confirmation_screen.dart';
 
 
 class PaymentScreen extends StatefulWidget {
@@ -28,6 +31,11 @@ class PaymentScreen extends StatefulWidget {
   final String passengerPhone;
   final int? userId;
 
+  /// Flight details captured on the booking form. Mozio requires non-blank
+  /// `airline` and `flight_number` on every reservation.
+  final String flightNumber;
+  final String airline;
+
   const PaymentScreen({
     super.key,
     required this.resultId,
@@ -45,6 +53,8 @@ class PaymentScreen extends StatefulWidget {
     required this.passengerEmail,
     required this.passengerPhone,
     required this.userId,
+    required this.flightNumber,
+    required this.airline,
   });
 
   @override
@@ -131,8 +141,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
       razorpayPaymentId: '',
       specialInstructions: '',
       notes: '',
-      flightNumber: '',
-      airline: '',
+      // Real flight details captured on the booking form. Mozio requires these
+      // non-blank on every reservation.
+      flightNumber: widget.flightNumber,
+      airline: widget.airline,
       couponCode: null,
       extraPaxInfo: null,
     );
@@ -143,6 +155,96 @@ class _PaymentScreenState extends State<PaymentScreen> {
     print('Payment Method: ${entity.paidVia}');
 
     return entity;
+  }
+
+  /// Creates the transport reservation AFTER a successful payment. This is the
+  /// step that actually calls `Urls.transportReservations` — without it the
+  /// payment goes through but no booking is ever recorded.
+  Future<void> _createReservation(String paymentReferenceId) async {
+    final entity = _buildReservationEntity();
+    print('=== CREATING TRANSPORT RESERVATION (ref=$paymentReferenceId) ===');
+
+    try {
+      final result = await di.sl<CreateTransportReservationUseCase>()(
+        searchId: entity.searchId,
+        resultId: entity.resultId,
+        firstName: entity.firstName,
+        email: entity.email,
+        phoneNumber: entity.phoneNumber,
+        customerInfo: entity.customerInfo,
+        passengers: entity.passengers,
+        numPassengers: entity.numPassengers,
+        currency: entity.currency,
+        selectedCurrency: entity.selectedCurrency,
+        displayCurrency: entity.displayCurrency,
+        displayTotalPrice: entity.displayTotalPrice,
+        displayBasePrice: entity.displayBasePrice,
+        displayRideBasePrice: entity.displayRideBasePrice,
+        displayDiscountAmount: entity.displayDiscountAmount,
+        optionalAmenities: entity.optionalAmenities,
+        tripStartAddress: entity.tripStartAddress,
+        tripEndAddress: entity.tripEndAddress,
+        tripPickupDatetime: entity.tripPickupDatetime,
+        tripType: entity.tripType,
+        vehicleName: entity.vehicleName,
+        providerName: entity.providerName,
+        paidVia: entity.paidVia,
+        paymentGateway: entity.paymentGateway,
+        paymentReferenceId: paymentReferenceId,
+        razorpayOrderId: entity.razorpayOrderId,
+        razorpayPaymentId: entity.razorpayPaymentId,
+        specialInstructions: entity.specialInstructions,
+        notes: entity.notes,
+        flightNumber: entity.flightNumber,
+        airline: entity.airline,
+        couponCode: entity.couponCode,
+        extraPaxInfo: entity.extraPaxInfo,
+      );
+
+      if (!mounted) return;
+      if (result is DataSuccess<TransportReservationEntity>) {
+        print('Reservation created: resultId=${result.data?.resultId}');
+        // Show the booking confirmation screen. Use the locally built entity
+        // (it carries the full trip/passenger/flight details) and the payment
+        // reference. pushReplacement so the user can't go back into payment.
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (_) => BookingConfirmationScreen(
+              // Local entity carries the full trip/passenger details; status &
+              // confirmation come from the live reservation response.
+              reservation: entity,
+              status: result.data?.status ?? '',
+              confirmationNumber: result.data?.confirmationNumber ?? '',
+            ),
+          ),
+        );
+      } else {
+        print('Reservation failed: ${result.error?.message}');
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Payment succeeded but the booking could not be created. '
+              'Please contact support with your payment reference.',
+            ),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      print('Reservation error: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Payment succeeded but the booking could not be created. '
+            'Please contact support.',
+          ),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   @override
@@ -1086,7 +1188,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
             behavior: SnackBarBehavior.floating,
           ),
         );
-        // TODO: create the transport reservation / navigate to confirmation.
+        // Wallet paid → record the booking via the reservation API.
+        await _createReservation('WALLET${DateTime.now().millisecondsSinceEpoch}');
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -1197,7 +1300,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
               behavior: SnackBarBehavior.floating,
             ),
           );
-          // TODO: create the transport reservation / navigate to confirmation.
+          // Payment done → now record the booking via the reservation API.
+          await _createReservation(orderId);
           break;
         case PaymentResult.failure:
           ScaffoldMessenger.of(context).showSnackBar(

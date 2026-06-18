@@ -6,7 +6,7 @@ import 'package:wander_nova/views/Dashboard/screen/support_screen.dart';
 import 'package:wander_nova/views/UpcomingTrips/presentation/screen/upcoming_trip.dart';
 import 'package:wander_nova/views/wallet/wallet/screen/wallet_screen.dart';
 
-import '../MyBookings/presentation/screen/MyBooking_Screen.dart';
+import '../MyBookings/Screen/MyBooking_Screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   final String userEmail;

@@ -31,12 +31,52 @@ class _LoginPasswordPopupState extends State<LoginPasswordPopup> {
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
   late final LoginBloc _loginBloc; // ← Local LoginBloc instance
+  String? _passwordError;
 
   @override
   void initState() {
     super.initState();
     // ← Initialize LoginBloc with dependency injection
     _loginBloc = di.sl<LoginBloc>();
+  }
+
+  void _validatePassword(String value) {
+    if (value.isEmpty) {
+      setState(() => _passwordError = null);
+      return;
+    }
+
+    if (value.length < 6) {
+      setState(() => _passwordError = 'Minimum 6 characters required');
+      return;
+    }
+
+    if (value.length > 16) {
+      setState(() => _passwordError = 'Maximum 16 characters allowed');
+      return;
+    }
+
+    if (!RegExp(r'[A-Z]').hasMatch(value)) {
+      setState(() => _passwordError = 'Include at least 1 uppercase letter');
+      return;
+    }
+
+    if (!RegExp(r'[a-z]').hasMatch(value)) {
+      setState(() => _passwordError = 'Include at least 1 lowercase letter');
+      return;
+    }
+
+    if (!RegExp(r'[0-9]').hasMatch(value)) {
+      setState(() => _passwordError = 'Include at least 1 number');
+      return;
+    }
+
+    if (!RegExp(r'[!@#$%^&*(),.?":{}|<>]').hasMatch(value)) {
+      setState(() => _passwordError = 'Include at least 1 special character');
+      return;
+    }
+
+    setState(() => _passwordError = null);
   }
 
   @override
@@ -163,7 +203,10 @@ class _LoginPasswordPopupState extends State<LoginPasswordPopup> {
                                       controller: _passwordController,
                                       obscureText: _obscurePassword,
                                       style: TextStyle(fontSize: context.sp(15)),
+                                      maxLength: 16,
+                                      onChanged: _validatePassword,
                                       decoration: InputDecoration(
+                                        counterText : '',
                                         hintText: 'Enter your password',
                                         hintStyle: TextStyle(color: Colors.grey.shade400),
                                         border: InputBorder.none,
@@ -188,6 +231,20 @@ class _LoginPasswordPopupState extends State<LoginPasswordPopup> {
                                       ),
                                     ),
                                   ),
+                                  if (_passwordError != null) ...[
+                                    SizedBox(height: context.hp(0.8)),
+                                    Align(
+                                      alignment: Alignment.centerLeft,
+                                      child: Text(
+                                        _passwordError!,
+                                        style: TextStyle(
+                                          color: Colors.red,
+                                          fontSize: context.sp(11),
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
 
                                   Align(
                                     alignment: Alignment.centerRight,
@@ -265,13 +322,11 @@ class _LoginPasswordPopupState extends State<LoginPasswordPopup> {
 
   // ← NEW: Handle login API call
   void _login() {
-    if (_passwordController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enter your password'),
-          backgroundColor: Colors.orange,
-        ),
-      );
+    final password = _passwordController.text.trim();
+
+    _validatePassword(password);
+
+    if (_passwordError != null) {
       return;
     }
 
@@ -279,7 +334,7 @@ class _LoginPasswordPopupState extends State<LoginPasswordPopup> {
     _loginBloc.add(
       LoginSubmitted(
         contactValue: widget.contact,
-        password: _passwordController.text,
+        password: password,
         contactType: widget.contactType.fieldName, // Uses your ContactType extension
       ),
     );

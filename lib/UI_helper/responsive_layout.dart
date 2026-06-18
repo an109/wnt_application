@@ -121,6 +121,12 @@ extension ResponsiveExtension on BuildContext {
     return EdgeInsets.all(w(32)); // 32px on design
   }
 
+  EdgeInsets get smallPadding {
+    if (isMobile) return EdgeInsets.all(w(13)); // 16px on design
+    if (isTablet) return EdgeInsets.all(w(21)); // 24px on design
+    return EdgeInsets.all(w(29)); // 32px on design
+  }
+
   EdgeInsets get horizontalPadding {
     if (isMobile) return EdgeInsets.symmetric(horizontal: w(16));
     if (isTablet) return EdgeInsets.symmetric(horizontal: w(24));

@@ -104,6 +104,9 @@ flutter:
     - assets/images/
     - assets/icons/hotel.png
     - assets/icons/
+    - assets/animation/successful.json
+    - assets/animation/Plane_animation.json
+    - assets/animation/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

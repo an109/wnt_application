@@ -847,7 +847,7 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
       height: 48,
       child: ElevatedButton(
         style: ElevatedButton.styleFrom(
-          backgroundColor: _blue,
+          backgroundColor: AppColors.OrangeColor,
           elevation: 0,
           padding: EdgeInsets.symmetric(horizontal: context.w(10)),
           shape: RoundedRectangleBorder(

@@ -9,6 +9,8 @@ class ProfileTextField extends StatelessWidget {
   final TextInputType keyboardType;
   final int maxLines;
   final Widget? suffixIcon;
+  final String? errorText;
+  final ValueChanged<String>? onChanged;
 
   const ProfileTextField({
     super.key,
@@ -18,6 +20,8 @@ class ProfileTextField extends StatelessWidget {
     this.keyboardType = TextInputType.text,
     this.maxLines = 1,
     this.suffixIcon,
+    this.errorText,
+    this.onChanged
   });
 
   @override

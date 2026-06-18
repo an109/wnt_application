@@ -15,8 +15,10 @@ import '../../../ExclusiveDeals/presentation/screen/T_exclusiveDeals.dart';
 import '../../../Holidays/presentation/widget/holiday_search_card.dart';
 import '../../../Hotel/screen/hotel_screen.dart';
 import '../../../Hotel/section/exclusive_deals/hotel_search_card.dart';
+import '../../../MainApi/domain/entities/general_setting_entity.dart';
 import '../../../MainApi/presentation/bloc/general_setting_bloc.dart';
 import '../../../MainApi/presentation/bloc/general_settings_event.dart';
+import '../../../MainApi/presentation/bloc/general_settings_state.dart';
 import '../../../T_location/presentation/screen/booking_card.dart';
 import '../../../Transport/screen/transport_screen.dart';
 import '../../../airport/presentation/screen/search_card.dart';
@@ -130,11 +132,11 @@ class _HomeScreenState extends State<HomeScreen> {
         elevation: 0,
         actions: [
           Padding(
-            padding: EdgeInsets.all(context.w(8)), // 8px on design
+            padding: EdgeInsets.all(context.w(8)),
             child: Image.asset(
               "assets/images/wander_logo.png",
-              height: context.h(36), // 36px on design
-              width: context.h(36), // Keep square
+              height: context.h(36),
+              width: context.h(36),
               fit: BoxFit.contain,
             ),
           ),
@@ -165,12 +167,12 @@ class _HomeScreenState extends State<HomeScreen> {
             slivers: [
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: context.w(10)), // 10px on design
+                  padding: EdgeInsets.symmetric(horizontal: context.w(10)),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _buildHeroCard(context).animate().fadeIn(duration: 500.ms).slideY(begin: -0.15),
-                      SizedBox(height: context.h(24)), // 24px on design
+                      SizedBox(height: context.h(24)),
                       Text(
                         'More Services',
                         style: TextStyle(
@@ -180,9 +182,9 @@ class _HomeScreenState extends State<HomeScreen> {
                           letterSpacing: context.letterSpacingTight,
                         ),
                       ),
-                      SizedBox(height: context.h(16)), // 16px on design
+                      SizedBox(height: context.h(16)),
                       _buildAdditionalServicesGrid(context),
-                      SizedBox(height: context.h(20)), // 20px on design
+                      SizedBox(height: context.h(20)),
                       _buildRecentSearchesSection(context),
                     ],
                   ),
@@ -235,58 +237,142 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildHeroCard(BuildContext context) {
+    // Load the app/dashboard banner via its own GeneralSettingsBloc instance
+    // (mirrors the other sections that each own a bloc), then paint it behind
+    // the hero content. Falls back to the brand gradient while loading / on
+    // error so the UI never looks broken.
+    return BlocProvider<GeneralSettingsBloc>(
+      create: (_) => sl<GeneralSettingsBloc>()
+        ..add(const LoadGeneralSettings(domain: 'thewandernova.com')),
+      child: BlocBuilder<GeneralSettingsBloc, GeneralSettingsState>(
+        buildWhen: (previous, current) =>
+            current is GeneralSettingsLoaded ||
+            current is PopularDestinationsDataLoaded,
+        builder: (context, state) {
+          String? bannerUrl;
+          if (state is GeneralSettingsLoaded) {
+            bannerUrl = _heroBannerUrl(state.generalSettings);
+          } else if (state is PopularDestinationsDataLoaded) {
+            bannerUrl = _heroBannerUrl(state.generalSettings);
+          }
+          return _buildHeroCardContent(context, bannerUrl);
+        },
+      ),
+    );
+  }
+
+  /// Picks the best available remote image for the hero background.
+  String? _heroBannerUrl(GeneralSettingsEntity settings) {
+    for (final url in [settings.dashboardImage, settings.dashboardImage]) {
+      if (url.trim().isNotEmpty) return url.trim();
+    }
+    return null;
+  }
+
+  Widget _buildHeroCardContent(BuildContext context, String? bannerUrl) {
+    final borderRadius = BorderRadius.circular(context.r(8));
     return Container(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(context.r(10)), // 10px on design
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color(0xFF003B95),
-            Color(0xFF005B7F),
-          ],
-        ),
+        // borderRadius: borderRadius,
         boxShadow: [
           BoxShadow(
             color: Colors.blue.withOpacity(.25),
-            blurRadius: context.w(20), // 20px on design
-            offset: Offset(0, context.h(8)), // 8px on design
+            blurRadius: context.w(20),
+            offset: Offset(0, context.h(8)),
           ),
         ],
       ),
-      child: Padding(
-        padding: EdgeInsets.all(context.w(12)), // 12px on design
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      child: ClipRRect(
+        borderRadius: borderRadius,
+        child: Stack(
           children: [
-            SizedBox(height: context.h(8)), // 8px on design
-            Text(
-              "Discover Your Next\nJourney ✈",
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: context.titleLarge * 1.2,
-                fontWeight: FontWeight.w800,
-                height: 1.15,
+            // Background fills the area sized by the content column below.
+            Positioned.fill(child: _buildHeroBackground(context, bannerUrl)),
+            Padding(
+              padding: EdgeInsets.all(context.w(12)), // 12px on design
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(height: context.h(8)), // 8px on design
+                  Text(
+                    "Discover Your Next\nJourney ✈",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: context.titleLarge * 1.2,
+                      fontWeight: FontWeight.w800,
+                      height: 1.15,
+                    ),
+                  ),
+                  SizedBox(height: context.h(8)),
+                  Text(
+                    "Flights, Hotels and more — all in one place.",
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(.9),
+                      fontSize: context.bodyMedium,
+                    ),
+                  ),
+                  SizedBox(height: context.h(16)),
+                  _buildServiceTabs(context),
+                  SizedBox(height: context.h(8)),
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 200),
+                    child: _buildSelectedCard(),
+                  ),
+                ],
               ),
-            ),
-            SizedBox(height: context.h(8)), // 8px on design
-            Text(
-              "Flights, Hotels and more — all in one place.",
-              style: TextStyle(
-                color: Colors.white.withOpacity(.9),
-                fontSize: context.bodyMedium,
-              ),
-            ),
-            SizedBox(height: context.h(16)), // 16px on design
-            _buildServiceTabs(context),
-            SizedBox(height: context.h(8)), // 8px on design
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 200),
-              child: _buildSelectedCard(),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  /// Brand-gradient background that, when a [bannerUrl] is available, shows the
+  /// remote image on top with a dark scrim for text legibility.
+  Widget _buildHeroBackground(BuildContext context, String? bannerUrl) {
+    const brandGradient = LinearGradient(
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: [
+        Color(0xFF003B95),
+        Color(0xFF005B7F),
+      ],
+    );
+
+    if (bannerUrl == null) {
+      return const DecoratedBox(
+        decoration: BoxDecoration(gradient: brandGradient),
+      );
+    }
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        // Shown while the image loads or if it fails to load.
+        const DecoratedBox(
+          decoration: BoxDecoration(gradient: brandGradient),
+        ),
+        Image.network(
+          bannerUrl,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+          loadingBuilder: (ctx, child, progress) =>
+              progress == null ? child : const SizedBox.shrink(),
+        ),
+        // Dark scrim keeps the white headline and tabs readable on any image.
+        DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Colors.black.withOpacity(0.45),
+                Colors.black.withOpacity(0.20),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 

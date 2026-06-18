@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../../UI_helper/responsive_layout.dart';
 import '../../../domain/entities/seat_option_entity.dart';
 import '../../../domain/entities/ssr_entity.dart';
 import '../../bloc/ssr_bloc.dart';
@@ -36,6 +37,9 @@ class _SeatScreenState extends State<SeatScreen> {
   final List<SeatOptionEntity> _selectedSeats = [];
   static const _blue = Color(0xFF1769F6);
   static const _navy = Color(0xFF071638);
+  // Highlight colours for available (selectable) seats.
+  static const _availableBorder = Color(0xFF2E9E5B);
+  static const _availableFill = Color(0xFFE7F6EC);
 
   bool _isSeatSelected(SeatOptionEntity seat) =>
       _selectedSeats.any((s) => s.code == seat.code);
@@ -99,7 +103,7 @@ class _SeatScreenState extends State<SeatScreen> {
               onPressed: () {
                 context.read<SsrBloc>().add(
                   LoadSsrData(
-                    endUserIp: '::1',
+                    endUserIp: '122.161.72.69',
                     traceId: widget.traceId,
                     tokenId: widget.tokenId,
                     resultIndex: widget.resultIndex,
@@ -138,15 +142,15 @@ class _SeatScreenState extends State<SeatScreen> {
     return SafeArea(
       child: Column(
         children: [
-          const SizedBox(height: 12),
+          SizedBox(height: context.h(12)),
 
           // SELECTION HINT
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 18),
+            padding: EdgeInsets.symmetric(horizontal: context.w(18)),
             child: Row(
               children: [
-                const Icon(Icons.event_seat, size: 18, color: _blue),
-                const SizedBox(width: 8),
+                Icon(Icons.event_seat, size: context.w(18), color: _blue),
+                SizedBox(width: context.w(8)),
                 Expanded(
                   child: Text(
                     widget.travellerCount > 1
@@ -154,7 +158,7 @@ class _SeatScreenState extends State<SeatScreen> {
                               '(${_selectedSeats.length}/${widget.travellerCount} selected)'
                         : 'Select a seat for your traveller',
                     style: TextStyle(
-                      fontSize: 13,
+                      fontSize: context.fs(13),
                       fontWeight: FontWeight.w600,
                       color: _navy,
                     ),
@@ -164,16 +168,16 @@ class _SeatScreenState extends State<SeatScreen> {
             ),
           ),
 
-          const SizedBox(height: 12),
+          SizedBox(height: context.h(12)),
 
           // AIRPLANE BODY
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14),
+              padding: EdgeInsets.symmetric(horizontal: context.w(14)),
               child: Container(
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(32),
+                  borderRadius: BorderRadius.circular(context.r(32)),
                   border: Border.all(color: const Color(0xFFE2E7F0)),
                   boxShadow: [
                     BoxShadow(
@@ -186,50 +190,44 @@ class _SeatScreenState extends State<SeatScreen> {
 
                 child: Column(
                   children: [
-                    const SizedBox(height: 20),
+                    SizedBox(height: context.h(20)),
 
                     // PLANE HEAD
-                    Container(
-                      width: 120,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFE8ECF4),
-                        borderRadius: BorderRadius.circular(30),
-                      ),
-                    ),
-
-                    const SizedBox(height: 20),
+                    // Container(
+                    //   width: 120,
+                    //   height: 40,
+                    //   decoration: BoxDecoration(
+                    //     color: const Color(0xFFE8ECF4),
+                    //     borderRadius: BorderRadius.circular(30),
+                    //   ),
+                    // ),
+                    //
+                    // const SizedBox(height: 20),
 
                     // SEAT LABELS
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      padding: EdgeInsets.symmetric(horizontal: context.w(16)),
                       child: Row(
-                        children: const [
-                          SizedBox(width: 24),
+                        children: [
+                          SizedBox(width: context.w(24)),
 
-                          Expanded(child: Center(child: Text("A"))),
+                          for (final label in const ['A', 'B', 'C'])
+                            Expanded(child: Center(child: Text(label))),
 
-                          Expanded(child: Center(child: Text("B"))),
+                          SizedBox(width: context.w(36)),
 
-                          Expanded(child: Center(child: Text("C"))),
-
-                          SizedBox(width: 36),
-
-                          Expanded(child: Center(child: Text("D"))),
-
-                          Expanded(child: Center(child: Text("E"))),
-
-                          Expanded(child: Center(child: Text("F"))),
+                          for (final label in const ['D', 'E', 'F'])
+                            Expanded(child: Center(child: Text(label))),
                         ],
                       ),
                     ),
 
-                    const SizedBox(height: 10),
+                    SizedBox(height: context.h(10)),
 
                     // SEAT ROWS
                     Expanded(
                       child: ListView.builder(
-                        padding: const EdgeInsets.only(bottom: 20),
+                        padding: EdgeInsets.only(bottom: context.h(20)),
                         itemCount: sortedRows.length,
                         itemBuilder: (context, index) {
                           final rowNumber = sortedRows[index];
@@ -238,7 +236,7 @@ class _SeatScreenState extends State<SeatScreen> {
                             seatsByRow[rowNumber]!,
                           )..sort((a, b) => a.seatNo.compareTo(b.seatNo));
 
-                          return _buildPlaneRow(rowNumber, rowSeats);
+                          return _buildPlaneRow(context, rowNumber, rowSeats);
                         },
                       ),
                     ),
@@ -247,77 +245,6 @@ class _SeatScreenState extends State<SeatScreen> {
               ),
             ),
           ),
-
-          // BOTTOM SELECTION BAR
-          if (_selectedSeats.isNotEmpty)
-            Container(
-              padding: EdgeInsets.only(
-                left: 16,
-                right: 16,
-                top: 14,
-                bottom: MediaQuery.of(context).padding.bottom + 14,
-              ),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                border: Border(top: BorderSide(color: Colors.grey.shade300)),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          "Seats ${_selectedSeats.map((s) => s.seatLabel).join(', ')}",
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-
-                        const SizedBox(height: 4),
-
-                        Text(
-                          "${_selectedSeats.length}/${widget.travellerCount} • "
-                          "${SsrPriceFormatter.format(_totalSeatPrice, _selectedSeats.first.currency)}",
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.grey.shade700,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  SizedBox(
-                    height: 48,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        widget.onSeatsSelected?.call(_selectedSeats);
-
-                        Navigator.pop(context);
-                      },
-
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: _blue,
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        padding: const EdgeInsets.symmetric(horizontal: 24),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-
-                      child: const Text(
-                        "Continue",
-                        style: TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
         ],
       ),
     );
@@ -327,21 +254,25 @@ class _SeatScreenState extends State<SeatScreen> {
   // SINGLE ROW
   // =========================
 
-  Widget _buildPlaneRow(String rowNumber, List<SeatOptionEntity> seats) {
+  Widget _buildPlaneRow(
+    BuildContext context,
+    String rowNumber,
+    List<SeatOptionEntity> seats,
+  ) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      padding: EdgeInsets.symmetric(vertical: context.h(8)),
 
       child: Row(
         children: [
-          const SizedBox(width: 10),
+          SizedBox(width: context.w(10)),
 
           // ROW NUMBER
           SizedBox(
-            width: 24,
+            width: context.w(24),
             child: Text(
               rowNumber,
               style: TextStyle(
-                fontSize: 12,
+                fontSize: context.fs(12),
                 fontWeight: FontWeight.w600,
                 color: Colors.grey.shade700,
               ),
@@ -354,18 +285,18 @@ class _SeatScreenState extends State<SeatScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: List.generate(3, (index) {
                 if (index >= seats.length) {
-                  return const SizedBox(width: 34);
+                  return SizedBox(width: context.w(34));
                 }
 
                 final seat = seats[index];
 
-                return _buildSeat(seat, _isSeatSelected(seat));
+                return _buildSeat(context, seat, _isSeatSelected(seat));
               }),
             ),
           ),
 
           // AISLE
-          const SizedBox(width: 34),
+          SizedBox(width: context.w(34)),
 
           // RIGHT SIDE
           Expanded(
@@ -375,17 +306,17 @@ class _SeatScreenState extends State<SeatScreen> {
                 final seatIndex = index + 3;
 
                 if (seatIndex >= seats.length) {
-                  return const SizedBox(width: 34);
+                  return SizedBox(width: context.w(34));
                 }
 
                 final seat = seats[seatIndex];
 
-                return _buildSeat(seat, _isSeatSelected(seat));
+                return _buildSeat(context, seat, _isSeatSelected(seat));
               }),
             ),
           ),
 
-          const SizedBox(width: 10),
+          SizedBox(width: context.w(10)),
         ],
       ),
     );
@@ -395,39 +326,70 @@ class _SeatScreenState extends State<SeatScreen> {
   // SINGLE SEAT
   // =========================
 
-  Widget _buildSeat(SeatOptionEntity seat, bool isSelected) {
+  Widget _buildSeat(
+    BuildContext context,
+    SeatOptionEntity seat,
+    bool isSelected,
+  ) {
     final isBooked = !seat.isAvailable;
 
     return GestureDetector(
       onTap: isBooked ? null : () => _handleSeatSelection(seat),
 
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // SEAT TILE (icon) — only available seats are highlighted (green),
+          // booked are greyed, selected are blue.
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
 
-        width: 34,
-        height: 34,
+            width: context.w(34),
+            height: context.w(34),
+            alignment: Alignment.center,
 
-        decoration: BoxDecoration(
-          color: isBooked
-              ? Colors.grey.shade300
-              : isSelected
-              ? _blue
-              : Colors.white,
+            decoration: BoxDecoration(
+              color: isBooked
+                  ? Colors.grey.shade300
+                  : isSelected
+                  ? _blue
+                  : _availableFill,
 
-          borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(context.r(8)),
 
-          border: Border.all(color: isSelected ? _blue : Colors.grey.shade400),
-        ),
+              border: Border.all(
+                color: isBooked
+                    ? Colors.grey.shade400
+                    : isSelected
+                    ? _blue
+                    : _availableBorder,
+              ),
+            ),
 
-        child: Icon(
-          Icons.event_seat,
-          size: 18,
-          color: isBooked
-              ? Colors.grey
-              : isSelected
-              ? Colors.white
-              : _navy,
-        ),
+            child: Icon(
+              Icons.event_seat,
+              size: context.w(18),
+              color: isBooked
+                  ? Colors.grey
+                  : isSelected
+                  ? Colors.white
+                  : _availableBorder,
+            ),
+          ),
+
+          SizedBox(height: context.h(2)),
+
+          // SEAT NUMBER (below the icon)
+          Text(
+            seat.seatLabel,
+            maxLines: 1,
+            style: TextStyle(
+              fontSize: context.fs(9),
+              fontWeight: FontWeight.w600,
+              color: isBooked ? Colors.grey.shade500 : _navy,
+            ),
+          ),
+        ],
       ),
     );
   }

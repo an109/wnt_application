@@ -203,7 +203,7 @@ class _TravellerDetailsSectionState extends State<TravellerDetailsSection> with 
               children: [
                 Expanded(flex: 1, child: _buildPhoneField()),
                 SizedBox(width: context.w(8)),
-                Expanded(flex: 1, child: _buildTextField(controller: _emailController, label: 'Email ID *', hint: 'your@gmail.com', keyboardType: TextInputType.emailAddress)),
+                Expanded(flex: 1, child: _buildTextField(controller: _emailController, label: 'Email ID *', hint: 'your@gmail.com', keyboardType: TextInputType.emailAddress, readOnly: true,)),
               ],
             ),
             SizedBox(height: context.h(16)),
@@ -236,7 +236,7 @@ class _TravellerDetailsSectionState extends State<TravellerDetailsSection> with 
     );
   }
 
-  Widget _buildTextField({required TextEditingController controller, required String label, required String hint, TextInputType? keyboardType}) {
+  Widget _buildTextField({required TextEditingController controller, required String label, required String hint, TextInputType? keyboardType, bool readOnly = false,}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -245,6 +245,7 @@ class _TravellerDetailsSectionState extends State<TravellerDetailsSection> with 
         TextFormField(
           controller: controller,
           keyboardType: keyboardType,
+          readOnly: readOnly,
           decoration: InputDecoration(
             hintText: hint,
             hintStyle: TextStyle(fontSize: context.fs(11), color: Colors.grey),
@@ -360,6 +361,7 @@ class _TravellerDetailsSectionState extends State<TravellerDetailsSection> with 
                 child: TextFormField(
                   controller: _phoneController,
                   keyboardType: TextInputType.phone,
+                  readOnly: true,
                   decoration: InputDecoration(
                       hintText: '8595552345',
                       hintStyle: TextStyle(fontSize: context.fs(11), color: Colors.grey),

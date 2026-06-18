@@ -26,6 +26,12 @@ class HotelPaymentScreen extends StatefulWidget {
   final String guestTitle;
   final String guestFirstName;
   final String guestLastName;
+  final String hotelCode;        // 🔥 NEW
+  final String hotelAddress;     // 🔥 NEW
+  final String hotelCity;        // 🔥 NEW
+  final String hotelCountry;     // 🔥 NEW
+  final int hotelStars;          // 🔥 NEW
+  final String hotelImage;
 
   const HotelPaymentScreen({
     super.key,
@@ -41,6 +47,12 @@ class HotelPaymentScreen extends StatefulWidget {
     required this.guestTitle,
     required this.guestFirstName,
     required this.guestLastName,
+    required this.hotelCode,        // 🔥 NEW
+    required this.hotelAddress,     // 🔥 NEW
+    required this.hotelCity,        // 🔥 NEW
+    required this.hotelCountry,     // 🔥 NEW
+    required this.hotelStars,       // 🔥 NEW
+    required this.hotelImage,
   });
 
   @override
@@ -284,6 +296,7 @@ class _HotelPaymentScreenState extends State<HotelPaymentScreen> {
 
     final clientRef = 'WN_${DateTime.now().millisecondsSinceEpoch}';
     final bookedAt = DateTime.now().toUtc().toIso8601String();
+    final roundedFare = double.parse(widget.totalFare.toStringAsFixed(2));
 
     final payload = {
       'BookingCode': widget.bookingCode,
@@ -294,7 +307,7 @@ class _HotelPaymentScreenState extends State<HotelPaymentScreen> {
       },
       'ClientReferenceId': clientRef,
       'BookingReferenceId': clientRef,
-      'TotalFare': widget.totalFare,
+      'TotalFare': roundedFare,
       'EmailId': widget.email,
       'PhoneNumber': widget.phone,
       'BookingType': 1,
@@ -414,6 +427,7 @@ class _HotelPaymentScreenState extends State<HotelPaymentScreen> {
   }) async {
     try {
       final dio = di.sl<DioClient>().instance;
+      final roundedFare = double.parse(widget.totalFare.toStringAsFixed(2));
       final guestName =
           '${widget.guestTitle} ${widget.guestFirstName} ${widget.guestLastName}'.trim();
       await dio.post(Urls.hotelBookings, data: {
@@ -423,12 +437,19 @@ class _HotelPaymentScreenState extends State<HotelPaymentScreen> {
         'tbo_booking_id': widget.bookingCode,   // original TBO booking code
         // Hotel info
         'hotel_name': widget.hotelName,
+        'hotel_code': widget.hotelCode,
+        'hotel_address': widget.hotelAddress,
+        'hotel_city': widget.hotelCity,
+        'hotel_country': widget.hotelCountry,
+        'hotel_stars': widget.hotelStars,
+        'hotel_image': widget.hotelImage,
         'room_type': widget.roomName,
         // Dates (camelCase matches DRF serializer aliases)
         'checkIn': widget.checkIn,
         'checkOut': widget.checkOut,
         // Pricing
-        'total_fare': widget.totalFare,
+        'total_fare': roundedFare,
+        // 'total_fare': widget.totalFare,
         'currency': widget.currency,
         // Guest
         'guest_name': guestName,

@@ -44,11 +44,16 @@ import 'package:wander_nova/views/MainApi/domain/usecase/get_faq_list_usecase.da
 import 'package:wander_nova/views/MainApi/domain/usecase/get_general_setting_usecase.dart';
 import 'package:wander_nova/views/MainApi/domain/usecase/get_section_heros_usecase.dart';
 import 'package:wander_nova/views/MainApi/presentation/bloc/general_setting_bloc.dart';
-import 'package:wander_nova/views/MyBookings/data/data_source/MyBookng_api_Service.dart';
-import 'package:wander_nova/views/MyBookings/data/repository/MyBooking_repository_impl.dart';
-import 'package:wander_nova/views/MyBookings/domain/repository/MyBooking_repository.dart';
-import 'package:wander_nova/views/MyBookings/domain/usecase/get_bookings_usecase.dart';
-import 'package:wander_nova/views/MyBookings/presentation/bloc/MyBooking_bloc.dart';
+import 'package:wander_nova/views/MyBookings/Hotels/data/data_Source/HotelApiService.dart';
+import 'package:wander_nova/views/MyBookings/Hotels/data/repository/HotelRespositoryImpl.dart';
+import 'package:wander_nova/views/MyBookings/Hotels/domain/repository/HotelRepository.dart';
+import 'package:wander_nova/views/MyBookings/Hotels/domain/usecase/getHotelBookingUsecase.dart';
+import 'package:wander_nova/views/MyBookings/Hotels/bloc/BookingListBloc.dart';
+import 'package:wander_nova/views/MyBookings/Transport/data/data_source/MyBookng_api_Service.dart';
+import 'package:wander_nova/views/MyBookings/Transport/data/repository/MyBooking_repository_impl.dart';
+import 'package:wander_nova/views/MyBookings/Transport/domain/repository/MyBooking_repository.dart';
+import 'package:wander_nova/views/MyBookings/Transport/domain/usecase/get_bookings_usecase.dart';
+import 'package:wander_nova/views/MyBookings/Transport/bloc/MyBooking_bloc.dart';
 import 'package:wander_nova/views/Profile/data/data_source/Profile_api_service.dart';
 import 'package:wander_nova/views/Profile/data/repository/Profile_repository_impl.dart';
 import 'package:wander_nova/views/Profile/domain/repository/Profile_repository.dart';
@@ -284,6 +289,7 @@ Future<void> initializeDependencies() async {
   sl.registerFactory<ReferralApiService>(() => ReferralApiServiceImpl(sl<DioClient>().instance));
   sl.registerFactory<LoyaltyApiService>(() => LoyaltyApiServiceImpl(sl<DioClient>().instance));
   sl.registerFactory<TransactionApiService>(() => TransactionApiServiceImpl(sl<DioClient>().instance));
+  sl.registerFactory<HotelListApiService>(() => HotelListApiServiceImpl(sl<DioClient>().instance));
 
 
 
@@ -332,6 +338,7 @@ Future<void> initializeDependencies() async {
   sl.registerLazySingleton<ReferralRepository>(() => ReferralRepositoryImpl(sl()),);
   sl.registerLazySingleton<LoyaltyRepository>(() => LoyaltyRepositoryImpl(sl()));
   sl.registerLazySingleton<TransactionRepository>(() => TransactionRepositoryImpl(sl()),);
+  sl.registerLazySingleton<HotelListRepository>(() => HotelListRepositoryImpl(sl(), sl()));
 
 
 
@@ -387,6 +394,8 @@ Future<void> initializeDependencies() async {
   sl.registerLazySingleton<GetReferralUseCase>(() => GetReferralUseCase(sl()));
   sl.registerLazySingleton<GetUserLoyaltyUseCase>(() => GetUserLoyaltyUseCase(sl()));
   sl.registerLazySingleton<GetTransactionsUseCase>(() => GetTransactionsUseCase(sl<TransactionRepository>()));
+  sl.registerLazySingleton<GetHotelBookingsUseCase>(() => GetHotelBookingsUseCase(sl<HotelListRepository>()));
+
 
 
 
@@ -442,7 +451,7 @@ Future<void> initializeDependencies() async {
   sl.registerFactory<ReferralBloc>(() => ReferralBloc(sl()));
   sl.registerFactory<LoyaltyBloc>(() => LoyaltyBloc(sl()));
   sl.registerFactory<TransactionBloc>(() => TransactionBloc(getTransactionsUseCase: sl()));
-
+  sl.registerFactory<HotelBookingListBloc>(() => HotelBookingListBloc(sl()));
 
 
 }

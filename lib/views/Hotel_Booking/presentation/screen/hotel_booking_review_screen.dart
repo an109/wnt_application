@@ -21,6 +21,7 @@ import '../bloc/hotel_booking_bloc.dart';
 import '../bloc/hotel_booking_event.dart';
 import '../bloc/hotel_booking_state.dart';
 
+
 class HotelBookingReviewScreen extends StatefulWidget {
   final String bookingCode;
   final String hotelImage;
@@ -60,6 +61,7 @@ class _HotelBookingReviewScreenState extends State<HotelBookingReviewScreen> {
   final ScrollController _scrollController = ScrollController();
   bool _showScrollToTop = false;
   static const _pageBg = Color(0xFFF3F6FC);
+  HotelResultEntity? _hotelResult;
 
   final GlobalKey<TravellerDetailsSectionState> _travellerKey =
       GlobalKey<TravellerDetailsSectionState>();
@@ -71,6 +73,7 @@ class _HotelBookingReviewScreenState extends State<HotelBookingReviewScreen> {
   double? _inrBasePrice;
   double? _inrTax;
   bool _isConverting = false;
+
 
   @override
   void initState() {
@@ -195,6 +198,12 @@ class _HotelBookingReviewScreenState extends State<HotelBookingReviewScreen> {
     } else {
       print('🟢 No conversion needed: $totalOriginal $originalCurrency');
     }
+    final hotelCode = _hotelResult?.hotelCode ?? '';
+    final hotelCity = '';
+    final hotelCountry = '';
+    final hotelAddress = widget.address;
+    final hotelStars = widget.hotelRating;
+    final hotelImage = widget.hotelImage;
 
     Navigator.push(
       context,
@@ -202,6 +211,7 @@ class _HotelBookingReviewScreenState extends State<HotelBookingReviewScreen> {
         builder: (_) => HotelPaymentScreen(
           bookingCode: widget.bookingCode,
           hotelName: widget.hotelName,
+
           checkIn: widget.checkIn,
           checkOut: widget.checkOut,
           roomName: room.name.isNotEmpty ? room.name.first : '',
@@ -212,6 +222,13 @@ class _HotelBookingReviewScreenState extends State<HotelBookingReviewScreen> {
           guestTitle: pax[0],
           guestFirstName: pax[1],
           guestLastName: pax[2],
+
+          hotelCode: hotelCode,
+          hotelAddress: hotelAddress,
+          hotelCity: hotelCity,
+          hotelCountry: hotelCountry,
+          hotelStars: hotelStars,
+          hotelImage: hotelImage,
         ),
       ),
     );
@@ -243,6 +260,7 @@ class _HotelBookingReviewScreenState extends State<HotelBookingReviewScreen> {
             final result = state.hotelBooking.hotelResult.isNotEmpty
                 ? state.hotelBooking.hotelResult.first
                 : null;
+            _hotelResult = result;
             if (result != null && result.rooms.isNotEmpty) {
               // Fetch live rate and convert to INR if price came in another currency
               _convertPrices(result.rooms.first, result.currency);

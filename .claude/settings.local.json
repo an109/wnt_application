@@ -13,7 +13,9 @@
       "Bash(mv /tmp/sc.dart lib/views/airport/presentation/screen/search_card.dart)",
       "Bash(flutter pub *)",
       "Bash(grep -rm1 \"applicationId\" android/app/build.gradle)",
-      "Bash(keytool -list -v -alias androiddebugkey -keystore ~/.android/debug.keystore -storepass android -keypass android)"
+      "Bash(keytool -list -v -alias androiddebugkey -keystore ~/.android/debug.keystore -storepass android -keypass android)",
+      "Bash(xargs grep -ln \"class FareQuoteData\\\\|IsLCC\\\\|isLcc\\\\|FareQuoteData\")",
+      "Bash(dart analyze *)"
     ]
   }
 }

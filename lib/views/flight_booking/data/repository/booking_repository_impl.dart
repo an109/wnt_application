@@ -27,6 +27,15 @@ class BookingRepositoryImpl implements BookingRepository {
         status: data?.status,
       );
 
+      if (!entity.isSuccess) {
+        final msg = entity.errorMessage ??
+            'Booking failed (TBO status: ${entity.responseStatus ?? entity.status})';
+        return DataFailed(DioException(
+          requestOptions: RequestOptions(path: ''),
+          error: msg,
+          message: msg,
+        ));
+      }
       return DataSuccess(entity);
     } on DioException catch (e) {
       return DataFailed(e);

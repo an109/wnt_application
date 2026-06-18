@@ -64,7 +64,6 @@ class _FareRulePopupState extends State<FareRulePopup>
 
   late final FareRuleBloc _fareRuleBloc;
   late final TabController _tabController;
-  FareRuleTab _selectedTab = FareRuleTab.detail;
   List<FareRuleEntity> _fareRules = [];
   late final StreamSubscription<FareRuleState> _blocSubscription;
   bool _isLoading = true;
@@ -125,7 +124,7 @@ class _FareRulePopupState extends State<FareRulePopup>
     }
 
     final request = FareRuleRequestEntity(
-      endUserIp: '::1',
+      endUserIp: '122.161.72.69',
       traceId: traceId,
       tokenId: null,
       resultIndex: resultIndex,
@@ -159,8 +158,9 @@ class _FareRulePopupState extends State<FareRulePopup>
     return cleaned.isNotEmpty ? [cleaned] : [];
   }
 
-  /// Build tab content based on selected tab
-  Widget _buildTabContent(BuildContext context) {
+  /// Build tab content for the given tab. Driven by the page index so the
+  /// body always matches the highlighted tab (both on tap and on swipe).
+  Widget _buildTabContent(BuildContext context, FareRuleTab tab) {
     if (_isLoading) {
       return Center(
         child: Padding(
@@ -199,7 +199,7 @@ class _FareRulePopupState extends State<FareRulePopup>
       );
     }
 
-    switch (_selectedTab) {
+    switch (tab) {
       case FareRuleTab.cancellation:
         return _buildCancellationTab(context);
       case FareRuleTab.segment:
@@ -388,7 +388,7 @@ class _FareRulePopupState extends State<FareRulePopup>
           ),
           Expanded(
             child: Text(
-              "Fare Amount",
+              "Fare Basis",
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: context.labelSmall,
@@ -414,7 +414,11 @@ class _FareRulePopupState extends State<FareRulePopup>
   }
 
   Widget _buildSegmentRow(BuildContext context, FareRuleEntity rule) {
-    final fareDisplay = widget.price ?? 'N/A';
+    // The FareRule API returns no per-segment fare amount; show the real
+    // per-segment fare basis code instead of repeating the total price.
+    final fareBasis = (rule.fareBasisCode?.trim().isNotEmpty == true)
+        ? rule.fareBasisCode!.trim()
+        : '—';
 
     return Container(
       padding: EdgeInsets.symmetric(vertical: context.h(8)),
@@ -465,10 +469,10 @@ class _FareRulePopupState extends State<FareRulePopup>
             ),
           ),
 
-          /// Fare Amount column - USE PASSED VALUE
+          /// Fare Basis column - REAL PER-SEGMENT DATA FROM API
           Expanded(
             child: Text(
-              fareDisplay != 'N/A' ? '₹$fareDisplay' : fareDisplay,
+              fareBasis,
               style: TextStyle(
                 fontSize: context.bodySmall,
                 fontWeight: FontWeight.w600,
@@ -692,15 +696,14 @@ class _FareRulePopupState extends State<FareRulePopup>
             ),
             unselectedLabelStyle: TextStyle(fontSize: context.labelMedium),
             isScrollable: true,
+            // Material 3 defaults scrollable TabBars to TabAlignment.startOffset,
+            // which adds a ~52px leading gap. Align to start to remove it.
+            tabAlignment: TabAlignment.start,
             tabs: const [
               Tab(text: "Cancellation Process"),
               Tab(text: "Fare Segment"),
               Tab(text: "Fare Detail"),
             ],
-            onTap: (index) {
-              setState(() => _selectedTab = FareRuleTab.values[index]);
-              print('FareRulePopup: Tab changed to: ${_selectedTab.name}');
-            },
           ),
 
           /// Tab Content (fixed height for scrollable content)
@@ -709,9 +712,9 @@ class _FareRulePopupState extends State<FareRulePopup>
             child: TabBarView(
               controller: _tabController,
               children: [
-                _buildTabContent(context),
-                _buildTabContent(context),
-                _buildTabContent(context),
+                _buildTabContent(context, FareRuleTab.cancellation),
+                _buildTabContent(context, FareRuleTab.segment),
+                _buildTabContent(context, FareRuleTab.detail),
               ],
             ),
           ),

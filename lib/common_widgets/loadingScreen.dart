@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:lottie/lottie.dart';
 import 'dart:async';
-
+import 'FlightSearchingAnimation.dart';
 
 class ProfessionalLoadingScreen extends StatefulWidget {
   final VoidCallback onLoadingComplete;
@@ -13,7 +14,8 @@ class ProfessionalLoadingScreen extends StatefulWidget {
   });
 
   @override
-  State<ProfessionalLoadingScreen> createState() => _ProfessionalLoadingScreenState();
+  State<ProfessionalLoadingScreen> createState() =>
+      _ProfessionalLoadingScreenState();
 }
 
 class _ProfessionalLoadingScreenState extends State<ProfessionalLoadingScreen> {
@@ -73,7 +75,6 @@ class _ProfessionalLoadingScreenState extends State<ProfessionalLoadingScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-
       backgroundColor: Colors.white,
       body: Column(
         children: [
@@ -95,19 +96,29 @@ class _ProfessionalLoadingScreenState extends State<ProfessionalLoadingScreen> {
                   SizedBox(
                     width: 300,
                     height: 300,
-                    child: Image.asset(
-                      'assets/images/flight-loader.gif',
+                    child: Lottie.asset(
+                      'assets/animation/Plane_animation.json',
+                      repeat: true,
                       fit: BoxFit.contain,
-                      errorBuilder: (context, error, stackTrace) {
-                        return Icon(
-                          Icons.flight_takeoff,
-                          size: 80,
-                          color: Colors.blue,
-                        );
-                      },
                     ),
+                    // child: Image.asset(
+                    //   'assets/images/flight-loader.gif',
+                    //   fit: BoxFit.contain,
+                    //   errorBuilder: (context, error, stackTrace) {
+                    //     return Icon(
+                    //       Icons.flight_takeoff,
+                    //       size: 80,
+                    //       color: Colors.blue,
+                    //     );
+                    //   },
+                    // ),
                   ),
 
+                  // SizedBox(
+                  //   width: 320,
+                  //   height: 220,
+                  //   child: FlightSearchingAnimation(),
+                  // ),
                   const SizedBox(height: 32),
 
                   // Dynamic message below GIF
@@ -136,22 +147,21 @@ class _ProfessionalLoadingScreenState extends State<ProfessionalLoadingScreen> {
                       child: LinearProgressIndicator(
                         value: _progress,
                         backgroundColor: Colors.grey.shade200,
-                        valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF0054A0)),
+                        valueColor: const AlwaysStoppedAnimation<Color>(
+                          Color(0xFF0054A0),
+                        ),
                         minHeight: 4,
                       ),
                     ),
                   ),
 
                   const SizedBox(height: 16),
-
                 ],
               ),
             ),
           ),
-
         ],
       ),
-
     );
   }
 }

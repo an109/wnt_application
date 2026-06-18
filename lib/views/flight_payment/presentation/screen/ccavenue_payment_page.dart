@@ -81,9 +81,20 @@ class _CCAvenuePaymentPageState extends State<CCAvenuePaymentPage> {
             }
           },
           onHttpError: (err) {
-            debugPrint(
-              'CCAvenue WebView ✗ httpError: ${err.response?.statusCode}',
-            );
+            final code = err.response?.statusCode ?? 0;
+            final url = err.response?.uri?.toString() ?? '';
+            debugPrint('CCAvenue WebView X httpError: $code @ $url');
+            // If CCAvenue's own server returns an HTTP error (4xx/5xx) on the
+            // main transaction URL, the merchant credentials or account are
+            // misconfigured — show a clear error instead of the broken page.
+            if (code >= 400 && url.contains('ccavenue.com') && mounted) {
+              setState(() {
+                _loading = false;
+                _loadError =
+                    'Payment gateway is currently unavailable (HTTP $code).\n'
+                    'Please try a different payment method or contact support.';
+              });
+            }
           },
           onNavigationRequest: (req) {
             // Detect redirect back to our success/failure URLs and close
@@ -128,6 +139,10 @@ class _CCAvenuePaymentPageState extends State<CCAvenuePaymentPage> {
   Future<void> _confirmAndPop() async {
     if (_finished) return;
     _finished = true;
+    // Stop the result page (e.g. the bank/redirect host) from rendering — if
+    // that host is down it shows a 503/error page while we confirm. We only
+    // needed the URL, not its contents.
+    _controller.loadRequest(Uri.parse('about:blank'));
     if (mounted) setState(() => _confirming = true);
 
     PaymentResult result = PaymentResult.failure;
@@ -256,7 +271,9 @@ class _CCAvenuePaymentPageState extends State<CCAvenuePaymentPage> {
 
   Widget _overlay(BuildContext context) {
     return Container(
-      color: _pageBg.withValues(alpha: 0.85),
+      // Fully opaque so the underlying WebView (which may briefly show the
+      // redirect host's error page) never bleeds through during confirmation.
+      color: _pageBg,
       child: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,

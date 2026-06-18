@@ -64,6 +64,26 @@ class SeatOptionEntity extends Equatable {
     );
   }
 
+  /// TBO Book/Ticket `SeatDynamic` object — full SSR fields, no stubbing.
+  Map<String, dynamic> toTboJson() => {
+        'AirlineCode': airlineCode,
+        'FlightNumber': flightNumber,
+        'CraftType': craftType,
+        'Origin': origin,
+        'Destination': destination,
+        'AvailablityType': availablityType,
+        'Description': description,
+        'Code': code,
+        'RowNo': rowNo,
+        'SeatNo': seatNo,
+        'SeatType': seatType,
+        'SeatWayType': seatWayType,
+        'Compartment': compartment,
+        'Deck': deck,
+        'Currency': currency,
+        'Price': price,
+      };
+
   String get seatLabel => '$rowNo$seatNo';
 
   String get displayPrice {

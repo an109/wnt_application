@@ -41,6 +41,11 @@ class TransportReservationEntity extends Equatable {
   final String? couponCode;
   final List<ExtraPaxInfoEntity>? extraPaxInfo;
 
+  /// From the reservation RESPONSE (`local` object). `confirmationNumber` is
+  /// blank until Mozio confirms (status moves from `pending` to `confirmed`).
+  final String status;
+  final String confirmationNumber;
+
   const TransportReservationEntity({
     required this.searchId,
     required this.resultId,
@@ -80,6 +85,8 @@ class TransportReservationEntity extends Equatable {
     this.airline = '',
     this.couponCode,
     this.extraPaxInfo,
+    this.status = '',
+    this.confirmationNumber = '',
   });
 
   @override
@@ -93,7 +100,7 @@ class TransportReservationEntity extends Equatable {
     tripReturnPickupDatetimePretty, tripType, vehicleName, providerName,
     paidVia, paymentGateway, paymentReferenceId, razorpayOrderId,
     razorpayPaymentId, specialInstructions, notes, flightNumber, airline,
-    couponCode, extraPaxInfo,
+    couponCode, extraPaxInfo, status, confirmationNumber,
   ];
 }
 

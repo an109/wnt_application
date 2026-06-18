@@ -56,19 +56,27 @@ class ResultsData {
   final String? resultIndex;
   final bool? isRefundable;
   final bool? isHoldAllowed;
+  final bool? isLcc;
   final String? airlineCode;
   final String? resultFareType;
   final FareData? fare;
   final List<List<SegmentData>>? segments;
 
+  /// The complete, untouched TBO FareQuote result object. TBO's Book/Ticket
+  /// APIs require this whole object as the `Itinerary` — the typed fields above
+  /// only cover what the UI needs, so we keep the raw map for the booking call.
+  final Map<String, dynamic> raw;
+
   ResultsData({
     this.resultIndex,
     this.isRefundable,
     this.isHoldAllowed,
+    this.isLcc,
     this.airlineCode,
     this.resultFareType,
     this.fare,
     this.segments,
+    this.raw = const {},
   });
 
   factory ResultsData.fromJson(Map<String, dynamic> json) {
@@ -76,6 +84,10 @@ class ResultsData {
       resultIndex: json['ResultIndex'],
       isRefundable: json['IsRefundable'],
       isHoldAllowed: json['IsHoldAllowed'],
+      // TBO returns the LCC flag with inconsistent casing — sometimes `IsLcc`,
+      // sometimes `IsLCC`. The backend checks both; we must too, otherwise an
+      // LCC fare (e.g. SpiceJet) reads as non-LCC and wrongly hits /Book/.
+      isLcc: json['IsLcc'] ?? json['IsLCC'],
       airlineCode: json['AirlineCode'],
       resultFareType: json['ResultFareType'],
       fare: json['Fare'] != null ? FareData.fromJson(json['Fare']) : null,
@@ -83,6 +95,7 @@ class ResultsData {
           ? (json['Segments'] as List).map((segmentList) =>
           (segmentList as List).map((item) => SegmentData.fromJson(item)).toList()).toList()
           : null,
+      raw: Map<String, dynamic>.from(json),
     );
   }
 }

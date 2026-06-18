@@ -124,11 +124,14 @@ class _SSRMainScreenState extends State<SSRMainScreen> {
       return;
     }
 
-    final ssrSelections = {
-      'baggage': _selectedBaggage?.code,
-      'meal': _selectedMeal?.code,
-      'seat': _selectedSeats.map((s) => s.code).toList(),
-      'services': _selectedServices.map((s) => s.code).toList(),
+    // Pass the COMPLETE TBO SSR objects, not just the codes. TBO's Book/Ticket
+    // validates every field (AirlineCode, WayType, Price, Origin/Destination,
+    // Weight, …); a code-only stub makes it throw "unhandled exception".
+    final ssrSelections = <String, dynamic>{
+      'baggage': _selectedBaggage?.toTboJson(),
+      'meal': _selectedMeal?.toTboJson(),
+      'seat': _selectedSeats.map((s) => s.toTboJson()).toList(),
+      'services': _selectedServices.map((s) => s.toTboJson()).toList(),
     };
 
     print('SSR Selections: $ssrSelections');

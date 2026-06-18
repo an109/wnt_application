@@ -66,6 +66,7 @@ class _TPollBookingScreenState extends State<TPollBookingScreen> {
   bool _emailError = false;
   bool _phoneError = false;
   bool _flightNumberError = false;
+  bool _airlineError = false;
 
   int? _userId;
   static UserEntity? _cachedUser;
@@ -235,8 +236,10 @@ class _TPollBookingScreenState extends State<TPollBookingScreen> {
           totalAmount: convertedTotal,  // Pass converted amount
           passengerName: '${_firstNameController.text.trim()} ${_lastNameController.text.trim()}',
           passengerEmail: _emailController.text.trim(),
-          passengerPhone: '91${_phoneController.text.trim()}',
+          passengerPhone: '${_phoneController.text.trim()}',
           userId: _userId,
+          flightNumber: _flightNumberController.text.trim(),
+          airline: _airlineCodeController.text.trim(),
         ),
       ),
     );
@@ -612,8 +615,9 @@ class _TPollBookingScreenState extends State<TPollBookingScreen> {
               Expanded(
                 child: _buildTextField(
                   controller: _airlineCodeController,
-                  label: 'Airline Code',
+                  label: 'Airline Code*',
                   hintText: 'AI',
+                  hasError: _airlineError,
                 ),
               ),
             ],
@@ -1293,6 +1297,7 @@ class _TPollBookingScreenState extends State<TPollBookingScreen> {
       if (label.contains('Email')) _emailError = false;
       if (label.contains('Phone')) _phoneError = false;
       if (label.contains('Flight Number')) _flightNumberError = false;
+      if (label.contains('Airline')) _airlineError = false;
     });
   }
 
@@ -1318,6 +1323,10 @@ class _TPollBookingScreenState extends State<TPollBookingScreen> {
     }
     if (_flightNumberController.text.trim().isEmpty) {
       _flightNumberError = true;
+      hasError = true;
+    }
+    if (_airlineCodeController.text.trim().isEmpty) {
+      _airlineError = true;
       hasError = true;
     }
 

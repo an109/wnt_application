@@ -4,7 +4,6 @@ import '../../../../core/error/data_state.dart';
 import '../../domain/entities/TReservation-entity.dart';
 import '../../domain/repository/TReservation_repository.dart';
 import '../data_source/TReservation_api_service.dart';
-import '../model/TResevation_model.dart';
 
 class TransportReservationRepositoryImpl implements TransportReservationRepository {
   final TransportReservationApiService apiService;
@@ -100,9 +99,66 @@ class TransportReservationRepositoryImpl implements TransportReservationReposito
 
       final response = await apiService.createReservation(requestData);
 
-      // Convert Model to Entity before returning
-      final reservationModel = TransportReservationModel.fromJson(response.data);
-      final reservationEntity = reservationModel.toEntity();
+      // The reservation response is nested: { success, reservation:{status},
+      // local:{ status, confirmation_number, ... } }. The booking-shaped model
+      // can't parse that, so pull status/confirmation directly and return an
+      // entity built from what we sent + the live status.
+      final responseData =
+          (response.data as Map?)?.cast<String, dynamic>() ?? const {};
+      final local =
+          (responseData['local'] as Map?)?.cast<String, dynamic>() ?? const {};
+      final reservationObj =
+          (responseData['reservation'] as Map?)?.cast<String, dynamic>() ??
+              const {};
+      final status =
+          (local['status'] ?? reservationObj['status'] ?? '').toString();
+      // confirmation_number is blank while pending; fall back to other ids so
+      // the user always has a reference to quote.
+      final confirmationNumber = (local['confirmation_number'] ??
+              local['mozio_reservation_id'] ??
+              local['partner_tracking_id'] ??
+              '')
+          .toString();
+
+      final reservationEntity = TransportReservationEntity(
+        searchId: searchId,
+        resultId: resultId,
+        firstName: firstName,
+        email: email,
+        phoneNumber: phoneNumber,
+        customerInfo: customerInfo,
+        passengers: passengers,
+        numPassengers: numPassengers,
+        currency: currency,
+        selectedCurrency: selectedCurrency,
+        displayCurrency: displayCurrency,
+        displayTotalPrice: displayTotalPrice,
+        displayBasePrice: displayBasePrice,
+        displayRideBasePrice: displayRideBasePrice,
+        displayDiscountAmount: displayDiscountAmount,
+        optionalAmenities: optionalAmenities,
+        userId: 0,
+        tripStartAddress: tripStartAddress,
+        tripEndAddress: tripEndAddress,
+        tripPickupDatetime: tripPickupDatetime,
+        tripPickupDatetimePretty: '',
+        tripType: tripType,
+        vehicleName: vehicleName,
+        providerName: providerName,
+        paidVia: paidVia,
+        paymentGateway: paymentGateway,
+        paymentReferenceId: paymentReferenceId,
+        razorpayOrderId: razorpayOrderId,
+        razorpayPaymentId: razorpayPaymentId,
+        specialInstructions: specialInstructions ?? '',
+        notes: notes ?? '',
+        flightNumber: flightNumber ?? '',
+        airline: airline ?? '',
+        couponCode: couponCode,
+        extraPaxInfo: extraPaxInfo,
+        status: status,
+        confirmationNumber: confirmationNumber,
+      );
 
       return DataSuccess(reservationEntity);
     } on DioException catch (e) {

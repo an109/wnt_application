@@ -14,6 +14,7 @@ import '../../../fare_quote/presentation/bloc/fare_quote_event.dart';
 import '../../../fare_quote/presentation/bloc/fare_quote_state.dart';
 import '../../../fare_rule/presentation/screen/fare_rules_popup.dart';
 import '../../../flight_ssr/presentation/screen/ssr/main_screen.dart';
+import '../../../login/presentation/screen/login.dart';
 
 class FlightRouteSegment {
   final String from;
@@ -81,6 +82,8 @@ class FlightRouteSegment {
               offeredFare: fare.offeredFare ?? 0.0,
               publishedFare: fare.publishedFare ?? 0.0,
               serviceFee: 0.0,
+              isLcc: results?.isLcc ?? false,
+              rawItinerary: results?.raw ?? const {},
             )
           : null,
     );
@@ -95,6 +98,14 @@ class FareQuoteData {
   final double publishedFare;
   final double serviceFee;
 
+  /// True when the airline is an LCC (SpiceJet, IndiGo, …). LCC itineraries
+  /// skip the Book step and ticket directly. Comes from the FareQuote result.
+  final bool isLcc;
+
+  /// The complete TBO FareQuote result object, sent verbatim as the Book/Ticket
+  /// `Itinerary`. Empty when no fare quote was captured.
+  final Map<String, dynamic> rawItinerary;
+
   double get total => offeredFare + serviceFee;
 
   FareQuoteData({
@@ -104,6 +115,8 @@ class FareQuoteData {
     required this.offeredFare,
     required this.publishedFare,
     required this.serviceFee,
+    this.isLcc = false,
+    this.rawItinerary = const {},
   });
 }
 
@@ -141,6 +154,7 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
   bool _isLoadingFareQuote = false;
   String? _fareQuoteError;
   FlightRouteSegment? _updatedRouteWithFareQuote;
+  bool _isLoggedIn() => di.sl<PreferencesManager>().isLoggedIn();
 
   static const _blue = Color(0xFF1769F6);
   static const _navy = Color(0xFF071638);
@@ -218,7 +232,7 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
 
     _fareQuoteBloc.add(
       FetchFareQuote(
-        endUserIp: '::1',
+        endUserIp: '122.161.72.69',
         traceId: traceId,
         tokenId: tokenId,
         resultIndex: resultIndex,
@@ -314,14 +328,14 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
         backgroundColor: _pageBg,
         appBar: AppBar(
           title: const WanderNovaLogo(scaleFactor: 0.6),
-          backgroundColor: _pageBg,
-          elevation: 0,
+          // backgroundColor: _pageBg,
+          // elevation: 0,
           actions: [
             Padding(
               padding: EdgeInsets.all(context.w(8)),
               child: Image.asset(
                 "assets/images/wander_logo.png",
-                height: 35,
+                height: context.h(35),
               ),
             ),
           ],
@@ -333,17 +347,18 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _buildRouteSummaryCard(context),
-              SizedBox(height: context.gapLarge),
+              SizedBox(height: context.gapSmall),
               _buildFareBreakdownCard(context),
               SizedBox(height: context.gapLarge),
-              if (!widget.isLoggedIn) _buildLoginCard(context),
-              SizedBox(height: context.gapLarge),
+              if (!_isLoggedIn()) _buildLoginCard(context),
+              // SizedBox(height: context.gapSmall),
               _buildBookingSteps(),
               SizedBox(height: context.gapLarge),
 
               TravellerInformationSection(
                 key: _formKey,
                 isInternational: _isInternationalRoute,
+                travellerCount: widget.travellerCount,
               ),
 
               SizedBox(height: context.hp(3)),
@@ -361,10 +376,10 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
     final route = _updatedRouteWithFareQuote ?? widget.routes.first;
 
     return Container(
-      padding: EdgeInsets.all(context.w(12)),
+      padding: EdgeInsets.all(context.w(14)),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
+        // color: Colors.white,
+        // borderRadius: BorderRadius.circular(9),
         border: Border.all(color: _border),
         boxShadow: [
           BoxShadow(
@@ -383,7 +398,7 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
                 padding: EdgeInsets.all(context.gapSmall),
                 decoration: BoxDecoration(
                   color: Colors.indigo.shade50,
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(context.r(14)),
                 ),
                 child: Icon(
                   Icons.flight_takeoff,
@@ -426,9 +441,9 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
                   );
                 },
                 child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
+                  padding: EdgeInsets.symmetric(
+                    horizontal: context.w(12),
+                    vertical: context.h(6),
                   ),
                   child: Row(
                     children: [
@@ -437,7 +452,7 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
                         color: _blue,
                         size: context.iconSmall,
                       ),
-                      SizedBox(width: 4),
+                      SizedBox(width: context.w(4)),
                       Text(
                         "Fare Rules",
                         style: TextStyle(
@@ -466,7 +481,7 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
                       color: _navy,
                     ),
                   ),
-                  SizedBox(height: 4),
+                  SizedBox(height: context.h(4)),
                   Text(
                     route.from,
                     style: TextStyle(
@@ -497,7 +512,9 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
                             ),
                           ),
                           Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            padding: EdgeInsets.symmetric(
+                              horizontal: context.w(8),
+                            ),
                             child: Icon(
                               Icons.flight,
                               size: context.iconSmall,
@@ -534,7 +551,7 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  SizedBox(height: 4),
+                  SizedBox(height: context.h(4)),
                   Text(
                     route.to,
                     style: TextStyle(
@@ -584,17 +601,20 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
     Color color,
   ) {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: context.gapSmall, vertical: 4),
+      padding: EdgeInsets.symmetric(
+        horizontal: context.gapSmall,
+        vertical: context.h(4),
+      ),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(context.r(20)),
         border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(icon, size: context.iconSmall, color: color),
-          SizedBox(width: 4),
+          SizedBox(width: context.w(4)),
           Text(
             label,
             style: TextStyle(
@@ -626,8 +646,8 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
     return Container(
       padding: EdgeInsets.all(context.w(12)),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
+        // color: Colors.white,
+        // borderRadius: BorderRadius.circular(8),
         border: Border.all(color: _border),
         boxShadow: [
           BoxShadow(
@@ -742,11 +762,11 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
     ];
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      padding: EdgeInsets.symmetric(vertical: context.h(9)),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: _border),
+        // color: Colors.white,
+        // borderRadius: BorderRadius.circular(12),
+        // border: Border.all(color: _border),
       ),
       child: Row(
         children: [
@@ -755,25 +775,25 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
               child: Column(
                 children: [
                   Container(
-                    width: 34,
-                    height: 34,
+                    width: context.w(34),
+                    height: context.w(34),
                     decoration: BoxDecoration(
                       color: i <= 2 ? _blue : const Color(0xFFF0F3F8),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
                       steps[i].$1,
-                      size: 17,
+                      size: context.w(17),
                       color: i <= 2 ? Colors.white : const Color(0xFF8A93A3),
                     ),
                   ),
-                  const SizedBox(height: 6),
+                  SizedBox(height: context.h(6)),
                   Text(
                     steps[i].$2,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       color: i <= 2 ? _navy : const Color(0xFF8A93A3),
-                      fontSize: 11,
+                      fontSize: context.fs(11),
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -782,8 +802,8 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
             ),
             if (i != steps.length - 1)
               Container(
-                width: 16,
-                height: 1,
+                width: context.w(16),
+                height: context.h(1),
                 color: i < 2 ? _blue.withValues(alpha: 0.45) : _border,
               ),
           ],
@@ -809,8 +829,8 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
       child: Row(
         children: [
           SizedBox(
-            width: 20,
-            height: 20,
+            width: context.w(20),
+            height: context.w(20),
             child: CircularProgressIndicator(strokeWidth: 2),
           ),
           SizedBox(width: context.gapMedium),
@@ -883,7 +903,10 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
           ),
           TextButton(
             onPressed: () {
-              print('FlightBookingScreen: Login tapped');
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const LoginSignupScreen()),
+              );
             },
             child: const Text("Login"),
           ),
@@ -924,7 +947,7 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
   //           : GestureDetector(
   //               onTap: () {
   //                 Navigator.push(context, MaterialPageRoute(builder: (_) => SSRMainScreen(
-  //                   endUserIp: '::1',
+  //                   endUserIp: '122.161.72.69',
   //                   traceId: widget.traceId ?? '',
   //                   tokenId: '',
   //                   resultIndex: widget.resultIndex ?? '',
@@ -956,15 +979,15 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
         style: ElevatedButton.styleFrom(
           backgroundColor: _isLoadingFareQuote ? Colors.grey : _blue,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(context.r(18)),
           ),
           elevation: 0,
         ),
         child: _isLoadingFareQuote
-            ? const SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(
+            ? SizedBox(
+                width: context.w(20),
+                height: context.w(20),
+                child: const CircularProgressIndicator(
                   strokeWidth: 2,
                   valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                 ),
@@ -1002,7 +1025,7 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
       context,
       MaterialPageRoute(
         builder: (_) => SSRMainScreen(
-          endUserIp: '::1',
+          endUserIp: '122.161.72.69',
           traceId: widget.traceId ?? route.traceId ?? '',
           tokenId: '',
           resultIndex: widget.resultIndex ?? route.resultIndex ?? '',

@@ -48,19 +48,26 @@ class ResultsEntity extends Equatable {
   final String? resultIndex;
   final bool? isRefundable;
   final bool? isHoldAllowed;
+  final bool? isLcc;
   final String? airlineCode;
   final String? resultFareType;
   final FareEntity? fare;
   final List<List<SegmentEntity>>? segments;
 
+  /// Full TBO FareQuote result object, used verbatim as the Book/Ticket
+  /// `Itinerary`. See [ResultsData.raw].
+  final Map<String, dynamic> raw;
+
   const ResultsEntity({
     this.resultIndex,
     this.isRefundable,
     this.isHoldAllowed,
+    this.isLcc,
     this.airlineCode,
     this.resultFareType,
     this.fare,
     this.segments,
+    this.raw = const {},
   });
 
   @override
@@ -68,10 +75,12 @@ class ResultsEntity extends Equatable {
     resultIndex,
     isRefundable,
     isHoldAllowed,
+    isLcc,
     airlineCode,
     resultFareType,
     fare,
     segments,
+    raw,
   ];
 }
 

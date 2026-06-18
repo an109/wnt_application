@@ -35,6 +35,15 @@ class TicketRepositoryImpl implements TicketRepository {
             .toList(),
       );
 
+      if (!entity.isSuccess && !entity.isPending) {
+        final msg = entity.errorMessage ??
+            'Ticket issuance failed (TBO status: ${entity.responseStatus})';
+        return DataFailed(DioException(
+          requestOptions: RequestOptions(path: ''),
+          error: msg,
+          message: msg,
+        ));
+      }
       return DataSuccess(entity);
     } on DioException catch (e) {
       return DataFailed(e);

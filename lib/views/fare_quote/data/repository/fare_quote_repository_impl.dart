@@ -71,8 +71,10 @@ class FareQuoteRepositoryImpl implements FareQuoteRepository {
           resultIndex: model.response!.results!.resultIndex,
           isRefundable: model.response!.results!.isRefundable,
           isHoldAllowed: model.response!.results!.isHoldAllowed,
+          isLcc: model.response!.results!.isLcc,
           airlineCode: model.response!.results!.airlineCode,
           resultFareType: model.response!.results!.resultFareType,
+          raw: model.response!.results!.raw,
           fare: model.response!.results!.fare != null
               ? FareEntity(
             currency: model.response!.results!.fare!.currency,

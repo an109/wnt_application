@@ -16,10 +16,7 @@ import '../../../../injection_container.dart';
 class EditProfileScreen extends StatefulWidget {
   final Map<String, dynamic>? userData;
 
-  const EditProfileScreen({
-    super.key,
-    required this.userData,
-  });
+  const EditProfileScreen({super.key, required this.userData});
 
   @override
   State<EditProfileScreen> createState() => _EditProfileScreenState();
@@ -44,6 +41,44 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   String title = "Ms";
   String country = "India";
   String gender = "Female";
+  String? _emailError;
+  String? _phoneError;
+
+  void _validateEmail(String value) {
+    if (value.isEmpty) {
+      setState(() => _emailError = null);
+      return;
+    }
+
+    final isValid = RegExp(
+      r'^[\w\.-]+@([\w-]+\.)+[\w-]{2,}$',
+    ).hasMatch(value.trim());
+
+    setState(() {
+      _emailError = isValid ? null : 'Enter a valid email address';
+    });
+  }
+
+  void _validatePhone(String value) {
+    if (value.isEmpty) {
+      setState(() => _phoneError = null);
+      return;
+    }
+
+    final digits = value.replaceAll(RegExp(r'[^0-9]'), '');
+
+    setState(() {
+      if (!RegExp(r'^\d+$').hasMatch(value)) {
+        _phoneError = 'Only numbers are allowed';
+      } else if (digits.length < 10) {
+        _phoneError = 'Minimum 10 digits required';
+      } else if (digits.length > 15) {
+        _phoneError = 'Maximum 15 digits allowed';
+      } else {
+        _phoneError = null;
+      }
+    });
+  }
 
   @override
   void initState() {
@@ -53,15 +88,23 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _profileBloc = sl<ProfileBloc>();
     _profileBloc.add(const GetProfileEvent());
 
-    firstNameController = TextEditingController(text: widget.userData?['name'] ?? '');
+    firstNameController = TextEditingController(
+      text: widget.userData?['name'] ?? '',
+    );
     lastNameController = TextEditingController();
-    addressController = TextEditingController(text: widget.userData?['address'] ?? '');
+    addressController = TextEditingController(
+      text: widget.userData?['address'] ?? '',
+    );
     cityController = TextEditingController();
     stateController = TextEditingController();
     pinController = TextEditingController();
-    phoneController = TextEditingController(text: widget.userData?['phone'] ?? '');
+    phoneController = TextEditingController(
+      text: widget.userData?['phone'] ?? '',
+    );
     dobController = TextEditingController();
-    emailController = TextEditingController(text: widget.userData?['email'] ?? '');
+    emailController = TextEditingController(
+      text: widget.userData?['email'] ?? '',
+    );
   }
 
   @override
@@ -99,15 +142,26 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   // Constructs entity and dispatches PATCH request
   void _saveProfile() {
+    _validateEmail(emailController.text);
+    _validatePhone(phoneController.text);
+
+    if (_emailError != null || _phoneError != null) {
+      return;
+    }
     final profile = ProfileEntity(
       id: _profileBloc.currentProfile?.id ?? 0,
       title: title,
       firstName: firstNameController.text.trim(),
       lastName: lastNameController.text.trim(),
-      email: emailController.text.trim().isNotEmpty ? emailController.text.trim() : null,
-      phoneCode: '+91', // Adjust if your ProfilePhoneField exposes the selected code
+      email: emailController.text.trim().isNotEmpty
+          ? emailController.text.trim()
+          : null,
+      phoneCode:
+          '+91', // Adjust if your ProfilePhoneField exposes the selected code
       phoneNumber: phoneController.text.trim(),
-      dob: dobController.text.trim().isNotEmpty ? dobController.text.trim() : null,
+      dob: dobController.text.trim().isNotEmpty
+          ? dobController.text.trim()
+          : null,
       address: addressController.text.trim(),
       city: cityController.text.trim(),
       state: stateController.text.trim(),
@@ -148,9 +202,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             const SnackBar(content: Text('Profile updated successfully')),
           );
         } else if (state is ProfileError) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(state.message)),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(state.message)));
         }
       },
       child: Scaffold(
@@ -227,7 +281,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           SizedBox(height: context.gapLarge),
                           _buildAddressSection(),
                           SizedBox(height: context.gapLarge),
-                          ProfilePhoneField(controller: phoneController),
+                          ProfilePhoneField(
+                            controller: phoneController,
+                            errorText: _phoneError,
+                            onChanged: _validatePhone,
+                          ),
                           SizedBox(height: context.gapXLarge),
                           const ProfileSectionTitle(title: "Personal Details"),
                           SizedBox(height: context.gapLarge),
@@ -246,10 +304,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                             onChanged: isUpdating
                                 ? null
                                 : (value) {
-                              setState(() {
-                                newsletterSubscribed = value ?? false;
-                              });
-                            },
+                                    setState(() {
+                                      newsletterSubscribed = value ?? false;
+                                    });
+                                  },
                             contentPadding: EdgeInsets.zero,
                             title: Text(
                               "Sign up for Monthly Newsletter, Promotions and Low fare alerts",
@@ -261,10 +319,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                             onChanged: isUpdating
                                 ? null
                                 : (value) {
-                              setState(() {
-                                smsAlertsEnabled = value ?? false;
-                              });
-                            },
+                                    setState(() {
+                                      smsAlertsEnabled = value ?? false;
+                                    });
+                                  },
                             contentPadding: EdgeInsets.zero,
                             title: Text(
                               "Sign up for free SMS alerts",
@@ -278,7 +336,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                             runSpacing: context.gapMedium,
                             children: [
                               OutlinedButton(
-                                onPressed: isUpdating ? null : () => Navigator.pop(context),
+                                onPressed: isUpdating
+                                    ? null
+                                    : () => Navigator.pop(context),
                                 style: OutlinedButton.styleFrom(
                                   padding: EdgeInsets.symmetric(
                                     horizontal: context.gapLarge,
@@ -299,13 +359,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                 ),
                                 child: isUpdating
                                     ? const SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Colors.white,
-                                  ),
-                                )
+                                        width: 20,
+                                        height: 20,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: Colors.white,
+                                        ),
+                                      )
                                     : const Text("SAVE"),
                               ),
                             ],
@@ -355,6 +415,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             hint: "Email",
             controller: emailController,
             keyboardType: TextInputType.emailAddress,
+            errorText: _emailError,
+            onChanged: _validateEmail,
           ),
           SizedBox(height: context.gapMedium),
           // ProfilePhoneField(controller: phoneController),
@@ -412,7 +474,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             ),
             SizedBox(width: context.gapMedium),
             Expanded(
-              child: ProfilePhoneField(controller: phoneController),
+              child: ProfilePhoneField(
+                controller: phoneController,
+                errorText: _phoneError,
+                onChanged: _validatePhone,
+              ),
             ),
           ],
         ),
@@ -431,79 +497,79 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         SizedBox(height: context.gapLarge),
         context.isMobile
             ? Column(
-          children: [
-            ProfileTextField(
-              label: "City",
-              hint: "City",
-              controller: cityController,
-            ),
-            SizedBox(height: context.gapLarge),
-            ProfileTextField(
-              label: "State",
-              hint: "State",
-              controller: stateController,
-            ),
-            SizedBox(height: context.gapLarge),
-            ProfileDropdownField(
-              label: "Country",
-              value: country,
-              items: const ["India", "USA", "Canada"],
-              onChanged: (value) {
-                setState(() {
-                  country = value!;
-                });
-              },
-            ),
-            SizedBox(height: context.gapLarge),
-            ProfileTextField(
-              label: "Pin Code",
-              hint: "Pin Code",
-              controller: pinController,
-              keyboardType: TextInputType.number,
-            ),
-          ],
-        )
+                children: [
+                  ProfileTextField(
+                    label: "City",
+                    hint: "City",
+                    controller: cityController,
+                  ),
+                  SizedBox(height: context.gapLarge),
+                  ProfileTextField(
+                    label: "State",
+                    hint: "State",
+                    controller: stateController,
+                  ),
+                  SizedBox(height: context.gapLarge),
+                  ProfileDropdownField(
+                    label: "Country",
+                    value: country,
+                    items: const ["India", "USA", "Canada"],
+                    onChanged: (value) {
+                      setState(() {
+                        country = value!;
+                      });
+                    },
+                  ),
+                  SizedBox(height: context.gapLarge),
+                  ProfileTextField(
+                    label: "Pin Code",
+                    hint: "Pin Code",
+                    controller: pinController,
+                    keyboardType: TextInputType.number,
+                  ),
+                ],
+              )
             : Row(
-          children: [
-            Expanded(
-              child: ProfileTextField(
-                label: "City",
-                hint: "City",
-                controller: cityController,
+                children: [
+                  Expanded(
+                    child: ProfileTextField(
+                      label: "City",
+                      hint: "City",
+                      controller: cityController,
+                    ),
+                  ),
+                  SizedBox(width: context.gapMedium),
+                  Expanded(
+                    child: ProfileTextField(
+                      label: "State",
+                      hint: "State",
+                      controller: stateController,
+                    ),
+                  ),
+                  SizedBox(width: context.gapMedium),
+                  Expanded(
+                    child: ProfileDropdownField(
+                      label: "Country",
+                      value: country,
+                      items: const ["India", "USA", "Canada"],
+                      onChanged: (value) {
+                        setState(() {
+                          country = value!;
+                        });
+                      },
+                    ),
+                  ),
+                  SizedBox(width: context.gapMedium),
+                  Expanded(
+                    child: ProfileTextField(
+                      label: "Pin Code",
+                      hint: "Pin Code",
+                      controller: pinController,
+                      keyboardType: TextInputType.number,
+                    ),
+                  ),
+                ],
               ),
-            ),
-            SizedBox(width: context.gapMedium),
-            Expanded(
-              child: ProfileTextField(
-                label: "State",
-                hint: "State",
-                controller: stateController,
-              ),
-            ),
-            SizedBox(width: context.gapMedium),
-            Expanded(
-              child: ProfileDropdownField(
-                label: "Country",
-                value: country,
-                items: const ["India", "USA", "Canada"],
-                onChanged: (value) {
-                  setState(() {
-                    country = value!;
-                  });
-                },
-              ),
-            ),
-            SizedBox(width: context.gapMedium),
-            Expanded(
-              child: ProfileTextField(
-                label: "Pin Code",
-                hint: "Pin Code",
-                controller: pinController,
-                keyboardType: TextInputType.number,
-              ),
-            ),
-          ],
-        ),
       ],
     );
   }

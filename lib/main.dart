@@ -7,7 +7,8 @@ import 'package:wander_nova/views/ExclusiveDeals/presentation/bloc/exclusive_dea
 import 'package:wander_nova/views/Holiday_destination/presentation/bloc/holiday_destination_bloc.dart';
 import 'package:wander_nova/views/LogOut/presentation/bloc/logout_bloc.dart';
 import 'package:wander_nova/views/MainApi/presentation/bloc/general_setting_bloc.dart';
-import 'package:wander_nova/views/MyBookings/presentation/bloc/MyBooking_bloc.dart';
+import 'package:wander_nova/views/MyBookings/Hotels/bloc/BookingListBloc.dart';
+import 'package:wander_nova/views/MyBookings/Transport/bloc/MyBooking_bloc.dart';
 import 'package:wander_nova/views/Profile/presentation/bloc/profile_bloc.dart';
 import 'package:wander_nova/views/ReferCode/presentation/bloc/referral_bloc.dart';
 import 'package:wander_nova/views/ReferCredit/presentation/bloc/transaction_bloc.dart';
@@ -107,6 +108,7 @@ class MyApp extends StatelessWidget {
         BlocProvider(create: (_) => di.sl<ReferralBloc>()),
         BlocProvider(create: (_) => di.sl<LoyaltyBloc>()),
         BlocProvider(create: (_) => di.sl<TransactionBloc>()),
+        BlocProvider(create: (_) => di.sl<HotelBookingListBloc>()),
       ],
 
       child: MaterialApp(

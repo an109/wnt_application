@@ -43,6 +43,21 @@ class BaggageOptionEntity extends Equatable {
     );
   }
 
+  /// TBO Book/Ticket `Baggage` object. Must carry every field TBO returned in
+  /// the SSR response — sending a stub (only `Code`) makes TBO throw.
+  Map<String, dynamic> toTboJson() => {
+        'AirlineCode': airlineCode,
+        'FlightNumber': flightNumber,
+        'WayType': wayType,
+        'Code': code,
+        'Description': description,
+        'Weight': weight,
+        'Currency': currency,
+        'Price': price,
+        'Origin': origin,
+        'Destination': destination,
+      };
+
   String get displayTitle {
     if (code == 'NoBaggage') return 'No Checked Baggage';
     if (code.contains('EB')) return 'Extra Baggage';

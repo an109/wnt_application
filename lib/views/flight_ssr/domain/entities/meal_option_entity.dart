@@ -47,6 +47,21 @@ class MealOptionEntity extends Equatable {
     );
   }
 
+  /// TBO Book/Ticket `MealDynamic` object — full SSR fields, no stubbing.
+  Map<String, dynamic> toTboJson() => {
+        'AirlineCode': airlineCode,
+        'FlightNumber': flightNumber,
+        'WayType': wayType,
+        'Code': code,
+        'Description': description,
+        'AirlineDescription': airlineDescription,
+        'Quantity': quantity,
+        'Currency': currency,
+        'Price': price,
+        'Origin': origin,
+        'Destination': destination,
+      };
+
   String get displayTitle {
     if (code == 'NoMeal') return 'No Meal';
     if (airlineDescription.isNotEmpty) return airlineDescription;
