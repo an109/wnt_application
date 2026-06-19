@@ -9,12 +9,7 @@ import '../../data/ccavenue_service.dart';
 
 enum PaymentResult { success, failure, cancelled }
 
-/// Hosted CCAvenue checkout rendered inside a WebView.
-///
-/// Loads [CheckoutSession.checkoutUrl], waits for the backend to redirect back
-/// to one of the custom-scheme URLs ([successScheme] / [failureScheme]), then
-/// confirms the outcome with the authoritative `status/<order_id>` endpoint
-/// before popping with a [PaymentResult].
+
 class CCAvenuePaymentPage extends StatefulWidget {
   const CCAvenuePaymentPage({
     super.key,
@@ -108,10 +103,6 @@ class _CCAvenuePaymentPageState extends State<CCAvenuePaymentPage> {
         ),
       );
 
-    // CCAvenue's hosted payment page relies on third-party cookies for its
-    // session. Android WebView blocks them by default (so it works in a
-    // desktop browser but instant-fails here) — enable them so the card form
-    // renders instead of the transaction aborting immediately.
     if (_controller.platform is AndroidWebViewController) {
       final androidController =
           _controller.platform as AndroidWebViewController;
@@ -125,8 +116,6 @@ class _CCAvenuePaymentPageState extends State<CCAvenuePaymentPage> {
     _controller.loadRequest(Uri.parse(widget.session.checkoutUrl));
   }
 
-  // Match by path so appended query params (?order_id=…) still resolve, and so
-  // it never collides with the backend's own '…/payments/ccavenue/…' paths.
   bool _isResultUrl(String url) =>
       url.contains('/payment/success') || url.contains('/payment/failed');
 
@@ -139,9 +128,6 @@ class _CCAvenuePaymentPageState extends State<CCAvenuePaymentPage> {
   Future<void> _confirmAndPop() async {
     if (_finished) return;
     _finished = true;
-    // Stop the result page (e.g. the bank/redirect host) from rendering — if
-    // that host is down it shows a 503/error page while we confirm. We only
-    // needed the URL, not its contents.
     _controller.loadRequest(Uri.parse('about:blank'));
     if (mounted) setState(() => _confirming = true);
 
@@ -271,8 +257,6 @@ class _CCAvenuePaymentPageState extends State<CCAvenuePaymentPage> {
 
   Widget _overlay(BuildContext context) {
     return Container(
-      // Fully opaque so the underlying WebView (which may briefly show the
-      // redirect host's error page) never bleeds through during confirmation.
       color: _pageBg,
       child: Center(
         child: Column(

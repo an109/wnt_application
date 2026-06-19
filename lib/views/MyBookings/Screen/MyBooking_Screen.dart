@@ -13,13 +13,14 @@ import '../../../core/utils/storage/shared_preference.dart';
 import '../../../injection_container.dart';
 
 import '../../Dashboard/dashboardScreen.dart';
+import '../Hotels/Screen/hotel_detail_mainScreen.dart';
 import '../Hotels/bloc/BookingListBloc.dart';
 import '../Hotels/bloc/BookingListEvent.dart';
 import '../Hotels/bloc/BookingListState.dart';
+import '../Transport/Screen/Transport_detail_main_screen.dart';
 import '../Transport/bloc/MyBooking_bloc.dart';
 import '../Transport/bloc/MyBooking_event.dart';
 import '../Transport/bloc/MyBooking_state.dart';
-import 'HotelBookingList_DetailScreen.dart';
 import 'TransPortBooking_DetailScreen.dart';
 
 class MyBookingScreen extends StatefulWidget {

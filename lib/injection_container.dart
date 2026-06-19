@@ -77,6 +77,11 @@ import 'package:wander_nova/views/TPoll_Search/data/repository/TPoll_search_repo
 import 'package:wander_nova/views/TPoll_Search/domain/repository/TPoll_Search_repository.dart';
 import 'package:wander_nova/views/TPoll_Search/domain/usecase/TPoll_search_usecase.dart';
 import 'package:wander_nova/views/TPoll_Search/presentation/bloc/TPoll_SearchBloc.dart';
+import 'package:wander_nova/views/TReservation_poll/data/data_source/poll_api_service.dart';
+import 'package:wander_nova/views/TReservation_poll/data/repository/poll_repository_impl.dart';
+import 'package:wander_nova/views/TReservation_poll/domain/repository/poll_repository.dart';
+import 'package:wander_nova/views/TReservation_poll/domain/usecase/get_poll_usecase.dart';
+import 'package:wander_nova/views/TReservation_poll/presentation/bloc/poll_bloc.dart';
 import 'package:wander_nova/views/TResevation/data/data_source/TReservation_api_service.dart';
 import 'package:wander_nova/views/TResevation/data/repository/TReposiotry_impl.dart';
 import 'package:wander_nova/views/TResevation/domain/repository/TReservation_repository.dart';
@@ -290,6 +295,7 @@ Future<void> initializeDependencies() async {
   sl.registerFactory<LoyaltyApiService>(() => LoyaltyApiServiceImpl(sl<DioClient>().instance));
   sl.registerFactory<TransactionApiService>(() => TransactionApiServiceImpl(sl<DioClient>().instance));
   sl.registerFactory<HotelListApiService>(() => HotelListApiServiceImpl(sl<DioClient>().instance));
+  sl.registerFactory<ReservationPollApiService>(() => ReservationPollApiServiceImpl(sl<DioClient>().instance),);
 
 
 
@@ -339,6 +345,7 @@ Future<void> initializeDependencies() async {
   sl.registerLazySingleton<LoyaltyRepository>(() => LoyaltyRepositoryImpl(sl()));
   sl.registerLazySingleton<TransactionRepository>(() => TransactionRepositoryImpl(sl()),);
   sl.registerLazySingleton<HotelListRepository>(() => HotelListRepositoryImpl(sl(), sl()));
+  sl.registerLazySingleton<ReservationPollRepository>(() => ReservationPollRepositoryImpl(sl()),);
 
 
 
@@ -395,6 +402,7 @@ Future<void> initializeDependencies() async {
   sl.registerLazySingleton<GetUserLoyaltyUseCase>(() => GetUserLoyaltyUseCase(sl()));
   sl.registerLazySingleton<GetTransactionsUseCase>(() => GetTransactionsUseCase(sl<TransactionRepository>()));
   sl.registerLazySingleton<GetHotelBookingsUseCase>(() => GetHotelBookingsUseCase(sl<HotelListRepository>()));
+  sl.registerLazySingleton<GetReservationPollUseCase>(() => GetReservationPollUseCase(sl<ReservationPollRepository>()),);
 
 
 
@@ -452,6 +460,7 @@ Future<void> initializeDependencies() async {
   sl.registerFactory<LoyaltyBloc>(() => LoyaltyBloc(sl()));
   sl.registerFactory<TransactionBloc>(() => TransactionBloc(getTransactionsUseCase: sl()));
   sl.registerFactory<HotelBookingListBloc>(() => HotelBookingListBloc(sl()));
+  sl.registerFactory<ReservationPollBloc>(() => ReservationPollBloc(sl()),);
 
 
 }

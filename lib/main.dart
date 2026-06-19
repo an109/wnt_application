@@ -13,6 +13,7 @@ import 'package:wander_nova/views/Profile/presentation/bloc/profile_bloc.dart';
 import 'package:wander_nova/views/ReferCode/presentation/bloc/referral_bloc.dart';
 import 'package:wander_nova/views/ReferCredit/presentation/bloc/transaction_bloc.dart';
 import 'package:wander_nova/views/TPoll_Search/presentation/bloc/TPoll_SearchBloc.dart';
+import 'package:wander_nova/views/TReservation_poll/presentation/bloc/poll_bloc.dart';
 import 'package:wander_nova/views/TResevation/presentation/bloc/TReservation_bloc.dart';
 import 'package:wander_nova/views/TResult/presentation/bloc/TResult_bloc.dart';
 import 'package:wander_nova/views/T_Search/presentation/bloc/T_SearchBloc.dart';
@@ -109,6 +110,7 @@ class MyApp extends StatelessWidget {
         BlocProvider(create: (_) => di.sl<LoyaltyBloc>()),
         BlocProvider(create: (_) => di.sl<TransactionBloc>()),
         BlocProvider(create: (_) => di.sl<HotelBookingListBloc>()),
+        BlocProvider(create: (_) => di.sl<ReservationPollBloc>()),
       ],
 
       child: MaterialApp(

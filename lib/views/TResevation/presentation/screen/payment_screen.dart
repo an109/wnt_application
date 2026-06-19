@@ -1256,7 +1256,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
     try {
       // Backend requires a short order_id (CCAvenue limits length ~30 chars).
-      final orderId = 'WTXT${DateTime.now().millisecondsSinceEpoch}';
+      final orderId = '${DateTime.now().millisecondsSinceEpoch}';
       // Total is shown in INR on this screen; send a 2-decimal amount.
       final amount = double.parse(widget.totalAmount.toStringAsFixed(2));
       final nameParts = widget.passengerName.trim().split(' ');

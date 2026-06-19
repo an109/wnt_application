@@ -1,7 +1,7 @@
 class Urls {
-  static const String baseUrl = 'http://192.168.29.79:8000/api/';
+  static const String baseUrl = 'http://192.168.1.30:8000/api/';
   // static const String baseUrl = 'https://thewandernova.com/api/';
-  static const String basesUrl = 'http://192.168.29.79:8000/api';
+  static const String basesUrl = 'http://192.168.1.30:8000/api';
   // static const String basesUrl = 'https://thewandernova.com/api';
 
   static const String airports = '$basesUrl/flights/airports';
@@ -87,5 +87,7 @@ class Urls {
   static const String userLoyalty = '$basesUrl/user/loyalty/';
   // Wallet Transactions endpoint
   static const String walletTransactions = '$basesUrl/wallet/transactions/';
+
+  static String reservationPoll(String searchId) => '$basesUrl/transport/reservations/$searchId/poll/';
 
 }
