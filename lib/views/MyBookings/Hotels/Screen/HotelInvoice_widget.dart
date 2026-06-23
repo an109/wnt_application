@@ -260,9 +260,10 @@ class HotelInvoiceWidget extends StatelessWidget {
           _buildTableRow(context, 'Nights', booking.nights.toString()),
           _buildTableRow(context, 'Rooms', booking.rooms.toString()),
           _buildTableRow(context, 'Guests', booking.guests.toString()),
-          _buildTableRow(context, 'Adults', booking.adults.toString()),
+          // _buildTableRow(context, 'Adults', booking.adults.toString()),
           _buildTableRow(context, 'Children', booking.children.toString()),
-          _buildTableRow(context, 'Payment Mode', booking.paymentMode),
+          _buildTableRow(context, 'Payment Mode', "Online"),
+          // _buildTableRow(context, 'Payment Mode', booking.paymentMode),
           // Total Row
           Container(
             padding: EdgeInsets.symmetric(

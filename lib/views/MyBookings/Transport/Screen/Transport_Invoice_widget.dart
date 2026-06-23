@@ -81,7 +81,7 @@ class BookingInvoiceWidget extends StatelessWidget {
           SizedBox(height: context.h(10)),
           _detailText(
             context,
-            "Date: ${_todayDate()}",
+            "Date: ${booking.bookedDate}",
           ),
           _detailText(
             context,

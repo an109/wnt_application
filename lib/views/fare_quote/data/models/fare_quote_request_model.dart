@@ -17,6 +17,7 @@ class FareQuoteRequestModel {
       'TraceId': traceId,
       'TokenId': tokenId,
       'ResultIndex': resultIndex,
+      // 'ResultIndex': 'OB1',
     };
   }
 }

@@ -506,8 +506,8 @@ class _HomeScreenState extends State<HomeScreen> {
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 4,
         childAspectRatio: context.isMobile ? 0.85 : (context.isTablet ? 0.9 : 1.0),
-        crossAxisSpacing: context.w(8), // 8px on design
-        mainAxisSpacing: context.h(16), // 16px on design
+        crossAxisSpacing: context.w(8),
+        mainAxisSpacing: context.h(16),
       ),
       itemCount: services.length,
       itemBuilder: (context, index) => _buildServiceIcon(context, services[index]),
@@ -539,20 +539,20 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 200),
                       curve: Curves.easeOutCubic,
-                      padding: EdgeInsets.all(context.w(8)), // 8px on design
+                      padding: EdgeInsets.all(context.w(8)),
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(context.isMobile ? context.r(16) : context.r(18)),
                         boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
-                            blurRadius: context.w(12), // 12px on design
-                            offset: Offset(0, context.h(6)), // 6px on design
-                          ),
+                          // BoxShadow(
+                          //   color: Colors.black.withOpacity(0.1),
+                          //   blurRadius: context.w(12), // 12px on design
+                          //   offset: Offset(0, context.h(6)), // 6px on design
+                          // ),
                           BoxShadow(
                             color: Colors.black.withOpacity(0.04),
-                            blurRadius: context.w(4), // 4px on design
-                            offset: Offset(0, context.h(2)), // 2px on design
+                            blurRadius: context.w(4),
+                            offset: Offset(0, context.h(2)),
                           ),
                         ],
                         border: Border.all(
@@ -581,7 +581,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 child: Icon(
                                   service.icon,
                                   color: service.color.withOpacity(0.2),
-                                  size: context.iconXLarge,
+                                  size: context.iconLarge,
                                 ),
                               ),
                               Positioned(
@@ -590,7 +590,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 child: Icon(
                                   service.icon,
                                   color: service.color.withOpacity(0.15),
-                                  size: context.iconXLarge,
+                                  size: context.iconLarge,
                                 ),
                               ),
                               ShaderMask(
@@ -602,7 +602,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 child: Icon(
                                   service.icon,
                                   color: Colors.white,
-                                  size: context.iconXLarge,
+                                  size: context.iconLarge,
                                 ),
                               ),
                               Positioned(

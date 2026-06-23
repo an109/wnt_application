@@ -367,7 +367,7 @@ class _FlightPaymentScreenState extends State<FlightPaymentScreen> {
   /// Sanitise: alphanumeric + hyphens only, max 30 chars.
   String _ccavenueOrderId() {
     final safe = widget.traceId.replaceAll(RegExp(r'[^a-zA-Z0-9\-]'), '');
-    return safe.length > 30 ? safe.substring(0, 30) : safe;
+    return safe.length > 40 ? safe.substring(0, 40) : safe;
   }
 
   Future<void> _initiatePayment() async {
@@ -421,10 +421,17 @@ class _FlightPaymentScreenState extends State<FlightPaymentScreen> {
 
       if (!mounted) return;
       switch (result) {
+        // case PaymentResult.success:
+        //   // 2. Payment confirmed — ask the server to issue the ticket.
+        //   //    finalize verifies the CCAvenue transaction by order_id == traceId.
+        //   await _callFinalizeTicket();
+        //   break;
         case PaymentResult.success:
-          // 2. Payment confirmed — ask the server to issue the ticket.
-          //    finalize verifies the CCAvenue transaction by order_id == traceId.
-          await _callFinalizeTicket();
+          if (_isLcc) {
+            await _callFinalizeTicket();
+          } else {
+            _startBookingFlow();
+          }
           break;
         case PaymentResult.failure:
           setState(() => _error = 'Payment failed. Please try again.');
@@ -455,11 +462,20 @@ class _FlightPaymentScreenState extends State<FlightPaymentScreen> {
     final dio = di.sl<DioClient>().instance;
 
     final Map<String, dynamic> payload;
+    final itineraryResultIndex =
+    (_rawItinerary['ResultIndex'] as String?)?.trim();
+
+    final effectiveResultIndex =
+    (itineraryResultIndex != null && itineraryResultIndex.isNotEmpty)
+        ? itineraryResultIndex
+        : widget.resultIndex.trim();
+
     if (_isLcc) {
       final req = TicketRequestModel.lcc(
         endUserIp: _endUserIp,
         traceId: widget.traceId,
-        resultIndex: widget.resultIndex,
+        // resultIndex: widget.resultIndex,
+        resultIndex: effectiveResultIndex,
         itinerary: _rawItinerary,
         passengers: [_builtPassenger!],
       );
@@ -476,7 +492,8 @@ class _FlightPaymentScreenState extends State<FlightPaymentScreen> {
         endUserIp: _endUserIp,
         traceId: widget.traceId,
         tokenId: '',
-        resultIndex: widget.resultIndex,
+        // resultIndex: widget.resultIndex,
+        resultIndex: effectiveResultIndex,
         itinerary: _rawItinerary,
         passengers: [_builtPassenger!],
       );
@@ -496,10 +513,8 @@ class _FlightPaymentScreenState extends State<FlightPaymentScreen> {
 
     try {
       await dio.post(Urls.prepareTicket, data: payload);
-    } catch (e) {
-      // prepare-ticket failure is non-fatal — we fall back to the direct flow.
-      // Log but do not block the payment.
-      print('prepare-ticket warning (non-fatal): $e');
+    }catch (e) {
+      throw Exception('Could not prepare ticket payload: $e');
     }
   }
 
@@ -710,6 +725,14 @@ class _FlightPaymentScreenState extends State<FlightPaymentScreen> {
     }
   }
 
+  void _printLongText(String text) {
+    const int chunkSize = 800;
+    for (int i = 0; i < text.length; i += chunkSize) {
+      final end = (i + chunkSize < text.length) ? i + chunkSize : text.length;
+      debugPrint(text.substring(i, end));
+    }
+  }
+
   /// Non-LCC: hold the booking (PNR) before ticketing.
   void _callBookApi(String traceId, String resultIndex) {
     // TokenId left empty — the backend injects the real TBO token for every
@@ -722,6 +745,22 @@ class _FlightPaymentScreenState extends State<FlightPaymentScreen> {
       itinerary: _rawItinerary,
       passengers: [_builtPassenger!],
     );
+
+    final jsonPayload = jsonEncode(request.toJson());
+
+    // Use debugPrint with larger limit (default is 1000)
+    debugPrint('====== FULL BOOK API PAYLOAD ======');
+    debugPrint(jsonPayload);
+    debugPrint('========================================');
+
+    // Or split into chunks
+    _printLongText('====== FULL BOOK API PAYLOAD ======\n$jsonPayload\n========================================');
+
+    final debugJson = request.toJson();
+    print('====== PASSENGER ONLY ======');
+    print(jsonEncode(debugJson['Itinerary']['Passenger']));
+    print('====== LAST TICKET DATE ======');
+    print(debugJson['Itinerary']['LastTicketDate']);
 
     print('====== BOOK API PAYLOAD (Non-LCC) ======');
     print('EndUserIp  : ${request.endUserIp}');
@@ -1451,9 +1490,17 @@ class _FlightPaymentScreenState extends State<FlightPaymentScreen> {
       if (!mounted) return;
       setState(() => _isCreatingOrder = false);
 
+      // if (verifyResponse.data['success'] == true) {
+      //   await _callFinalizeTicket(gateway: 'razorpay');
+      // }
       if (verifyResponse.data['success'] == true) {
-        await _callFinalizeTicket(gateway: 'razorpay');
-      } else {
+        if (_isLcc) {
+          await _callFinalizeTicket(gateway: 'razorpay');
+        } else {
+          _startBookingFlow();
+        }
+      }
+      else {
         setState(() => _error = 'Payment verification failed. Please contact support.');
       }
     } on DioException catch (e) {

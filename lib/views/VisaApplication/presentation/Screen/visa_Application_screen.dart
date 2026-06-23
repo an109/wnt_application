@@ -1,10 +1,18 @@
 import 'package:flutter/material.dart';
-import '../../../../UI_helper/responsive_layout.dart';
-import '../../../UI_helper/currency_converter.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../../../UI_helper/responsive_layout.dart';
+import '../../../../UI_helper/currency_converter.dart';
+import '../../../../injection_container.dart';
+import '../../domain/entity/TravellerEntity.dart';
+import '../../domain/entity/visaEntity.dart';
 import '../Section/itinery_section.dart';
-import '../Section/traveller_detail_section.dart';
 import '../Section/payment_section.dart';
+import '../Section/traveller_detail_section.dart';
 import '../Section/upload_documents_section.dart';
+import '../bloc/visaBloc.dart';
+import '../bloc/visaEntity.dart';
+import '../bloc/visaState.dart';
+
 
 class VisaApplicationScreen extends StatefulWidget {
   final String destinationName;
@@ -33,9 +41,12 @@ class _VisaApplicationScreenState extends State<VisaApplicationScreen> with Tick
   late Animation<double> _progressAnimation;
   String _preferredSymbol = '₹';
   double _convertedPrice = 0;
-  double _conversionRate = 1.0;
   bool _isCurrencyLoaded = false;
 
+  // Track if API call is in progress during step transition
+  bool _isApiProcessing = false;
+
+  late final VisaApplicationBloc _visaBloc;
 
   Future<void> _loadConvertedPrice() async {
     final preferred = CurrencyConverter.getPreferredCurrency();
@@ -55,11 +66,45 @@ class _VisaApplicationScreenState extends State<VisaApplicationScreen> with Tick
     });
   }
 
-
-
   @override
   void initState() {
     super.initState();
+
+    _visaBloc = sl<VisaApplicationBloc>();
+
+    // Listen for API success to get the Application ID
+    _visaBloc.stream.listen((state) {
+      if (state is VisaApplicationCreated) {
+        setState(() {
+          _isApiProcessing = false;
+          // Save the created application ID to form data for future reference
+          _formData['applicationId'] = state.application.id;
+          _formData['status'] = state.application.status;
+        });
+
+        // Only move to next step if we are currently waiting for this creation
+        if (_currentStep == 2) {
+          _updateStep(3);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Application created successfully! Proceed to payment.'),
+              backgroundColor: Color(0xff10B981),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      } else if (state is VisaApplicationError) {
+        setState(() => _isApiProcessing = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: ${state.message}'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    });
+
     _progressController = AnimationController(
       duration: const Duration(milliseconds: 800),
       vsync: this,
@@ -69,7 +114,6 @@ class _VisaApplicationScreenState extends State<VisaApplicationScreen> with Tick
     );
     _progressController.forward();
 
-    // Pre-fill data if available
     if (widget.preFilledData != null) {
       _formData.addAll(widget.preFilledData!);
     }
@@ -78,6 +122,7 @@ class _VisaApplicationScreenState extends State<VisaApplicationScreen> with Tick
 
   @override
   void dispose() {
+    _visaBloc.close();
     _progressController.dispose();
     super.dispose();
   }
@@ -90,19 +135,76 @@ class _VisaApplicationScreenState extends State<VisaApplicationScreen> with Tick
     setState(() => _formData.addAll(data));
   }
 
-  /// Total payable converted to INR (CCAvenue is charged in INR).
-  double get _payableInr {
-    final travellers = (_formData['travellers'] is int)
-        ? _formData['travellers'] as int
-        : int.tryParse('${_formData['travellers'] ?? 1}') ?? 1;
-    final base = double.tryParse(widget.price) ?? 0;
-    final source = widget.currency.isNotEmpty ? widget.currency : 'USD';
-    final inrBase = CurrencyConverter.convert(
-      amount: base,
-      fromCurrency: source,
+  /// Helper to create entity and trigger API
+  void _triggerCreateApplication() {
+    setState(() => _isApiProcessing = true);
+
+    String formatDate(DateTime? date) {
+      if (date == null) return '';
+      return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
+    }
+
+    List<Map<String, dynamic>> rawTravellers = [];
+    if (_formData['travellersData'] != null && _formData['travellersData'] is List) {
+      rawTravellers = List<Map<String, dynamic>>.from(_formData['travellersData']);
+    } else if (_formData['firstName'] != null) {
+      rawTravellers.add({
+        "title": _formData['title'] ?? "Mr",
+        "firstName": _formData['firstName'] ?? "",
+        "lastName": _formData['lastName'] ?? "",
+        "dob": _formData['dob'] is DateTime ? formatDate(_formData['dob']) : _formData['dob']?.toString() ?? "",
+        "nationality": _formData['nationality'] ?? "Indian",
+        "passportNo": _formData['passportNo'] ?? "",
+        "contactNumber": _formData['phone'] ?? "",
+        "emailId": _formData['email'] ?? "",
+      });
+    }
+
+    List<TravellerEntity> travellers = rawTravellers.asMap().entries.map((e) {
+      final t = e.value;
+      return TravellerEntity(
+        travellerIndex: e.key,
+        title: t['title']?.toString() ?? 'Mr',
+        firstName: t['firstName']?.toString() ?? '',
+        lastName: t['lastName']?.toString() ?? '',
+        dob: t['dob']?.toString() ?? '',
+        nationality: t['nationality']?.toString() ?? 'Indian',
+        passportNo: t['passportNo']?.toString() ?? '',
+        contactNumber: t['contactNumber']?.toString() ?? t['phone']?.toString() ?? '',
+        emailId: t['emailId']?.toString() ?? t['email']?.toString() ?? '',
+      );
+    }).toList();
+
+    final sourceCurrency = widget.currency.isNotEmpty ? widget.currency : 'USD';
+    final originalBaseFare = double.tryParse(widget.price) ?? 0;
+    final inrBaseFare = CurrencyConverter.convert(
+      amount: originalBaseFare,
+      fromCurrency: sourceCurrency,
       toCurrency: 'INR',
     );
-    return inrBase * travellers;
+
+    final numTravellers = _formData['travellers'] ?? 1;
+    final totalInr = inrBaseFare * numTravellers;
+
+    final application = VisaApplicationEntity(
+      destination: widget.destinationName,
+      visaType: _formData['visaType'] ?? widget.visaType?.title?.toString() ?? '',
+      onwardDate: formatDate(_formData['onwardDate']),
+      returnDate: formatDate(_formData['returnDate']),
+      numTravellers: numTravellers,
+      contactEmail: _formData['email']?.toString() ?? _formData['contactEmail']?.toString() ?? '',
+      contactPhone: _formData['phone']?.toString() ?? _formData['contactPhone']?.toString() ?? '',
+      currency: 'INR',
+      baseFare: inrBaseFare.toStringAsFixed(2),
+      tax: '0.00',
+      total: totalInr.toStringAsFixed(2),
+      status: 'payment_pending',
+      currentStep: 3,
+      travellers: travellers,
+      documents: [],
+    );
+
+    _visaBloc.add(CreateVisaApplicationEvent(application));
   }
 
   @override
@@ -280,7 +382,11 @@ class _VisaApplicationScreenState extends State<VisaApplicationScreen> with Tick
               isCompleted: _currentStep > 2,
               isActive: _currentStep == 2,
               preFilledData: _formData,
-              onContinue: () => _updateStep(3),
+              isLoading: _isApiProcessing, // Pass loading state
+              onContinue: () {
+                // Trigger API before moving to payment
+                _triggerCreateApplication();
+              },
               onBack: () => _updateStep(1),
               onSave: _saveFormData,
             ),
@@ -293,7 +399,6 @@ class _VisaApplicationScreenState extends State<VisaApplicationScreen> with Tick
               formData: _formData,
               onBack: () => _updateStep(2),
               onPaymentSuccess: () {
-                // Payment done → collapse payment, expand Upload Documents.
                 _updateStep(4);
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
@@ -321,7 +426,6 @@ class _VisaApplicationScreenState extends State<VisaApplicationScreen> with Tick
 
   Widget _buildFareSummary() {
     final travellers = _formData['travellers'] ?? 1;
-    // Use converted price if loaded, otherwise fallback to original
     final basePrice = _isCurrencyLoaded ? _convertedPrice : (double.tryParse(widget.price) ?? 0);
     final symbol = _isCurrencyLoaded ? _preferredSymbol : widget.currency;
     final total = basePrice * travellers;
@@ -354,7 +458,6 @@ class _VisaApplicationScreenState extends State<VisaApplicationScreen> with Tick
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text('Grand Total', style: TextStyle(fontSize: context.fs(12), fontWeight: FontWeight.w700)),
-              // Text('$symbol $formattedTotal',
               Text('$formattedTotal',
                   style: TextStyle(fontSize: context.fs(16), fontWeight: FontWeight.w800, color: const Color(0xffFF6B00))),
             ],
@@ -377,9 +480,22 @@ class _VisaApplicationScreenState extends State<VisaApplicationScreen> with Tick
           ],
         ),
         Text('$amount', style: TextStyle(fontSize: context.fs(11), fontWeight: FontWeight.w600)),
-        // Text('$symbol $amount', style: TextStyle(fontSize: context.fs(11), fontWeight: FontWeight.w600)),
       ],
     );
+  }
+
+  double get _payableInr {
+    final travellers = (_formData['travellers'] is int)
+        ? _formData['travellers'] as int
+        : int.tryParse('${_formData['travellers'] ?? 1}') ?? 1;
+    final base = double.tryParse(widget.price) ?? 0;
+    final source = widget.currency.isNotEmpty ? widget.currency : 'USD';
+    final inrBase = CurrencyConverter.convert(
+      amount: base,
+      fromCurrency: source,
+      toCurrency: 'INR',
+    );
+    return inrBase * travellers;
   }
 
   void _showSuccessDialog() {

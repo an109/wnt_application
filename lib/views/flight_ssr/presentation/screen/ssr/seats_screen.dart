@@ -106,6 +106,7 @@ class _SeatScreenState extends State<SeatScreen> {
                     endUserIp: '122.161.72.69',
                     traceId: widget.traceId,
                     tokenId: widget.tokenId,
+                    // resultIndex: 'OB1',
                     resultIndex: widget.resultIndex,
                   ),
                 );

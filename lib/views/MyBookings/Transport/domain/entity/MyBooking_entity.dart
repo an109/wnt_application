@@ -81,6 +81,7 @@ class BookingEntity extends Equatable {
   final String confirmationNumber;
   final String created;
   final String updated;
+  final String imageUrl;
 
   // --- NEW UI-SPECIFIC FIELDS (ADD THESE) ---
   final String destination;
@@ -103,7 +104,7 @@ class BookingEntity extends Equatable {
     cancelledTimestamp, providerName, confirmationNumber, created, updated,
     destination, type, applicantCount, bookedDate, category,
     startAddress, endAddress, pickupDatetime, flightNumber, vehicleName,
-    rawTotalPrice, rawCurrency,
+    rawTotalPrice, rawCurrency,imageUrl
   ];
 
   const BookingEntity({
@@ -137,5 +138,6 @@ class BookingEntity extends Equatable {
     this.vehicleName = '',
     this.rawTotalPrice = '0.00',
     this.rawCurrency = 'USD',
+    this.imageUrl = ''
   });
 }

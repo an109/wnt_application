@@ -143,6 +143,7 @@ class FareRuleRequestModel {
       'EndUserIp': endUserIp,
       'TraceId': traceId,
       'TokenId': tokenId,
+      // 'ResultIndex': 'OB1',
       'ResultIndex': resultIndex,
     };
 

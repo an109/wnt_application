@@ -68,7 +68,7 @@ class TicketRequestModel {
       'RequestOrigin': 'API',
       'UserData': '',
       'WebServerIP': '',
-      'IsPriceChangeAccepted': false,
+      'IsPriceChangeAccepted': true,
       'FlightBookingSource': 100,
     };
   }

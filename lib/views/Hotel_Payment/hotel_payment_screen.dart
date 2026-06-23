@@ -918,7 +918,8 @@ class _HotelPaymentScreenState extends State<HotelPaymentScreen> {
     });
 
     try {
-      final orderId = 'WTXH${DateTime.now().millisecondsSinceEpoch}';
+      final orderId = '${DateTime.now().millisecondsSinceEpoch}';
+      // final orderId = 'WTXH${DateTime.now().millisecondsSinceEpoch}';
       final amount = double.parse(widget.totalFare.toStringAsFixed(2));
 
       final session = await _ccavenueService.createCheckout(

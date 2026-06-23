@@ -52,53 +52,56 @@ class BookingPassengerModel {
   /// the FareQuote result-level fare into each passenger for Book/Ticket.
   Map<String, dynamic> toJson({Map<String, dynamic>? fare}) {
     final paxFare = fare ?? this.fare;
+    final mobile = contactNo.startsWith(mobileCountryCode)
+        ? contactNo
+        : '$mobileCountryCode-$contactNo';
+
     return {
       'Title': title,
       'FirstName': firstName,
       'LastName': lastName,
-      'PaxType': paxType,
+      'Type': paxType,
+      // 'PaxType': paxType,
       'DateOfBirth': dateOfBirth,
       'Gender': gender,
-      'PassportNo': passportNo,
-      'PassportExpiry': passportExpiry,
+      // 'PassportNo': passportNo.isEmpty ? null : passportNo,
+      // 'PassportExpiry': passportExpiry,
+      if (passportNo.isNotEmpty) 'PassportNo': passportNo,
+      // if (passportNo.isNotEmpty) 'PassportExpiry': passportExpiry,
       'AddressLine1': addressLine1,
-      'City': city,
-      'CountryCode': countryCode,
-      'CountryName': countryName,
-      'Nationality': nationality,
-      'ContactNo': contactNo,
+      'AddressLine2': countryName,
+      'City': {
+        'CityCode': '',
+        'CityName': city,
+        'CountryCode': countryCode,
+      },
+      'Country': {
+        'CountryCode': countryCode,
+        'CountryName': countryName,
+      },
+      'Nationality': {
+        'CountryCode': nationality,
+        'CountryName': nationality == 'IN' ? 'India' : countryName,
+      },
       'Email': email,
+      'Mobile1': mobile,
+      'Mobile1CountryCode': mobileCountryCode,
       'IsLeadPax': isLeadPax,
-      if (paxFare != null) 'Fare': paxFare,
-      'Baggage': baggage,
-      'MealDynamic': mealDynamic,
-      'SeatDynamic': seatDynamic,
-      'MobileCountryCode': mobileCountryCode,
+      // if (paxFare != null) 'Fare': paxFare,
+      if (paxFare != null) ...{
+        'BaseFare': paxFare['BaseFare'],
+        'Tax': paxFare['Tax'],
+        'YQTax': paxFare['YQTax'],
+        'Fare_BE': paxFare,
+      },
+      'PaxBaggage': baggage,
+      'PaxMeal': mealDynamic,
+      // 'PaxSeat': seatDynamic,
+      'PaxSeat': seatDynamic.isEmpty ? null : seatDynamic,
     };
   }
 }
 
-/// Builds the TBO `Itinerary` (the full FareQuote result with a `Passengers`
-/// array merged in) shared by Book and LCC-Ticket. Each passenger carries the
-/// result-level `Fare` — TBO wants the full fare per passenger, not divided.
-// Map<String, dynamic> buildItinerary(
-//   Map<String, dynamic> rawItinerary,
-//   List<BookingPassengerModel> passengers,
-// ) {
-//   final fare = rawItinerary['Fare'];
-//   return {
-//     ...rawItinerary,
-//     'Passengers': passengers
-//         .map((p) => p.toJson(
-//               fare: fare is Map ? Map<String, dynamic>.from(fare) : null,
-//             ))
-//         .toList(),
-//   };
-// }
-
-/// Recursively removes all null-valued entries from a Map.
-/// TBO's .NET server throws NullReferenceException on explicitly-null fields
-/// like Fare.ChargeBU, Airline.OperatingCarrier, FirstNameFormat, etc.
 Map<String, dynamic> _tboFilterNulls(Map<String, dynamic> map) {
   final out = <String, dynamic>{};
   for (final e in map.entries) {
@@ -131,8 +134,11 @@ Map<String, dynamic> buildItinerary(
   // TBO's .NET code throws NullReferenceException on any explicitly-null field
   // at any nesting level (Fare.ChargeBU, Airline.OperatingCarrier, etc.).
   final clean = _tboFilterNulls(rawItinerary);
-  final fare = clean['Fare'];
+  // final fare = clean['Fare'];
+  //
+  // final result = Map<String, dynamic>.from(clean);
 
+  final fareBreakdown = clean['FareBreakdown'] as List?;
   final result = Map<String, dynamic>.from(clean);
 
   // TBO Book/Ticket uses Segments_BE; FareQuote returns Segments.
@@ -147,6 +153,8 @@ Map<String, dynamic> buildItinerary(
 
   // Booking-specific resets.
   result['BookingId'] = 0;
+  result['BookingMode'] = 1;
+  result['PaymentMode'] = 0;
   result['PNR'] = '';
   result['PNRStatus'] = 0;
   result['Ticketed'] = false;
@@ -154,11 +162,43 @@ Map<String, dynamic> buildItinerary(
   result['TrackingId'] =
       traceId.isNotEmpty ? traceId : (clean['TraceId'] ?? '');
 
-  result['Passengers'] = passengers
-      .map((p) => p.toJson(
-            fare: fare is Map<String, dynamic> ? fare : null,
-          ))
-      .toList();
+  result.remove('Passengers');
+  // result['Passenger'] = passengers
+  //     .map((p) => p.toJson(
+  //   fare: fare is Map<String, dynamic> ? fare : null,
+  // ))
+  //     .toList();
+  result['Passenger'] = passengers.asMap().entries.map((entry) {
+    final index = entry.key;
+    final passenger = entry.value;
+
+    Map<String, dynamic>? paxFare;
+    if (fareBreakdown != null && fareBreakdown.isNotEmpty) {
+      final adultFareRows = fareBreakdown
+          .whereType<Map>()
+          .where((f) => f['PassengerType'] == passenger.paxType)
+          .toList();
+
+      final row = adultFareRows.isNotEmpty
+          ? adultFareRows.first
+          : fareBreakdown.whereType<Map>().first;
+
+      final count = (row['PassengerCount'] as num?)?.toInt() ?? 1;
+      final baseFare = ((row['BaseFare'] as num?)?.toDouble() ?? 0) / count;
+      final tax = ((row['Tax'] as num?)?.toDouble() ?? 0) / count;
+      final yqTax = ((row['YQTax'] as num?)?.toDouble() ?? 0) / count;
+
+      paxFare = {
+        'BaseFare': double.parse(baseFare.toStringAsFixed(2)),
+        'Tax': double.parse(tax.toStringAsFixed(2)),
+        'YQTax': double.parse(yqTax.toStringAsFixed(2)),
+        'Currency': row['Currency'] ?? clean['Fare']?['Currency'] ?? 'INR',
+      };
+    }
+
+    // return passenger.toJson(fare: paxFare);
+    return _tboFilterNulls(passenger.toJson(fare: paxFare));
+  }).toList();
 
   print('====== buildItinerary (null-filtered, ${result.keys.length} keys) ======');
   print(jsonEncode(result));
@@ -209,7 +249,7 @@ class BookingRequestModel {
       'Itinerary': buildItinerary(itinerary, passengers, traceId: traceId),
       'PNR': '',
       'BookingId': '',
-      'CorporateCode': null,
+      'CorporateCode': '',
       'ConfirmPriceChangeTicket': false,
       'IsGenerateTicketRequestFromQueues': false,
       'SegmentAnalyticsToken': '',
@@ -218,7 +258,7 @@ class BookingRequestModel {
       'PointOfSale': 'IN',
       'RequestOrigin': 'API',
       'UserData': '',
-      'WebServerIP': null,
+      'WebServerIP': '',
       'FlightBookingSource': 72,
     };
   }

@@ -19,6 +19,7 @@ class FareRuleRepositoryImpl implements FareRuleRepository {
         endUserIp: request.endUserIp,
         traceId: request.traceId,
         tokenId: request.tokenId,
+        // resultIndex: 'OB1',
         resultIndex: request.resultIndex,
       );
 

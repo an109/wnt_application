@@ -1,3 +1,5 @@
+import 'dart:developer' as developer;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -20,6 +22,7 @@ import 'package:wander_nova/views/T_Search/presentation/bloc/T_SearchBloc.dart';
 import 'package:wander_nova/views/T_location/presentation/bloc/T_locationBloc.dart';
 import 'package:wander_nova/views/UpcomingTrips/presentation/bloc/upcomingTrip_bloc.dart';
 import 'package:wander_nova/views/Verify_otp/presentation/bloc/verify_otp_bloc.dart';
+import 'package:wander_nova/views/VisaApplication/presentation/bloc/visaBloc.dart';
 import 'package:wander_nova/views/VisaDestination/presentation/bloc/visaDestin_bloc.dart';
 import 'package:wander_nova/views/Visa_popularDestinaton/presentation/bloc/visa_destination_bloc.dart';
 import 'package:wander_nova/views/WalletStatus/presentation/bloc/loyalty_bloc.dart';
@@ -60,6 +63,7 @@ void main() async {
   if (sl.isRegistered<ExchangeRateBloc>()) {
     sl<ExchangeRateBloc>().add(const FetchExchangeRates());
   }
+  developer.log('', name: '');
   runApp(const MyApp());
 }
 
@@ -111,6 +115,7 @@ class MyApp extends StatelessWidget {
         BlocProvider(create: (_) => di.sl<TransactionBloc>()),
         BlocProvider(create: (_) => di.sl<HotelBookingListBloc>()),
         BlocProvider(create: (_) => di.sl<ReservationPollBloc>()),
+        BlocProvider(create: (_) => di.sl<VisaApplicationBloc>()),
       ],
 
       child: MaterialApp(

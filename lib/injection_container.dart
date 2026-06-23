@@ -112,6 +112,13 @@ import 'package:wander_nova/views/Verify_otp/data/repository/verify_otp_reposito
 import 'package:wander_nova/views/Verify_otp/domain/repository/verify_otp_repository.dart';
 import 'package:wander_nova/views/Verify_otp/domain/usecase/verify_otp_usecase.dart';
 import 'package:wander_nova/views/Verify_otp/presentation/bloc/verify_otp_bloc.dart';
+import 'package:wander_nova/views/VisaApplication/data/data_source/visa_api_service.dart';
+import 'package:wander_nova/views/VisaApplication/data/repository/visaRepository_impl.dart';
+import 'package:wander_nova/views/VisaApplication/domain/repository/visaRepository.dart';
+import 'package:wander_nova/views/VisaApplication/domain/usecase/create_visa_application_usecase.dart';
+import 'package:wander_nova/views/VisaApplication/domain/usecase/get_visaBy_id.dart';
+import 'package:wander_nova/views/VisaApplication/domain/usecase/visaUsecase.dart';
+import 'package:wander_nova/views/VisaApplication/presentation/bloc/visaBloc.dart';
 import 'package:wander_nova/views/VisaDestination/data/data_source/visaDestin_apiService.dart';
 import 'package:wander_nova/views/VisaDestination/data/repository/visaDestin_Repository_impl.dart';
 import 'package:wander_nova/views/VisaDestination/domain/repository/visaDestin_Repository.dart';
@@ -296,6 +303,7 @@ Future<void> initializeDependencies() async {
   sl.registerFactory<TransactionApiService>(() => TransactionApiServiceImpl(sl<DioClient>().instance));
   sl.registerFactory<HotelListApiService>(() => HotelListApiServiceImpl(sl<DioClient>().instance));
   sl.registerFactory<ReservationPollApiService>(() => ReservationPollApiServiceImpl(sl<DioClient>().instance),);
+  sl.registerFactory<VisaApplicationApiService>(() => VisaApplicationApiServiceImpl(sl<DioClient>().instance));
 
 
 
@@ -346,6 +354,7 @@ Future<void> initializeDependencies() async {
   sl.registerLazySingleton<TransactionRepository>(() => TransactionRepositoryImpl(sl()),);
   sl.registerLazySingleton<HotelListRepository>(() => HotelListRepositoryImpl(sl(), sl()));
   sl.registerLazySingleton<ReservationPollRepository>(() => ReservationPollRepositoryImpl(sl()),);
+  sl.registerLazySingleton<VisaApplicationRepository>(() => VisaApplicationRepositoryImpl(sl()));
 
 
 
@@ -403,7 +412,9 @@ Future<void> initializeDependencies() async {
   sl.registerLazySingleton<GetTransactionsUseCase>(() => GetTransactionsUseCase(sl<TransactionRepository>()));
   sl.registerLazySingleton<GetHotelBookingsUseCase>(() => GetHotelBookingsUseCase(sl<HotelListRepository>()));
   sl.registerLazySingleton<GetReservationPollUseCase>(() => GetReservationPollUseCase(sl<ReservationPollRepository>()),);
-
+  sl.registerLazySingleton<GetVisaApplicationsUseCase>(() => GetVisaApplicationsUseCase(sl<VisaApplicationRepository>()));
+  sl.registerLazySingleton<GetVisaApplicationByIdUseCase>(() => GetVisaApplicationByIdUseCase(sl<VisaApplicationRepository>()));
+  sl.registerLazySingleton<CreateVisaApplicationUseCase>(() => CreateVisaApplicationUseCase(sl<VisaApplicationRepository>()));
 
 
 
@@ -461,6 +472,12 @@ Future<void> initializeDependencies() async {
   sl.registerFactory<TransactionBloc>(() => TransactionBloc(getTransactionsUseCase: sl()));
   sl.registerFactory<HotelBookingListBloc>(() => HotelBookingListBloc(sl()));
   sl.registerFactory<ReservationPollBloc>(() => ReservationPollBloc(sl()),);
+  sl.registerFactory<VisaApplicationBloc>(() => VisaApplicationBloc(
+      getVisaApplicationsUseCase: sl<GetVisaApplicationsUseCase>(),
+      getVisaApplicationByIdUseCase: sl<GetVisaApplicationByIdUseCase>(),
+      createVisaApplicationUseCase: sl<CreateVisaApplicationUseCase>(),
+    ),
+  );
 
 
 }

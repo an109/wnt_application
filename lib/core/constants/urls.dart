@@ -1,7 +1,7 @@
 class Urls {
-  static const String baseUrl = 'http://192.168.1.30:8000/api/';
+  static const String baseUrl = 'http://192.168.1.21:8000/api/';
   // static const String baseUrl = 'https://thewandernova.com/api/';
-  static const String basesUrl = 'http://192.168.1.30:8000/api';
+  static const String basesUrl = 'http://192.168.1.21:8000/api';
   // static const String basesUrl = 'https://thewandernova.com/api';
 
   static const String airports = '$basesUrl/flights/airports';
@@ -18,6 +18,7 @@ class Urls {
   static const String getBookingDetails = '$basesUrl/tbo/GetBookingDetails/';
   static const String razorpayCreateOrder = '${baseUrl}payments/razorpay/create-order/';
   static const String razorpayVerify = '${baseUrl}payments/razorpay/verify/';
+
 
   // ----- CCAvenue (hosted checkout) -----
   static const String ccavenueCreateCheckout = '${baseUrl}payments/ccavenue/create-checkout/';
@@ -81,6 +82,7 @@ class Urls {
 
   // Visa Applications / Upcoming Trips
   static const String visaApplications = '$basesUrl/visa-applications/';
+  static const String visaApplicationDetail = '$basesUrl/visa-applications/';
   // Referral endpoint
   static const String userReferral = '$basesUrl/user/referral/';
   // New Loyalty Endpoint

@@ -161,6 +161,22 @@ class HotelTicketWidget extends StatelessWidget {
     );
   }
 
+  Widget _buildHotelPlaceholder(BuildContext context) {
+    return Container(
+      width: context.w(52),
+      height: context.w(52),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF5F7FA),
+        borderRadius: BorderRadius.circular(context.r(10)),
+      ),
+      child: Icon(
+        Icons.hotel_rounded,
+        color: const Color(0xFFD32F2F),
+        size: context.w(24),
+      ),
+    );
+  }
+
   Widget _buildHotelDetailsCard(BuildContext context) {
     return Container(
       padding: EdgeInsets.all(context.w(14)),
@@ -180,10 +196,18 @@ class HotelTicketWidget extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(
-                Icons.hotel_rounded,
-                size: context.w(24),
-                color: AppColors.orange,
+              ClipRRect(
+                borderRadius: BorderRadius.circular(context.r(10)),
+                child: booking.hotelImage.isNotEmpty
+                    ? Image.network(
+                  booking.hotelImage,
+                  width: context.w(52),
+                  height: context.w(52),
+                  fit: BoxFit.cover,
+                  errorBuilder: (c, e, s) =>
+                      _buildHotelPlaceholder(context),
+                )
+                    : _buildHotelPlaceholder(context),
               ),
               SizedBox(width: context.w(10)),
               Expanded(
@@ -353,7 +377,8 @@ class HotelTicketWidget extends StatelessWidget {
       [
         _infoRow(context, "Booking Reference", booking.bookingReferenceId),
         _infoRow(context, "Guest Reference", booking.guestReference),
-        _infoRow(context, "Payment Mode", booking.paymentMode),
+        // _infoRow(context, "Payment Mode", booking.paymentMode),
+        _infoRow(context, "Payment Mode", "Online"),
         _infoRow(context, "Status", booking.status),
         _infoRow(context, "Booking Date", booking.bookingDate ?? booking.created),
       ],

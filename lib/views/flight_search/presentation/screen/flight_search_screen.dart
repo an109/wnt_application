@@ -1590,6 +1590,7 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
       arrivalTime: _formatTime(flight.arrivalTime),
       traceId: flight.traceId,
       resultIndex: flight.resultIndex,
+      // resultIndex: 'OB1',
       duration: "${flight.duration ?? '--'} min",
       price: _convertFlightPrice(
         (flight.totalFare ?? 0).toDouble(),

@@ -427,6 +427,22 @@ class _MyBookingScreenState extends State<MyBookingScreen> {
     );
   }
 
+  Widget _buildTripPlaceholder() {
+    return Container(
+      width: context.w(44),
+      height: context.w(44),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF5F7FA),
+        borderRadius: BorderRadius.circular(context.r(10)),
+      ),
+      child: Icon(
+        Icons.location_on_rounded,
+        color: const Color(0xFFD32F2F),
+        size: context.w(20),
+      ),
+    );
+  }
+
   // --- STATS BAR ---
   Widget _buildStatsBar(int count) {
     return Container(
@@ -635,17 +651,29 @@ class _MyBookingScreenState extends State<MyBookingScreen> {
                 SizedBox(height: context.h(10)),
                 Row(
                   children: [
-                    Container(
-                      padding: EdgeInsets.all(context.w(6)),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF5F7FA),
-                        borderRadius: BorderRadius.circular(context.r(10)),
-                      ),
-                      child: Icon(
-                        Icons.location_on_rounded,
-                        color: const Color(0xFFD32F2F),
-                        size: context.w(16),
-                      ),
+                    // Container(
+                    //   padding: EdgeInsets.all(context.w(6)),
+                    //   decoration: BoxDecoration(
+                    //     color: const Color(0xFFF5F7FA),
+                    //     borderRadius: BorderRadius.circular(context.r(10)),
+                    //   ),
+                    //   child: Icon(
+                    //     Icons.location_on_rounded,
+                    //     color: const Color(0xFFD32F2F),
+                    //     size: context.w(16),
+                    //   ),
+                    // ),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(context.r(10)),
+                      child: booking.imageUrl != null && booking.imageUrl!.isNotEmpty
+                          ? Image.network(
+                        booking.imageUrl!,
+                        width: context.w(44),
+                        height: context.w(44),
+                        fit: BoxFit.cover,
+                        errorBuilder: (c, e, s) => _buildTripPlaceholder(),
+                      )
+                          : _buildTripPlaceholder(),
                     ),
                     SizedBox(width: context.w(10)),
                     Expanded(

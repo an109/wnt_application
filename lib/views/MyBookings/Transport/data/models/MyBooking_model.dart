@@ -32,6 +32,7 @@ class BookingModel extends BookingEntity {
     super.vehicleName,
     super.rawTotalPrice,
     super.rawCurrency,
+    super.imageUrl
   });
 
   factory BookingModel.fromJson(Map<String, dynamic> json) {
@@ -52,6 +53,28 @@ class BookingModel extends BookingEntity {
       // Last resort: use the top-level total_price
       rawTotalPrice = json['total_price']?.toString() ?? '0.00';
       rawCurrency = json['currency']?.toString() ?? 'USD';
+    }
+
+    String imageUrl = '';
+    try {
+      final latestResponse = json['latest_response'] as Map<String, dynamic>?;
+      if (latestResponse != null) {
+        final reservations = latestResponse['reservations'] as List<dynamic>?;
+        if (reservations != null && reservations.isNotEmpty) {
+          final reservation = reservations[0] as Map<String, dynamic>?;
+          if (reservation != null) {
+            final voyage = reservation['voyage'] as Map<String, dynamic>?;
+            if (voyage != null) {
+              final vehicle = voyage['vehicle'] as Map<String, dynamic>?;
+              if (vehicle != null) {
+                imageUrl = vehicle['image_url']?.toString() ?? '';
+              }
+            }
+          }
+        }
+      }
+    } catch (e) {
+      imageUrl = '';
     }
 
     // Extract destination
@@ -125,6 +148,7 @@ class BookingModel extends BookingEntity {
       vehicleName: rawRequest['vehicle_name']?.toString() ?? '',
       rawTotalPrice: rawTotalPrice,
       rawCurrency: rawCurrency,
+      imageUrl: imageUrl,
     );
   }
 }
