@@ -32,7 +32,9 @@ class AuthRepositoryImpl implements AuthRepository {
         if (response.tokens != null) {
           final prefs = di.sl<PreferencesManager>();
           await prefs.saveToken(response.tokens!['access']);
-          // await prefs.saveRefreshToken(response.tokens!['refresh']);
+          if (response.tokens!['refresh'] != null) {
+            await prefs.saveRefreshToken(response.tokens!['refresh']);
+          }
           // await prefs.saveUserType(response.user!.userType);
         }
 

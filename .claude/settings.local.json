@@ -15,7 +15,11 @@
       "Bash(grep -rm1 \"applicationId\" android/app/build.gradle)",
       "Bash(keytool -list -v -alias androiddebugkey -keystore ~/.android/debug.keystore -storepass android -keypass android)",
       "Bash(xargs grep -ln \"class FareQuoteData\\\\|IsLCC\\\\|isLcc\\\\|FareQuoteData\")",
-      "Bash(dart analyze *)"
+      "Bash(dart analyze *)",
+      "Bash(Get-ChildItem -Path \"D:\\\\clone\\\\backend\" -Recurse -File -Filter \"*.py\")",
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Bash(Sort-Object)",
+      "Bash(find \"D:\\\\clone\\\\backend\" -name \"*.py\" -type f | sort)"
     ]
   }
 }

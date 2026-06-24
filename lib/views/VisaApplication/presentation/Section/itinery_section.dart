@@ -268,17 +268,44 @@ class _ItinerarySectionState extends State<ItinerarySection> with SingleTickerPr
     );
   }
 
+  // Future<void> _selectDate(bool isOnward) async {
+  //   final DateTime? picked = await showDatePicker(
+  //     context: context,
+  //     initialDate: DateTime.now(),
+  //     firstDate: DateTime.now(),
+  //     lastDate: DateTime.now().add(const Duration(days: 365)),
+  //   );
+  //   if (picked != null) {
+  //     setState(() {
+  //       if (isOnward) _onwardDate = picked;
+  //       else _returnDate = picked;
+  //     });
+  //   }
+  // }
   Future<void> _selectDate(bool isOnward) async {
     final DateTime? picked = await showDatePicker(
       context: context,
-      initialDate: DateTime.now(),
+      initialDate: isOnward
+          ? (_onwardDate ?? DateTime.now())  // Use current onward date if exists
+          : (_returnDate ?? DateTime.now()), // Use current return date if exists
       firstDate: DateTime.now(),
       lastDate: DateTime.now().add(const Duration(days: 365)),
     );
     if (picked != null) {
       setState(() {
-        if (isOnward) _onwardDate = picked;
-        else _returnDate = picked;
+        if (isOnward) {
+          _onwardDate = picked;
+          // Auto-set return date to one month after onward date
+          final DateTime newReturnDate = DateTime(picked.year, picked.month + 1, picked.day);
+          // Handle year overflow if month is December
+          if (newReturnDate.month > 12) {
+            _returnDate = DateTime(picked.year + 1, newReturnDate.month - 12, picked.day);
+          } else {
+            _returnDate = newReturnDate;
+          }
+        } else {
+          _returnDate = picked;
+        }
       });
     }
   }

@@ -107,10 +107,10 @@ class _HomeScreenState extends State<HomeScreen> {
       title: "Holidays",
       icon: Icons.beach_access_rounded,
     ),
-    HomeServiceTab(
-      title: "Visa",
-      icon: Icons.article_outlined,
-    ),
+    // HomeServiceTab(
+    //   title: "Visa",
+    //   icon: Icons.article_outlined,
+    // ),
     HomeServiceTab(
       title: "Cabs",
       icon: Icons.local_taxi_rounded,
@@ -295,7 +295,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 children: [
                   SizedBox(height: context.h(8)), // 8px on design
                   Text(
-                    "Discover Your Next\nJourney ✈",
+                    "Discover Your Next\nJourney",
+                    // "Discover Your Next\nJourney ✈",
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: context.titleLarge * 1.2,
@@ -399,7 +400,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   duration: const Duration(milliseconds: 250),
                   padding: EdgeInsets.symmetric(vertical: context.h(8)), // 8px on design
                   decoration: BoxDecoration(
-                    color: selected ? Colors.white : Colors.transparent,
+                    color: selected ? Colors.transparent : Colors.transparent,
                     borderRadius: BorderRadius.circular(context.r(14)), // 14px on design
                   ),
                   child: Column(
@@ -407,10 +408,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     children: [
                       Icon(
                         serviceTabs[index].icon,
-                        color: selected ? const Color(0xFF003B95) : Colors.white,
+                        color: selected ?  const Color(0xFF003B95) : Colors.white,
                         size: context.iconMedium,
                       ),
-                      SizedBox(height: context.h(4)), // 4px on design
+                      SizedBox(height: context.h(4)),
                       Text(
                         serviceTabs[index].title,
                         style: TextStyle(
@@ -438,9 +439,9 @@ class _HomeScreenState extends State<HomeScreen> {
         return const HotelSearchCard(key: ValueKey("hotel"));
       case 2:
         return const HolidaysSearchCard(key: ValueKey("holiday"));
+      // case 3:
+      //   return const VisaBannerSection(key: ValueKey("visa"));
       case 3:
-        return const VisaBannerSection(key: ValueKey("visa"));
-      case 4:
         return TransportBookingCard(
           key: const ValueKey("cab"),
           isOneWay: isOneWay,
@@ -485,7 +486,7 @@ class _HomeScreenState extends State<HomeScreen> {
         icon: Icons.my_library_books_outlined,
         label: 'Visa',
         color: const Color(0xFF1E3C72),
-        badge: 'NEW',
+        badge: 'new',
         onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => VisaScreen())),
       ),
       ServiceItem(
@@ -616,8 +617,8 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                               if (service.badge != null)
                                 Positioned(
-                                  right: -context.w(8),
-                                  top: -context.h(8),
+                                  right: -context.w(33),
+                                  top: -context.h(26),
                                   child: TweenAnimationBuilder(
                                     tween: Tween<double>(begin: 0, end: 1),
                                     duration: const Duration(milliseconds: 400),
@@ -627,7 +628,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                         scale: scale,
                                         child: Container(
                                           padding: EdgeInsets.symmetric(
-                                            horizontal: context.w(6),
+                                            horizontal: context.w(5),
                                             vertical: context.h(3),
                                           ),
                                           decoration: BoxDecoration(
@@ -772,7 +773,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ],
           ),
-          SizedBox(height: context.h(6)), // 6px on design
+          SizedBox(height: context.h(6)),
           Text(
             route,
             style: TextStyle(

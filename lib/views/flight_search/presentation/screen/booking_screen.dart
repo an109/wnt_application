@@ -108,6 +108,26 @@ class FareQuoteData {
 
   double get total => offeredFare + serviceFee;
 
+  /// True when the TBO FareQuote result flags passport as required for all pax.
+  /// This can be true even on domestic routes (e.g. Air India domestic, some
+  /// GDS fares). When true the booking form must collect passport details.
+  ///
+  /// Uses a case-insensitive key scan so it catches TBO's inconsistent field
+  /// casing (IsPassportRequired, IsPassportRequiredForAllPax, etc.) and also
+  /// treats integer 1 / string "true" as truthy.
+  bool get isPassportRequired {
+    for (final entry in rawItinerary.entries) {
+      final key = entry.key.toLowerCase();
+      if (key.contains('passport') && key.contains('required')) {
+        final v = entry.value;
+        if (v == true || v == 1 || v?.toString().toLowerCase() == 'true') {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
   FareQuoteData({
     required this.currency,
     required this.baseFare,
@@ -193,7 +213,16 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
           );
         }
       });
+      // Debug: log all passport-related keys from the FareQuote raw result so we
+      // can verify which field name TBO uses for passport requirement.
+      final rawFq = _updatedRouteWithFareQuote?.fareQuoteData?.rawItinerary ?? {};
+      final passportKeys = rawFq.entries
+          .where((e) => e.key.toLowerCase().contains('passport'))
+          .map((e) => '${e.key}=${e.value}')
+          .join(', ');
       print('FlightBookingScreen: FareQuote loaded successfully');
+      print('FlightBookingScreen: Passport fields in FareQuote → [$passportKeys]');
+      print('FlightBookingScreen: isPassportRequired=${_updatedRouteWithFareQuote?.fareQuoteData?.isPassportRequired}');
     } else if (state is FareQuoteError) {
       setState(() {
         _isLoadingFareQuote = false;
@@ -247,6 +276,16 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
     final toCode = _extractAirportCode(route.to);
     return !_indianAirportCodes.contains(fromCode) ||
         !_indianAirportCodes.contains(toCode);
+  }
+
+  /// True when the TBO FareQuote result explicitly requires passport for all
+  /// passengers (IsPassportRequiredForAllPax / IsPassportRequired flag).
+  /// This overrides the route-based domestic/international check so that
+  /// domestic fares that require passport still prompt the user.
+  bool get _isPassportRequired {
+    final route = _updatedRouteWithFareQuote ??
+        (widget.routes.isNotEmpty ? widget.routes.first : null);
+    return route?.fareQuoteData?.isPassportRequired ?? false;
   }
 
   String _extractAirportCode(String value) {
@@ -357,7 +396,7 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
 
               TravellerInformationSection(
                 key: _formKey,
-                isInternational: _isInternationalRoute,
+                isInternational: _isInternationalRoute || _isPassportRequired,
                 travellerCount: widget.travellerCount,
               ),
 

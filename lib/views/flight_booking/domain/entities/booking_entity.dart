@@ -21,7 +21,15 @@ class BookingEntity extends Equatable {
     this.status,
   });
 
-  bool get isSuccess => responseStatus == 1 && (errorCode == null || errorCode == 0);
+  // TBO's flat Book response uses "Status":1 (not "ResponseStatus"):
+  //   Flat success  → Status=1, ResponseStatus=null
+  //   Flat failure  → Status=0, ResponseStatus=null, Errors=[...]
+  //   Wrapped error → ResponseStatus=0, Error={...}
+  bool get isSuccess =>
+      (responseStatus == 1 || status == 1) &&
+      (errorCode == null || errorCode == 0) &&
+      pnr != null &&
+      pnr!.isNotEmpty;
 
   @override
   List<Object?> get props => [

@@ -35,7 +35,7 @@ class TripItem {
   /// Factory to build a TripItem from the API entity
   factory TripItem.fromEntity(UpcomingTripEntity entity) {
     return TripItem(
-      refId: 'WNVISA${entity.id}',
+      refId: 'VISA',
       destination: entity.destination,
       type: entity.visaType,
       price: _parsePrice(entity.total),

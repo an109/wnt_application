@@ -67,7 +67,7 @@ class BookingPassengerModel {
       // 'PassportNo': passportNo.isEmpty ? null : passportNo,
       // 'PassportExpiry': passportExpiry,
       if (passportNo.isNotEmpty) 'PassportNo': passportNo,
-      // if (passportNo.isNotEmpty) 'PassportExpiry': passportExpiry,
+      if (passportNo.isNotEmpty) 'PassportExpiry': passportExpiry,
       'AddressLine1': addressLine1,
       'AddressLine2': countryName,
       'City': {
@@ -138,11 +138,88 @@ Map<String, dynamic> buildItinerary(
   //
   // final result = Map<String, dynamic>.from(clean);
 
-  final fareBreakdown = clean['FareBreakdown'] as List?;
+  // FareQuote nests FareBreakdown inside Fare; check both locations.
+  final fareBreakdown = (clean['FareBreakdown']
+      ?? (clean['Fare'] is Map ? (clean['Fare'] as Map<dynamic, dynamic>)['FareBreakdown'] : null)) as List?;
   final result = Map<String, dynamic>.from(clean);
 
-  // TBO Book/Ticket uses Segments_BE; FareQuote returns Segments.
-  result['Segments_BE'] = clean['Segments'] ?? clean['Segments_BE'] ?? [];
+  // TBO Book/Ticket uses Segments_BE; FareQuote returns Segments as [[seg]] (nested).
+  // TBO expects a flat list [seg], so we flatten here.
+  final rawSegs = clean['Segments'] ?? clean['Segments_BE'] ?? <dynamic>[];
+  final flatSegs = <dynamic>[];
+  for (final item in rawSegs as List) {
+    if (item is List) {
+      flatSegs.addAll(item);
+    } else if (item != null) {
+      flatSegs.add(item);
+    }
+  }
+  result['Segments_BE'] = flatSegs;
+
+  // Remove the raw nested Segments — Book/Ticket only uses Segments_BE.
+  result.remove('Segments');
+
+  // TBO Book/Ticket API requires flat Origin, Destination, TravelDate at the
+  // Itinerary root level. FareQuote does not include these flat fields; we
+  // derive them from the segments:
+  //   Origin      → first segment's departure airport
+  //   TravelDate  → first segment's departure time
+  //   Destination → LAST segment's arrival airport (correct for connecting
+  //                 flights; first segment's destination is a stopover, not
+  //                 the final destination TBO expects)
+  if (flatSegs.isNotEmpty) {
+    final firstSeg = flatSegs[0];
+    final lastSeg  = flatSegs[flatSegs.length - 1];
+
+    if (firstSeg is Map) {
+      final originObj = firstSeg['Origin'];
+      if (originObj is Map) {
+        final airportObj = originObj['Airport'];
+        if (airportObj is Map && !result.containsKey('Origin')) {
+          result['Origin'] = airportObj['AirportCode'] ?? '';
+        }
+        // TravelDate = departure time of the first segment
+        if (!result.containsKey('TravelDate')) {
+          result['TravelDate'] = originObj['DepTime'] ?? '';
+        }
+      }
+    }
+
+    // Final destination = last segment's arrival airport
+    if (lastSeg is Map) {
+      final destObj = lastSeg['Destination'];
+      if (destObj is Map) {
+        final airportObj = destObj['Airport'];
+        if (airportObj is Map && !result.containsKey('Destination')) {
+          result['Destination'] = airportObj['AirportCode'] ?? '';
+        }
+      }
+    }
+  }
+
+  // MiniFareRules must have one outer entry per segment.
+  // TBO's Book .NET code iterates: `for (int s = 0; s < Segments_BE.Count; s++)
+  // { var rules = MiniFareRules[s]; }`. FareQuote returns a single journey-level
+  // entry for connecting flights (outer count = 1), so MiniFareRules[1] throws
+  // IndexOutOfRangeException for any 2+ segment itinerary.
+  // Fix: pad the outer list to match flatSegs.length by repeating the first entry.
+  // MiniFareRules AND FareRules must each have at least one outer entry per
+  // segment. TBO's Book .NET code indexes both by segment position.
+  // FareQuote sometimes returns a single journey-level entry for connecting
+  // flights (outer length = 1), causing IndexOutOfRangeException at s=1.
+  // Fix: pad both lists to flatSegs.length by repeating the first element.
+  for (final key in ['MiniFareRules', 'FareRules']) {
+    final rawList = result[key];
+    if (rawList is List && flatSegs.length > rawList.length) {
+      final padded = List<dynamic>.from(rawList);
+      final filler = rawList.isNotEmpty ? rawList[0] : <dynamic>[];
+      while (padded.length < flatSegs.length) {
+        padded.add(filler);
+      }
+      result[key] = padded;
+      print('buildItinerary: padded $key ${rawList.length}→${padded.length} for ${flatSegs.length} segs');
+    }
+  }
 
   // FareQuote returns "ValidatingAirline" (no "Code" suffix); Book needs "ValidatingAirlineCode".
   result['ValidatingAirlineCode'] =

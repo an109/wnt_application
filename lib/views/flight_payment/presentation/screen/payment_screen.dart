@@ -182,10 +182,16 @@ class _FlightPaymentScreenState extends State<FlightPaymentScreen> {
     try {
       final parts = raw.split('/');
       if (parts.length == 3) {
-        return '20${parts[2]}-${parts[1]}-${parts[0]}T00:00:00';
+        final day = parts[0].padLeft(2, '0');
+        final month = parts[1].padLeft(2, '0');
+        final year = parts[2].length == 2 ? '20${parts[2]}' : parts[2];
+        return '$year-$month-${day}T00:00:00';
+      }
+      if (raw.length >= 10 && raw[4] == '-') {
+        return '${raw.substring(0, 10)}T00:00:00';
       }
       final parsed = DateFormat('dd MMM yyyy').parseStrict(raw);
-      return DateFormat("yyyy-MM-dd'T'00:00:00").format(parsed);
+      return DateFormat("yyyy-MM-dd'T'HH:mm:ss").format(parsed);
     } catch (_) {}
     return '2030-01-01T00:00:00';
   }
@@ -788,11 +794,15 @@ class _FlightPaymentScreenState extends State<FlightPaymentScreen> {
       final msg = state.message;
       final isSessionExpiry = msg.toLowerCase().contains('unhandled exception') ||
           msg.toLowerCase().contains('non-json');
+      final isPassportError = msg.toLowerCase().contains('passport');
       setState(() {
-        _error = isSessionExpiry
-            ? 'Booking session expired. Your payment was received — please contact '
-                'support to complete your booking. (Ref: ${widget.traceId.substring(0, 8)})'
-            : 'Booking failed: $msg';
+        _error = isPassportError
+            ? 'This flight requires passport details. Please go back, fill in your '
+                'passport number and expiry date, then try again.'
+            : isSessionExpiry
+                ? 'Booking session expired. Your payment was received — please contact '
+                    'support to complete your booking. (Ref: ${widget.traceId.substring(0, 8)})'
+                : 'Booking failed: $msg';
       });
     }
   }

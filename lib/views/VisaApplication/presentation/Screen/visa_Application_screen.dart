@@ -5,12 +5,13 @@ import '../../../../UI_helper/currency_converter.dart';
 import '../../../../injection_container.dart';
 import '../../domain/entity/TravellerEntity.dart';
 import '../../domain/entity/visaEntity.dart';
+import '../Section/fare_summary.dart';
 import '../Section/itinery_section.dart';
 import '../Section/payment_section.dart';
 import '../Section/traveller_detail_section.dart';
 import '../Section/upload_documents_section.dart';
 import '../bloc/visaBloc.dart';
-import '../bloc/visaEntity.dart';
+import '../bloc/visaEvent.dart';
 import '../bloc/visaState.dart';
 
 
@@ -345,8 +346,8 @@ class _VisaApplicationScreenState extends State<VisaApplicationScreen> with Tick
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Expanded(flex: 3, child: _buildFormSections()),
-        SizedBox(width: context.w(16)),
-        Expanded(flex: 1, child: _buildFareSummary()),
+        // SizedBox(width: context.w(16)),
+        // Expanded(flex: 1, child: _buildFareSummary()),
       ],
     );
   }
@@ -355,8 +356,8 @@ class _VisaApplicationScreenState extends State<VisaApplicationScreen> with Tick
     return Column(
       children: [
         _buildFormSections(),
-        SizedBox(height: context.h(12)),
-        _buildFareSummary(),
+        // SizedBox(height: context.h(12)),
+        // _buildFareSummary(),
       ],
     );
   }
@@ -417,72 +418,79 @@ class _VisaApplicationScreenState extends State<VisaApplicationScreen> with Tick
               onBack: () => _updateStep(3),
               onSubmit: _showSuccessDialog,
             ),
-            SizedBox(height: context.h(24)),
+            SizedBox(height: context.h(12)),
+            FareSummary(
+              travellers: _formData['travellers'] ?? 1,
+              basePrice: _isCurrencyLoaded ? _convertedPrice : (double.tryParse(widget.price) ?? 0),
+              currencySymbol: _isCurrencyLoaded ? _preferredSymbol : widget.currency,
+              taxesAndCharges: 0, // Pass your actual taxes if available
+            ),
+            SizedBox(height: context.h(14)),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildFareSummary() {
-    final travellers = _formData['travellers'] ?? 1;
-    final basePrice = _isCurrencyLoaded ? _convertedPrice : (double.tryParse(widget.price) ?? 0);
-    final symbol = _isCurrencyLoaded ? _preferredSymbol : widget.currency;
-    final total = basePrice * travellers;
-    final formattedTotal = total.toStringAsFixed(total % 1 == 0 ? 0 : 2);
+  // Widget _buildFareSummary() {
+  //   final travellers = _formData['travellers'] ?? 1;
+  //   final basePrice = _isCurrencyLoaded ? _convertedPrice : (double.tryParse(widget.price) ?? 0);
+  //   final symbol = _isCurrencyLoaded ? _preferredSymbol : widget.currency;
+  //   final total = basePrice * travellers;
+  //   final formattedTotal = total.toStringAsFixed(total % 1 == 0 ? 0 : 2);
+  //
+  //   return Container(
+  //     padding: EdgeInsets.all(context.w(12)),
+  //     decoration: BoxDecoration(
+  //       color: Colors.white,
+  //       borderRadius: BorderRadius.circular(context.r(8)),
+  //       boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: context.w(8), offset: Offset(0, context.h(2)))],
+  //     ),
+  //     child: Column(
+  //       crossAxisAlignment: CrossAxisAlignment.start,
+  //       children: [
+  //         Row(
+  //           children: [
+  //             Text('Fare Summary', style: TextStyle(fontSize: context.fs(12), fontWeight: FontWeight.w700)),
+  //             const Spacer(),
+  //             Text('$travellers Traveller${travellers > 1 ? 's' : ''}',
+  //                 style: TextStyle(fontSize: context.fs(10), color: const Color(0xff0D47A1), fontWeight: FontWeight.w600)),
+  //           ],
+  //         ),
+  //         SizedBox(height: context.h(12)),
+  //         _buildPriceRow('Base Fare', '${basePrice.toStringAsFixed(basePrice % 1 == 0 ? 0 : 2)}'),
+  //         SizedBox(height: context.h(4)),
+  //         _buildPriceRow('Taxes & charges', '0'),
+  //         Divider(height: context.h(12), color: Colors.grey),
+  //         Row(
+  //           mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  //           children: [
+  //             Text('Grand Total', style: TextStyle(fontSize: context.fs(12), fontWeight: FontWeight.w700)),
+  //             Text('$formattedTotal',
+  //                 style: TextStyle(fontSize: context.fs(16), fontWeight: FontWeight.w800, color: const Color(0xffFF6B00))),
+  //           ],
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
 
-    return Container(
-      padding: EdgeInsets.all(context.w(12)),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(context.r(8)),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: context.w(8), offset: Offset(0, context.h(2)))],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Text('Fare Summary', style: TextStyle(fontSize: context.fs(12), fontWeight: FontWeight.w700)),
-              const Spacer(),
-              Text('$travellers Traveller${travellers > 1 ? 's' : ''}',
-                  style: TextStyle(fontSize: context.fs(10), color: const Color(0xff0D47A1), fontWeight: FontWeight.w600)),
-            ],
-          ),
-          SizedBox(height: context.h(12)),
-          _buildPriceRow('Base Fare', '${basePrice.toStringAsFixed(basePrice % 1 == 0 ? 0 : 2)}'),
-          SizedBox(height: context.h(4)),
-          _buildPriceRow('Taxes & charges', '0'),
-          Divider(height: context.h(12), color: Colors.grey),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text('Grand Total', style: TextStyle(fontSize: context.fs(12), fontWeight: FontWeight.w700)),
-              Text('$formattedTotal',
-                  style: TextStyle(fontSize: context.fs(16), fontWeight: FontWeight.w800, color: const Color(0xffFF6B00))),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPriceRow(String label, String amount) {
-    final symbol = _isCurrencyLoaded ? _preferredSymbol : widget.currency;
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Row(
-          children: [
-            Icon(Icons.add_circle_outline, size: context.iconXSmall, color: Colors.grey.shade400),
-            SizedBox(width: context.w(6)),
-            Text(label, style: TextStyle(fontSize: context.fs(11), color: Colors.grey.shade700)),
-          ],
-        ),
-        Text('$amount', style: TextStyle(fontSize: context.fs(11), fontWeight: FontWeight.w600)),
-      ],
-    );
-  }
+  // Widget _buildPriceRow(String label, String amount) {
+  //   final symbol = _isCurrencyLoaded ? _preferredSymbol : widget.currency;
+  //   return Row(
+  //     mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  //     children: [
+  //       Row(
+  //         children: [
+  //           Icon(Icons.add_circle_outline, size: context.iconXSmall, color: Colors.grey.shade400),
+  //           SizedBox(width: context.w(6)),
+  //           Text(label, style: TextStyle(fontSize: context.fs(11), color: Colors.grey.shade700)),
+  //         ],
+  //       ),
+  //       Text('$amount', style: TextStyle(fontSize: context.fs(11), fontWeight: FontWeight.w600)),
+  //     ],
+  //   );
+  // }
 
   double get _payableInr {
     final travellers = (_formData['travellers'] is int)

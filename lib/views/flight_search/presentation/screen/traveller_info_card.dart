@@ -149,9 +149,12 @@ class TravellerFormState extends State<TravellerInformationSection> {
       'gender': t.gender.text.trim(),
       'nationality': t.nationality.text.trim(),
       'isInternational': widget.isInternational,
-      if (widget.isInternational) 'passportNumber': t.passport.text.trim(),
-      if (widget.isInternational)
-        'passportExpiry': t.passportExpiry.text.trim(),
+      // Always include passport keys so payment screen has them available.
+      // TBO requires passport even on some domestic fares (e.g. GDS/Air India).
+      // The values are empty strings when the user didn't fill them; the
+      // BookingPassengerModel will only send them to TBO if non-empty.
+      'passportNumber': t.passport.text.trim(),
+      'passportExpiry': t.passportExpiry.text.trim(),
     };
   }
 
@@ -359,24 +362,32 @@ class TravellerFormState extends State<TravellerInformationSection> {
                         validator: _required('Nationality'),
                       ),
                     ]),
-                    if (widget.isInternational) ...[
-                      SizedBox(height: context.h(16)),
-                      _inlineNote(
-                        'Passport details are required for international flights.',
+                    // Passport section — shown for all flights.
+                    // Required for international; optional for domestic (some
+                    // airlines / GDS fares require it even on domestic routes).
+                    SizedBox(height: context.h(16)),
+                    _inlineNote(
+                      widget.isInternational
+                          ? 'Passport details are required for international flights.'
+                          : 'Passport details may be required by some airlines even for domestic flights. Fill in if you have one.',
+                    ),
+                    SizedBox(height: context.h(12)),
+                    _responsiveFields(context, [
+                      _buildTextField(
+                        controller: traveller.passport,
+                        label: widget.isInternational
+                            ? 'Passport Number'
+                            : 'Passport Number (optional)',
+                        hintText: 'A1234567',
+                        icon: Icons.credit_card_outlined,
+                        textCapitalization: TextCapitalization.characters,
+                        // Validators: required for international, optional for domestic.
+                        validator: widget.isInternational
+                            ? _required('Passport number')
+                            : null,
                       ),
-                      SizedBox(height: context.h(12)),
-                      _responsiveFields(context, [
-                        _buildTextField(
-                          controller: traveller.passport,
-                          label: 'Passport Number',
-                          hintText: 'A1234567',
-                          icon: Icons.credit_card_outlined,
-                          textCapitalization: TextCapitalization.characters,
-                          validator: _required('Passport number'),
-                        ),
-                        _buildPassportExpiryField(traveller),
-                      ]),
-                    ],
+                      _buildPassportExpiryField(traveller),
+                    ]),
                   ],
                 ),
               ),
@@ -499,7 +510,7 @@ class TravellerFormState extends State<TravellerInformationSection> {
     required String label,
     required String hintText,
     required IconData icon,
-    required String? Function(String?) validator,
+    String? Function(String?)? validator,
     TextInputType? keyboardType,
     TextCapitalization textCapitalization = TextCapitalization.none,
     bool forceUpperCase = false,
@@ -590,12 +601,17 @@ class TravellerFormState extends State<TravellerInformationSection> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _label('Passport Expiry'),
+        _label(
+          widget.isInternational
+              ? 'Passport Expiry'
+              : 'Passport Expiry (optional)',
+        ),
         SizedBox(height: context.h(6)),
         TextFormField(
           controller: traveller.passportExpiry,
           readOnly: true,
-          validator: _required('Passport expiry'),
+          // Required for international flights; optional for domestic.
+          validator: widget.isInternational ? _required('Passport expiry') : null,
           style: TextStyle(
             color: _textDark,
             fontSize: context.fs(14),

@@ -24,10 +24,12 @@ class TravellerDetailsSection extends StatefulWidget {
   }) : super(key: key);
 
   @override
-  State<TravellerDetailsSection> createState() => _TravellerDetailsSectionState();
+  State<TravellerDetailsSection> createState() =>
+      _TravellerDetailsSectionState();
 }
 
-class _TravellerDetailsSectionState extends State<TravellerDetailsSection> with SingleTickerProviderStateMixin {
+class _TravellerDetailsSectionState extends State<TravellerDetailsSection>
+    with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   bool _isExpanded = true;
 
@@ -110,7 +112,13 @@ class _TravellerDetailsSectionState extends State<TravellerDetailsSection> with 
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(context.r(8)),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: context.w(8), offset: Offset(0, context.h(2)))],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: context.w(8),
+            offset: Offset(0, context.h(2)),
+          ),
+        ],
       ),
       child: Column(
         children: [
@@ -122,8 +130,14 @@ class _TravellerDetailsSectionState extends State<TravellerDetailsSection> with 
             child: Container(
               padding: EdgeInsets.all(context.w(12)),
               decoration: BoxDecoration(
-                color: widget.isActive ? const Color(0xffE3F2FD) : widget.isCompleted ? Colors.green.shade50 : Colors.white,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+                color: widget.isActive
+                    ? const Color(0xffE3F2FD)
+                    : widget.isCompleted
+                    ? Colors.green.shade50
+                    : Colors.white,
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(8),
+                ),
               ),
               child: Row(
                 children: [
@@ -131,22 +145,49 @@ class _TravellerDetailsSectionState extends State<TravellerDetailsSection> with 
                     width: context.w(24),
                     height: context.w(24),
                     decoration: BoxDecoration(
-                      color: widget.isCompleted ? Colors.green : widget.isActive ? const Color(0xff0D47A1) : Colors.grey.shade300,
+                      color: widget.isCompleted
+                          ? Colors.green
+                          : widget.isActive
+                          ? const Color(0xff0D47A1)
+                          : Colors.grey.shade300,
                       shape: BoxShape.circle,
                     ),
                     child: Center(
                       child: widget.isCompleted
-                          ? Icon(Icons.check, size: context.iconXSmall, color: Colors.white)
-                          : Text('${widget.stepNumber}', style: TextStyle(fontSize: context.fs(11), fontWeight: FontWeight.w600, color: Colors.white)),
+                          ? Icon(
+                              Icons.check,
+                              size: context.iconXSmall,
+                              color: Colors.white,
+                            )
+                          : Text(
+                              '${widget.stepNumber}',
+                              style: TextStyle(
+                                fontSize: context.fs(11),
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white,
+                              ),
+                            ),
                     ),
                   ),
                   SizedBox(width: context.w(8)),
-                  Expanded(child: Text('Traveller Details', style: TextStyle(fontSize: context.fs(12), fontWeight: FontWeight.w600))),
+                  Expanded(
+                    child: Text(
+                      'Traveller Details',
+                      style: TextStyle(
+                        fontSize: context.fs(12),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
                   AnimatedRotation(
                     turns: _isExpanded ? 0.5 : 0.0,
                     duration: const Duration(milliseconds: 200),
                     curve: Curves.easeInOut,
-                    child: Icon(Icons.keyboard_arrow_down, size: context.iconMedium, color: Colors.grey.shade600),
+                    child: Icon(
+                      Icons.keyboard_arrow_down,
+                      size: context.iconMedium,
+                      color: Colors.grey.shade600,
+                    ),
                   ),
                 ],
               ),
@@ -155,9 +196,7 @@ class _TravellerDetailsSectionState extends State<TravellerDetailsSection> with 
           SizeTransition(
             sizeFactor: _heightAnimation,
             axisAlignment: -1.0,
-            child: ClipRect(
-              child: _buildForm(),
-            ),
+            child: ClipRect(child: _buildForm()),
           ),
         ],
       ),
@@ -174,33 +213,127 @@ class _TravellerDetailsSectionState extends State<TravellerDetailsSection> with 
           children: [
             Row(
               children: [
-                Expanded(flex: 1, child: _buildDropdownField('Title', ['Mr', 'Mrs', 'Ms', 'Dr'], _title, (val) => setState(() => _title = val!))),
+                Expanded(
+                  flex: 1,
+                  child: _buildDropdownField(
+                    'Title',
+                    ['Mr', 'Mrs', 'Ms', 'Dr'],
+                    _title,
+                    (val) => setState(() => _title = val!),
+                  ),
+                ),
                 SizedBox(width: context.w(8)),
-                Expanded(flex: 2, child: _buildTextField('First Name *', _firstName, (val) => _firstName = val!, validator: (val) => val!.isEmpty ? 'Required' : null)),
+                Expanded(
+                  flex: 2,
+                  child: _buildTextField(
+                    'First Name *',
+                    _firstName,
+                    (val) => _firstName = val!,
+                    validator: (val) => val!.isEmpty ? 'Required' : null,
+                  ),
+                ),
               ],
             ),
             SizedBox(height: context.h(12)),
             Row(
               children: [
-                Expanded(flex: 2, child: _buildTextField('Last Name *', _lastName, (val) => _lastName = val!, validator: (val) => val!.isEmpty ? 'Required' : null)),
+                Expanded(
+                  flex: 2,
+                  child: _buildTextField(
+                    'Last Name *',
+                    _lastName,
+                    (val) => _lastName = val!,
+                    validator: (val) => val!.isEmpty ? 'Required' : null,
+                  ),
+                ),
                 SizedBox(width: context.w(8)),
-                Expanded(flex: 2, child: _buildDateField('Date of Birth *', _dob, () => _selectDate())),
+                Expanded(
+                  flex: 2,
+                  child: _buildDateField(
+                    'Date of Birth *',
+                    _dob,
+                    () => _selectDate(),
+                  ),
+                ),
               ],
             ),
             SizedBox(height: context.h(12)),
             Row(
               children: [
-                Expanded(child: _buildTextField('Nationality', _nationality, (val) => _nationality = val!)),
+                Expanded(
+                  child: _buildTextField(
+                    'Nationality',
+                    _nationality,
+                    (val) => _nationality = val!,
+                  ),
+                ),
                 SizedBox(width: context.w(8)),
-                Expanded(child: _buildTextField('Passport No *', _passportNo, (val) => _passportNo = val!, validator: (val) => val!.isEmpty ? 'Required' : null)),
+                // Expanded(
+                //   child: _buildTextField(
+                //     'Passport No *',
+                //     _passportNo,
+                //     (val) => _passportNo = val!,
+                //     validator: (val) => val!.isEmpty ? 'Required' : null,
+                //   ),
+                // ),
+                Expanded(
+                    child: _buildTextField(
+                      'Passport No *',
+                      _passportNo,
+                          (val) {
+                        // Check for spaces
+                        if (val.contains(' ')) {
+                          _formKey.currentState?.validate();
+                          return;
+                        }
+
+                        // Remove special characters, keep letters and numbers
+                        final filtered = val.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '');
+
+                        // Convert to uppercase and display on screen
+                        if (filtered.length <= 15) {
+                          setState(() {
+                            _passportNo = filtered.toUpperCase();
+                          });
+                        }
+                      },
+                      validator: (val) {
+                        if (val!.isEmpty) return 'Required';
+                        if (val.contains(' ')) return 'Spaces not allowed';
+                        if (val.length < 6) return 'Min. 6 char. required';
+                        if (val.length > 15) return 'Max. 15 characters allowed';
+                        if (!RegExp(r'^[A-Z0-9]+$').hasMatch(val)) {
+                          return 'not allowed';
+                        }
+                        if (RegExp(r'[a-z]').hasMatch(val)) {
+                          return 'Only uppercase letters allowed';
+                        }
+                        return null;
+                      },
+                    )
+                ),
               ],
             ),
             SizedBox(height: context.h(12)),
             Row(
               children: [
-                Expanded(child: _buildTextField('Phone *', _phone, (val) => _phone = val!, validator: (val) => val!.isEmpty ? 'Required' : null)),
+                Expanded(
+                  child: _buildTextField(
+                    'Phone *',
+                    _phone,
+                    (val) => _phone = val!,
+                    validator: (val) => val!.isEmpty ? 'Required' : null,
+                  ),
+                ),
                 SizedBox(width: context.w(8)),
-                Expanded(child: _buildTextField('Email *', _email, (val) => _email = val!, validator: (val) => val!.isEmpty ? 'Required' : null)),
+                Expanded(
+                  child: _buildTextField(
+                    'Email *',
+                    _email,
+                    (val) => _email = val!,
+                    validator: (val) => val!.isEmpty ? 'Required' : null,
+                  ),
+                ),
               ],
             ),
             SizedBox(height: context.h(16)),
@@ -211,10 +344,19 @@ class _TravellerDetailsSectionState extends State<TravellerDetailsSection> with 
                     onPressed: widget.isLoading ? null : widget.onBack,
                     style: OutlinedButton.styleFrom(
                       side: const BorderSide(color: Color(0xff0D47A1)),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(context.r(6))),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(context.r(6)),
+                      ),
                       padding: EdgeInsets.symmetric(vertical: context.h(10)),
                     ),
-                    child: Text('BACK', style: TextStyle(fontSize: context.fs(11), fontWeight: FontWeight.w600, color: const Color(0xff0D47A1))),
+                    child: Text(
+                      'BACK',
+                      style: TextStyle(
+                        fontSize: context.fs(11),
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xff0D47A1),
+                      ),
+                    ),
                   ),
                 ),
                 SizedBox(width: context.w(8)),
@@ -223,16 +365,28 @@ class _TravellerDetailsSectionState extends State<TravellerDetailsSection> with 
                     onPressed: widget.isLoading ? null : _onContinue,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xff0D47A1),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(context.r(6))),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(context.r(6)),
+                      ),
                       padding: EdgeInsets.symmetric(vertical: context.h(10)),
                     ),
                     child: widget.isLoading
                         ? SizedBox(
-                      width: context.w(16),
-                      height: context.w(16),
-                      child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation(Colors.white)),
-                    )
-                        : Text('CONTINUE', style: TextStyle(fontSize: context.fs(11), fontWeight: FontWeight.w700, color: Colors.white)),
+                            width: context.w(16),
+                            height: context.w(16),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation(Colors.white),
+                            ),
+                          )
+                        : Text(
+                            'CONTINUE',
+                            style: TextStyle(
+                              fontSize: context.fs(11),
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                            ),
+                          ),
                   ),
                 ),
               ],
@@ -243,22 +397,42 @@ class _TravellerDetailsSectionState extends State<TravellerDetailsSection> with 
     );
   }
 
-  Widget _buildTextField(String label, String value, Function(String) onChanged, {String? Function(String?)? validator}) {
+  Widget _buildTextField(
+    String label,
+    String value,
+    Function(String) onChanged, {
+    String? Function(String?)? validator,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: TextStyle(fontSize: context.fs(10), fontWeight: FontWeight.w500)),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: context.fs(10),
+            fontWeight: FontWeight.w500,
+          ),
+        ),
         SizedBox(height: context.h(4)),
         TextFormField(
           initialValue: value,
           onChanged: onChanged,
           validator: validator,
           decoration: InputDecoration(
-            contentPadding: EdgeInsets.symmetric(horizontal: context.w(10), vertical: context.h(8)),
+            contentPadding: EdgeInsets.symmetric(
+              horizontal: context.w(10),
+              vertical: context.h(8),
+            ),
             filled: true,
             fillColor: Colors.grey.shade50,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(context.r(6)), borderSide: BorderSide(color: Colors.grey.shade200)),
-            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(context.r(6)), borderSide: BorderSide(color: Colors.grey.shade200)),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(context.r(6)),
+              borderSide: BorderSide(color: Colors.grey.shade200),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(context.r(6)),
+              borderSide: BorderSide(color: Colors.grey.shade200),
+            ),
           ),
           style: TextStyle(fontSize: context.fs(11)),
         ),
@@ -266,21 +440,46 @@ class _TravellerDetailsSectionState extends State<TravellerDetailsSection> with 
     );
   }
 
-  Widget _buildDropdownField(String label, List<String> items, String value, Function(String?) onChanged) {
+  Widget _buildDropdownField(
+    String label,
+    List<String> items,
+    String value,
+    Function(String?) onChanged,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: TextStyle(fontSize: context.fs(10), fontWeight: FontWeight.w500)),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: context.fs(10),
+            fontWeight: FontWeight.w500,
+          ),
+        ),
         SizedBox(height: context.h(4)),
         Container(
           padding: EdgeInsets.symmetric(horizontal: context.w(10)),
-          decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(context.r(6)), border: Border.all(color: Colors.grey.shade200)),
+          decoration: BoxDecoration(
+            color: Colors.grey.shade50,
+            borderRadius: BorderRadius.circular(context.r(6)),
+            border: Border.all(color: Colors.grey.shade200),
+          ),
           child: DropdownButtonHideUnderline(
             child: DropdownButton<String>(
               value: value,
               isExpanded: true,
               icon: Icon(Icons.arrow_drop_down, size: context.iconSmall),
-              items: items.map((item) => DropdownMenuItem(value: item, child: Text(item, style: TextStyle(fontSize: context.fs(11))))).toList(),
+              items: items
+                  .map(
+                    (item) => DropdownMenuItem(
+                      value: item,
+                      child: Text(
+                        item,
+                        style: TextStyle(fontSize: context.fs(11)),
+                      ),
+                    ),
+                  )
+                  .toList(),
               onChanged: onChanged,
             ),
           ),
@@ -293,18 +492,47 @@ class _TravellerDetailsSectionState extends State<TravellerDetailsSection> with 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: TextStyle(fontSize: context.fs(10), fontWeight: FontWeight.w500)),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: context.fs(10),
+            fontWeight: FontWeight.w500,
+          ),
+        ),
         SizedBox(height: context.h(4)),
         InkWell(
           onTap: onTap,
           child: Container(
-            padding: EdgeInsets.symmetric(horizontal: context.w(10), vertical: context.h(8)),
-            decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(context.r(6)), border: Border.all(color: Colors.grey.shade200)),
+            padding: EdgeInsets.symmetric(
+              horizontal: context.w(10),
+              vertical: context.h(8),
+            ),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade50,
+              borderRadius: BorderRadius.circular(context.r(6)),
+              border: Border.all(color: Colors.grey.shade200),
+            ),
             child: Row(
               children: [
-                Icon(Icons.calendar_today, size: context.iconSmall, color: Colors.grey.shade600),
+                Icon(
+                  Icons.calendar_today,
+                  size: context.iconSmall,
+                  color: Colors.grey.shade600,
+                ),
                 SizedBox(width: context.w(6)),
-                Expanded(child: Text(date != null ? '${date.day}/${date.month}/${date.year}' : 'dd/mm/yyyy', style: TextStyle(fontSize: context.fs(11), color: date != null ? Colors.black87 : Colors.grey.shade500))),
+                Expanded(
+                  child: Text(
+                    date != null
+                        ? '${date.day}/${date.month}/${date.year}'
+                        : 'dd/mm/yyyy',
+                    style: TextStyle(
+                      fontSize: context.fs(11),
+                      color: date != null
+                          ? Colors.black87
+                          : Colors.grey.shade500,
+                    ),
+                  ),
+                ),
               ],
             ),
           ),

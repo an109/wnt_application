@@ -52,3 +52,11 @@ class VisaApplicationError extends VisaApplicationState {
   @override
   List<Object?> get props => [message];
 }
+
+class VisaApplicationDocumentsUploaded extends VisaApplicationState {
+  final VisaApplicationEntity application;
+  const VisaApplicationDocumentsUploaded(this.application);
+
+  @override
+  List<Object?> get props => [application];
+}

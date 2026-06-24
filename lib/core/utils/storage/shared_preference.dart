@@ -154,11 +154,11 @@ class PreferencesManager {
   int? getUserId() => _prefs?.getInt('user_id');
 
   Future<void> clearAuth() async {
-    await _prefs?.remove('access_token');
-    await _prefs?.remove('refresh_token');
-    await _prefs?.remove('user_id');
-    await _prefs?.remove('user_email');
-    await _prefs?.remove('user_name');
+    await _prefs.remove(_tokenKey); // 'auth_token'
+    await _prefs.remove('refresh_token');
+    await _prefs.remove('user_id');
+    await _prefs.remove('user_email');
+    await _prefs.remove('user_name');
   }
 
   String? getPreferredCurrency() => _prefs.getString(_preferredCurrencyKey);

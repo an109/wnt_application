@@ -1,9 +1,11 @@
 import 'package:dio/dio.dart';
 import '../../injection_container.dart';
+import '../constants/urls.dart';
 import '../utils/storage/shared_preference.dart';
 
 class DioClient {
   final Dio _dio;
+  bool _isRefreshing = false;
 
   DioClient(String baseUrl)
       : _dio = Dio(
@@ -17,7 +19,6 @@ class DioClient {
       },
     ),
   ) {
-    // Logging interceptor
     _dio.interceptors.add(
       LogInterceptor(
         requestBody: true,
@@ -28,41 +29,69 @@ class DioClient {
       ),
     );
 
-    // Auth interceptor
     _dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) async {
-          final _prefs = sl<PreferencesManager>();
-          final token = _prefs.getToken();
-
-          if (options.path.contains('auth/logout')) {
-            print('LOGOUT DEBUG: token retrieved = ${token != null ? 'EXISTS' : 'NULL'}, isEmpty = ${token?.isEmpty ?? true}');
-            if (token != null && token.isNotEmpty) {
-              print('LOGOUT DEBUG: first 20 chars of token = ${token.substring(0, token.length > 20 ? 20 : token.length)}...');
-            }
-          }
-
-          if (options.path.contains('auth/')) {
-            final rawToken = _prefs.getString('auth_token');
-            print('AUTH DEBUG: path=${options.path}, tokenExists=${token != null}, rawTokenEmpty=${rawToken?.isEmpty}');
-          }
-
+          final prefs = sl<PreferencesManager>();
+          final token = prefs.getToken();
           if (token != null && token.isNotEmpty) {
             options.headers['Authorization'] = 'Bearer $token';
-
-            if (options.path.contains('auth/logout')) {
-              print('LOGOUT DEBUG: Authorization header set = true');
-            }
-          } else {
-            if (options.path.contains('auth/logout')) {
-              print('LOGOUT DEBUG: SKIPPED setting Authorization header - token missing');
-            }
           }
           return handler.next(options);
         },
-        onError: (DioException e, handler) {
-          // Global error handling
-          // You can add custom error mapping here
+        onError: (DioException e, handler) async {
+          if (e.response?.statusCode == 401 && !_isRefreshing) {
+            // Skip refresh for auth endpoints themselves
+            final path = e.requestOptions.path;
+            if (path.contains('auth/token/refresh') ||
+                path.contains('auth/login') ||
+                path.contains('auth/signup') ||
+                path.contains('auth/send-otp') ||
+                path.contains('auth/verify-otp')) {
+              return handler.next(e);
+            }
+
+            _isRefreshing = true;
+            try {
+              final prefs = sl<PreferencesManager>();
+              final refreshToken = prefs.getRefreshToken();
+
+              if (refreshToken == null || refreshToken.isEmpty) {
+                _isRefreshing = false;
+                return handler.next(e);
+              }
+
+              // Call refresh endpoint directly (no interceptors to avoid loops)
+              final refreshDio = Dio();
+              final refreshResponse = await refreshDio.post(
+                Urls.tokenRefresh,
+                data: {'refresh': refreshToken},
+                options: Options(headers: {'Content-Type': 'application/json'}),
+              );
+
+              final newAccessToken = refreshResponse.data['access'] as String?;
+              if (newAccessToken == null) {
+                _isRefreshing = false;
+                return handler.next(e);
+              }
+
+              await prefs.saveToken(newAccessToken);
+              _isRefreshing = false;
+
+              // Retry the original request with the new token
+              final retryOptions = e.requestOptions;
+              retryOptions.headers['Authorization'] = 'Bearer $newAccessToken';
+              final retryResponse = await _dio.fetch(retryOptions);
+              return handler.resolve(retryResponse);
+            } catch (_) {
+              _isRefreshing = false;
+              // Refresh failed — clear auth so the app redirects to login
+              final prefs = sl<PreferencesManager>();
+              await prefs.clearToken();
+              await prefs.clearUserData();
+              return handler.next(e);
+            }
+          }
           return handler.next(e);
         },
         onResponse: (response, handler) {
