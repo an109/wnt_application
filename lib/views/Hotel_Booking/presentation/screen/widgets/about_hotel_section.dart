@@ -33,48 +33,46 @@ class _AboutHotelSectionState extends State<AboutHotelSection> {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(context.borderRadius),
+        borderRadius: BorderRadius.circular(context.r(12)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
+            blurRadius: context.h(10),
+            offset: Offset(0, context.h(2)),
           ),
         ],
       ),
       child: Padding(
-        padding: context.responsivePadding,
+        padding: EdgeInsets.all(context.w(16)),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-
-                // SizedBox(width: context.gapSmall),
                 Text(
-                  'ABOUT THE HOTEL',
+                  'ABOUT HOTEL',
                   style: TextStyle(
-                    fontSize: context.titleSmall,
+                    fontSize: context.fs(16),
                     fontWeight: FontWeight.bold,
                     color: Colors.grey[800],
-                    letterSpacing: 0.5,
+                    letterSpacing: context.w(0.5),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: context.h(16)),
             Text(
               widget.hotelName,
               style: TextStyle(
-                fontSize: context.sp(16),
+                fontSize: context.fs(16),
                 fontWeight: FontWeight.bold,
                 color: Colors.black87,
               ),
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: context.h(12)),
             _buildDescriptionText(cleanDescription),
             if (_isTextTooLong(cleanDescription)) ...[
-              SizedBox(height: context.gapSmall),
+              SizedBox(height: context.h(8)),
               _buildReadMoreButton(),
             ],
           ],
@@ -87,7 +85,7 @@ class _AboutHotelSectionState extends State<AboutHotelSection> {
     final textSpan = TextSpan(
       text: description,
       style: TextStyle(
-        fontSize: context.sp(14),
+        fontSize: context.fs(14),
         color: Colors.grey[700],
         height: 1.6,
       ),
@@ -144,8 +142,8 @@ class _AboutHotelSectionState extends State<AboutHotelSection> {
       },
       child: Container(
         padding: EdgeInsets.symmetric(
-          horizontal: context.gapSmall,
-          vertical: context.gapSmall / 2,
+          horizontal: context.w(8),
+          vertical: context.h(4),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -153,15 +151,15 @@ class _AboutHotelSectionState extends State<AboutHotelSection> {
             Text(
               _isExpanded ? 'Read Less' : 'Read More',
               style: TextStyle(
-                fontSize: context.sp(13),
+                fontSize: context.fs(13),
                 color: Colors.blue.shade700,
                 fontWeight: FontWeight.w600,
               ),
             ),
-            SizedBox(width: context.gapSmall / 2),
+            SizedBox(width: context.w(4)),
             Icon(
               _isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
-              size: context.sp(16),
+              size: context.w(16),
               color: Colors.blue.shade700,
             ),
           ],

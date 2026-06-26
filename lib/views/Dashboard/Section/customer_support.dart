@@ -219,7 +219,7 @@ class _CustomerSupportSectionState extends State<CustomerSupportSection> {
               ),
               children: const [
                 TextSpan(
-                  text: 'support@wandernova.com',
+                  text: 'info@wandernova.com',
                   style: TextStyle(
                     color: Colors.blue,
                     decoration: TextDecoration.underline,

@@ -412,11 +412,11 @@ class _HotelFacilitiesSectionState extends State<HotelFacilitiesSection> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            Icons.check,
-            size: context.sp(12),
-            color: Colors.blue[700],
-          ),
+          // Icon(
+          //   Icons.check,
+          //   size: context.sp(12),
+          //   color: Colors.blue[700],
+          // ),
           SizedBox(width: context.gapSmall / 2),
           Flexible(
             child: Text(

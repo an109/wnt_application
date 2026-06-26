@@ -27,17 +27,43 @@ class TravellerDetailsSectionState extends State<TravellerDetailsSection> {
   static const _navy = Color(0xFF071638);
   static const _border = Color(0xFFE2E7F0);
 
-  /// Returns [title, firstName, lastName] of the first adult, or empty strings.
+  Map<String, String> getFirstAdultDataMap() {
+    if (_firstNameControllers.isEmpty) {
+      return {
+        'title': '',
+        'firstName': '',
+        'lastName': '',
+        'dob': '',
+        'gender': 'Male',
+        'nationality': 'India (IN)',
+      };
+    }
+    return {
+      'title': _selectedTitles.isNotEmpty ? _selectedTitles[0] : '',
+      'firstName': _firstNameControllers[0].text.trim(),
+      'lastName': _lastNameControllers[0].text.trim(),
+      'dob': _dobControllers[0].text.trim(),
+      'gender': _selectedGenders.isNotEmpty ? _selectedGenders[0] : 'Male',
+      'nationality': _selectedNationalities.isNotEmpty ? _selectedNationalities[0] : 'India (IN)',
+    };
+  }
+
+  /// Returns [title, firstName, lastName] of the first adult
   List<String> getFirstAdultData() {
-    if (_firstNameControllers.isEmpty) return ['Mr', '', ''];
+    if (_firstNameControllers.isEmpty) return ['', '', ''];
     return [
-      _selectedTitles.isNotEmpty && _selectedTitles[0].isNotEmpty
-          ? _selectedTitles[0]
-          : 'Mr',
+      _selectedTitles.isNotEmpty ? _selectedTitles[0] : '', // No hardcoded default
       _firstNameControllers[0].text.trim(),
       _lastNameControllers[0].text.trim(),
     ];
   }
+
+  /// Returns DOB controller for the first adult
+  TextEditingController? getDobController() {
+    if (_dobControllers.isEmpty) return null;
+    return _dobControllers[0];
+  }
+
 
   @override
   void initState() {
@@ -67,9 +93,9 @@ class TravellerDetailsSectionState extends State<TravellerDetailsSection> {
   }
 
   Future<void> _selectDate(
-    BuildContext context,
-    TextEditingController controller,
-  ) async {
+      BuildContext context,
+      TextEditingController controller,
+      ) async {
     final DateTime? picked = await showDatePicker(
       context: context,
       initialDate: DateTime.now().subtract(
@@ -103,51 +129,47 @@ class TravellerDetailsSectionState extends State<TravellerDetailsSection> {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: _border),
-        boxShadow: [
-          BoxShadow(
-            color: _navy.withValues(alpha: 0.06),
-            blurRadius: 24,
-            offset: const Offset(0, 14),
-          ),
-        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(18, 18, 18, 12),
+            padding: EdgeInsets.fromLTRB(
+              context.w(18),
+              context.h(18),
+              context.w(18),
+              context.h(12),
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   'Traveller Details',
-                  style: const TextStyle(
-                    fontSize: 25,
+                  style: TextStyle(
+                    fontSize: context.fs(20),
                     fontWeight: FontWeight.w800,
                     color: _navy,
                     height: 1.1,
                   ),
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: context.h(12)),
                 Container(
-                  padding: const EdgeInsets.all(12),
+                  padding: EdgeInsets.all(context.w(12)),
                   decoration: BoxDecoration(
                     color: const Color(0xFFEAF2FF),
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(context.r(16)),
                     border: Border.all(color: const Color(0xFFD8E7FF)),
                   ),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(Icons.info_outline, color: _blue, size: 18),
-                      const SizedBox(width: 8),
+                      Icon(Icons.info_outline, color: _blue, size: context.w(18)),
+                      SizedBox(width: context.w(8)),
                       Expanded(
-                        child: const Text(
+                        child: Text(
                           'Please make sure you enter the Name as per your Government photo id.',
                           style: TextStyle(
-                            fontSize: 13,
+                            fontSize: context.fs(13),
                             color: _navy,
                             height: 1.35,
                             fontWeight: FontWeight.w600,
@@ -162,7 +184,7 @@ class TravellerDetailsSectionState extends State<TravellerDetailsSection> {
           ),
           ...List.generate(
             widget.adults,
-            (index) => _buildAdultForm(context, index),
+                (index) => _buildAdultForm(context, index),
           ),
         ],
       ),
@@ -174,15 +196,18 @@ class TravellerDetailsSectionState extends State<TravellerDetailsSection> {
       initiallyExpanded: index == 0,
       title: Text(
         'Room 1 — Adult ${index + 1}',
-        style: const TextStyle(
-          fontSize: 17,
+        style: TextStyle(
+          fontSize: context.fs(15),
           fontWeight: FontWeight.w800,
           color: _navy,
         ),
       ),
       children: [
         Padding(
-          padding: context.responsivePadding.copyWith(top: 0, bottom: 16),
+          padding: context.responsivePadding.copyWith(
+            top: 0,
+            bottom: context.h(16),
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -195,14 +220,14 @@ class TravellerDetailsSectionState extends State<TravellerDetailsSection> {
                       'Title *',
                       ['Mr', 'Mrs', 'Ms', 'Dr'],
                       _selectedTitles[index],
-                      (value) {
+                          (value) {
                         setState(() {
                           _selectedTitles[index] = value!;
                         });
                       },
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  SizedBox(width: context.w(12)),
                   Expanded(
                     child: _buildTextField(
                       context,
@@ -212,7 +237,7 @@ class TravellerDetailsSectionState extends State<TravellerDetailsSection> {
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: context.h(16)),
 
               // Row 2: Last Name + Gender (2 fields)
               Row(
@@ -224,14 +249,14 @@ class TravellerDetailsSectionState extends State<TravellerDetailsSection> {
                       _lastNameControllers[index],
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  SizedBox(width: context.w(12)),
                   Expanded(
                     child: _buildDropdownField(
                       context,
                       'Gender *',
                       ['Male', 'Female', 'Other'],
                       _selectedGenders[index],
-                      (value) {
+                          (value) {
                         setState(() {
                           _selectedGenders[index] = value!;
                         });
@@ -240,7 +265,7 @@ class TravellerDetailsSectionState extends State<TravellerDetailsSection> {
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: context.h(16)),
 
               // Row 3: Date of Birth + Nationality (2 fields)
               Row(
@@ -252,14 +277,14 @@ class TravellerDetailsSectionState extends State<TravellerDetailsSection> {
                       _dobControllers[index],
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  SizedBox(width: context.w(12)),
                   Expanded(
                     child: _buildDropdownField(
                       context,
                       'Nationality *',
                       ['India (IN)', 'USA (US)', 'UAE (AE)', 'UK (GB)'],
                       _selectedNationalities[index],
-                      (value) {
+                          (value) {
                         setState(() {
                           _selectedNationalities[index] = value!;
                         });
@@ -276,39 +301,39 @@ class TravellerDetailsSectionState extends State<TravellerDetailsSection> {
   }
 
   Widget _buildTextField(
-    BuildContext context,
-    String label,
-    TextEditingController controller,
-  ) {
+      BuildContext context,
+      String label,
+      TextEditingController controller,
+      ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,
           style: TextStyle(
-            fontSize: context.sp(12),
+            fontSize: context.fs(12),
             color: Colors.grey[700],
             fontWeight: FontWeight.w500,
           ),
         ),
-        const SizedBox(height: 4),
+        SizedBox(height: context.h(4)),
         TextField(
           controller: controller,
           decoration: InputDecoration(
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 12,
-              vertical: 12,
+            contentPadding: EdgeInsets.symmetric(
+              horizontal: context.w(12),
+              vertical: context.h(12),
             ),
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(context.r(8)),
               borderSide: BorderSide(color: Colors.grey[300]!),
             ),
             enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(context.r(8)),
               borderSide: BorderSide(color: Colors.grey[300]!),
             ),
             focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(context.r(8)),
               borderSide: const BorderSide(color: Colors.blue, width: 2),
             ),
           ),
@@ -318,29 +343,29 @@ class TravellerDetailsSectionState extends State<TravellerDetailsSection> {
   }
 
   Widget _buildDropdownField(
-    BuildContext context,
-    String label,
-    List<String> items,
-    String value,
-    ValueChanged<String?> onChanged,
-  ) {
+      BuildContext context,
+      String label,
+      List<String> items,
+      String value,
+      ValueChanged<String?> onChanged,
+      ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,
           style: TextStyle(
-            fontSize: context.sp(12),
+            fontSize: context.fs(12),
             color: Colors.grey[700],
             fontWeight: FontWeight.w500,
           ),
         ),
-        const SizedBox(height: 4),
+        SizedBox(height: context.h(4)),
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
+          padding: EdgeInsets.symmetric(horizontal: context.w(12)),
           decoration: BoxDecoration(
             border: Border.all(color: Colors.grey[300]!),
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(context.r(8)),
           ),
           child: DropdownButtonHideUnderline(
             child: DropdownButton<String>(
@@ -350,7 +375,7 @@ class TravellerDetailsSectionState extends State<TravellerDetailsSection> {
               items: items.map((item) {
                 return DropdownMenuItem(
                   value: item,
-                  child: Text(item, style: TextStyle(fontSize: context.sp(14))),
+                  child: Text(item, style: TextStyle(fontSize: context.fs(14))),
                 );
               }).toList(),
               onChanged: onChanged,
@@ -362,45 +387,45 @@ class TravellerDetailsSectionState extends State<TravellerDetailsSection> {
   }
 
   Widget _buildDateField(
-    BuildContext context,
-    String label,
-    TextEditingController controller,
-  ) {
+      BuildContext context,
+      String label,
+      TextEditingController controller,
+      ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,
           style: TextStyle(
-            fontSize: context.sp(12),
+            fontSize: context.fs(12),
             color: Colors.grey[700],
             fontWeight: FontWeight.w500,
           ),
         ),
-        const SizedBox(height: 4),
+        SizedBox(height: context.h(4)),
         TextField(
           controller: controller,
           readOnly: true,
           decoration: InputDecoration(
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 12,
-              vertical: 12,
+            contentPadding: EdgeInsets.symmetric(
+              horizontal: context.w(12),
+              vertical: context.h(12),
             ),
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(context.r(8)),
               borderSide: BorderSide(color: Colors.grey[300]!),
             ),
             enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(context.r(8)),
               borderSide: BorderSide(color: Colors.grey[300]!),
             ),
             focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(context.r(8)),
               borderSide: const BorderSide(color: Colors.blue, width: 2),
             ),
             suffixIcon: Icon(
               Icons.calendar_today,
-              size: 18,
+              size: context.w(18),
               color: Colors.grey[600],
             ),
           ),

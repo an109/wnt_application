@@ -9,6 +9,7 @@ class BookingEntity extends Equatable {
   final int? bookingId;
   final bool? isPriceChanged;
   final int? status;
+  final Map<String, dynamic>? rawResponse;
 
   const BookingEntity({
     this.responseStatus,
@@ -19,20 +20,24 @@ class BookingEntity extends Equatable {
     this.bookingId,
     this.isPriceChanged,
     this.status,
+    this.rawResponse,
   });
 
-  // TBO's flat Book response uses "Status":1 (not "ResponseStatus"):
-  //   Flat success  → Status=1, ResponseStatus=null
-  //   Flat failure  → Status=0, ResponseStatus=null, Errors=[...]
-  //   Wrapped error → ResponseStatus=0, Error={...}
+  // TBO Book status codes:
+  //   1 = In Progress (hold, then Ticket separately)
+  //   2 = Confirmed
+  //   5 = Ticketed (direct ticket — Air India and some GDS airlines)
+  // All three indicate a successful booking with a valid PNR.
   bool get isSuccess =>
-      (responseStatus == 1 || status == 1) &&
+      (responseStatus == 1 || status == 1 ||
+       responseStatus == 2 || status == 2 ||
+       responseStatus == 5 || status == 5) &&
       (errorCode == null || errorCode == 0) &&
       pnr != null &&
       pnr!.isNotEmpty;
 
   @override
   List<Object?> get props => [
-    responseStatus, errorCode, errorMessage, traceId, pnr, bookingId, isPriceChanged, status,
+    responseStatus, errorCode, errorMessage, traceId, pnr, bookingId, isPriceChanged, status, rawResponse,
   ];
 }

@@ -40,10 +40,17 @@ class TicketEntity extends Equatable {
     this.passengers,
   });
 
-  bool get isSuccess => responseStatus == 1 && (errorCode == null || errorCode == 0);
+  // TBO Ticket status codes:
+  //   1 = In Progress (awaiting airline/GDS confirmation)
+  //   2 = Confirmed
+  //   5 = Ticketed (direct by airline)
+  //   8 = Ticketed with price change (ticket issued, fare changed vs. quoted)
+  bool get isSuccess =>
+      (responseStatus == 2 || responseStatus == 5 || responseStatus == 8) &&
+      (errorCode == null || errorCode == 0);
 
-  bool get isPending => passengers != null &&
-      passengers!.any((p) => p.status?.toLowerCase() == 'pending');
+  bool get isPending =>
+      responseStatus == 1 && (errorCode == null || errorCode == 0);
 
   @override
   List<Object?> get props => [

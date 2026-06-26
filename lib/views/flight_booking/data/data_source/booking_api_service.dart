@@ -16,11 +16,12 @@ class BookingApiServiceImpl implements BookingApiService {
   Future<BookingResponseModel> bookFlight(BookingRequestModel request) async {
     try {
       print('CALLING BOOK API: ${Urls.book}');
-      print('Request body: ${request.toJson()}');
+      final payload = request.toJson();
+      print('Request body: $payload');
 
       final response = await dio.post(
         Urls.book,
-        data: request.toJson(),
+        data: payload,
       );
 
       print('BOOK API Response Status: ${response.statusCode}');

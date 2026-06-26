@@ -32,20 +32,89 @@ class BookingResponseData {
     this.status,
   });
 
+  // factory BookingResponseData.fromJson(Map<String, dynamic> json) {
+  //   // Flat TBO response uses "Status":1 for success; wrapped uses "ResponseStatus":1
+  //   final rawStatus = json['Status'];
+  //   final status = rawStatus is int ? rawStatus : int.tryParse('$rawStatus');
+  //   final rawBookingId = json['BookingId'];
+  //   final bookingId = rawBookingId is int
+  //       ? rawBookingId
+  //       : rawBookingId != null ? int.tryParse('$rawBookingId') : null;
+  //
+  //   // TBO Book failures come in two shapes:
+  //   //   • Single error object: {"Error":{"ErrorCode":...,"ErrorMessage":"..."}}
+  //   //   • Errors array:        {"Errors":[{"Code":30,"UserMessage":"Passport..."}]}
+  //   // Normalise both into a single BookingErrorData so callers don't need to
+  //   // know which format was used.
+  //   BookingErrorData? parsedError;
+  //   if (json['Error'] != null) {
+  //     parsedError = BookingErrorData.fromJson(json['Error'] as Map<String, dynamic>);
+  //   } else if (json['Errors'] is List) {
+  //     final errors = json['Errors'] as List;
+  //     if (errors.isNotEmpty && errors.first is Map) {
+  //       final first = errors.first as Map<String, dynamic>;
+  //       parsedError = BookingErrorData(
+  //         errorCode: first['Code'] as int? ?? first['ErrorCode'] as int?,
+  //         errorMessage: (first['UserMessage'] as String?)?.trim()
+  //             ?? first['ErrorMessage'] as String?,
+  //       );
+  //     }
+  //   }
+  //
+  //   return BookingResponseData(
+  //     responseStatus: json['ResponseStatus'] as int? ?? status,
+  //     error: parsedError,
+  //     traceId: json['TraceId'] as String?,
+  //     pnr: json['PNR'] as String?,
+  //     bookingId: bookingId,
+  //     isPriceChanged: json['IsPriceChanged'] as bool?,
+  //     isTimeChanged: json['IsTimeChanged'] as bool?,
+  //     status: status,
+  //   );
+  // }
   factory BookingResponseData.fromJson(Map<String, dynamic> json) {
-    // Flat TBO response uses "Status":1 for success; wrapped uses "ResponseStatus":1
-    final rawStatus = json['Status'];
-    final status = rawStatus is int ? rawStatus : int.tryParse('$rawStatus');
-    final rawBookingId = json['BookingId'];
-    final bookingId = rawBookingId is int
-        ? rawBookingId
-        : rawBookingId != null ? int.tryParse('$rawBookingId') : null;
+    // First, check if there's an Itinerary object
+    final itinerary = json['Itinerary'] as Map<String, dynamic>?;
+
+    // Get bookingId from Itinerary first
+    int? bookingId;
+    if (itinerary != null) {
+      final rawBookingId = itinerary['BookingId'];
+      bookingId = rawBookingId is int
+          ? rawBookingId
+          : rawBookingId != null ? int.tryParse('$rawBookingId') : null;
+    }
+    // Fallback to root level if not found in Itinerary
+    if (bookingId == null) {
+      final rawBookingId = json['BookingId'];
+      bookingId = rawBookingId is int
+          ? rawBookingId
+          : rawBookingId != null ? int.tryParse('$rawBookingId') : null;
+    }
+
+    // Get PNR from Itinerary first, fallback to root
+    String? pnr;
+    if (itinerary != null) {
+      pnr = itinerary['PNR'] as String?;
+    }
+    if (pnr == null || pnr.isEmpty) {
+      pnr = json['PNR'] as String?;
+    }
+
+    // Get Status from Itinerary or root
+    int? status;
+    if (itinerary != null) {
+      final rawStatus = itinerary['Status'];
+      status = rawStatus is int ? rawStatus : int.tryParse('$rawStatus');
+    }
+    if (status == null) {
+      final rawStatus = json['Status'];
+      status = rawStatus is int ? rawStatus : int.tryParse('$rawStatus');
+    }
 
     // TBO Book failures come in two shapes:
     //   • Single error object: {"Error":{"ErrorCode":...,"ErrorMessage":"..."}}
     //   • Errors array:        {"Errors":[{"Code":30,"UserMessage":"Passport..."}]}
-    // Normalise both into a single BookingErrorData so callers don't need to
-    // know which format was used.
     BookingErrorData? parsedError;
     if (json['Error'] != null) {
       parsedError = BookingErrorData.fromJson(json['Error'] as Map<String, dynamic>);
@@ -64,8 +133,8 @@ class BookingResponseData {
     return BookingResponseData(
       responseStatus: json['ResponseStatus'] as int? ?? status,
       error: parsedError,
-      traceId: json['TraceId'] as String?,
-      pnr: json['PNR'] as String?,
+      traceId: json['TraceId'] as String? ?? json['TrackingId'] as String?,
+      pnr: pnr,
       bookingId: bookingId,
       isPriceChanged: json['IsPriceChanged'] as bool?,
       isTimeChanged: json['IsTimeChanged'] as bool?,

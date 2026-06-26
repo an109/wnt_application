@@ -44,6 +44,9 @@ import 'package:wander_nova/views/MainApi/domain/usecase/get_faq_list_usecase.da
 import 'package:wander_nova/views/MainApi/domain/usecase/get_general_setting_usecase.dart';
 import 'package:wander_nova/views/MainApi/domain/usecase/get_section_heros_usecase.dart';
 import 'package:wander_nova/views/MainApi/presentation/bloc/general_setting_bloc.dart';
+import 'package:wander_nova/views/MyBookings/Flights/data/data_source/FlightBookApiService.dart';
+import 'package:wander_nova/views/MyBookings/Flights/domain/repository/FlightBookRepository.dart';
+import 'package:wander_nova/views/MyBookings/Flights/presentation/bloc/FlightBookBloc.dart';
 import 'package:wander_nova/views/MyBookings/Hotels/data/data_Source/HotelApiService.dart';
 import 'package:wander_nova/views/MyBookings/Hotels/data/repository/HotelRespositoryImpl.dart';
 import 'package:wander_nova/views/MyBookings/Hotels/domain/repository/HotelRepository.dart';
@@ -228,6 +231,8 @@ import 'package:wander_nova/views/wallet/data/repository/wallet_repository_impl.
 import 'package:wander_nova/views/wallet/domain/repository/wallet_repository.dart';
 import 'package:wander_nova/views/wallet/domain/usecase/get_wallet_balance_usecase.dart';
 import 'package:wander_nova/views/wallet/presentation/bloc/wallet_bloc.dart';
+import 'views/MyBookings/Flights/data/repository/FlightBookRepo_impl.dart';
+import 'views/MyBookings/Flights/domain/usecase/GetFlightBookUsecase.dart';
 import 'views/Send_otp/data/data_source/send_otp_api_service.dart';
 import 'views/Send_otp/data/repository/send_otp_repository_impl.dart';
 import 'views/Send_otp/domain/repository/end_otp_repository.dart';
@@ -310,6 +315,7 @@ Future<void> initializeDependencies() async {
   sl.registerFactory<ReservationPollApiService>(() => ReservationPollApiServiceImpl(sl<DioClient>().instance),);
   sl.registerFactory<VisaApplicationApiService>(() => VisaApplicationApiServiceImpl(sl<DioClient>().instance));
   sl.registerFactory<VApiService>(() => VApiServiceImpl(sl<DioClient>().instance),);
+  sl.registerLazySingleton<FlightBookApiService>(() => FlightBookApiServiceImpl(sl<DioClient>().instance),);
 
 
 
@@ -362,7 +368,9 @@ Future<void> initializeDependencies() async {
   sl.registerLazySingleton<ReservationPollRepository>(() => ReservationPollRepositoryImpl(sl()),);
   sl.registerLazySingleton<VisaApplicationRepository>(() => VisaApplicationRepositoryImpl(sl()));
   sl.registerLazySingleton<VRepository>(() => VRepositoryImpl(sl<VApiService>()),);
-
+  sl.registerLazySingleton<FlightBookRepository>(
+        () => FlightBookRepositoryImpl(sl<FlightBookApiService>()),
+  );
 
 
 
@@ -424,8 +432,8 @@ Future<void> initializeDependencies() async {
   sl.registerLazySingleton<GetVisaApplicationByIdUseCase>(() => GetVisaApplicationByIdUseCase(sl<VisaApplicationRepository>()));
   sl.registerLazySingleton<CreateVisaApplicationUseCase>(() => CreateVisaApplicationUseCase(sl<VisaApplicationRepository>()));
   // sl.registerLazySingleton<UploadVisaDocumentsUseCase>(() => UploadVisaDocumentsUseCase(sl<VisaApplicationRepository>()));
-  sl.registerFactory(() => GetVApplicationsUseCase(sl<VRepository>()));
-
+  sl.registerLazySingleton(() => GetVApplicationsUseCase(sl<VRepository>()));
+  sl.registerLazySingleton(() => GetBookUseCase(sl<FlightBookRepository>()));
 
 
 
@@ -490,5 +498,6 @@ Future<void> initializeDependencies() async {
     ),
   );
   sl.registerFactory(() => VApplicationBloc(getVApplicationsUseCase: sl()));
+  sl.registerFactory(() => FlightBookBloc(sl<GetBookUseCase>()));
 
 }

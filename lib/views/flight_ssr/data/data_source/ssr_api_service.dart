@@ -1,3 +1,5 @@
+import 'dart:developer' as developer;
+
 import 'package:dio/dio.dart';
 import '../../../../core/constants/urls.dart';
 import '../models/ssr_request_model.dart';
@@ -16,6 +18,7 @@ class SsrApiServiceImpl implements SsrApiService {
     try {
       print('CALLING SSR API: ${Urls.ssr}');
       print('Request payload: ${request.toJson()}');
+      developer.log('Request payload: ${request.toJson()}');
 
       final response = await dio.post(
         Urls.ssr,

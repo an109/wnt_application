@@ -158,7 +158,9 @@ class _HotelDetailsScreenState extends State<HotelDetailsScreen> {
                     images: hotel.images,
                     hotelName: hotel.hotelName,
                     rating: hotel.hotelRating,
+                    enableFullScreen: false,
                   ),
+
                   _buildHotelInfo(hotel),
                   _buildTabs(),
                   _buildTabContent(hotel),
@@ -406,6 +408,7 @@ class _HotelDetailsScreenState extends State<HotelDetailsScreen> {
           hotelName: hotel.hotelName,
           rating: hotel.hotelRating,
           showMainImage: false,
+          enableFullScreen: true,
         );
       case 2:
         return AmenitiesSection(
@@ -467,26 +470,125 @@ class _HotelDetailsScreenState extends State<HotelDetailsScreen> {
                 ),
               ],
             ),
+            // child: ClipRRect(
+            //   borderRadius: BorderRadius.circular(context.r(12)),
+            //   child: InkWell(
+            //     onTap: _openInGoogleMaps,
+            //     child: Container(
+            //       decoration: BoxDecoration(
+            //         borderRadius: BorderRadius.circular(context.r(12)),
+            //         color: Colors.grey.shade200,
+            //       ),
+            //       child: Stack(
+            //         children: [
+            //           Center(
+            //             child: Icon(
+            //               Icons.location_on,
+            //               size: context.w(64),
+            //               color: Colors.red,
+            //             ),
+            //           ),
+            //         ],
+            //       ),
+            //     ),
+            //   ),
+            // ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(context.r(12)),
               child: InkWell(
                 onTap: _openInGoogleMaps,
-                child: Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(context.r(12)),
-                    color: Colors.grey.shade200,
-                  ),
-                  child: Stack(
-                    children: [
-                      Center(
-                        child: Icon(
-                          Icons.location_on,
-                          size: context.w(64),
-                          color: Colors.red,
+                child: Stack(
+                  children: [
+                    //  Add map placeholder image as background
+                    Image.asset(
+                      'assets/images/map1.png', // Path to your map image
+                      fit: BoxFit.cover,
+                      width: double.infinity,
+                      height: double.infinity,
+                      errorBuilder: (context, error, stackTrace) {
+                        // Fallback to grey background if image fails to load
+                        return Container(
+                          color: Colors.grey.shade200,
+                          child: Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.map,
+                                  size: context.w(48),
+                                  color: Colors.grey[400],
+                                ),
+                                SizedBox(height: context.h(8)),
+                                Text(
+                                  'Map View',
+                                  style: TextStyle(
+                                    color: Colors.grey[500],
+                                    fontSize: context.fs(12),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                    //  Location pin overlay
+                    // Center(
+                    //   child: Container(
+                    //     padding: EdgeInsets.all(context.w(8)),
+                    //     decoration: BoxDecoration(
+                    //       color: Colors.white,
+                    //       shape: BoxShape.circle,
+                    //       boxShadow: [
+                    //         BoxShadow(
+                    //           color: Colors.black.withValues(alpha: 0.2),
+                    //           blurRadius: context.r(8),
+                    //           offset: Offset(0, context.h(2)),
+                    //         ),
+                    //       ],
+                    //     ),
+                    //     child: Icon(
+                    //       Icons.location_on,
+                    //       size: context.w(40),
+                    //       color: Colors.red,
+                    //     ),
+                    //   ),
+                    // ),
+                    //  "Tap to open" overlay at bottom
+                    Positioned(
+                      bottom: context.h(12),
+                      right: context.w(12),
+                      child: Container(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: context.w(10),
+                          vertical: context.h(5),
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.6),
+                          borderRadius: BorderRadius.circular(context.r(6)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.open_in_new,
+                              size: context.w(14),
+                              color: Colors.white,
+                            ),
+                            SizedBox(width: context.w(4)),
+                            Text(
+                              'Open in Maps',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: context.fs(10),
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ),

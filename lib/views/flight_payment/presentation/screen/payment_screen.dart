@@ -1,8 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-
-// ----- Razorpay flow (commented out) -----
-// import 'package:dio/dio.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -13,7 +10,6 @@ import '../../../../common_widgets/logo.dart';
 import '../../../../core/constants/urls.dart';
 import '../../../../core/network/dio_client.dart';
 import '../../../../core/utils/storage/shared_preference.dart';
-// ----- CCAvenue flow -----
 import '../../data/ccavenue_service.dart';
 import 'ccavenue_payment_page.dart';
 import '../../../flight_booking/data/models/booking_request_model.dart';
@@ -78,6 +74,83 @@ class _FlightPaymentScreenState extends State<FlightPaymentScreen> {
   static const _pageBg = Color(0xFFF3F6FC);
   static const _successGreen = Color(0xFF10B981);
   static const _lightGreen = Color(0xFFECFDF5);
+
+
+  Map<String, String> _extractFlightDetails() {
+    final details = <String, String>{};
+
+    // Flight type - check if available from route
+    details['flight_type'] = widget.route.flightType ?? 'one_way';
+
+    // From/To cities - extract airport codes
+    details['from_city'] = _extractCityCode(widget.route.from);
+    details['to_city'] = _extractCityCode(widget.route.to);
+
+    // Departure date - try multiple sources
+    String departureDate = '';
+
+    // 1. Try from route directly
+    if (widget.route.departureDate != null && widget.route.departureDate!.isNotEmpty) {
+      departureDate = widget.route.departureDate!;
+    }
+    // 2. Try from fareQuoteData raw itinerary
+    else {
+      try {
+        final rawItinerary = widget.route.fareQuoteData?.rawItinerary;
+        if (rawItinerary != null) {
+          final segments = rawItinerary['Segments'];
+
+          if (segments is List && segments.isNotEmpty) {
+            final firstSegment = segments.first;
+
+            // Handle case where firstSegment is already a Map (not a List)
+            if (firstSegment is Map) {
+              final origin = firstSegment['Origin'];
+              if (origin is Map) {
+                final depTime = origin['DepTime'] as String?;
+                if (depTime != null && depTime.isNotEmpty) {
+                  departureDate = depTime.split('T').first;
+                }
+              }
+            }
+            // Handle nested List case (segments is List<List<Map>>)
+            else if (firstSegment is List && firstSegment.isNotEmpty) {
+              final innerSegment = firstSegment.first;
+              if (innerSegment is Map) {
+                final origin = innerSegment['Origin'];
+                if (origin is Map) {
+                  final depTime = origin['DepTime'] as String?;
+                  if (depTime != null && depTime.isNotEmpty) {
+                    departureDate = depTime.split('T').first;
+                  }
+                }
+              }
+            }
+          }
+        }
+      } catch (e) {
+        print('Error extracting departure date: $e');
+      }
+    }
+
+    details['departure_date'] = departureDate;
+
+    return details;
+  }
+
+// Add this helper method to extract city codes
+  String _extractCityCode(String value) {
+    // Extract airport code from strings like "Mumbai (BOM)" or "Delhi (DEL)"
+    final match = RegExp(r'\(([A-Z]{3})\)').firstMatch(value.toUpperCase());
+    if (match != null) return match.group(1)!;
+
+    // If it's just the code (e.g., "BOM")
+    final compact = value.trim().toUpperCase();
+    if (compact.length == 3) return compact;
+
+    // Otherwise return as is
+    return value;
+  }
 
   @override
   void initState() {
@@ -461,6 +534,7 @@ class _FlightPaymentScreenState extends State<FlightPaymentScreen> {
     }
   }
 
+
   /// POST /api/flights/prepare-ticket/
   /// Stores the full Book/Ticket payload on the server keyed by traceId so the
   /// server can issue the ticket after payment without any client-side state.
@@ -475,6 +549,11 @@ class _FlightPaymentScreenState extends State<FlightPaymentScreen> {
     (itineraryResultIndex != null && itineraryResultIndex.isNotEmpty)
         ? itineraryResultIndex
         : widget.resultIndex.trim();
+    final flightDetails = _extractFlightDetails();
+
+    final passengerName =
+        '${widget.passengerData['firstName'] ?? ''} ${widget.passengerData['lastName'] ?? ''}'
+            .trim();
 
     if (_isLcc) {
       final req = TicketRequestModel.lcc(
@@ -492,6 +571,13 @@ class _FlightPaymentScreenState extends State<FlightPaymentScreen> {
         'ticket_payload': req.toJson(),
         'gateway': gateway,
         'booking_meta': _buildBookingMeta(prefs),
+        'flight_type': flightDetails['flight_type'] ?? 'one_way',
+        'from_city': flightDetails['from_city'] ?? '',
+        'to_city': flightDetails['to_city'] ?? '',
+        'departure_date': flightDetails['departure_date'] ?? '',
+        'flight_number': widget.route.flightNo,
+        'ccavenue_order_id': _ccavenueOrderId(),
+        'name': passengerName,
       };
     } else {
       final req = BookingRequestModel(
@@ -510,8 +596,23 @@ class _FlightPaymentScreenState extends State<FlightPaymentScreen> {
         'ticket_payload': null,
         'gateway': gateway,
         'booking_meta': _buildBookingMeta(prefs),
+        'flight_type': flightDetails['flight_type'] ?? 'one_way',
+        'from_city': flightDetails['from_city'] ?? '',
+        'to_city': flightDetails['to_city'] ?? '',
+        'departure_date': flightDetails['departure_date'] ?? '',
+        'flight_number': widget.route.flightNo,
+        'ccavenue_order_id': _ccavenueOrderId(),
+        'name': passengerName,
       };
     }
+
+    print('====== FLIGHT DETAILS ======');
+    print('flight_type   : ${flightDetails['flight_type'] ?? 'one_way'}');
+    print('from_city     : ${flightDetails['from_city'] ?? ''}');
+    print('to_city       : ${flightDetails['to_city'] ?? ''}');
+    print('departure_date: ${flightDetails['departure_date'] ?? ''}');
+    print('============================');
+
 
     print('====== PREPARE-TICKET PAYLOAD ======');
     print(jsonEncode(payload));
@@ -526,10 +627,15 @@ class _FlightPaymentScreenState extends State<FlightPaymentScreen> {
 
   Map<String, dynamic> _buildBookingMeta(PreferencesManager prefs) {
     final p = widget.passengerData;
+    final flightDetails = _extractFlightDetails();
+    final name = '${p['firstName'] ?? ''} ${p['lastName'] ?? ''}'.trim();
     return {
       'user_id': prefs.getUserId(),
       'email': p['email'] ?? '',
       'phone': p['mobileNumber'] ?? p['phone'] ?? '',
+      'name': name,
+      'flight_number': widget.route.flightNo,
+      'ccavenue_order_id': _ccavenueOrderId(),
       'passengers_data': [
         {
           'first_name': p['firstName'] ?? '',
@@ -538,6 +644,10 @@ class _FlightPaymentScreenState extends State<FlightPaymentScreen> {
           'phone': p['mobileNumber'] ?? p['phone'] ?? '',
         }
       ],
+      'flight_type': flightDetails['flight_type'] ?? 'one_way',
+      'from_city': flightDetails['from_city'] ?? '',
+      'to_city': flightDetails['to_city'] ?? '',
+      'departure_date': flightDetails['departure_date'] ?? '',
     };
   }
 
@@ -741,6 +851,8 @@ class _FlightPaymentScreenState extends State<FlightPaymentScreen> {
 
   /// Non-LCC: hold the booking (PNR) before ticketing.
   void _callBookApi(String traceId, String resultIndex) {
+    final flightDetails = _extractFlightDetails();
+
     // TokenId left empty — the backend injects the real TBO token for every
     // /tbo/ endpoint. The app JWT travels in the Authorization header instead.
     final request = BookingRequestModel(
@@ -750,48 +862,72 @@ class _FlightPaymentScreenState extends State<FlightPaymentScreen> {
       resultIndex: resultIndex,
       itinerary: _rawItinerary,
       passengers: [_builtPassenger!],
+      flightType: flightDetails['flight_type'] ?? 'one_way',
+      fromCity: flightDetails['from_city'] ?? '',
+      toCity: flightDetails['to_city'] ?? '',
+      departureDate: flightDetails['departure_date'] ?? '',
     );
-
-    final jsonPayload = jsonEncode(request.toJson());
-
-    // Use debugPrint with larger limit (default is 1000)
-    debugPrint('====== FULL BOOK API PAYLOAD ======');
-    debugPrint(jsonPayload);
-    debugPrint('========================================');
-
-    // Or split into chunks
-    _printLongText('====== FULL BOOK API PAYLOAD ======\n$jsonPayload\n========================================');
-
-    final debugJson = request.toJson();
-    print('====== PASSENGER ONLY ======');
-    print(jsonEncode(debugJson['Itinerary']['Passenger']));
-    print('====== LAST TICKET DATE ======');
-    print(debugJson['Itinerary']['LastTicketDate']);
 
     print('====== BOOK API PAYLOAD (Non-LCC) ======');
     print('EndUserIp  : ${request.endUserIp}');
     print('TrackingId : ${request.traceId}');
     print('ResultIndex: ${request.resultIndex}');
     print('IsLcc      : false');
-    print('--- full JSON ---');
-    print(jsonEncode(request.toJson()));
+    print('====== FLIGHT DETAILS ======');
+    print('flight_type   : ${flightDetails['flight_type'] ?? 'one_way'}');
+    print('from_city     : ${flightDetails['from_city'] ?? ''}');
+    print('to_city       : ${flightDetails['to_city'] ?? ''}');
+    print('departure_date: ${flightDetails['departure_date'] ?? ''}');
     print('========================================');
 
     _bookingBloc.add(BookFlightEvent(request));
   }
 
+  // void _onBookingStateChange(BookingState state) {
+  //   if (state is BookingSuccess) {
+  //     final pnr = state.booking.pnr;
+  //     final bookingId = state.booking.bookingId;
+  //     print('Booking success: PNR=$pnr, BookingId=$bookingId');
+  //     if (pnr == null || bookingId == null) {
+  //       setState(() => _error = 'Booking returned no PNR. Please contact support.');
+  //       return;
+  //     }
+  //     _callNonLccTicketApi(pnr, bookingId);
   void _onBookingStateChange(BookingState state) {
     if (state is BookingSuccess) {
       final pnr = state.booking.pnr;
-      final bookingId = state.booking.bookingId;
+      var bookingId = state.booking.bookingId;
+
+      // If bookingId is null, try to get it from the raw response
+      if (bookingId == null && state.booking.rawResponse != null) {
+        final rawData = state.booking.rawResponse as Map<String, dynamic>?;
+        final itinerary = rawData?['Itinerary'] as Map<String, dynamic>?;
+        if (itinerary != null) {
+          final rawBookingId = itinerary['BookingId'];
+          bookingId = rawBookingId is int
+              ? rawBookingId
+              : rawBookingId != null ? int.tryParse('$rawBookingId') : null;
+        }
+      }
+
       print('Booking success: PNR=$pnr, BookingId=$bookingId');
-      if (pnr == null || bookingId == null) {
+
+      if (pnr == null) {
         setState(() => _error = 'Booking returned no PNR. Please contact support.');
         return;
       }
+
+      if (bookingId == null) {
+        setState(() => _error =
+        'Booking confirmed (PNR: $pnr) but Booking ID is missing. '
+            'Please contact support.');
+        return;
+      }
+
       _callNonLccTicketApi(pnr, bookingId);
     } else if (state is BookingError) {
       final msg = state.message;
+      print('Booking failed: $msg');
       final isSessionExpiry = msg.toLowerCase().contains('unhandled exception') ||
           msg.toLowerCase().contains('non-json');
       final isPassportError = msg.toLowerCase().contains('passport');
@@ -808,13 +944,41 @@ class _FlightPaymentScreenState extends State<FlightPaymentScreen> {
   }
 
   /// LCC: Book + Ticket in a single call, carrying the full Itinerary.
+  // void _callLccTicketApi(String traceId, String resultIndex) {
+  //   final request = TicketRequestModel.lcc(
+  //     endUserIp: _endUserIp,
+  //     traceId: traceId,
+  //     resultIndex: resultIndex,
+  //     itinerary: _rawItinerary,
+  //     passengers: [_builtPassenger!],
+  //   );
+  //
+  //   print('====== TICKET API PAYLOAD (LCC) ======');
+  //   print('EndUserIp  : ${request.endUserIp}');
+  //   print('TrackingId : ${request.traceId}');
+  //   print('ResultIndex: ${request.resultIndex}');
+  //   print('IsLcc      : true');
+  //   print('--- full JSON ---');
+  //   print(jsonEncode(request.toJson()));
+  //   print('======================================');
+  //
+  //   _ticketBloc.add(IssueTicketEvent(request));
+  // }
+  /// LCC: Book + Ticket in a single call, carrying the full Itinerary.
   void _callLccTicketApi(String traceId, String resultIndex) {
+    final flightDetails = _extractFlightDetails();
+
     final request = TicketRequestModel.lcc(
       endUserIp: _endUserIp,
       traceId: traceId,
       resultIndex: resultIndex,
       itinerary: _rawItinerary,
       passengers: [_builtPassenger!],
+      // NEW: Pass flight details
+      flightType: flightDetails['flight_type'] ?? 'one_way',
+      fromCity: flightDetails['from_city'] ?? '',
+      toCity: flightDetails['to_city'] ?? '',
+      departureDate: flightDetails['departure_date'] ?? '',
     );
 
     print('====== TICKET API PAYLOAD (LCC) ======');
@@ -822,20 +986,99 @@ class _FlightPaymentScreenState extends State<FlightPaymentScreen> {
     print('TrackingId : ${request.traceId}');
     print('ResultIndex: ${request.resultIndex}');
     print('IsLcc      : true');
+    print('Flight Details:');
+    print('  flight_type   : ${request.flightType}');
+    print('  from_city     : ${request.fromCity}');
+    print('  to_city       : ${request.toCity}');
+    print('  departure_date: ${request.departureDate}');
     print('--- full JSON ---');
     print(jsonEncode(request.toJson()));
     print('======================================');
 
     _ticketBloc.add(IssueTicketEvent(request));
   }
+  /// Non-LCC: issue the ticket on the already-booked PNR.
+
+  // void _callNonLccTicketApi(String pnr, int bookingId) {
+  //   final itineraryResultIndex = (_rawItinerary['ResultIndex'] as String?)?.trim();
+  //   final effectiveResultIndex =
+  //       (itineraryResultIndex != null && itineraryResultIndex.isNotEmpty)
+  //           ? itineraryResultIndex
+  //           : widget.resultIndex.trim();
+  //
+  //   final fullItinerary = buildItinerary(
+  //     _rawItinerary,
+  //     [_builtPassenger!],
+  //     traceId: widget.traceId,
+  //   );
+  //
+  //   print('=== TICKET ITINERARY DEBUG ===');
+  //   print('Has Passenger: ${fullItinerary.containsKey('Passenger')}');
+  //   print('Passenger count: ${fullItinerary['Passenger']?.length}');
+  //   print('Has Segments_BE: ${fullItinerary.containsKey('Segments_BE')}');
+  //   print('Segments count: ${fullItinerary['Segments_BE']?.length}');
+  //   print('ResultIndex: $effectiveResultIndex');
+  //   print('===============================');
+  //
+  //   final request = TicketRequestModel.nonLcc(
+  //     endUserIp: _endUserIp,
+  //     traceId: widget.traceId.trim(),
+  //     bookingId: bookingId,
+  //     pnr: pnr,
+  //     itinerary: fullItinerary,
+  //     passengers: [_builtPassenger!],
+  //     resultIndex: effectiveResultIndex,
+  //   );
+  //
+  //   print('====== TICKET API PAYLOAD (Non-LCC) ======');
+  //   print('EndUserIp  : ${request.endUserIp}');
+  //   print('TrackingId : ${request.traceId}');
+  //   print('BookingId  : ${request.bookingId}');
+  //   print('PNR        : ${request.pnr}');
+  //   print('--- full JSON ---');
+  //   print(jsonEncode(request.toJson()));
+  //   print('==========================================');
+  //
+  //   _ticketBloc.add(IssueTicketEvent(request));
+  // }
 
   /// Non-LCC: issue the ticket on the already-booked PNR.
   void _callNonLccTicketApi(String pnr, int bookingId) {
+    final itineraryResultIndex = (_rawItinerary['ResultIndex'] as String?)?.trim();
+    final effectiveResultIndex =
+    (itineraryResultIndex != null && itineraryResultIndex.isNotEmpty)
+        ? itineraryResultIndex
+        : widget.resultIndex.trim();
+
+    final fullItinerary = buildItinerary(
+      _rawItinerary,
+      [_builtPassenger!],
+      traceId: widget.traceId,
+    );
+
+    final flightDetails = _extractFlightDetails();
+
+    print('=== TICKET ITINERARY DEBUG ===');
+    print('Has Passenger: ${fullItinerary.containsKey('Passenger')}');
+    print('Passenger count: ${fullItinerary['Passenger']?.length}');
+    print('Has Segments_BE: ${fullItinerary.containsKey('Segments_BE')}');
+    print('Segments count: ${fullItinerary['Segments_BE']?.length}');
+    print('ResultIndex: $effectiveResultIndex');
+    print('===============================');
+
     final request = TicketRequestModel.nonLcc(
       endUserIp: _endUserIp,
       traceId: widget.traceId.trim(),
       bookingId: bookingId,
       pnr: pnr,
+      itinerary: fullItinerary,
+      passengers: [_builtPassenger!],
+      resultIndex: effectiveResultIndex,
+      // NEW: Pass flight details
+      flightType: flightDetails['flight_type'] ?? 'one_way',
+      fromCity: flightDetails['from_city'] ?? '',
+      toCity: flightDetails['to_city'] ?? '',
+      departureDate: flightDetails['departure_date'] ?? '',
     );
 
     print('====== TICKET API PAYLOAD (Non-LCC) ======');
@@ -843,6 +1086,11 @@ class _FlightPaymentScreenState extends State<FlightPaymentScreen> {
     print('TrackingId : ${request.traceId}');
     print('BookingId  : ${request.bookingId}');
     print('PNR        : ${request.pnr}');
+    print('Flight Details:');
+    print('  flight_type   : ${request.flightType}');
+    print('  from_city     : ${request.fromCity}');
+    print('  to_city       : ${request.toCity}');
+    print('  departure_date: ${request.departureDate}');
     print('--- full JSON ---');
     print(jsonEncode(request.toJson()));
     print('==========================================');
@@ -1173,7 +1421,6 @@ class _FlightPaymentScreenState extends State<FlightPaymentScreen> {
   }
 
   Widget _buildErrorCard(BuildContext context) {
-    print("--------------------- $_error!");
     return Container(
       padding: EdgeInsets.all(context.w(12)),
       decoration: BoxDecoration(

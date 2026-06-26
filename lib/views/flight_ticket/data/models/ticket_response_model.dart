@@ -29,19 +29,26 @@ class TicketResponseData {
   });
 
   factory TicketResponseData.fromJson(Map<String, dynamic> json) {
-    // Flat TBO response uses "Status":1 for success; wrapped uses "ResponseStatus":1
     final rawStatus = json['Status'];
     final status = rawStatus is int ? rawStatus : int.tryParse('$rawStatus');
-    final rawBookingId = json['BookingId'];
+
+    final itinerary = json['Itinerary'] as Map<String, dynamic>?;
+
+    // BookingId: prefer Itinerary.BookingId, fall back to root
+    final rawBookingId = itinerary?['BookingId'] ?? json['BookingId'];
     final bookingId = rawBookingId is int
         ? rawBookingId
         : rawBookingId != null ? int.tryParse('$rawBookingId') : null;
-    // TBO may nest PNR inside Itinerary for some ticket responses
-    final itinerary = json['Itinerary'] as Map<String, dynamic>?;
+
+    // PNR: prefer root (most reliable), fall back to Itinerary
     final pnr = (json['PNR'] as String?)?.isNotEmpty == true
         ? json['PNR'] as String
         : itinerary?['PNR'] as String?;
-    final passengersList = json['Passengers'] as List?;
+
+    // Passengers: root-level 'Passengers' list or Itinerary.Passenger list
+    final passengersList =
+        (json['Passengers'] as List?) ?? (itinerary?['Passenger'] as List?);
+
     return TicketResponseData(
       responseStatus: json['ResponseStatus'] as int? ?? status,
       error: json['Error'] != null
@@ -92,11 +99,13 @@ class TicketPassengerData {
   });
 
   factory TicketPassengerData.fromJson(Map<String, dynamic> json) {
+    // Ticket info can be at root level (some responses) or nested in Ticket object
+    final ticket = json['Ticket'] as Map<String, dynamic>?;
     return TicketPassengerData(
       paxId: json['PaxId'],
-      ticketId: json['TicketId']?.toString(),
-      ticketNumber: json['TicketNumber']?.toString(),
-      status: json['Status']?.toString(),
+      ticketId: ticket?['TicketId']?.toString() ?? json['TicketId']?.toString(),
+      ticketNumber: ticket?['TicketNumber']?.toString() ?? json['TicketNumber']?.toString(),
+      status: ticket?['Status']?.toString() ?? json['Status']?.toString(),
       firstName: json['FirstName'],
       lastName: json['LastName'],
     );

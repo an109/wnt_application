@@ -25,23 +25,23 @@ class _PoliciesSectionState extends State<PoliciesSection> {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(context.borderRadius),
+        borderRadius: BorderRadius.circular(context.r(12)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
+            blurRadius: context.h(10),
+            offset: Offset(0, context.h(2)),
           ),
         ],
       ),
       child: Padding(
-        padding: context.responsivePadding,
+        padding: EdgeInsets.all(context.w(16)),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (widget.cancelPolicies.isNotEmpty) ...[
               _buildCancellationPolicies(context),
-              const SizedBox(height: 16),
+              SizedBox(height: context.h(16)),
             ],
             if (widget.rateConditions.isNotEmpty) ...[
               _buildRateConditions(context),
@@ -59,17 +59,17 @@ class _PoliciesSectionState extends State<PoliciesSection> {
         Text(
           'CANCELLATION POLICIES',
           style: TextStyle(
-            fontSize: context.titleSmall,
+            fontSize: context.fs(18),
             fontWeight: FontWeight.bold,
             color: Colors.grey[800],
           ),
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: context.h(12)),
         ...widget.cancelPolicies.map((policy) => Container(
-          padding: const EdgeInsets.all(12),
+          padding: EdgeInsets.all(context.w(12)),
           decoration: BoxDecoration(
             color: Colors.red[50],
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(context.r(8)),
             border: Border.all(color: Colors.red[100]!),
           ),
           child: Row(
@@ -78,7 +78,7 @@ class _PoliciesSectionState extends State<PoliciesSection> {
                 child: Text(
                   'From ${policy.fromDate} — ${policy.chargeType}',
                   style: TextStyle(
-                    fontSize: context.sp(13),
+                    fontSize: context.fs(13),
                     color: Colors.grey[800],
                   ),
                 ),
@@ -86,7 +86,7 @@ class _PoliciesSectionState extends State<PoliciesSection> {
               Text(
                 'Charge: ${policy.cancellationCharge}',
                 style: TextStyle(
-                  fontSize: context.sp(13),
+                  fontSize: context.fs(13),
                   fontWeight: FontWeight.w600,
                   color: Colors.red[700],
                 ),
@@ -137,43 +137,43 @@ class _PoliciesSectionState extends State<PoliciesSection> {
     if (checkInTimes.isNotEmpty) {
       conditionWidgets.add(_buildSectionTitle(context, 'Check-in Time'));
       conditionWidgets.addAll(checkInTimes.map((time) => _buildConditionItem(context, time)));
-      conditionWidgets.add(const SizedBox(height: 12));
+      conditionWidgets.add(SizedBox(height: context.h(12)));
     }
 
     if (checkOutTimes.isNotEmpty) {
       conditionWidgets.add(_buildSectionTitle(context, 'Check-out Time'));
       conditionWidgets.addAll(checkOutTimes.map((time) => _buildConditionItem(context, time)));
-      conditionWidgets.add(const SizedBox(height: 12));
+      conditionWidgets.add(SizedBox(height: context.h(12)));
     }
 
     if (instructions.isNotEmpty) {
       conditionWidgets.add(_buildSectionTitle(context, 'Check-in Instructions'));
       conditionWidgets.addAll(instructions.map((instruction) => _buildHtmlContent(context, instruction)));
-      conditionWidgets.add(const SizedBox(height: 12));
+      conditionWidgets.add(SizedBox(height: context.h(12)));
     }
 
     if (specialInstructions.isNotEmpty) {
       conditionWidgets.add(_buildSectionTitle(context, 'Special Instructions'));
       conditionWidgets.addAll(specialInstructions.map((instruction) => _buildHtmlContent(context, instruction)));
-      conditionWidgets.add(const SizedBox(height: 12));
+      conditionWidgets.add(SizedBox(height: context.h(12)));
     }
 
     if (mandatoryFees.isNotEmpty) {
       conditionWidgets.add(_buildSectionTitle(context, 'Mandatory Fees'));
       conditionWidgets.addAll(mandatoryFees.map((fee) => _buildHtmlContent(context, fee)));
-      conditionWidgets.add(const SizedBox(height: 12));
+      conditionWidgets.add(SizedBox(height: context.h(12)));
     }
 
     if (optionalFees.isNotEmpty) {
       conditionWidgets.add(_buildSectionTitle(context, 'Optional Fees'));
       conditionWidgets.addAll(optionalFees.map((fee) => _buildHtmlContent(context, fee)));
-      conditionWidgets.add(const SizedBox(height: 12));
+      conditionWidgets.add(SizedBox(height: context.h(12)));
     }
 
     if (cardsAccepted.isNotEmpty) {
       conditionWidgets.add(_buildSectionTitle(context, 'Cards Accepted'));
       conditionWidgets.addAll(cardsAccepted.map((card) => _buildConditionItem(context, card)));
-      conditionWidgets.add(const SizedBox(height: 12));
+      conditionWidgets.add(SizedBox(height: context.h(12)));
     }
 
     if (otherConditions.isNotEmpty) {
@@ -192,17 +192,17 @@ class _PoliciesSectionState extends State<PoliciesSection> {
         Text(
           'RATE CONDITIONS',
           style: TextStyle(
-            fontSize: context.titleSmall,
+            fontSize: context.fs(16),
             fontWeight: FontWeight.bold,
             color: Colors.grey[800],
           ),
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: context.h(12)),
         ...visibleWidgets,
 
         // Add Read More / Read Less button if there are more items
         if (conditionWidgets.length > _previewItemCount) ...[
-          const SizedBox(height: 12),
+          SizedBox(height: context.h(12)),
           GestureDetector(
             onTap: () {
               setState(() {
@@ -215,15 +215,15 @@ class _PoliciesSectionState extends State<PoliciesSection> {
                 Text(
                   _isExpanded ? 'Read Less' : 'Read More',
                   style: TextStyle(
-                    fontSize: context.sp(13),
+                    fontSize: context.fs(13),
                     fontWeight: FontWeight.w600,
                     color: Colors.redAccent,
                   ),
                 ),
-                SizedBox(width: context.gapSmall),
+                SizedBox(width: context.w(8)),
                 Icon(
                   _isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
-                  size: context.iconSmall,
+                  size: context.w(20),
                   color: Colors.redAccent,
                 ),
               ],
@@ -248,11 +248,11 @@ class _PoliciesSectionState extends State<PoliciesSection> {
 
   Widget _buildSectionTitle(BuildContext context, String title) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8, top: 8),
+      padding: EdgeInsets.only(bottom: context.h(8), top: context.h(8)),
       child: Text(
         title,
         style: TextStyle(
-          fontSize: context.sp(14),
+          fontSize: context.fs(14),
           fontWeight: FontWeight.w600,
           color: Colors.grey[800],
         ),
@@ -262,11 +262,11 @@ class _PoliciesSectionState extends State<PoliciesSection> {
 
   Widget _buildConditionItem(BuildContext context, String text) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: EdgeInsets.only(bottom: context.h(8)),
       child: Text(
         text,
         style: TextStyle(
-          fontSize: context.sp(13),
+          fontSize: context.fs(13),
           color: Colors.grey[600],
           height: 1.5,
         ),
@@ -288,16 +288,16 @@ class _PoliciesSectionState extends State<PoliciesSection> {
           .toList();
 
       return Padding(
-        padding: const EdgeInsets.only(bottom: 12),
+        padding: EdgeInsets.only(bottom: context.h(12)),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: items.map((item) {
             return Padding(
-              padding: const EdgeInsets.only(bottom: 4, left: 8),
+              padding: EdgeInsets.only(bottom: context.h(4), left: context.w(8)),
               child: Text(
                 item.trim(),
                 style: TextStyle(
-                  fontSize: context.sp(13),
+                  fontSize: context.fs(13),
                   color: Colors.grey[600],
                   height: 1.5,
                 ),

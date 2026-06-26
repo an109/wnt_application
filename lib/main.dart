@@ -9,6 +9,7 @@ import 'package:wander_nova/views/ExclusiveDeals/presentation/bloc/exclusive_dea
 import 'package:wander_nova/views/Holiday_destination/presentation/bloc/holiday_destination_bloc.dart';
 import 'package:wander_nova/views/LogOut/presentation/bloc/logout_bloc.dart';
 import 'package:wander_nova/views/MainApi/presentation/bloc/general_setting_bloc.dart';
+import 'package:wander_nova/views/MyBookings/Flights/presentation/bloc/FlightBookBloc.dart';
 import 'package:wander_nova/views/MyBookings/Hotels/bloc/BookingListBloc.dart';
 import 'package:wander_nova/views/MyBookings/Transport/bloc/MyBooking_bloc.dart';
 import 'package:wander_nova/views/MyBookings/visa/bloc/VBloc.dart';
@@ -118,6 +119,7 @@ class MyApp extends StatelessWidget {
         BlocProvider(create: (_) => di.sl<ReservationPollBloc>()),
         BlocProvider(create: (_) => di.sl<VisaApplicationBloc>()),
         BlocProvider(create: (_) => di.sl<VApplicationBloc>()),
+        BlocProvider(create: (_) => di.sl<FlightBookBloc>()),
       ],
 
       child: MaterialApp(

@@ -80,6 +80,7 @@ class Urls {
   // My Bookings ----
   static const String transportBookings = '$basesUrl/transport/bookings/';
   static const String hotelBookingsList = '$basesUrl/tbo-hotel/bookings/list/';
+  static const String bookings = '$basesUrl/flights/bookings';
 
   // Visa Applications / Upcoming Trips
   static const String visaApplications = '$basesUrl/visa-applications/';

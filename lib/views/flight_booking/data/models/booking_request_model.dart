@@ -52,20 +52,52 @@ class BookingPassengerModel {
   /// the FareQuote result-level fare into each passenger for Book/Ticket.
   Map<String, dynamic> toJson({Map<String, dynamic>? fare}) {
     final paxFare = fare ?? this.fare;
-    final mobile = contactNo.startsWith(mobileCountryCode)
-        ? contactNo
-        : '$mobileCountryCode-$contactNo';
+    // TBO expects local number in Mobile1 and country code separately in
+    // Mobile1CountryCode. Prepending the country code (e.g. "91-6886888588")
+    // causes TBO to reject the passenger mobile as invalid.
+    final mobile = contactNo;
+
+    // Clean SSR objects - remove Price and Currency
+    final cleanedBaggage = baggage.map((b) {
+      final cleaned = Map<String, dynamic>.from(b);
+      cleaned.remove('Price');
+      cleaned.remove('Currency');
+      // Trim airline code
+      if (cleaned['AirlineCode'] is String) {
+        cleaned['AirlineCode'] = (cleaned['AirlineCode'] as String).trim();
+      }
+      return cleaned;
+    }).toList();
+
+    final cleanedMeal = mealDynamic.map((m) {
+      final cleaned = Map<String, dynamic>.from(m);
+      cleaned.remove('Price');
+      cleaned.remove('Currency');
+      // Trim airline code
+      if (cleaned['AirlineCode'] is String) {
+        cleaned['AirlineCode'] = (cleaned['AirlineCode'] as String).trim();
+      }
+      return cleaned;
+    }).toList();
+
+    final cleanedSeat = seatDynamic.map((s) {
+      final cleaned = Map<String, dynamic>.from(s);
+      cleaned.remove('Price');
+      cleaned.remove('Currency');
+      // Trim airline code
+      if (cleaned['AirlineCode'] is String) {
+        cleaned['AirlineCode'] = (cleaned['AirlineCode'] as String).trim();
+      }
+      return cleaned;
+    }).toList();
 
     return {
       'Title': title,
       'FirstName': firstName,
       'LastName': lastName,
       'Type': paxType,
-      // 'PaxType': paxType,
       'DateOfBirth': dateOfBirth,
       'Gender': gender,
-      // 'PassportNo': passportNo.isEmpty ? null : passportNo,
-      // 'PassportExpiry': passportExpiry,
       if (passportNo.isNotEmpty) 'PassportNo': passportNo,
       if (passportNo.isNotEmpty) 'PassportExpiry': passportExpiry,
       'AddressLine1': addressLine1,
@@ -87,17 +119,16 @@ class BookingPassengerModel {
       'Mobile1': mobile,
       'Mobile1CountryCode': mobileCountryCode,
       'IsLeadPax': isLeadPax,
-      // if (paxFare != null) 'Fare': paxFare,
       if (paxFare != null) ...{
         'BaseFare': paxFare['BaseFare'],
         'Tax': paxFare['Tax'],
         'YQTax': paxFare['YQTax'],
         'Fare_BE': paxFare,
       },
-      'PaxBaggage': baggage,
-      'PaxMeal': mealDynamic,
-      // 'PaxSeat': seatDynamic,
-      'PaxSeat': seatDynamic.isEmpty ? null : seatDynamic,
+      // Use cleaned SSR objects without prices
+      'PaxBaggage': cleanedBaggage,
+      'PaxMeal': cleanedMeal,
+      'PaxSeat': cleanedSeat.isEmpty ? null : cleanedSeat,
     };
   }
 }
@@ -197,22 +228,21 @@ Map<String, dynamic> buildItinerary(
     }
   }
 
-  // MiniFareRules must have one outer entry per segment.
-  // TBO's Book .NET code iterates: `for (int s = 0; s < Segments_BE.Count; s++)
-  // { var rules = MiniFareRules[s]; }`. FareQuote returns a single journey-level
-  // entry for connecting flights (outer count = 1), so MiniFareRules[1] throws
-  // IndexOutOfRangeException for any 2+ segment itinerary.
-  // Fix: pad the outer list to match flatSegs.length by repeating the first entry.
-  // MiniFareRules AND FareRules must each have at least one outer entry per
-  // segment. TBO's Book .NET code indexes both by segment position.
-  // FareQuote sometimes returns a single journey-level entry for connecting
-  // flights (outer length = 1), causing IndexOutOfRangeException at s=1.
-  // Fix: pad both lists to flatSegs.length by repeating the first element.
+  // MiniFareRules and FareRules must each have one outer entry per segment.
+  // TBO's Book .NET code indexes both as MiniFareRules[s] / FareRules[s].
+  // FareQuote returns a single journey-level entry for connecting flights, so
+  // both lists need padding to flatSegs.length before the Book call.
   for (final key in ['MiniFareRules', 'FareRules']) {
     final rawList = result[key];
     if (rawList is List && flatSegs.length > rawList.length) {
       final padded = List<dynamic>.from(rawList);
-      final filler = rawList.isNotEmpty ? rawList[0] : <dynamic>[];
+      // MiniFareRules: pad extra segments with empty list [].
+      // Repeating the journey-level entry (e.g. JourneyPoints:"BOM-AMD-DEL") for
+      // segment 1 (AMD→DEL) causes TBO's .NET code to misroute mini-rule lookup.
+      // FareRules: copy first entry (TBO expects a per-segment fare-rule object).
+      final filler = key == 'MiniFareRules'
+          ? <dynamic>[]
+          : (rawList.isNotEmpty ? rawList[0] : <dynamic>[]);
       while (padded.length < flatSegs.length) {
         padded.add(filler);
       }
@@ -240,42 +270,80 @@ Map<String, dynamic> buildItinerary(
       traceId.isNotEmpty ? traceId : (clean['TraceId'] ?? '');
 
   result.remove('Passengers');
-  // result['Passenger'] = passengers
-  //     .map((p) => p.toJson(
-  //   fare: fare is Map<String, dynamic> ? fare : null,
-  // ))
-  //     .toList();
+  // The itinerary-level Fare is the complete fare object (TaxBreakup, OfferedFare,
+  // VAT, etc.). TBO validates Fare_BE against its session cache; sending only
+  // BaseFare+Tax+YQTax (4 fields) causes "Booking Failed Code 1" for many airlines.
+  // Fix: use the full Fare as the base and override per-pax amounts from FareBreakdown.
+  final itineraryFare = clean['Fare'] as Map<String, dynamic>?;
+
   result['Passenger'] = passengers.asMap().entries.map((entry) {
-    final index = entry.key;
     final passenger = entry.value;
 
     Map<String, dynamic>? paxFare;
     if (fareBreakdown != null && fareBreakdown.isNotEmpty) {
-      final adultFareRows = fareBreakdown
+      final matchedRows = fareBreakdown
           .whereType<Map>()
           .where((f) => f['PassengerType'] == passenger.paxType)
           .toList();
 
-      final row = adultFareRows.isNotEmpty
-          ? adultFareRows.first
+      final row = matchedRows.isNotEmpty
+          ? matchedRows.first
           : fareBreakdown.whereType<Map>().first;
 
       final count = (row['PassengerCount'] as num?)?.toInt() ?? 1;
       final baseFare = ((row['BaseFare'] as num?)?.toDouble() ?? 0) / count;
-      final tax = ((row['Tax'] as num?)?.toDouble() ?? 0) / count;
-      final yqTax = ((row['YQTax'] as num?)?.toDouble() ?? 0) / count;
+      final tax     = ((row['Tax']      as num?)?.toDouble() ?? 0) / count;
+      final yqTax   = ((row['YQTax']    as num?)?.toDouble() ?? 0) / count;
 
-      paxFare = {
-        'BaseFare': double.parse(baseFare.toStringAsFixed(2)),
-        'Tax': double.parse(tax.toStringAsFixed(2)),
-        'YQTax': double.parse(yqTax.toStringAsFixed(2)),
-        'Currency': row['Currency'] ?? clean['Fare']?['Currency'] ?? 'INR',
-      };
+      // Start from the full itinerary Fare object; override per-passenger amounts.
+      paxFare = itineraryFare != null
+          ? Map<String, dynamic>.from(itineraryFare)
+          : <String, dynamic>{};
+      paxFare['BaseFare'] = double.parse(baseFare.toStringAsFixed(2));
+      paxFare['Tax']      = double.parse(tax.toStringAsFixed(2));
+      paxFare['YQTax']    = double.parse(yqTax.toStringAsFixed(2));
+      paxFare['Currency'] =
+          row['Currency'] ?? itineraryFare?['Currency'] ?? 'INR';
+    } else if (itineraryFare != null) {
+      paxFare = Map<String, dynamic>.from(itineraryFare);
     }
 
-    // return passenger.toJson(fare: paxFare);
     return _tboFilterNulls(passenger.toJson(fare: paxFare));
   }).toList();
+
+  // For connecting flights (2+ segments) TBO validates that each SSR
+  // FlightNumber matches an actual segment. Filter out mismatched SSR to avoid
+  // "Booking Failed Code 1" — for direct flights TBO ignores mismatches so this
+  // is safe in both cases (invalid SSR is dropped; matching SSR is kept).
+  if (flatSegs.length > 1) {
+    final segFlights = flatSegs
+        .whereType<Map>()
+        .map((s) => (s['Airline'] as Map?)?['FlightNumber'] as String?)
+        .whereType<String>()
+        .toSet();
+
+    if (segFlights.isNotEmpty) {
+      result['Passenger'] = (result['Passenger'] as List).map((pax) {
+        if (pax is! Map<String, dynamic>) return pax;
+        final updated = Map<String, dynamic>.from(pax);
+        for (final ssrKey in ['PaxBaggage', 'PaxMeal', 'PaxSeat']) {
+          final ssrList = updated[ssrKey];
+          if (ssrList is List && ssrList.isNotEmpty) {
+            final valid = ssrList.where((s) {
+              if (s is! Map) return false;
+              final fn = s['FlightNumber'] as String?;
+              return fn == null || segFlights.contains(fn);
+            }).toList();
+            if (valid.length < ssrList.length) {
+              print('buildItinerary: $ssrKey filtered ${ssrList.length}→${valid.length} (unmatched segment flights)');
+            }
+            updated[ssrKey] = valid.isEmpty ? null : valid;
+          }
+        }
+        return updated;
+      }).toList();
+    }
+  }
 
   print('====== buildItinerary (null-filtered, ${result.keys.length} keys) ======');
   print(jsonEncode(result));
@@ -300,6 +368,12 @@ class BookingRequestModel {
   final Map<String, dynamic> itinerary;
   final List<BookingPassengerModel> passengers;
 
+  // Extra metadata read by our backend (ignored by TBO).
+  final String flightType;
+  final String fromCity;
+  final String toCity;
+  final String departureDate;
+
   BookingRequestModel({
     required this.endUserIp,
     required this.traceId,
@@ -307,6 +381,10 @@ class BookingRequestModel {
     required this.resultIndex,
     required this.itinerary,
     required this.passengers,
+    this.flightType = '',
+    this.fromCity = '',
+    this.toCity = '',
+    this.departureDate = '',
   });
 
   /// Builds the complete TBO Book API payload. The backend `book_raw` is a
@@ -337,6 +415,11 @@ class BookingRequestModel {
       'UserData': '',
       'WebServerIP': '',
       'FlightBookingSource': 72,
+      // Extra metadata for our backend.
+      'flight_type': flightType,
+      'from_city': fromCity,
+      'to_city': toCity,
+      'departure_date': departureDate,
     };
   }
 }

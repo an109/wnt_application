@@ -60,24 +60,31 @@ class HotelBookingReviewScreen extends StatefulWidget {
 class _HotelBookingReviewScreenState extends State<HotelBookingReviewScreen> {
   final ScrollController _scrollController = ScrollController();
   bool _showScrollToTop = false;
+  double _scrollThreshold = 300;
   static const _pageBg = Color(0xFFF3F6FC);
   HotelResultEntity? _hotelResult;
 
   final GlobalKey<TravellerDetailsSectionState> _travellerKey =
-      GlobalKey<TravellerDetailsSectionState>();
+  GlobalKey<TravellerDetailsSectionState>();
   final GlobalKey<ContactInfoSectionState> _contactKey =
-      GlobalKey<ContactInfoSectionState>();
+  GlobalKey<ContactInfoSectionState>();
 
-  // Live-converted INR prices (fetched from exchangerate-api.com if needed)
-  // double? _inrBaseFare;
   double? _inrBasePrice;
   double? _inrTax;
   bool _isConverting = false;
 
-
   @override
   void initState() {
     super.initState();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        setState(() {
+          _scrollThreshold = context.h(300);
+        });
+      }
+    });
+
     print(
       'HotelBookingReviewScreen: Initializing with booking code: ${widget.bookingCode}',
     );
@@ -85,7 +92,6 @@ class _HotelBookingReviewScreenState extends State<HotelBookingReviewScreen> {
       'HotelBookingReviewScreen: Hotel facilities count: ${widget.hotelFacilities?.length ?? 0}',
     );
 
-    // Fetch hotel booking details
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<HotelBookingBloc>().add(
         GetHotelBookingDetailsEvent(
@@ -95,38 +101,40 @@ class _HotelBookingReviewScreenState extends State<HotelBookingReviewScreen> {
       );
     });
 
-    _scrollController.addListener(() {
-      if (_scrollController.offset > 300 && !_showScrollToTop) {
-        setState(() => _showScrollToTop = true);
-      } else if (_scrollController.offset <= 300 && _showScrollToTop) {
-        setState(() => _showScrollToTop = false);
-      }
-    });
+    _scrollController.addListener(_handleScroll);
+  }
+
+  void _handleScroll() {
+    if (!mounted) return;
+
+    if (_scrollController.offset > _scrollThreshold && !_showScrollToTop) {
+      setState(() => _showScrollToTop = true);
+    } else if (_scrollController.offset <= _scrollThreshold && _showScrollToTop) {
+      setState(() => _showScrollToTop = false);
+    }
   }
 
   @override
   void dispose() {
+    _scrollController.removeListener(_handleScroll);
     _scrollController.dispose();
     super.dispose();
   }
 
-  /// Called once prebook data loads.
   Future<void> _convertPrices(RoomEntity room, String currency) async {
     if (!mounted) return;
 
-    // Just store original values, no conversion
     setState(() {
-      _inrBasePrice = room.basePrice; // Store original (32.92 USD)
-      _inrTax = room.totalTax; // Store original (0 USD)
+      _inrBasePrice = room.basePrice;
+      _inrTax = room.totalTax;
       _isConverting = false;
     });
   }
 
   Future<void> _navigateToPayment(
-    RoomEntity room,
-    String originalCurrency,
-  ) async {
-    // Guard: TBO 15-minute session
+      RoomEntity room,
+      String originalCurrency,
+      ) async {
     final expired = await HotelSessionService.instance.isSessionExpired();
 
     if (expired && mounted) {
@@ -136,7 +144,7 @@ class _HotelBookingReviewScreenState extends State<HotelBookingReviewScreen> {
           title: const Text('Session Expired'),
           content: const Text(
             'Your hotel search session has expired (15-minute limit). '
-            'Please go back and search again to get fresh pricing.',
+                'Please go back and search again to get fresh pricing.',
           ),
           actions: [
             TextButton(
@@ -152,12 +160,16 @@ class _HotelBookingReviewScreenState extends State<HotelBookingReviewScreen> {
       return;
     }
 
-    final pax =
-        _travellerKey.currentState?.getFirstAdultData() ?? ['Mr', '', ''];
+    // Get traveller details - NO HARDCODED VALUES
+    final travellerData = _travellerKey.currentState?.getFirstAdultData() ?? ['', '', ''];
     final phone = _contactKey.currentState?.phone ?? '';
     final email = _contactKey.currentState?.email ?? widget.userEmail;
 
+    // --- VALIDATION CHECKS ---
+
+    // Check phone number
     if (phone.isEmpty) {
+      _scrollToSection(_contactKey);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Please enter your phone number'),
@@ -167,20 +179,71 @@ class _HotelBookingReviewScreenState extends State<HotelBookingReviewScreen> {
       return;
     }
 
-    // Get user's preferred currency
+    // Check traveller details - using actual values from the form
+    final String title = travellerData[0];
+    final String firstName = travellerData[1];
+    final String lastName = travellerData[2];
+
+    // Title validation - empty string means user hasn't selected anything
+    if (title.isEmpty) {
+      _scrollToSection(_travellerKey);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please select a title for the traveller'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    if (firstName.isEmpty) {
+      _scrollToSection(_travellerKey);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter the first name for the traveller'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    if (lastName.isEmpty) {
+      _scrollToSection(_travellerKey);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter the last name for the traveller'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    // Check Date of Birth
+    final dobController = _travellerKey.currentState?.getDobController();
+    if (dobController == null || dobController.text.isEmpty) {
+      _scrollToSection(_travellerKey);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter the date of birth for the traveller'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    // --- END VALIDATION ---
+
     final prefs = di.sl<PreferencesManager>();
     final preferredCurrency = prefs.getPreferredCurrency() ?? 'INR';
 
-    // Calculate total in ORIGINAL currency (USD)
     final totalOriginal =
         (_inrBasePrice ?? room.basePrice) + (_inrTax ?? room.totalTax);
 
-    print('🟡 Original amount: $totalOriginal $originalCurrency');
+    print('Original amount: $totalOriginal $originalCurrency');
 
     double finalAmount = totalOriginal;
     String finalCurrency = originalCurrency;
 
-    // Convert to preferred currency if different
     if (preferredCurrency.toUpperCase() != originalCurrency.toUpperCase()) {
       try {
         finalAmount = await CurrencyConverter.convert(
@@ -190,14 +253,15 @@ class _HotelBookingReviewScreenState extends State<HotelBookingReviewScreen> {
         );
         finalCurrency = preferredCurrency;
         print(
-          '🟢 Converted: $totalOriginal $originalCurrency → $finalAmount $finalCurrency',
+          'Converted: $totalOriginal $originalCurrency -> $finalAmount $finalCurrency',
         );
       } catch (e) {
-        print('🔴 Conversion failed: $e');
+        print('Conversion failed: $e');
       }
     } else {
-      print('🟢 No conversion needed: $totalOriginal $originalCurrency');
+      print('No conversion needed: $totalOriginal $originalCurrency');
     }
+
     final hotelCode = _hotelResult?.hotelCode ?? '';
     final hotelCity = '';
     final hotelCountry = '';
@@ -211,7 +275,6 @@ class _HotelBookingReviewScreenState extends State<HotelBookingReviewScreen> {
         builder: (_) => HotelPaymentScreen(
           bookingCode: widget.bookingCode,
           hotelName: widget.hotelName,
-
           checkIn: widget.checkIn,
           checkOut: widget.checkOut,
           roomName: room.name.isNotEmpty ? room.name.first : '',
@@ -219,10 +282,9 @@ class _HotelBookingReviewScreenState extends State<HotelBookingReviewScreen> {
           currency: finalCurrency,
           email: email,
           phone: phone,
-          guestTitle: pax[0],
-          guestFirstName: pax[1],
-          guestLastName: pax[2],
-
+          guestTitle: title, // Now using actual selected title
+          guestFirstName: firstName,
+          guestLastName: lastName,
           hotelCode: hotelCode,
           hotelAddress: hotelAddress,
           hotelCity: hotelCity,
@@ -232,6 +294,18 @@ class _HotelBookingReviewScreenState extends State<HotelBookingReviewScreen> {
         ),
       ),
     );
+  }
+
+// Helper method to scroll to a specific section
+  void _scrollToSection(GlobalKey key) {
+    final context = key.currentContext;
+    if (context != null) {
+      Scrollable.ensureVisible(
+        context,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    }
   }
 
   @override
@@ -247,9 +321,9 @@ class _HotelBookingReviewScreenState extends State<HotelBookingReviewScreen> {
             padding: EdgeInsets.all(context.w(8)),
             child: Image.asset(
               "assets/images/wander_logo.png",
-              height: 35,
+              height: context.h(35),
               errorBuilder: (context, error, stackTrace) =>
-                  const Icon(Icons.hotel, size: 35),
+                  Icon(Icons.hotel, size: context.w(35)),
             ),
           ),
         ],
@@ -262,7 +336,6 @@ class _HotelBookingReviewScreenState extends State<HotelBookingReviewScreen> {
                 : null;
             _hotelResult = result;
             if (result != null && result.rooms.isNotEmpty) {
-              // Fetch live rate and convert to INR if price came in another currency
               _convertPrices(result.rooms.first, result.currency);
             }
           }
@@ -283,14 +356,14 @@ class _HotelBookingReviewScreenState extends State<HotelBookingReviewScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.error_outline, size: 64, color: Colors.red),
-                  const SizedBox(height: 16),
+                  Icon(Icons.error_outline, size: context.w(64), color: Colors.red),
+                  SizedBox(height: context.h(16)),
                   Text(
                     'Error: ${state.errorMessage}',
-                    style: TextStyle(fontSize: context.sp(16)),
+                    style: TextStyle(fontSize: context.fs(16)),
                     textAlign: TextAlign.center,
                   ),
-                  const SizedBox(height: 16),
+                  SizedBox(height: context.h(16)),
                   ElevatedButton(
                     onPressed: () {
                       context.read<HotelBookingBloc>().add(
@@ -326,7 +399,7 @@ class _HotelBookingReviewScreenState extends State<HotelBookingReviewScreen> {
                   controller: _scrollController,
                   physics: context.scrollPhysics,
                   child: Padding(
-                    padding: context.responsivePadding,
+                    padding: EdgeInsets.all(context.w(12)),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -342,36 +415,36 @@ class _HotelBookingReviewScreenState extends State<HotelBookingReviewScreen> {
                           roomName: room.name.isNotEmpty ? room.name.first : '',
                           isRefundable: room.isRefundable,
                         ),
-                        const SizedBox(height: 16),
+                        SizedBox(height: context.h(16)),
                         TravellerDetailsSection(
                           key: _travellerKey,
                           userEmail: widget.userEmail,
                           adults: widget.adults,
                         ),
-                        const SizedBox(height: 16),
+                        SizedBox(height: context.h(16)),
                         ContactInfoSection(
                           key: _contactKey,
                           userEmail: widget.userEmail,
                         ),
-                        const SizedBox(height: 16),
+                        SizedBox(height: context.h(16)),
                         RoomInfoSection(
                           room: room,
                           currency: hotelResult.currency,
                         ),
-                        const SizedBox(height: 16),
+                        SizedBox(height: context.h(16)),
                         PoliciesSection(
                           cancelPolicies: room.cancelPolicies,
                           rateConditions: hotelResult.rateConditions,
                         ),
-                        const SizedBox(height: 16),
+                        SizedBox(height: context.h(16)),
                         RoomAmenitiesSection(amenities: room.amenities),
-                        const SizedBox(height: 16),
+                        SizedBox(height: context.h(16)),
                         if (widget.hotelFacilities != null &&
                             widget.hotelFacilities!.isNotEmpty) ...[
                           HotelFacilitiesSection(
                             facilities: widget.hotelFacilities!,
                           ),
-                          const SizedBox(height: 16),
+                          SizedBox(height: context.h(16)),
                         ],
                         if (widget.hotelDescription != null &&
                             widget.hotelDescription!.isNotEmpty) ...[
@@ -379,9 +452,9 @@ class _HotelBookingReviewScreenState extends State<HotelBookingReviewScreen> {
                             description: widget.hotelDescription!,
                             hotelName: widget.hotelName,
                           ),
-                          const SizedBox(height: 16),
+                          SizedBox(height: context.h(16)),
                         ],
-                        const SizedBox(height: 16),
+                        SizedBox(height: context.h(15)),
 
                         FareDetailsSection(
                           baseFare: _inrBasePrice ?? room.basePrice,
@@ -393,14 +466,14 @@ class _HotelBookingReviewScreenState extends State<HotelBookingReviewScreen> {
                           onContinueToPayment: () =>
                               _navigateToPayment(room, hotelResult.currency),
                         ),
-                        const SizedBox(height: 100),
+                        SizedBox(height: context.h(20)),
                       ],
                     ),
                   ),
                 ),
                 Positioned(
-                  right: 16,
-                  bottom: 100,
+                  right: context.w(16),
+                  bottom: context.h(100),
                   child: AnimatedOpacity(
                     opacity: _showScrollToTop ? 1.0 : 0.0,
                     duration: const Duration(milliseconds: 300),

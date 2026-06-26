@@ -766,15 +766,15 @@ class _PriceSection extends StatelessWidget {
                 color: HotelCard._navy,
               ),
             ),
-            SizedBox(width: context.gapSmall),
-            Text(
-              'per night',
-              style: TextStyle(
-                color: HotelCard._muted,
-                fontSize: context.fs(12),
-                fontWeight: FontWeight.w600,
-              ),
-            ),
+            // SizedBox(width: context.gapSmall),
+            // Text(
+            //   'per night',
+            //   style: TextStyle(
+            //     color: HotelCard._muted,
+            //     fontSize: context.fs(12),
+            //     fontWeight: FontWeight.w600,
+            //   ),
+            // ),
           ],
         ),
         SizedBox(height: context.h(3)),

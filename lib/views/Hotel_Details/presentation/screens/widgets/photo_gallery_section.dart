@@ -6,6 +6,7 @@ class PhotoGallerySection extends StatefulWidget {
   final String hotelName;
   final int rating;
   final bool showMainImage;
+  final bool enableFullScreen;
 
   const PhotoGallerySection({
     super.key,
@@ -13,6 +14,7 @@ class PhotoGallerySection extends StatefulWidget {
     required this.hotelName,
     required this.rating,
     this.showMainImage = true,
+    required this.enableFullScreen,
   });
 
   @override
@@ -40,46 +42,112 @@ class _PhotoGallerySectionState extends State<PhotoGallerySection> {
     );
   }
 
+  void _showFullScreenImage(String imageUrl) {
+    if (!widget.enableFullScreen) return;
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierColor: Colors.black.withOpacity(0.9),
+      builder: (BuildContext context) {
+        return Dialog(
+          insetPadding: EdgeInsets.zero,
+          backgroundColor: Colors.transparent,
+          child: Stack(
+            children: [
+              // Full screen image
+              Positioned.fill(
+                child: GestureDetector(
+                  onTap: () => Navigator.of(context).pop(),
+                  child: Image.network(
+                    imageUrl,
+                    fit: BoxFit.contain,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Center(
+                        child: Icon(
+                          Icons.error,
+                          size: context.w(48),
+                          color: Colors.white,
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+              // Close button
+              Positioned(
+                top: context.h(40),
+                right: context.w(20),
+                child: GestureDetector(
+                  onTap: () => Navigator.of(context).pop(),
+                  child: Container(
+                    padding: EdgeInsets.all(context.w(8)),
+                    decoration: BoxDecoration(
+                      color: Colors.black54,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.close,
+                      color: Colors.white,
+                      size: context.w(24),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   Widget _buildMainImage() {
     return Stack(
       children: [
-        Container(
-          height: context.hp(35),
-          width: double.infinity,
-          decoration: BoxDecoration(
-            color: Colors.grey[300],
-          ),
-          child: widget.images.isNotEmpty
-              ? Image.network(
-            widget.images[_selectedImageIndex],
-            fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) {
-              print('PhotoGallerySection: Error loading image - $error');
-              return Center(
-                child: Icon(
-                  Icons.hotel,
-                  size: context.w(48),
-                  color: Colors.grey[400],
-                ),
-              );
-            },
-            loadingBuilder: (context, child, loadingProgress) {
-              if (loadingProgress == null) return child;
-              return Center(
-                child: CircularProgressIndicator(
-                  value: loadingProgress.expectedTotalBytes != null
-                      ? loadingProgress.cumulativeBytesLoaded /
-                      loadingProgress.expectedTotalBytes!
-                      : null,
-                ),
-              );
-            },
-          )
-              : Center(
-            child: Icon(
-              Icons.hotel,
-              size: context.w(48),
-              color: Colors.grey[400],
+        GestureDetector(
+          onTap: () {
+            if (widget.images.isNotEmpty) {
+              // _showFullScreenImage(widget.images[_selectedImageIndex]);
+              print('Main image tapped - full screen disabled');
+            }
+          },
+          child: Container(
+            height: context.hp(35),
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: Colors.grey[300],
+            ),
+            child: widget.images.isNotEmpty
+                ? Image.network(
+              widget.images[_selectedImageIndex],
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) {
+                print('PhotoGallerySection: Error loading image - $error');
+                return Center(
+                  child: Icon(
+                    Icons.hotel,
+                    size: context.w(48),
+                    color: Colors.grey[400],
+                  ),
+                );
+              },
+              loadingBuilder: (context, child, loadingProgress) {
+                if (loadingProgress == null) return child;
+                return Center(
+                  child: CircularProgressIndicator(
+                    value: loadingProgress.expectedTotalBytes != null
+                        ? loadingProgress.cumulativeBytesLoaded /
+                        loadingProgress.expectedTotalBytes!
+                        : null,
+                  ),
+                );
+              },
+            )
+                : Center(
+              child: Icon(
+                Icons.hotel,
+                size: context.w(48),
+                color: Colors.grey[400],
+              ),
             ),
           ),
         ),
@@ -201,6 +269,8 @@ class _PhotoGallerySectionState extends State<PhotoGallerySection> {
               setState(() {
                 _selectedImageIndex = actualIndex;
               });
+              // will show full image
+              // _showFullScreenImage(widget.images[actualIndex]);
             },
             child: Container(
               decoration: BoxDecoration(
@@ -227,6 +297,48 @@ class _PhotoGallerySectionState extends State<PhotoGallerySection> {
     );
   }
 
+  // Widget _buildPhotoGrid() {
+  //   return Container(
+  //     padding: context.responsivePadding,
+  //     color: Colors.white,
+  //     child: Column(
+  //       crossAxisAlignment: CrossAxisAlignment.start,
+  //       children: [
+  //         Text(
+  //           'All Photos',
+  //           style: TextStyle(
+  //             fontSize: context.fs(19),
+  //             fontWeight: FontWeight.bold,
+  //           ),
+  //         ),
+  //         SizedBox(height: context.h(16)),
+  //         GridView.builder(
+  //           shrinkWrap: true,
+  //           physics: const NeverScrollableScrollPhysics(),
+  //           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+  //             crossAxisCount: context.isMobile ? 2 : 3,
+  //             crossAxisSpacing: context.w(8),
+  //             mainAxisSpacing: context.h(8),
+  //             childAspectRatio: 1,
+  //           ),
+  //           itemCount: widget.images.length,
+  //           itemBuilder: (context, index) {
+  //             return ClipRRect(
+  //               borderRadius: BorderRadius.circular(context.r(8)),
+  //               child: Image.network(
+  //                 widget.images[index],
+  //                 fit: BoxFit.cover,
+  //                 errorBuilder: (context, error, stackTrace) {
+  //                   return Container(color: Colors.grey[300]);
+  //                 },
+  //               ),
+  //             );
+  //           },
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
   Widget _buildPhotoGrid() {
     return Container(
       padding: context.responsivePadding,
@@ -253,14 +365,17 @@ class _PhotoGallerySectionState extends State<PhotoGallerySection> {
             ),
             itemCount: widget.images.length,
             itemBuilder: (context, index) {
-              return ClipRRect(
-                borderRadius: BorderRadius.circular(context.r(8)),
-                child: Image.network(
-                  widget.images[index],
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Container(color: Colors.grey[300]);
-                  },
+              return GestureDetector(  // ✅ Wrap with GestureDetector
+                onTap: () => _showFullScreenImage(widget.images[index]),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(context.r(8)),
+                  child: Image.network(
+                    widget.images[index],
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Container(color: Colors.grey[300]);
+                    },
+                  ),
                 ),
               );
             },

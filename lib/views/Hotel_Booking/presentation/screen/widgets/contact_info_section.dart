@@ -39,44 +39,37 @@ class ContactInfoSectionState extends State<ContactInfoSection> {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(context.borderRadius),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(context.r(12)),
       ),
       child: Padding(
-        padding: context.responsivePadding,
+        padding: EdgeInsets.all(context.w(16)),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               'Contact Information',
               style: TextStyle(
-                fontSize: context.headlineSmall,
-                fontWeight: FontWeight.bold,
+                fontSize: context.fs(20),
+                fontWeight: FontWeight.w700,
                 color: Colors.black87,
               ),
             ),
-            const SizedBox(height: 6),
+            SizedBox(height: context.h(12)),
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: EdgeInsets.all(context.w(12)),
               decoration: BoxDecoration(
                 color: Colors.grey[100],
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(context.r(8)),
               ),
               child: Row(
                 children: [
-                  Icon(Icons.email, color: Colors.grey[600], size: context.sp(18)),
-                  const SizedBox(width: 12),
+                  Icon(Icons.email, color: Colors.grey[600], size: context.w(18)),
+                  SizedBox(width: context.w(12)),
                   Expanded(
                     child: Text(
                       'Your booking and hotel information will be sent here.',
                       style: TextStyle(
-                        fontSize: context.sp(14),
+                        fontSize: context.fs(14),
                         color: Colors.grey[700],
                       ),
                     ),
@@ -84,7 +77,7 @@ class ContactInfoSectionState extends State<ContactInfoSection> {
                 ],
               ),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: context.h(16)),
 
             // Phone Number Field
             Column(
@@ -93,40 +86,43 @@ class ContactInfoSectionState extends State<ContactInfoSection> {
                 Text(
                   'Phone Number *',
                   style: TextStyle(
-                    fontSize: context.sp(14),
+                    fontSize: context.fs(14),
                     fontWeight: FontWeight.w600,
                     color: Colors.black87,
                   ),
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: context.h(8)),
                 Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                      padding: EdgeInsets.symmetric(
+                          horizontal: context.w(12),
+                          vertical: context.h(14)
+                      ),
                       decoration: BoxDecoration(
                         border: Border.all(color: Colors.grey[300]!),
-                        borderRadius: const BorderRadius.only(
-                          topLeft: Radius.circular(8),
-                          bottomLeft: Radius.circular(8),
+                        borderRadius: BorderRadius.only(
+                          topLeft: Radius.circular(context.r(8)),
+                          bottomLeft: Radius.circular(context.r(8)),
                         ),
                       ),
                       child: Row(
                         children: [
                           Image.network(
                             'https://flagcdn.com/w40/in.png',
-                            width: 24,
+                            width: context.w(24),
                             errorBuilder: (context, error, stackTrace) =>
                             const Icon(Icons.flag, size: 24),
                           ),
-                          const SizedBox(width: 8),
+                          SizedBox(width: context.w(8)),
                           Text(
                             '+91',
                             style: TextStyle(
-                              fontSize: context.sp(14),
+                              fontSize: context.fs(14),
                               fontWeight: FontWeight.w600,
                             ),
                           ),
-                          const Icon(Icons.keyboard_arrow_down, size: 16),
+                          Icon(Icons.keyboard_arrow_down, size: context.w(16)),
                         ],
                       ),
                     ),
@@ -135,27 +131,30 @@ class ContactInfoSectionState extends State<ContactInfoSection> {
                         controller: _phoneController,
                         decoration: InputDecoration(
                           hintText: 'Enter phone number',
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                          contentPadding: EdgeInsets.symmetric(
+                              horizontal: context.w(12),
+                              vertical: context.h(14)
+                          ),
                           border: OutlineInputBorder(
-                            borderRadius: const BorderRadius.only(
-                              topRight: Radius.circular(8),
-                              bottomRight: Radius.circular(8),
+                            borderRadius: BorderRadius.only(
+                              topRight: Radius.circular(context.r(8)),
+                              bottomRight: Radius.circular(context.r(8)),
                             ),
                             borderSide: BorderSide(color: Colors.grey[300]!),
                           ),
                           enabledBorder: OutlineInputBorder(
-                            borderRadius: const BorderRadius.only(
-                              topRight: Radius.circular(8),
-                              bottomRight: Radius.circular(8),
+                            borderRadius: BorderRadius.only(
+                              topRight: Radius.circular(context.r(8)),
+                              bottomRight: Radius.circular(context.r(8)),
                             ),
                             borderSide: BorderSide(color: Colors.grey[300]!),
                           ),
-                          focusedBorder: const OutlineInputBorder(
+                          focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.only(
-                              topRight: Radius.circular(8),
-                              bottomRight: Radius.circular(8),
+                              topRight: Radius.circular(context.r(8)),
+                              bottomRight: Radius.circular(context.r(8)),
                             ),
-                            borderSide: BorderSide(color: Colors.blue, width: 2),
+                            borderSide: const BorderSide(color: Colors.blue, width: 2),
                           ),
                         ),
                         keyboardType: TextInputType.phone,
@@ -166,7 +165,7 @@ class ContactInfoSectionState extends State<ContactInfoSection> {
               ],
             ),
 
-            const SizedBox(height: 16),
+            SizedBox(height: context.h(16)),
 
             // Email Field
             Column(
@@ -175,28 +174,31 @@ class ContactInfoSectionState extends State<ContactInfoSection> {
                 Text(
                   'Email Address *',
                   style: TextStyle(
-                    fontSize: context.sp(14),
+                    fontSize: context.fs(14),
                     fontWeight: FontWeight.w600,
                     color: Colors.black87,
                   ),
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: context.h(8)),
                 TextField(
                   controller: _emailController,
                   decoration: InputDecoration(
                     hintText: 'Enter email address',
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                    contentPadding: EdgeInsets.symmetric(
+                        horizontal: context.w(12),
+                        vertical: context.h(14)
+                    ),
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(context.r(8)),
                       borderSide: BorderSide(color: Colors.grey[300]!),
                     ),
                     enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(context.r(8)),
                       borderSide: BorderSide(color: Colors.grey[300]!),
                     ),
-                    focusedBorder: const OutlineInputBorder(
-                      // borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(color: Colors.blue, width: 2),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(context.r(8)),
+                      borderSide: const BorderSide(color: Colors.blue, width: 2),
                     ),
                   ),
                 ),

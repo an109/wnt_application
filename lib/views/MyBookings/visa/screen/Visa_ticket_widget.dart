@@ -138,7 +138,7 @@ class VisaTicketWidget extends StatelessWidget {
                       ? "Your visa application is being processed"
                       : (isCancelled
                       ? "This visa application has been cancelled"
-                      : "Your visa has been approved successfully"),
+                      : "Your visa apploication is under processing"),
                   style: TextStyle(
                     fontSize: context.fs(10),
                     color: AppColors.textSecondary,

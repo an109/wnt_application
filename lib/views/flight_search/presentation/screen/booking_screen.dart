@@ -34,6 +34,9 @@ class FlightRouteSegment {
   final String? resultFareType;
   final FareQuoteData? fareQuoteData;
 
+  final String? departureDate;
+  final String? flightType;
+
   FlightRouteSegment({
     required this.from,
     required this.to,
@@ -50,6 +53,8 @@ class FlightRouteSegment {
     this.isHoldAllowed,
     this.resultFareType,
     this.fareQuoteData,
+    this.departureDate,    // NEW
+    this.flightType,
   });
 
   factory FlightRouteSegment.fromFareQuoteEntity({
@@ -86,6 +91,8 @@ class FlightRouteSegment {
               rawItinerary: results?.raw ?? const {},
             )
           : null,
+      departureDate: original.departureDate,
+      flightType: original.flightType,
     );
   }
 }
@@ -417,7 +424,7 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
     return Container(
       padding: EdgeInsets.all(context.w(14)),
       decoration: BoxDecoration(
-        // color: Colors.white,
+        color: Colors.white,
         // borderRadius: BorderRadius.circular(9),
         border: Border.all(color: _border),
         boxShadow: [
@@ -685,8 +692,8 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
     return Container(
       padding: EdgeInsets.all(context.w(12)),
       decoration: BoxDecoration(
-        // color: Colors.white,
-        // borderRadius: BorderRadius.circular(8),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
         border: Border.all(color: _border),
         boxShadow: [
           BoxShadow(
