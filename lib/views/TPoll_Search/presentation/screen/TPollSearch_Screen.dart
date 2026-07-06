@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import '../../../../UI_helper/currency_converter.dart';
+import '../../../../common_widgets/Transport_loading.dart';
+import '../../../../common_widgets/hotel_loading_indicator.dart';
 import '../../../../common_widgets/logo.dart';
 import '../../../../core/utils/storage/shared_preference.dart';
 import '../../../../injection_container.dart';
@@ -548,31 +550,32 @@ class _TpollSearchResultsPageState extends State<TpollSearchResultsPage> {
   }
 
   Widget _buildLoadingView() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const CircularProgressIndicator(color: _primaryOrange),
-          SizedBox(height: context.hp(2)),
-          Text(
-            'Finding the best rides for you...',
-            style: TextStyle(
-              color: _darkNavy,
-              fontSize: context.titleSmall,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          SizedBox(height: context.hp(1)),
-          Text(
-            'Searching across multiple providers',
-            style: TextStyle(
-              color: Colors.grey.shade500,
-              fontSize: context.bodyMedium,
-            ),
-          ),
-        ],
-      ),
-    );
+    return const TransportLoadingIndicator();
+    // return Center(
+    //   child: Column(
+    //     mainAxisAlignment: MainAxisAlignment.center,
+    //     children: [
+    //       const CircularProgressIndicator(color: _primaryOrange),
+    //       SizedBox(height: context.hp(2)),
+    //       Text(
+    //         'Finding the best rides for you...',
+    //         style: TextStyle(
+    //           color: _darkNavy,
+    //           fontSize: context.titleSmall,
+    //           fontWeight: FontWeight.w500,
+    //         ),
+    //       ),
+    //       SizedBox(height: context.hp(1)),
+    //       Text(
+    //         'Searching across multiple providers',
+    //         style: TextStyle(
+    //           color: Colors.grey.shade500,
+    //           fontSize: context.bodyMedium,
+    //         ),
+    //       ),
+    //     ],
+    //   ),
+    // );
   }
 
   Widget _buildEmptyView() {

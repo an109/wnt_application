@@ -7,6 +7,15 @@ abstract class GeneralSettingsEvent extends Equatable {
   List<Object?> get props => [];
 }
 
+class LoadPromoCodes extends GeneralSettingsEvent {
+  final String? domain;
+
+  const LoadPromoCodes({this.domain});
+
+  @override
+  List<Object?> get props => [domain];
+}
+
 class LoadGeneralSettings extends GeneralSettingsEvent {
   final String? domain;
 

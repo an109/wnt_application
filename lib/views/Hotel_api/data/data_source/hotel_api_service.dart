@@ -39,7 +39,7 @@ class HotelApiServiceImpl implements HotelApiService {
         'IsDetailedResponse': true,
         'Filters': filters ?? {
           'Refundable': false,
-          'NoofRooms': 0,
+          'NoOfRooms': 0,
           'MealType': 'All',
         },
         'PaxRooms': paxRooms ?? [

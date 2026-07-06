@@ -77,6 +77,26 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
     }
   }
 
+  Future<void> _addToSearchHistory() async {
+    try {
+      final prefsManager =
+          await PreferencesManager.create(await SharedPreferences.getInstance());
+      final searchData = {
+        'type': 'hotel',
+        'destination': _destinationToJson(_selectedDestination),
+        'checkInDate': _checkInDate?.toIso8601String(),
+        'checkOutDate': _checkOutDate?.toIso8601String(),
+        'rooms': _rooms
+            .map((r) => {'adults': r.adults, 'children': r.children})
+            .toList(),
+        'timestamp': DateTime.now().toIso8601String(),
+      };
+      await prefsManager.addToSearchHistory(searchData);
+    } catch (e) {
+      debugPrint('Error adding hotel search to history: $e');
+    }
+  }
+
   Future<void> _loadLastSearch() async {
     try {
       final prefsManager =
@@ -577,6 +597,7 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
 
     // Persist this search so the form is prefilled next time.
     _saveLastSearch();
+    _addToSearchHistory();
 
     final checkInFormatted = DateFormat('yyyy-MM-dd').format(_checkInDate!);
     final checkOutFormatted = DateFormat('yyyy-MM-dd').format(_checkOutDate!);

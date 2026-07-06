@@ -12,7 +12,6 @@ import '../../../signup/presentation/bloc/signup_bloc.dart';
 import '../../../signup/presentation/bloc/signup_event.dart';
 import '../../../signup/presentation/bloc/signup_state.dart';
 
-// enum ContactType { email, phone }
 
 class CompleteProfilePopup extends StatefulWidget {
   final String contact;
@@ -101,11 +100,7 @@ class _CompleteProfilePopupState extends State<CompleteProfilePopup> {
                                   color: const Color(0xffFFEAEA),
                                   borderRadius: BorderRadius.circular(12),
                                 ),
-                                child: Icon(
-                                  Icons.flight_takeoff_rounded,
-                                  color: const Color(0xffFF3B42),
-                                  size: context.iconMedium,
-                                ),
+                                child: Image.asset('assets/images/wander_nova_logo.jpg'),
                               ),
                               SizedBox(width: context.wp(3)),
                               Expanded(
@@ -115,7 +110,7 @@ class _CompleteProfilePopupState extends State<CompleteProfilePopup> {
                                     Text(
                                       "WANDER NOVA",
                                       style: TextStyle(
-                                        fontSize: context.sp(20),
+                                        fontSize: context.sp(17),
                                         fontWeight: FontWeight.w800,
                                         color: Colors.black,
                                       ),
@@ -124,7 +119,7 @@ class _CompleteProfilePopupState extends State<CompleteProfilePopup> {
                                     Text(
                                       "Your Reliable Travel Partner.",
                                       style: TextStyle(
-                                        fontSize: context.sp(12),
+                                        fontSize: context.sp(11),
                                         color: Colors.grey.shade600,
                                       ),
                                     ),
@@ -155,7 +150,7 @@ class _CompleteProfilePopupState extends State<CompleteProfilePopup> {
                           Text(
                             'Complete Your Profile',
                             style: TextStyle(
-                              fontSize: context.sp(24),
+                              fontSize: context.sp(20),
                               fontWeight: FontWeight.w800,
                             ),
                           ),
@@ -166,7 +161,7 @@ class _CompleteProfilePopupState extends State<CompleteProfilePopup> {
                           Text(
                             'Set up your account for ${widget.contact}',
                             style: TextStyle(
-                              fontSize: context.sp(15),
+                              fontSize: context.sp(12),
                               color: Colors.grey.shade600,
                             ),
                           ),
@@ -196,7 +191,7 @@ class _CompleteProfilePopupState extends State<CompleteProfilePopup> {
                                 Text(
                                   '${widget.contactType == ContactType.email ? "Email" : "Mobile number"} verified',
                                   style: TextStyle(
-                                    fontSize: context.sp(13),
+                                    fontSize: context.sp(11),
                                     color: Colors.green.shade700,
                                     fontWeight: FontWeight.w500,
                                   ),
@@ -222,7 +217,7 @@ class _CompleteProfilePopupState extends State<CompleteProfilePopup> {
                                           Text(
                                             'First Name',
                                             style: TextStyle(
-                                              fontSize: context.sp(16),
+                                              fontSize: context.sp(13),
                                               fontWeight: FontWeight.w700,
                                             ),
                                           ),
@@ -242,7 +237,7 @@ class _CompleteProfilePopupState extends State<CompleteProfilePopup> {
                                           Text(
                                             'Last Name',
                                             style: TextStyle(
-                                              fontSize: context.sp(16),
+                                              fontSize: context.sp(13),
                                               fontWeight: FontWeight.w700,
                                             ),
                                           ),
@@ -263,7 +258,7 @@ class _CompleteProfilePopupState extends State<CompleteProfilePopup> {
                                 Text(
                                   'Password',
                                   style: TextStyle(
-                                    fontSize: context.sp(16),
+                                    fontSize: context.sp(13),
                                     fontWeight: FontWeight.w700,
                                   ),
                                 ),
@@ -285,7 +280,7 @@ class _CompleteProfilePopupState extends State<CompleteProfilePopup> {
                                 Text(
                                   'Confirm Password',
                                   style: TextStyle(
-                                    fontSize: context.sp(16),
+                                    fontSize: context.sp(13),
                                     fontWeight: FontWeight.w700,
                                   ),
                                 ),
@@ -339,7 +334,7 @@ class _CompleteProfilePopupState extends State<CompleteProfilePopup> {
                                               : Text(
                                             'Create Account',
                                             style: TextStyle(
-                                              fontSize: context.sp(18),
+                                              fontSize: context.sp(15),
                                               fontWeight: FontWeight.w700,
                                               color: Colors.white,
                                             ),
@@ -507,7 +502,7 @@ class _CompleteProfilePopupState extends State<CompleteProfilePopup> {
       ),
       child: TextFormField(
         controller: controller,
-        style: TextStyle(fontSize: context.sp(15)),
+        style: TextStyle(fontSize: context.sp(13)),
         decoration: InputDecoration(
           hintText: hintText,
           hintStyle: TextStyle(color: Colors.grey.shade400),
@@ -542,7 +537,7 @@ class _CompleteProfilePopupState extends State<CompleteProfilePopup> {
       child: TextFormField(
         controller: controller,
         obscureText: obscureText,
-        style: TextStyle(fontSize: context.sp(15)),
+        style: TextStyle(fontSize: context.sp(13)),
         decoration: InputDecoration(
           hintText: hintText,
           hintStyle: TextStyle(color: Colors.grey.shade400),

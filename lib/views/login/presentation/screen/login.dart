@@ -356,13 +356,14 @@ class _LoginSignupScreenState extends State<LoginSignupScreen> {
                                             context.r(10),
                                           ),
                                         ),
-                                        child: Icon(
-                                          Icons.flight_takeoff_rounded,
-                                          color: const Color(0xffFF3B42),
-                                          size: context.iconSmall, // Reduced from iconMedium
-                                        ),
+                                        // child: Icon(
+                                        //   Icons.flight_takeoff_rounded,
+                                        //   color: const Color(0xffFF3B42),
+                                        //   size: context.iconSmall, // Reduced from iconMedium
+                                        // ),
+                                        child: Image.asset('assets/images/wander_nova_logo.jpg'),
                                       ),
-                                      SizedBox(width: context.w(10)), // Reduced from 12
+                                      SizedBox(width: context.w(55)), 
                                       Expanded(
                                         child: Column(
                                           crossAxisAlignment: CrossAxisAlignment.start,

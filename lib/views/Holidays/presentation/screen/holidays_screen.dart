@@ -76,102 +76,131 @@ class _HolidaysScreenState extends State<HolidaysScreen> {
             ),
           ],
         ),
+        // body: Container(
+        //   color: const Color(0xFFF8F9FA),
+        //   child: CustomScrollView(
+        //     physics: context.scrollPhysics,
+        //     slivers: [
+        //       /// HERO SECTION
+        //       SliverToBoxAdapter(
+        //         child: Stack(
+        //           clipBehavior: Clip.none,
+        //           children: [
+        //             /// BACKGROUND IMAGE
+        //             SizedBox(
+        //               height: context.isMobile
+        //                   ? context.hp(45)
+        //                   : context.hp(50),
+        //               width: double.infinity,
+        //               child:
+        //               _holidayHeroImage != null &&
+        //                   _holidayHeroImage!.isNotEmpty
+        //                   ? Image.network(
+        //                 _holidayHeroImage!,
+        //                 fit: BoxFit.cover,
+        //                 loadingBuilder:
+        //                     (context, child, loadingProgress) {
+        //                   if (loadingProgress == null) return child;
+        //                   return Container(
+        //                     color: const Color(0xFFE0E0E0),
+        //                     child: Center(
+        //                       child: CircularProgressIndicator(
+        //                         value:
+        //                         loadingProgress
+        //                             .expectedTotalBytes !=
+        //                             null
+        //                             ? loadingProgress
+        //                             .cumulativeBytesLoaded /
+        //                             loadingProgress
+        //                                 .expectedTotalBytes!
+        //                             : null,
+        //                       ),
+        //                     ),
+        //                   );
+        //                 },
+        //                 errorBuilder: (context, error, stackTrace) {
+        //                   return Container(
+        //                     color: const Color(0xFFE0E0E0),
+        //                   );
+        //                 },
+        //               )
+        //                   : Container(color: const Color(0xFFE0E0E0)),
+        //             ),
+        //
+        //             /// DARK OVERLAY
+        //             IgnorePointer(
+        //               ignoring: true,
+        //               child: Container(
+        //                 height: context.isMobile
+        //                     ? context.hp(45)
+        //                     : context.hp(50),
+        //                 color: Colors.black.withOpacity(0.35),
+        //               ),
+        //             ),
+        //
+        //             /// SEARCH / BANNER CARD
+        //             Positioned(
+        //               left: context.wp(2),
+        //               right: context.wp(2),
+        //               bottom: -context.hp(-2),
+        //               child: const Material(
+        //                 color: Colors.transparent,
+        //                 child: HolidaysSearchCard(),
+        //               ),
+        //             ),
+        //           ],
+        //         ),
+        //       ),
+        //
+        //       const SliverToBoxAdapter(child: SizedBox(height: 20)),
+        //       SliverToBoxAdapter(
+        //         child: BlocProvider<ExclusiveDealsBloc>(
+        //           create: (context) => sl<ExclusiveDealsBloc>(),
+        //           child: const TransportExclusiveDealsSection(),
+        //         ),
+        //       ),
+        //
+        //       const SliverToBoxAdapter(child: TravelStoriesSection()),
+        //       SliverToBoxAdapter(
+        //         child: BlocProvider(
+        //           create: (_) => sl<GeneralSettingsBloc>()
+        //             ..add(const LoadGeneralSettings(domain: 'thewandernova.com')),
+        //           child: const AboutCompanySection(),
+        //         ),
+        //       ),
+        //
+        //       SliverToBoxAdapter(
+        //         child: BlocProvider(
+        //           create: (_) => sl<GeneralSettingsBloc>()
+        //             ..add(const LoadGeneralSettings(domain: 'thewandernova.com')),
+        //           child: const ServicesInfoSection(),
+        //         ),
+        //       ),
+        //
+        //       SliverToBoxAdapter(child: SizedBox(height: context.hp(5))),
+        //     ],
+        //   ),
+        // ),
         body: Container(
           color: const Color(0xFFF8F9FA),
           child: CustomScrollView(
             physics: context.scrollPhysics,
             slivers: [
-              /// HERO SECTION
+              /// SEARCH CARD SECTION (removed background image)
               SliverToBoxAdapter(
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    /// BACKGROUND IMAGE
-                    SizedBox(
-                      height: context.isMobile
-                          ? context.hp(45)
-                          : context.hp(50),
-                      width: double.infinity,
-                      child:
-                      _holidayHeroImage != null &&
-                          _holidayHeroImage!.isNotEmpty
-                          ? Image.network(
-                        _holidayHeroImage!,
-                        fit: BoxFit.cover,
-                        loadingBuilder:
-                            (context, child, loadingProgress) {
-                          if (loadingProgress == null) return child;
-                          return Container(
-                            color: const Color(0xFFE0E0E0),
-                            child: Center(
-                              child: CircularProgressIndicator(
-                                value:
-                                loadingProgress
-                                    .expectedTotalBytes !=
-                                    null
-                                    ? loadingProgress
-                                    .cumulativeBytesLoaded /
-                                    loadingProgress
-                                        .expectedTotalBytes!
-                                    : null,
-                              ),
-                            ),
-                          );
-                        },
-                        errorBuilder: (context, error, stackTrace) {
-                          return Container(
-                            color: const Color(0xFFE0E0E0),
-                          );
-                        },
-                      )
-                          : Container(color: const Color(0xFFE0E0E0)),
-                    ),
-
-                    /// DARK OVERLAY
-                    IgnorePointer(
-                      ignoring: true,
-                      child: Container(
-                        height: context.isMobile
-                            ? context.hp(45)
-                            : context.hp(50),
-                        color: Colors.black.withOpacity(0.35),
-                      ),
-                    ),
-
-                    /// TITLE
-                    // Positioned(
-                    //   top: context.hp(6),
-                    //   left: context.wp(5),
-                    //   child: Row(
-                    //     children: [
-                    //       SizedBox(width: context.wp(2.2)),
-                    //       Text(
-                    //         "Holiday Packages",
-                    //         style: TextStyle(
-                    //           color: Colors.white,
-                    //           fontSize: context.isMobile ? 24 : 32,
-                    //           fontWeight: FontWeight.bold,
-                    //         ),
-                    //       ),
-                    //     ],
-                    //   ),
-                    // ),
-
-                    /// SEARCH / BANNER CARD
-                    Positioned(
-                      left: context.wp(2),
-                      right: context.wp(2),
-                      bottom: -context.hp(-2),
-                      child: const Material(
-                        color: Colors.transparent,
-                        child: HolidaysSearchCard(),
-                      ),
-                    ),
-                  ],
+                child: Padding(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: context.wp(2),
+                    vertical: context.hp(2),
+                  ),
+                  child: const Material(
+                    color: Colors.transparent,
+                    child: HolidaysSearchCard(),
+                  ),
                 ),
               ),
 
-              const SliverToBoxAdapter(child: SizedBox(height: 20)),
+              /// EXCLUSIVE DEALS SECTION
               SliverToBoxAdapter(
                 child: BlocProvider<ExclusiveDealsBloc>(
                   create: (context) => sl<ExclusiveDealsBloc>(),
@@ -179,7 +208,10 @@ class _HolidaysScreenState extends State<HolidaysScreen> {
                 ),
               ),
 
+              /// TRAVEL STORIES SECTION
               const SliverToBoxAdapter(child: TravelStoriesSection()),
+
+              /// ABOUT COMPANY SECTION
               SliverToBoxAdapter(
                 child: BlocProvider(
                   create: (_) => sl<GeneralSettingsBloc>()
@@ -188,6 +220,7 @@ class _HolidaysScreenState extends State<HolidaysScreen> {
                 ),
               ),
 
+              /// SERVICES INFO SECTION
               SliverToBoxAdapter(
                 child: BlocProvider(
                   create: (_) => sl<GeneralSettingsBloc>()
@@ -196,6 +229,7 @@ class _HolidaysScreenState extends State<HolidaysScreen> {
                 ),
               ),
 
+              /// BOTTOM SPACER
               SliverToBoxAdapter(child: SizedBox(height: context.hp(5))),
             ],
           ),

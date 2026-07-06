@@ -59,6 +59,58 @@ class CCAvenueService {
     );
   }
 
+  /// Calls the wallet `add-money` endpoint to create a pending wallet
+  /// transaction record and get back a CCAvenue checkout URL + wallet reference.
+  /// Use the returned [WalletTopUpSession] to open the WebView, then call
+  /// [verifyWalletPayment] with [WalletTopUpSession.walletReference] on success.
+  Future<WalletTopUpSession> initiateWalletTopUp({
+    required double amount,
+    String currency = 'INR',
+  }) async {
+    final res = await _dio.post(
+      Urls.walletAddMoney,
+      data: {
+        'amount': amount,
+        'currency': currency,
+        'payment_method': 'ccavenue',
+      },
+    );
+    final body = (res.data as Map).cast<String, dynamic>();
+    if ((res.statusCode == 200 || res.statusCode == 201) &&
+        body['success'] == true) {
+      final checkoutUrl = body['checkout_url'] as String? ?? body['url'] as String? ?? '';
+      final reference = body['reference'] as String? ?? body['order_id'] as String? ?? '';
+      final orderId = body['order_id'] as String? ?? reference;
+      if (checkoutUrl.isEmpty || reference.isEmpty) {
+        throw CCAvenueException('Invalid add-money response from server');
+      }
+      return WalletTopUpSession(
+        checkoutUrl: checkoutUrl,
+        orderId: orderId,
+        walletReference: reference,
+      );
+    }
+    throw CCAvenueException(
+      body['error']?.toString() ?? 'Failed to initiate wallet top-up',
+    );
+  }
+
+  /// Notifies the wallet backend that a top-up payment completed so it can
+  /// credit the wallet. Must be called after [getStatus] returns `"success"`
+  /// for wallet transactions.
+  Future<void> verifyWalletPayment(String reference) async {
+    final res = await _dio.post(
+      Urls.walletVerifyPayment,
+      data: {'reference': reference},
+    );
+    final body = (res.data as Map).cast<String, dynamic>();
+    if (res.statusCode != 200 && res.statusCode != 201) {
+      throw CCAvenueException(
+        body['error']?.toString() ?? 'Wallet verify-payment failed',
+      );
+    }
+  }
+
   /// Polls the backend for the authoritative final status.
   /// Returns one of: pending | success | failure | aborted.
   Future<String> getStatus(String orderId) async {
@@ -77,6 +129,17 @@ class CheckoutSession {
   CheckoutSession({required this.checkoutUrl, required this.orderId});
   final String checkoutUrl;
   final String orderId;
+}
+
+class WalletTopUpSession {
+  WalletTopUpSession({
+    required this.checkoutUrl,
+    required this.orderId,
+    required this.walletReference,
+  });
+  final String checkoutUrl;
+  final String orderId;
+  final String walletReference;
 }
 
 class CCAvenueException implements Exception {

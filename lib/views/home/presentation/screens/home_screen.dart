@@ -7,6 +7,7 @@ import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import 'package:wander_nova/common_widgets/custom_drawer.dart';
 import 'package:wander_nova/core/resources/app_colours.dart';
 import 'package:wander_nova/core/utils/storage/shared_preference.dart';
+import 'package:wander_nova/views/T_location/presentation/screen/booking_card.dart';
 import '../../../../common_widgets/logo.dart';
 import '../../../../injection_container.dart';
 import '../../../ExclusiveDeals/presentation/bloc/exclusive_deals_bloc.dart';
@@ -19,7 +20,6 @@ import '../../../MainApi/domain/entities/general_setting_entity.dart';
 import '../../../MainApi/presentation/bloc/general_setting_bloc.dart';
 import '../../../MainApi/presentation/bloc/general_settings_event.dart';
 import '../../../MainApi/presentation/bloc/general_settings_state.dart';
-import '../../../T_location/presentation/screen/booking_card.dart';
 import '../../../Transport/screen/transport_screen.dart';
 import '../../../airport/presentation/screen/search_card.dart';
 import '../../../travel_stories/presentation/screen/travel_stories.dart';
@@ -65,10 +65,24 @@ class _HomeScreenState extends State<HomeScreen> {
       final seen = <String>{};
       final unique = <Map<String, dynamic>>[];
       for (final item in history) {
-        final fromCode = (item['fromAirport']?['code'] ?? '').toString();
-        final toCode = (item['toAirport']?['code'] ?? '').toString();
-        if (fromCode.isEmpty || toCode.isEmpty) continue;
-        if (seen.add('$fromCode-$toCode')) unique.add(item);
+        final type = (item['type'] ?? 'flight').toString();
+        String key;
+        if (type == 'hotel') {
+          final destId = (item['destination']?['id'] ?? '').toString();
+          if (destId.isEmpty) continue;
+          key = 'hotel-$destId';
+        } else if (type == 'transport') {
+          final pickupId = (item['pickup']?['id'] ?? '').toString();
+          final dropoffId = (item['dropoff']?['id'] ?? '').toString();
+          if (pickupId.isEmpty || dropoffId.isEmpty) continue;
+          key = 'transport-$pickupId-$dropoffId';
+        } else {
+          final fromCode = (item['fromAirport']?['code'] ?? '').toString();
+          final toCode = (item['toAirport']?['code'] ?? '').toString();
+          if (fromCode.isEmpty || toCode.isEmpty) continue;
+          key = 'flight-$fromCode-$toCode';
+        }
+        if (seen.add(key)) unique.add(item);
         if (unique.length >= 5) break;
       }
 
@@ -107,10 +121,10 @@ class _HomeScreenState extends State<HomeScreen> {
       title: "Holidays",
       icon: Icons.beach_access_rounded,
     ),
-    // HomeServiceTab(
-    //   title: "Visa",
-    //   icon: Icons.article_outlined,
-    // ),
+    HomeServiceTab(
+      title: "Visa",
+      icon: Icons.article_outlined,
+    ),
     HomeServiceTab(
       title: "Cabs",
       icon: Icons.local_taxi_rounded,
@@ -172,18 +186,18 @@ class _HomeScreenState extends State<HomeScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _buildHeroCard(context).animate().fadeIn(duration: 500.ms).slideY(begin: -0.15),
-                      SizedBox(height: context.h(24)),
-                      Text(
-                        'More Services',
-                        style: TextStyle(
-                          fontSize: context.titleLarge,
-                          fontWeight: FontWeight.w800,
-                          color: Colors.black87,
-                          letterSpacing: context.letterSpacingTight,
-                        ),
-                      ),
-                      SizedBox(height: context.h(16)),
-                      _buildAdditionalServicesGrid(context),
+                      SizedBox(height: context.h(6)),
+                      // Text(
+                      //   'More Services',
+                      //   style: TextStyle(
+                      //     fontSize: context.titleLarge,
+                      //     fontWeight: FontWeight.w800,
+                      //     color: Colors.black87,
+                      //     letterSpacing: context.letterSpacingTight,
+                      //   ),
+                      // ),
+                      // SizedBox(height: context.h(16)),
+                      // _buildAdditionalServicesGrid(context),
                       SizedBox(height: context.h(20)),
                       _buildRecentSearchesSection(context),
                     ],
@@ -273,7 +287,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final borderRadius = BorderRadius.circular(context.r(8));
     return Container(
       decoration: BoxDecoration(
-        // borderRadius: borderRadius,
+        borderRadius: borderRadius,
         boxShadow: [
           BoxShadow(
             color: Colors.blue.withOpacity(.25),
@@ -289,7 +303,7 @@ class _HomeScreenState extends State<HomeScreen> {
             // Background fills the area sized by the content column below.
             Positioned.fill(child: _buildHeroBackground(context, bannerUrl)),
             Padding(
-              padding: EdgeInsets.all(context.w(12)), // 12px on design
+              padding: EdgeInsets.all(context.w(10)), // 12px on design
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -439,9 +453,9 @@ class _HomeScreenState extends State<HomeScreen> {
         return const HotelSearchCard(key: ValueKey("hotel"));
       case 2:
         return const HolidaysSearchCard(key: ValueKey("holiday"));
-      // case 3:
-      //   return const VisaBannerSection(key: ValueKey("visa"));
       case 3:
+        return const VisaBannerSection(key: ValueKey("visa"));
+      case 4:
         return TransportBookingCard(
           key: const ValueKey("cab"),
           isOneWay: isOneWay,
@@ -702,26 +716,55 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildRecentSearchCard(
-      BuildContext context, {
-        required String from,
-        required String to,
-        required String route,
-        required String date,
-      }) {
+  Widget _buildRecentSearchCard(BuildContext context, Map<String, dynamic> search) {
+    final type = (search['type'] ?? 'flight').toString();
+
+    String typeLabel;
+    String primaryLine;
+    String secondaryLine;
+    String date;
+
+    if (type == 'hotel') {
+      typeLabel = 'Hotel';
+      final dest = search['destination'];
+      primaryLine = (dest?['name'] ?? '').toString();
+      final checkIn = _formatSearchDate(search['checkInDate']);
+      final checkOut = _formatSearchDate(search['checkOutDate']);
+      secondaryLine = checkIn.isNotEmpty ? '$checkIn → $checkOut' : '';
+      date = checkIn;
+    } else if (type == 'transport') {
+      typeLabel = 'Cab';
+      final pickup = search['pickup'];
+      final dropoff = search['dropoff'];
+      final pickupName = (pickup?['city'] ?? pickup?['label'] ?? pickup?['name'] ?? '').toString();
+      final dropoffName = (dropoff?['city'] ?? dropoff?['label'] ?? dropoff?['name'] ?? '').toString();
+      primaryLine = pickupName;
+      secondaryLine = dropoffName;
+      date = _formatSearchDate(search['pickupDate']);
+    } else {
+      typeLabel = 'Flight';
+      final from = search['fromAirport'];
+      final to = search['toAirport'];
+      final fromCity = (from?['city'] ?? '').toString();
+      final toCity = (to?['city'] ?? '').toString();
+      primaryLine = '${(from?['code'] ?? '').toString()}  →  ${(to?['code'] ?? '').toString()}';
+      secondaryLine = '$fromCity → $toCity';
+      date = _formatSearchDate(search['departureDate']);
+    }
+
     return Container(
-      width: context.w(240), // 240px on design (60% of 375 = 225, using 240 for better fit)
-      margin: EdgeInsets.only(right: context.w(12)), // 12px on design
-      padding: EdgeInsets.all(context.w(12)), // 12px on design
+      width: context.w(240),
+      margin: EdgeInsets.only(right: context.w(12)),
+      padding: EdgeInsets.all(context.w(15)),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(context.r(16)), // 16px on design
+        borderRadius: BorderRadius.circular(context.r(16)),
         border: Border.all(color: Colors.grey.shade200),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
-            blurRadius: context.w(8), // 8px on design
-            offset: Offset(0, context.h(4)), // 4px on design
+            blurRadius: context.w(8),
+            offset: Offset(0, context.h(4)),
           ),
         ],
       ),
@@ -732,7 +775,7 @@ class _HomeScreenState extends State<HomeScreen> {
           Row(
             children: [
               Text(
-                "Flight",
+                typeLabel,
                 style: TextStyle(
                   fontSize: context.bodyMedium,
                   color: AppColors.primary,
@@ -750,32 +793,21 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ],
           ),
-          SizedBox(height: context.h(10)), // 10px on design
-          Row(
-            children: [
-              Text(
-                from,
-                style: TextStyle(
-                  fontWeight: FontWeight.w800,
-                  fontSize: context.titleMedium,
-                ),
-              ),
-              Padding(
-                padding: EdgeInsets.symmetric(horizontal: context.w(8)), // 8px on design
-                child: const Icon(Icons.arrow_forward, size: 18, color: Color(0xFF003B95)),
-              ),
-              Text(
-                to,
-                style: TextStyle(
-                  fontWeight: FontWeight.w800,
-                  fontSize: context.titleMedium,
-                ),
-              ),
-            ],
+          SizedBox(height: context.h(10)),
+          Text(
+            primaryLine,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontWeight: FontWeight.w800,
+              fontSize: context.titleMedium,
+            ),
           ),
           SizedBox(height: context.h(6)),
           Text(
-            route,
+            secondaryLine,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: TextStyle(
               color: Colors.grey.shade700,
               fontWeight: FontWeight.w500,
@@ -803,24 +835,12 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         SizedBox(height: context.h(12)), // 12px on design
         SizedBox(
-          height: context.h(120), // 120px on design (approximately 14% of 812)
+          height: context.h(105),
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             itemCount: _recentSearches.length,
-            itemBuilder: (context, index) {
-              final search = _recentSearches[index];
-              final from = search['fromAirport'];
-              final to = search['toAirport'];
-              final fromCity = (from?['city'] ?? '').toString();
-              final toCity = (to?['city'] ?? '').toString();
-              return _buildRecentSearchCard(
-                context,
-                from: (from?['code'] ?? '').toString(),
-                to: (to?['code'] ?? '').toString(),
-                route: "$fromCity → $toCity",
-                date: _formatSearchDate(search['departureDate']),
-              );
-            },
+            itemBuilder: (context, index) =>
+                _buildRecentSearchCard(context, _recentSearches[index]),
           ),
         ),
       ],

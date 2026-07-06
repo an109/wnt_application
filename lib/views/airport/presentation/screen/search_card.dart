@@ -233,7 +233,7 @@ class _SearchCardState extends State<SearchCard> {
       ),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(context.r(6)),
+        borderRadius: BorderRadius.circular(context.r(22)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.06),

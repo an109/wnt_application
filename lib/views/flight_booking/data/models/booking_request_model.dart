@@ -202,53 +202,90 @@ Map<String, dynamic> buildItinerary(
     final firstSeg = flatSegs[0];
     final lastSeg  = flatSegs[flatSegs.length - 1];
 
+    String firstOriginCode = '';
     if (firstSeg is Map) {
       final originObj = firstSeg['Origin'];
       if (originObj is Map) {
         final airportObj = originObj['Airport'];
-        if (airportObj is Map && !result.containsKey('Origin')) {
-          result['Origin'] = airportObj['AirportCode'] ?? '';
+        if (airportObj is Map) {
+          firstOriginCode = (airportObj['AirportCode'] as String?) ?? '';
+          if (!result.containsKey('Origin')) {
+            result['Origin'] = firstOriginCode;
+          }
         }
-        // TravelDate = departure time of the first segment
         if (!result.containsKey('TravelDate')) {
           result['TravelDate'] = originObj['DepTime'] ?? '';
         }
       }
     }
 
-    // Final destination = last segment's arrival airport
-    if (lastSeg is Map) {
-      final destObj = lastSeg['Destination'];
-      if (destObj is Map) {
-        final airportObj = destObj['Airport'];
-        if (airportObj is Map && !result.containsKey('Destination')) {
-          result['Destination'] = airportObj['AirportCode'] ?? '';
+    // For round-trip bookings the last segment returns to the departure city
+    // (e.g. DEL→GOX→DEL). TBO's Book API requires Destination = the
+    // turnaround airport (GOX), NOT the return airport (DEL). Sending
+    // Origin == Destination causes "Origin & Destination cannot be same".
+    // For one-way / connecting flights use the last segment's arrival.
+    if (!result.containsKey('Destination')) {
+      String destCode = '';
+      if (lastSeg is Map) {
+        final destObj = lastSeg['Destination'];
+        if (destObj is Map) {
+          final airportObj = destObj['Airport'];
+          if (airportObj is Map) {
+            destCode = (airportObj['AirportCode'] as String?) ?? '';
+          }
         }
       }
+
+      final isRoundTrip = flatSegs.length > 1 &&
+          firstOriginCode.isNotEmpty &&
+          firstOriginCode == destCode;
+
+      if (isRoundTrip) {
+        // Use the first segment's destination as the turnaround point
+        final firstDestObj = (firstSeg as Map)['Destination'];
+        if (firstDestObj is Map) {
+          final airportObj = firstDestObj['Airport'];
+          if (airportObj is Map) {
+            destCode = (airportObj['AirportCode'] as String?) ?? destCode;
+          }
+        }
+        print('buildItinerary: round-trip detected, Destination set to turnaround $destCode');
+      }
+
+      result['Destination'] = destCode;
     }
   }
 
-  // MiniFareRules and FareRules must each have one outer entry per segment.
-  // TBO's Book .NET code indexes both as MiniFareRules[s] / FareRules[s].
-  // FareQuote returns a single journey-level entry for connecting flights, so
-  // both lists need padding to flatSegs.length before the Book call.
+  // MiniFareRules and FareRules must each have exactly one entry per segment.
+  // TBO's Book .NET code indexes both as MiniFareRules[s] / FareRules[s]:
+  //   • Too few  → "Index was out of range" (pad with empty / first entry)
+  //   • Too many → "Index was out of range" (trim to flatSegs.length)
   for (final key in ['MiniFareRules', 'FareRules']) {
     final rawList = result[key];
-    if (rawList is List && flatSegs.length > rawList.length) {
-      final padded = List<dynamic>.from(rawList);
-      // MiniFareRules: pad extra segments with empty list [].
-      // Repeating the journey-level entry (e.g. JourneyPoints:"BOM-AMD-DEL") for
-      // segment 1 (AMD→DEL) causes TBO's .NET code to misroute mini-rule lookup.
-      // FareRules: copy first entry (TBO expects a per-segment fare-rule object).
+    if (rawList is! List) continue;
+    if (rawList.length == flatSegs.length) continue;
+
+    List<dynamic> adjusted = List<dynamic>.from(rawList);
+    if (flatSegs.length > rawList.length) {
+      // Pad: too few entries.
+      // MiniFareRules: pad with empty list (repeating the journey-level entry
+      // causes TBO to misroute the mini-rule lookup for connecting flights).
+      // FareRules: copy the first entry (TBO expects a per-segment object).
       final filler = key == 'MiniFareRules'
           ? <dynamic>[]
           : (rawList.isNotEmpty ? rawList[0] : <dynamic>[]);
-      while (padded.length < flatSegs.length) {
-        padded.add(filler);
+      while (adjusted.length < flatSegs.length) {
+        adjusted.add(filler);
       }
-      result[key] = padded;
-      print('buildItinerary: padded $key ${rawList.length}→${padded.length} for ${flatSegs.length} segs');
+      print('buildItinerary: padded $key ${rawList.length}→${adjusted.length} for ${flatSegs.length} segs');
+    } else {
+      // Trim: FareQuote can return more entries than actual segments (e.g. a
+      // round-trip FareQuote result used for a one-way booking).  Leaving extra
+      // entries makes TBO index Segments[n] where n >= Segments.length.
+      adjusted = adjusted.sublist(0, flatSegs.length);
+      print('buildItinerary: trimmed $key ${rawList.length}→${adjusted.length} for ${flatSegs.length} segs');
     }
+    result[key] = adjusted;
   }
 
   // FareQuote returns "ValidatingAirline" (no "Code" suffix); Book needs "ValidatingAirlineCode".
@@ -311,39 +348,98 @@ Map<String, dynamic> buildItinerary(
     return _tboFilterNulls(passenger.toJson(fare: paxFare));
   }).toList();
 
-  // For connecting flights (2+ segments) TBO validates that each SSR
-  // FlightNumber matches an actual segment. Filter out mismatched SSR to avoid
-  // "Booking Failed Code 1" — for direct flights TBO ignores mismatches so this
-  // is safe in both cases (invalid SSR is dropped; matching SSR is kept).
-  if (flatSegs.length > 1) {
-    final segFlights = flatSegs
-        .whereType<Map>()
-        .map((s) => (s['Airline'] as Map?)?['FlightNumber'] as String?)
-        .whereType<String>()
-        .toSet();
-
-    if (segFlights.isNotEmpty) {
-      result['Passenger'] = (result['Passenger'] as List).map((pax) {
-        if (pax is! Map<String, dynamic>) return pax;
-        final updated = Map<String, dynamic>.from(pax);
-        for (final ssrKey in ['PaxBaggage', 'PaxMeal', 'PaxSeat']) {
-          final ssrList = updated[ssrKey];
-          if (ssrList is List && ssrList.isNotEmpty) {
-            final valid = ssrList.where((s) {
-              if (s is! Map) return false;
-              final fn = s['FlightNumber'] as String?;
-              return fn == null || segFlights.contains(fn);
-            }).toList();
-            if (valid.length < ssrList.length) {
-              print('buildItinerary: $ssrKey filtered ${ssrList.length}→${valid.length} (unmatched segment flights)');
-            }
-            updated[ssrKey] = valid.isEmpty ? null : valid;
-          }
-        }
-        return updated;
-      }).toList();
+  // Build FlightNumber → TripIndicator map from flattened segments.
+  // TBO SSR API sometimes returns WayType values that don't match the segment's
+  // TripIndicator (e.g. WayType=2 for outward-leg FlightNumber on a round trip,
+  // or WayType=2 for a one-way flight). TBO's Book API uses WayType as a
+  // 1-based segment-index offset; a mismatch throws "Index was out of range".
+  final flightToTripIndicator = <String, int>{};
+  for (final seg in flatSegs) {
+    if (seg is Map) {
+      final fn = (seg['Airline'] as Map?)?['FlightNumber'] as String?;
+      final ti = (seg['TripIndicator'] as int?) ?? 1;
+      if (fn != null && fn.isNotEmpty) flightToTripIndicator[fn] = ti;
     }
   }
+  final segFlightNumbers = flightToTripIndicator.keys.toSet();
+
+  result['Passenger'] = (result['Passenger'] as List).map((pax) {
+    if (pax is! Map<String, dynamic>) return pax;
+    final updated = Map<String, dynamic>.from(pax);
+
+    // --- PaxBaggage ---
+    final paxBaggage = updated['PaxBaggage'];
+    if (paxBaggage is List && paxBaggage.isNotEmpty) {
+      final valid = <dynamic>[];
+      for (final b in paxBaggage) {
+        if (b is! Map<String, dynamic>) { valid.add(b); continue; }
+        final fn = b['FlightNumber'] as String?;
+        // Drop baggage for unknown flights (connecting flight safety check)
+        if (fn != null && segFlightNumbers.isNotEmpty && !segFlightNumbers.contains(fn)) {
+          print('buildItinerary: PaxBaggage dropped (unknown flight $fn)');
+          continue;
+        }
+        final nb = Map<String, dynamic>.from(b);
+        // Correct WayType to match the segment's actual TripIndicator
+        final correctWayType = (fn != null ? flightToTripIndicator[fn] : null) ?? 1;
+        if (nb['WayType'] != correctWayType) {
+          print('buildItinerary: PaxBaggage WayType ${nb['WayType']}→$correctWayType for flight $fn');
+          nb['WayType'] = correctWayType;
+        }
+        valid.add(nb);
+      }
+      updated['PaxBaggage'] = valid.isEmpty ? null : valid;
+    }
+
+    // --- PaxMeal ---
+    // Apply the same flight-filter and WayType correction as PaxBaggage for
+    // all segment counts.  A WayType=2 on a one-way (1-segment) flight causes
+    // the same "Index was out of range" error in TBO's .NET code.
+    final paxMeal = updated['PaxMeal'];
+    if (paxMeal is List && paxMeal.isNotEmpty) {
+      final valid = <dynamic>[];
+      for (final m in paxMeal) {
+        if (m is! Map<String, dynamic>) { valid.add(m); continue; }
+        final fn = m['FlightNumber'] as String?;
+        if (fn != null && segFlightNumbers.isNotEmpty && !segFlightNumbers.contains(fn)) {
+          print('buildItinerary: PaxMeal dropped (unknown flight $fn)');
+          continue;
+        }
+        final nm = Map<String, dynamic>.from(m);
+        final correctWayType = (fn != null ? flightToTripIndicator[fn] : null) ?? 1;
+        if (nm['WayType'] != correctWayType) {
+          print('buildItinerary: PaxMeal WayType ${nm['WayType']}→$correctWayType for flight $fn');
+          nm['WayType'] = correctWayType;
+        }
+        valid.add(nm);
+      }
+      updated['PaxMeal'] = valid.isEmpty ? null : valid;
+    }
+
+    // --- PaxSeat ---
+    final paxSeat = updated['PaxSeat'];
+    if (paxSeat is List && paxSeat.isNotEmpty) {
+      final valid = <dynamic>[];
+      for (final s in paxSeat) {
+        if (s is! Map<String, dynamic>) { valid.add(s); continue; }
+        final fn = s['FlightNumber'] as String?;
+        if (fn != null && segFlightNumbers.isNotEmpty && !segFlightNumbers.contains(fn)) {
+          print('buildItinerary: PaxSeat dropped (unknown flight $fn)');
+          continue;
+        }
+        final ns = Map<String, dynamic>.from(s);
+        final correctWayType = (fn != null ? flightToTripIndicator[fn] : null) ?? 1;
+        if (ns['SeatWayType'] != correctWayType) {
+          print('buildItinerary: PaxSeat SeatWayType ${ns['SeatWayType']}→$correctWayType for flight $fn');
+          ns['SeatWayType'] = correctWayType;
+        }
+        valid.add(ns);
+      }
+      updated['PaxSeat'] = valid.isEmpty ? null : valid;
+    }
+
+    return updated;
+  }).toList();
 
   print('====== buildItinerary (null-filtered, ${result.keys.length} keys) ======');
   print(jsonEncode(result));

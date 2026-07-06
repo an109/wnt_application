@@ -80,6 +80,20 @@ class _HotelPaymentScreenState extends State<HotelPaymentScreen> {
     print(' Payment Screen received - Amount: ${widget.totalFare}, Currency: ${widget.currency}');
   }
 
+  double _getInrAmount() {
+    if (widget.currency.toUpperCase() == 'INR') return widget.totalFare;
+    try {
+      return CurrencyConverter.convert(
+        amount: widget.totalFare,
+        fromCurrency: widget.currency,
+        toCurrency: 'INR',
+      );
+    } catch (_) {
+      print('Currency conversion to INR failed, falling back to original amount');
+      return widget.totalFare;
+    }
+  }
+
   @override
   void dispose() {
     _razorpay.clear();
@@ -196,7 +210,9 @@ class _HotelPaymentScreenState extends State<HotelPaymentScreen> {
     try {
       final orderId = '${DateTime.now().millisecondsSinceEpoch}';
       // final orderId = 'WTXH${DateTime.now().millisecondsSinceEpoch}';
-      final amount = double.parse(widget.totalFare.toStringAsFixed(2));
+      // final amount = double.parse(widget.totalFare.toStringAsFixed(2));
+      final inrAmount = _getInrAmount();
+      final amount = double.parse(inrAmount.toStringAsFixed(2));
 
       final session = await _ccavenueService.createCheckout(
         orderId: orderId,
@@ -260,11 +276,14 @@ class _HotelPaymentScreenState extends State<HotelPaymentScreen> {
     });
 
     try {
+      final inrAmount = _getInrAmount();
+
       final dio = di.sl<DioClient>().instance;
       final response = await dio.post(
         Urls.razorpayCreateOrder,
         data: {
-          'amount': widget.totalFare,
+          'amount': inrAmount,
+          // 'amount': widget.totalFare,
           'currency': 'INR',
           'reference_id': 'hotel_${DateTime.now().millisecondsSinceEpoch}',
         },
@@ -275,7 +294,8 @@ class _HotelPaymentScreenState extends State<HotelPaymentScreen> {
 
       final options = {
         'key': keyId,
-        'amount': (widget.totalFare * 100).toInt(),
+        'amount': (inrAmount * 100).toInt(),
+        // 'amount': (widget.totalFare * 100).toInt(),
         'currency': 'INR',
         'name': 'WanderNova',
         'description': 'Hotel: ${widget.hotelName}',
@@ -578,7 +598,8 @@ class _HotelPaymentScreenState extends State<HotelPaymentScreen> {
             children: [
               Text('Total Amount', style: TextStyle(fontSize: context.bodyLarge, fontWeight: FontWeight.bold)),
               Text(
-                '${widget.totalFare.toStringAsFixed(2)}',
+                '${_getCurrencySymbol(widget.currency)}${widget.totalFare.toStringAsFixed(2)}',
+                // '${widget.totalFare.toStringAsFixed(2)}',
                 style: TextStyle(fontSize: context.bodyLarge, fontWeight: FontWeight.bold, color: const Color(0xFFE71D36)),
               ),
             ],
@@ -677,7 +698,8 @@ class _HotelPaymentScreenState extends State<HotelPaymentScreen> {
           child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation(Colors.white)),
         )
             : Text(
-          'Pay  ${widget.totalFare.toStringAsFixed(2)}',
+          'Pay  ${_getCurrencySymbol(widget.currency)}${widget.totalFare.toStringAsFixed(2)}',
+          // 'Pay  ${widget.totalFare.toStringAsFixed(2)}',
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: context.bodyLarge),
         ),
       ),

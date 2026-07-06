@@ -194,7 +194,7 @@ class _HotelFilterDrawerState extends State<HotelFilterDrawer> {
             children: [
               Expanded(
                 child: Text(
-                  'Min: \$${_minPrice.toStringAsFixed(0)}',
+                  'Min: ₹${_minPrice.toStringAsFixed(0)}',
                   style: TextStyle(
                     fontSize: context.bodyMedium,
                     fontWeight: FontWeight.w500,
@@ -203,7 +203,7 @@ class _HotelFilterDrawerState extends State<HotelFilterDrawer> {
               ),
               Expanded(
                 child: Text(
-                  'Max: \$${_maxPrice.toStringAsFixed(0)}',
+                  'Max: ₹${_maxPrice.toStringAsFixed(0)}',
                   style: TextStyle(
                     fontSize: context.bodyMedium,
                     fontWeight: FontWeight.w500,
@@ -220,8 +220,8 @@ class _HotelFilterDrawerState extends State<HotelFilterDrawer> {
             max: 100000,
             divisions: 100,
             labels: RangeLabels(
-              '\$${_minPrice.toStringAsFixed(0)}',
-              '\$${_maxPrice.toStringAsFixed(0)}',
+              '₹${_minPrice.toStringAsFixed(0)}',
+              '₹${_maxPrice.toStringAsFixed(0)}',
             ),
             onChanged: (values) {
               setState(() {
@@ -305,11 +305,12 @@ class _HotelFilterDrawerState extends State<HotelFilterDrawer> {
 
   Widget _buildMealPlanFilter() {
     final mealPlans = [
-      {'value': 'Room_Only', 'label': 'Room Only'},
-      {'value': 'Breakfast', 'label': 'Breakfast Included'},
-      {'value': 'Half_Board', 'label': 'Half Board'},
-      {'value': 'Full_Board', 'label': 'Full Board'},
       {'value': 'All', 'label': 'All Meals'},
+      {'value': 'Breakfast', 'label': 'Breakfast Included'},
+      {'value': 'HalfBoard', 'label': 'Half Board'},
+      {'value': 'FullBoard', 'label': 'Full Board'},
+      {'value': 'AllInclusive', 'label': 'All Inclusive'},
+      {'value': 'RoomOnly', 'label': 'Room Only'},
     ];
 
     return Column(
@@ -417,34 +418,28 @@ class _HotelFilterDrawerState extends State<HotelFilterDrawer> {
   }
 
   void _applyFilters() {
-    // Build filters map
     final filters = <String, dynamic>{};
 
-    if (_minPrice > 0 || _maxPrice < 100000) {
-      filters['minPrice'] = _minPrice;
-      filters['maxPrice'] = _maxPrice;
-    }
+    // TBO API filter fields — sent to backend and forwarded to TBO search
+    filters['Refundable'] = _refundableOnly;
+    filters['MealType'] = _selectedMealPlan ?? 'All';
+    filters['NoOfRooms'] = 0;
 
+    // Client-side filter fields — applied in Flutter after API response
+    if (_minPrice > 0) {
+      filters['min_price'] = _minPrice;
+    }
+    if (_maxPrice < 100000) {
+      filters['max_price'] = _maxPrice;
+    }
     if (_selectedStarRating != null) {
-      filters['starRating'] = _selectedStarRating;
+      filters['star_rating'] = _selectedStarRating;
     }
-
-    if (_refundableOnly) {
-      filters['refundable'] = true;
-    }
-
-    if (_selectedMealPlan != null && _selectedMealPlan != 'Room_Only') {
-      filters['mealType'] = _selectedMealPlan;
-    }
-
     if (_selectedAmenities.isNotEmpty) {
       filters['amenities'] = _selectedAmenities;
     }
 
-    // Call the callback
     widget.onFiltersApplied?.call(filters);
-
-    // Close drawer
     Navigator.pop(context);
   }
 }

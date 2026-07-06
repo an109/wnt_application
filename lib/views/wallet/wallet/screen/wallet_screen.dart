@@ -35,8 +35,15 @@ class WalletScreen extends StatefulWidget {
 }
 
 class _WalletScreenState extends State<WalletScreen> {
-  // Changed to TransactionEntity to match the new BLoC state
-  List<TransactionEntity> _allTransactions = [];
+  // Blocs owned by this state so _handleAddMoney and _fetchTransactions can
+  // dispatch events without relying on context.read<>(), which would fail
+  // because the BlocProviders are descendants, not ancestors, of this element.
+  late final WalletBloc _walletBloc;
+  late final TransactionBloc _transactionBloc;
+  late final ReferralBloc _referralBloc;
+  late final LoyaltyBloc _loyaltyBloc;
+
+  List<Transaction> _allTransactions = [];
   NotificationSettings _notificationSettings = NotificationSettings();
 
   TransactionType _selectedType = TransactionType.all;
@@ -45,13 +52,37 @@ class _WalletScreenState extends State<WalletScreen> {
 
   bool _isLoadingTransactions = false;
   bool _hasMore = false;
-  bool _isLoadMore = false; // Flag to handle pagination accumulation
+  bool _isLoadMore = false;
   bool _isReferralCopied = false;
 
   @override
   void initState() {
     super.initState();
-    // Initial fetch is now automatically triggered by the BlocProvider's create method
+    _walletBloc = sl<WalletBloc>()..add(const FetchWalletBalance());
+    _transactionBloc = sl<TransactionBloc>()..add(const FetchTransactions());
+    _referralBloc = sl<ReferralBloc>()..add(const FetchReferralEvent());
+    _loyaltyBloc = sl<LoyaltyBloc>()..add(FetchUserLoyalty());
+  }
+
+  @override
+  void dispose() {
+    _walletBloc.close();
+    _transactionBloc.close();
+    _referralBloc.close();
+    _loyaltyBloc.close();
+    super.dispose();
+  }
+
+  Transaction _toTransaction(TransactionEntity entity) {
+    const creditTypes = {'credit', 'bonus', 'refund'};
+    return Transaction(
+      id: entity.id.toString(),
+      description: entity.description,
+      amount: double.tryParse(entity.amount) ?? 0.0,
+      date: DateTime.tryParse(entity.created) ?? DateTime.now(),
+      isCredit: creditTypes.contains(entity.transactionType),
+      status: entity.status,
+    );
   }
 
   // Helper to map TransactionType enum to API string parameter
@@ -89,7 +120,7 @@ class _WalletScreenState extends State<WalletScreen> {
       nextPage = (_allTransactions.length / 20).floor() + 1;
     }
 
-    context.read<TransactionBloc>().add(FetchTransactions(
+    _transactionBloc.add(FetchTransactions(
       type: _getApiType(),
       days: _getApiDays(),
       search: _searchQuery.isNotEmpty ? _searchQuery : null,
@@ -123,11 +154,12 @@ class _WalletScreenState extends State<WalletScreen> {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('${amount.toStringAsFixed(2)} added successfully!'),
+            content: Text('₹${amount.toStringAsFixed(2)} added successfully!'),
             backgroundColor: Colors.blue,
           ),
         );
-        context.read<WalletBloc>().add(const RefreshWalletBalance());
+        _walletBloc.add(const RefreshWalletBalance());
+        _fetchTransactions(reset: true);
       }
     } catch (e) {
       if (mounted) {
@@ -460,21 +492,21 @@ class _WalletScreenState extends State<WalletScreen> {
   Widget build(BuildContext context) {
     return MultiBlocProvider(
       providers: [
-        BlocProvider(create: (context) => sl<WalletBloc>()..add(const FetchWalletBalance())),
-        BlocProvider(create: (context) => sl<ReferralBloc>()..add(const FetchReferralEvent())),
-        BlocProvider(create: (context) => sl<LoyaltyBloc>()..add(FetchUserLoyalty())),
-        // NEW: Transaction Bloc Provider (Triggers initial fetch automatically)
-        BlocProvider(create: (context) => sl<TransactionBloc>()..add(const FetchTransactions())),
+        BlocProvider.value(value: _walletBloc),
+        BlocProvider.value(value: _referralBloc),
+        BlocProvider.value(value: _loyaltyBloc),
+        BlocProvider.value(value: _transactionBloc),
       ],
       // NEW: Listen to TransactionBloc state to update local UI state for pagination
       child: BlocListener<TransactionBloc, TransactionState>(
         listener: (context, state) {
           if (state is TransactionSuccess) {
+            final converted = state.data.transactions.map(_toTransaction).toList();
             setState(() {
               if (_isLoadMore) {
-                _allTransactions.addAll(state.data.transactions); // Accumulate for pagination
+                _allTransactions.addAll(converted);
               } else {
-                _allTransactions = state.data.transactions; // Replace for fresh fetch
+                _allTransactions = converted;
               }
               _hasMore = state.hasMore;
               _isLoadingTransactions = false;
@@ -602,9 +634,7 @@ class _WalletScreenState extends State<WalletScreen> {
                     constraints: BoxConstraints(minHeight: context.hp(40)),
                     padding: EdgeInsets.symmetric(horizontal: context.wp(4)),
                     child: TransactionList(
-                      // NOTE: Ensure your TransactionList widget accepts List<TransactionEntity>
-                      transactions: [],
-                      // transactions: _allTransactions,
+                      transactions: _allTransactions,
                       isLoading: _isLoadingTransactions,
                       hasMore: _hasMore,
                       onLoadMore: () {
@@ -623,18 +653,18 @@ class _WalletScreenState extends State<WalletScreen> {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
-                          TextButton.icon(onPressed: _downloadStatement, icon: const Icon(Icons.download, size: 18), label: const Text('Download statement'), style: TextButton.styleFrom(foregroundColor: Colors.grey.shade700)),
-                          SizedBox(width: context.gapSmall),
-                          ElevatedButton(
-                            onPressed: _downloadStatement,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.red.shade600,
-                              foregroundColor: Colors.white,
-                              padding: EdgeInsets.symmetric(horizontal: context.gapMedium, vertical: context.gapSmall),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(context.borderRadiusSmall)),
-                            ),
-                            child: const Text('Last 30 days'),
-                          ),
+                          // TextButton.icon(onPressed: _downloadStatement, icon: const Icon(Icons.download, size: 18), label: const Text('Download statement'), style: TextButton.styleFrom(foregroundColor: Colors.grey.shade700)),
+                          // SizedBox(width: context.gapSmall),
+                          // ElevatedButton(
+                          //   onPressed: _downloadStatement,
+                          //   style: ElevatedButton.styleFrom(
+                          //     backgroundColor: Colors.red.shade600,
+                          //     foregroundColor: Colors.white,
+                          //     padding: EdgeInsets.symmetric(horizontal: context.gapMedium, vertical: context.gapSmall),
+                          //     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(context.borderRadiusSmall)),
+                          //   ),
+                          //   child: const Text('Last 30 days'),
+                          // ),
                         ],
                       ),
                     ),

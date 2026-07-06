@@ -27,6 +27,9 @@ class SSRMainScreen extends StatefulWidget {
   /// Number of travellers — caps how many seats can be chosen.
   final int travellerCount;
 
+  final double promoDiscount;
+  final String promoCode;
+
   const SSRMainScreen({
     super.key,
     required this.traceId,
@@ -37,6 +40,8 @@ class SSRMainScreen extends StatefulWidget {
     this.fareQuoteData,
     this.route,
     this.travellerCount = 1,
+    this.promoDiscount = 0.0,
+    this.promoCode = '',
   });
 
   @override
@@ -145,6 +150,8 @@ class _SSRMainScreenState extends State<SSRMainScreen> {
           resultIndex: widget.resultIndex,
           passengerData: widget.passengerData,
           ssrSelections: ssrSelections,
+          promoDiscount: widget.promoDiscount,
+          promoCode: widget.promoCode,
         ),
       ),
     );

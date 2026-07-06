@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:lottie/lottie.dart';
 import 'package:wander_nova/UI_helper/currency_converter.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import 'package:wander_nova/views/flight_search/presentation/screen/traveller_info_card.dart';
@@ -8,6 +9,10 @@ import '../../../../common_widgets/custom_bottom_nav.dart';
 import '../../../../common_widgets/logo.dart';
 import '../../../../core/utils/storage/shared_preference.dart';
 import '../../../../injection_container.dart' as di;
+import '../../../MainApi/domain/entities/general_setting_entity.dart';
+import '../../../MainApi/presentation/bloc/general_setting_bloc.dart';
+import '../../../MainApi/presentation/bloc/general_settings_event.dart';
+import '../../../MainApi/presentation/bloc/general_settings_state.dart';
 import '../../../fare_quote/domain/entities/fare_quote_entity.dart';
 import '../../../fare_quote/presentation/bloc/fare_quote_bloc.dart';
 import '../../../fare_quote/presentation/bloc/fare_quote_event.dart';
@@ -183,6 +188,11 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
   FlightRouteSegment? _updatedRouteWithFareQuote;
   bool _isLoggedIn() => di.sl<PreferencesManager>().isLoggedIn();
 
+  bool _promoCodeApplied = false;
+  String _appliedPromoCode = '';
+  double _promoDiscountAmount = 0.0;
+  final TextEditingController _promoCodeController = TextEditingController();
+
   static const _blue = Color(0xFF1769F6);
   static const _navy = Color(0xFF071638);
   static const _pageBg = Color(0xFFF3F6FC);
@@ -199,7 +209,343 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _fetchFareQuote();
+      final bloc = context.read<GeneralSettingsBloc>();
+      if (bloc.state is! PromoCodesLoaded) {
+        bloc.add(const LoadPromoCodes());
+      }
     });
+  }
+
+  String _getPreferredCurrencySymbol() {
+    final prefs = di.sl<PreferencesManager>();
+    final preferredCurrency = prefs.getPreferredCurrency() ?? 'INR';
+    return CurrencyConverter.getSymbol(preferredCurrency);
+  }
+
+  void _removePromoCode() {
+    setState(() {
+      _promoCodeApplied = false;
+      _appliedPromoCode = '';
+      _promoDiscountAmount = 0.0;
+      _promoCodeController.clear();
+    });
+  }
+
+  // Add this method to _FlightBookingScreenState
+  void _showCelebrationDialog(double discountAmount, String promoCode) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          elevation: 0,
+          backgroundColor: Colors.transparent,
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.2),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Lottie Animation - make sure you have the asset
+                Container(
+                  height: 200,
+                  width: double.infinity,
+                  child: Lottie.asset(
+                    'assets/animation/celebrate.json',
+                    repeat: true,
+                    fit: BoxFit.contain,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                // Success Message
+                Text(
+                  '🎉 Promo Applied!',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    color: _navy,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'You saved ${_getPreferredCurrencySymbol()}${discountAmount.toStringAsFixed(2)}',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.green.shade700,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Code: $promoCode',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                // OK Button
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _blue,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: const Text(
+                      'Great!',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // void _applyPromoCode() {
+  //   final code = _promoCodeController.text.trim().toUpperCase();
+  //   if (code.isEmpty) {
+  //     ScaffoldMessenger.of(context).showSnackBar(
+  //       SnackBar(
+  //         content: const Text('Please enter a promo code'),
+  //         backgroundColor: Colors.red,
+  //         behavior: SnackBarBehavior.floating,
+  //         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+  //       ),
+  //     );
+  //     return;
+  //   }
+  //
+  //   final bloc = di.sl<GeneralSettingsBloc>();
+  //   List<PromoCodeEntity> promoCodes = [];
+  //
+  //   if (bloc.state is PromoCodesLoaded) {
+  //     promoCodes = (bloc.state as PromoCodesLoaded).promoCodes;
+  //   }
+  //
+  //   final matchedPromo = promoCodes.firstWhere(
+  //         (p) => p.code.toUpperCase() == code,
+  //     orElse: () => const PromoCodeEntity(
+  //         code: '', category: 'flight_booking', discountType: '', discountValue: '0', description: ''),
+  //   );
+  //
+  //   if (matchedPromo.code.isEmpty) {
+  //     ScaffoldMessenger.of(context).showSnackBar(
+  //       SnackBar(
+  //         content: const Text('Invalid promo code. Please try again.'),
+  //         backgroundColor: Colors.red,
+  //         behavior: SnackBarBehavior.floating,
+  //         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+  //       ),
+  //     );
+  //     return;
+  //   }
+  //
+  //   // Calculate discount
+  //   double discount = 0;
+  //   final discountValue = double.tryParse(matchedPromo.discountValue) ?? 0;
+  //
+  //   final route = _updatedRouteWithFareQuote ?? widget.routes.first;
+  //   final fare = route.fareQuoteData;
+  //   double baseTotal = fare?.total ?? double.tryParse(widget.totalPrice) ?? 0;
+  //   String originalCurrency = fare?.currency ?? 'INR';
+  //
+  //   if (matchedPromo.discountType == 'percent') {
+  //     double discountOriginal = (baseTotal * discountValue) / 100;
+  //     try {
+  //       final prefs = di.sl<PreferencesManager>();
+  //       final preferredCurrency = prefs.getPreferredCurrency() ?? 'INR';
+  //       if (originalCurrency.toUpperCase() != preferredCurrency.toUpperCase()) {
+  //         discount = CurrencyConverter.convert(
+  //           amount: discountOriginal,
+  //           fromCurrency: originalCurrency,
+  //           toCurrency: preferredCurrency,
+  //         );
+  //       } else {
+  //         discount = discountOriginal;
+  //       }
+  //     } catch (e) {
+  //       discount = discountOriginal;
+  //     }
+  //   } else {
+  //     try {
+  //       final prefs = di.sl<PreferencesManager>();
+  //       final preferredCurrency = prefs.getPreferredCurrency() ?? 'INR';
+  //       if (originalCurrency.toUpperCase() != preferredCurrency.toUpperCase()) {
+  //         discount = CurrencyConverter.convert(
+  //           amount: discountValue,
+  //           fromCurrency: originalCurrency,
+  //           toCurrency: preferredCurrency,
+  //         );
+  //       } else {
+  //         discount = discountValue;
+  //       }
+  //     } catch (e) {
+  //       discount = discountValue;
+  //     }
+  //   }
+  //
+  //   setState(() {
+  //     _promoCodeApplied = true;
+  //     _appliedPromoCode = matchedPromo.code;
+  //     _promoDiscountAmount = discount;
+  //   });
+  //
+  //   ScaffoldMessenger.of(context).showSnackBar(
+  //     SnackBar(
+  //       content: Text('Promo code "${matchedPromo.code}" applied successfully!'),
+  //       backgroundColor: Colors.green,
+  //       behavior: SnackBarBehavior.floating,
+  //       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+  //     ),
+  //   );
+  // }
+  void _applyPromoCode() {
+    final code = _promoCodeController.text.trim().toUpperCase();
+    if (code.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Please enter a promo code'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+      );
+      return;
+    }
+
+    final bloc = context.read<GeneralSettingsBloc>();
+    List<PromoCodeEntity> promoCodes = [];
+
+    if (bloc.state is PromoCodesLoaded) {
+      promoCodes = (bloc.state as PromoCodesLoaded).promoCodes;
+    }
+
+    final matchedPromo = promoCodes.firstWhere(
+          (p) => p.code.toUpperCase() == code,
+      orElse: () => const PromoCodeEntity(
+          code: '',
+          category: '',
+          discountType: '',
+          discountValue: '0',
+          description: ''
+      ),
+    );
+
+    if (matchedPromo.code.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Invalid promo code. Please try again.'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+      );
+      return;
+    }
+
+    // Calculate discount
+    double discount = 0;
+    final discountValue = double.tryParse(matchedPromo.discountValue) ?? 0;
+
+    final route = _updatedRouteWithFareQuote ?? widget.routes.first;
+    final fare = route.fareQuoteData;
+    double baseTotal = fare?.total ?? double.tryParse(widget.totalPrice) ?? 0;
+    String originalCurrency = fare?.currency ?? 'INR';
+
+    if (matchedPromo.discountType == 'percent') {
+      double discountOriginal = (baseTotal * discountValue) / 100;
+      try {
+        final prefs = di.sl<PreferencesManager>();
+        final preferredCurrency = prefs.getPreferredCurrency() ?? 'INR';
+        if (originalCurrency.toUpperCase() != preferredCurrency.toUpperCase()) {
+          discount = CurrencyConverter.convert(
+            amount: discountOriginal,
+            fromCurrency: originalCurrency,
+            toCurrency: preferredCurrency,
+          );
+        } else {
+          discount = discountOriginal;
+        }
+      } catch (e) {
+        discount = discountOriginal;
+      }
+    } else {
+      try {
+        final prefs = di.sl<PreferencesManager>();
+        final preferredCurrency = prefs.getPreferredCurrency() ?? 'INR';
+        if (originalCurrency.toUpperCase() != preferredCurrency.toUpperCase()) {
+          discount = CurrencyConverter.convert(
+            amount: discountValue,
+            fromCurrency: originalCurrency,
+            toCurrency: preferredCurrency,
+          );
+        } else {
+          discount = discountValue;
+        }
+      } catch (e) {
+        discount = discountValue;
+      }
+    }
+
+    setState(() {
+      _promoCodeApplied = true;
+      _appliedPromoCode = matchedPromo.code;
+      _promoDiscountAmount = discount;
+    });
+
+    // Show celebration dialog instead of SnackBar
+    _showCelebrationDialog(discount, matchedPromo.code);
+  }
+
+  String _getFinalTotalDisplay(FareQuoteData fare) {
+    final totalInOriginal = fare.total;
+    final originalCurrency = fare.currency;
+
+    try {
+      final prefs = di.sl<PreferencesManager>();
+      final targetCurrency = prefs.getPreferredCurrency() ?? 'INR';
+
+      double convertedTotal = totalInOriginal;
+      if (originalCurrency.toUpperCase() != targetCurrency.toUpperCase()) {
+        convertedTotal = CurrencyConverter.convert(
+          amount: totalInOriginal,
+          fromCurrency: originalCurrency,
+          toCurrency: targetCurrency,
+        );
+      }
+
+      final finalTotal = convertedTotal - _promoDiscountAmount;
+      return CurrencyConverter.format(finalTotal > 0 ? finalTotal : 0, targetCurrency);
+    } catch (e) {
+      return _convertFareAmount(totalInOriginal, originalCurrency);
+    }
   }
 
   void _onFareQuoteStateChange(FareQuoteState state) {
@@ -363,7 +709,320 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
   void dispose() {
     print('FlightBookingScreen: Disposing bloc');
     _fareQuoteBloc.close();
+    _promoCodeController.dispose();
     super.dispose();
+  }
+
+  Widget _buildPromoCodeSection(BuildContext context) {
+    return BlocBuilder<GeneralSettingsBloc, GeneralSettingsState>(
+      builder: (context, state) {
+        final filtered = state is PromoCodesLoaded
+            ? state.promoCodes
+                .where((p) =>
+                    p.category == 'flight_booking' || p.category == 'payment')
+                .toList()
+            : <PromoCodeEntity>[];
+
+        return Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(context.r(8)),
+            border: Border.all(color: _border),
+            boxShadow: [
+              BoxShadow(
+                color: _navy.withValues(alpha: 0.06),
+                blurRadius: 24,
+                offset: const Offset(0, 14),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: EdgeInsets.fromLTRB(
+                    context.w(12), context.h(12), context.w(12), 0),
+                child: Row(
+                  children: [
+                    Icon(Icons.local_offer_rounded,
+                        color: _blue, size: context.iconMedium),
+                    SizedBox(width: context.gapSmall),
+                    Text(
+                      'Coupons & Offers',
+                      style: TextStyle(
+                        fontSize: context.titleMedium,
+                        fontWeight: FontWeight.bold,
+                        color: _navy,
+                      ),
+                    ),
+                    if (filtered.isNotEmpty && !_promoCodeApplied) ...[
+                      const Spacer(),
+                      Container(
+                        padding: EdgeInsets.symmetric(
+                            horizontal: context.w(8), vertical: context.h(3)),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.shade50,
+                          borderRadius: BorderRadius.circular(context.r(10)),
+                        ),
+                        child: Text(
+                          '${filtered.length} offer${filtered.length > 1 ? 's' : ''}',
+                          style: TextStyle(
+                            fontSize: context.labelSmall,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.orange.shade700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              SizedBox(height: context.h(12)),
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: context.w(12)),
+                child: _promoCodeApplied
+                    ? _buildPromoAppliedBanner(context)
+                    : _buildPromoInputRow(context),
+              ),
+              if (!_promoCodeApplied && filtered.isNotEmpty) ...[
+                SizedBox(height: context.h(12)),
+                Divider(height: 1, thickness: 1, color: Colors.grey.shade100),
+                Padding(
+                  padding: EdgeInsets.fromLTRB(
+                      context.w(12), context.h(10), context.w(12), 0),
+                  child: Text(
+                    'AVAILABLE OFFERS',
+                    style: TextStyle(
+                      fontSize: context.labelSmall,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.grey.shade500,
+                      letterSpacing: 0.8,
+                    ),
+                  ),
+                ),
+                ...filtered.asMap().entries.map(
+                  (e) => _buildFlightCouponCard(
+                      context, e.value,
+                      showTopDivider: e.key > 0),
+                ),
+              ],
+              SizedBox(height: context.h(12)),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildPromoAppliedBanner(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.all(context.w(12)),
+      decoration: BoxDecoration(
+        color: Colors.green.shade50,
+        borderRadius: BorderRadius.circular(context.r(8)),
+        border: Border.all(color: Colors.green.shade200),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.check_circle_rounded,
+              color: Colors.green.shade700, size: context.iconSmall),
+          SizedBox(width: context.gapSmall),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '$_appliedPromoCode applied',
+                  style: TextStyle(
+                    fontSize: context.bodyMedium,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.green.shade800,
+                  ),
+                ),
+                Text(
+                  'You saved ${_getPreferredCurrencySymbol()}${_promoDiscountAmount.toStringAsFixed(2)}',
+                  style: TextStyle(
+                      fontSize: context.bodySmall,
+                      color: Colors.green.shade700),
+                ),
+              ],
+            ),
+          ),
+          TextButton(
+            onPressed: _removePromoCode,
+            child: Text(
+              'Remove',
+              style: TextStyle(
+                  color: Colors.red.shade700, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPromoInputRow(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          flex: 3,
+          child: TextField(
+            controller: _promoCodeController,
+            textCapitalization: TextCapitalization.characters,
+            decoration: InputDecoration(
+              hintText: 'ENTER COUPON CODE',
+              hintStyle: TextStyle(
+                  fontSize: context.bodySmall, color: Colors.grey.shade400),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(context.r(8)),
+                borderSide: BorderSide(color: Colors.grey.shade300),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(context.r(8)),
+                borderSide: BorderSide(color: Colors.grey.shade300),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(context.r(8)),
+                borderSide: const BorderSide(color: _blue, width: 2),
+              ),
+              contentPadding: EdgeInsets.symmetric(
+                  horizontal: context.w(12), vertical: context.h(12)),
+              isDense: true,
+            ),
+          ),
+        ),
+        SizedBox(width: context.gapSmall),
+        SizedBox(
+          height: context.h(48),
+          child: ElevatedButton(
+            onPressed: _applyPromoCode,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _blue,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(context.r(8))),
+            ),
+            child: Text(
+              'APPLY',
+              style: TextStyle(
+                  fontSize: context.bodyMedium, fontWeight: FontWeight.w700),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFlightCouponCard(BuildContext context, PromoCodeEntity promo,
+      {bool showTopDivider = false}) {
+    final discountLabel = promo.discountType == 'percent'
+        ? 'Get ${double.tryParse(promo.discountValue)?.toStringAsFixed(0) ?? promo.discountValue}% off on this booking'
+        : 'Get ${_getPreferredCurrencySymbol()}${promo.discountValue} off on this booking';
+
+    return Column(
+      children: [
+        if (showTopDivider)
+          Divider(
+              height: 1,
+              thickness: 1,
+              color: Colors.grey.shade100,
+              indent: context.w(12),
+              endIndent: context.w(12)),
+        InkWell(
+          onTap: () {
+            _promoCodeController.text = promo.code;
+            _applyPromoCode();
+          },
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(context.w(12), context.h(10),
+                context.w(12), context.h(10)),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Container(
+                  padding: EdgeInsets.all(context.w(8)),
+                  decoration: BoxDecoration(
+                    color: _blue.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(context.r(8)),
+                  ),
+                  child: Icon(Icons.confirmation_number_outlined,
+                      color: _blue, size: context.iconMedium),
+                ),
+                SizedBox(width: context.gapMedium),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: EdgeInsets.symmetric(
+                            horizontal: context.w(8), vertical: context.h(3)),
+                        decoration: BoxDecoration(
+                          color: _blue.withValues(alpha: 0.06),
+                          borderRadius: BorderRadius.circular(context.r(4)),
+                          border: Border.all(
+                              color: _blue.withValues(alpha: 0.2)),
+                        ),
+                        child: Text(
+                          promo.code,
+                          style: TextStyle(
+                            fontSize: context.bodySmall,
+                            fontWeight: FontWeight.w800,
+                            color: _blue,
+                            letterSpacing: 1,
+                          ),
+                        ),
+                      ),
+                      SizedBox(height: context.h(4)),
+                      Text(
+                        discountLabel,
+                        style: TextStyle(
+                          fontSize: context.bodyMedium,
+                          fontWeight: FontWeight.w600,
+                          color: _navy,
+                        ),
+                      ),
+                      if (promo.description.isNotEmpty)
+                        Text(
+                          promo.description,
+                          style: TextStyle(
+                              fontSize: context.bodySmall,
+                              color: Colors.grey.shade600),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                    ],
+                  ),
+                ),
+                SizedBox(width: context.w(8)),
+                OutlinedButton(
+                  onPressed: () {
+                    _promoCodeController.text = promo.code;
+                    _applyPromoCode();
+                  },
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: _blue,
+                    side: const BorderSide(color: _blue, width: 1.5),
+                    padding: EdgeInsets.symmetric(
+                        horizontal: context.w(12), vertical: context.h(6)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(context.r(6))),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: Text(
+                    'APPLY',
+                    style: TextStyle(
+                        fontSize: context.labelSmall,
+                        fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
   @override
@@ -395,6 +1054,8 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
               _buildRouteSummaryCard(context),
               SizedBox(height: context.gapSmall),
               _buildFareBreakdownCard(context),
+              SizedBox(height: context.gapSmall),
+              _buildPromoCodeSection(context),
               SizedBox(height: context.gapLarge),
               if (!_isLoggedIn()) _buildLoginCard(context),
               // SizedBox(height: context.gapSmall),
@@ -741,11 +1402,21 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
                 _convertFareAmount(fare.serviceFee, fare.currency),
               ),
             ],
+            if (_promoDiscountAmount > 0) ...[
+              SizedBox(height: context.gapSmall),
+              _fareRow(
+                context,
+                'Promo Discount',
+                '- ${_getPreferredCurrencySymbol()}${_promoDiscountAmount.toStringAsFixed(2)}',
+                isDiscount: true,
+              ),
+            ],
             Divider(height: context.gapLarge, color: Colors.grey.shade200),
             _fareRow(
               context,
               'Total Fare',
-              _convertFareAmount(fare.total, fare.currency),
+              _getFinalTotalDisplay(fare),
+              // _convertFareAmount(fare.total, fare.currency),
               isTotal: true,
             ),
           ] else ...[
@@ -775,7 +1446,8 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
     String label,
     String value, {
     bool isTotal = false,
-  }) {
+    bool isDiscount = false,
+      }) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -784,7 +1456,7 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
           style: TextStyle(
             fontSize: isTotal ? context.bodyLarge : context.bodyMedium,
             fontWeight: isTotal ? FontWeight.bold : FontWeight.w500,
-            color: isTotal ? _navy : Colors.grey.shade700,
+            color: isDiscount ? Colors.green.shade700 : (isTotal ? _navy : Colors.grey.shade700),
           ),
         ),
         Text(
@@ -792,7 +1464,7 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
           style: TextStyle(
             fontSize: isTotal ? context.bodyLarge : context.bodyMedium,
             fontWeight: isTotal ? FontWeight.bold : FontWeight.w600,
-            color: isTotal ? _blue : _navy,
+            color: isDiscount ? Colors.green.shade700 : (isTotal ? _blue : _navy),
           ),
         ),
       ],
@@ -1079,6 +1751,8 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
           fareQuoteData: route.fareQuoteData,
           route: route,
           travellerCount: widget.travellerCount,
+          promoDiscount: _promoDiscountAmount,
+          promoCode: _appliedPromoCode,
         ),
       ),
     );

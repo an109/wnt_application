@@ -1,7 +1,7 @@
 class Urls {
-  static const String baseUrl = 'http://192.168.1.42:8000/api/';
+  static const String baseUrl = 'http://192.168.1.53:8000/api/';
   // static const String baseUrl = 'https://thewandernova.com/api/';
-  static const String basesUrl = 'http://192.168.1.42:8000/api';
+  static const String basesUrl = 'http://192.168.1.53:8000/api';
   // static const String basesUrl = 'https://thewandernova.com/api';
 
   static const String airports = '$basesUrl/flights/airports';
@@ -91,7 +91,11 @@ class Urls {
   static const String userLoyalty = '$basesUrl/user/loyalty/';
   // Wallet Transactions endpoint
   static const String walletTransactions = '$basesUrl/wallet/transactions/';
+  // Wallet add-money (creates pending wallet transaction + returns CCAvenue checkout URL)
+  static const String walletAddMoney = '$basesUrl/wallet/add-money/';
+  // Wallet verify payment (credits the wallet after a successful CCAvenue top-up)
+  static const String walletVerifyPayment = '$basesUrl/wallet/verify-payment/';
 
   static String reservationPoll(String searchId) => '$basesUrl/transport/reservations/$searchId/poll/';
-
+  static const String holidayDestinations = '$basesUrl/holidays-popular-destinations';
 }

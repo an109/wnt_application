@@ -1,9 +1,14 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../UI_helper/responsive_layout.dart';
 import '../core/utils/storage/shared_preference.dart';
 import '../injection_container.dart';
+import '../views/AboutUs/AboutUs.dart';
+import '../views/wallet/presentation/bloc/wallet_bloc.dart';
+import '../views/wallet/presentation/bloc/wallet_event.dart';
+import '../views/wallet/presentation/bloc/wallet_state.dart';
 import '../views/MyBookings/Screen/MyBooking_Screen.dart';
 import '../views/Dashboard/dashboardScreen.dart';
 import '../views/Dashboard/profile/screen/Profile_screen.dart';
@@ -31,6 +36,9 @@ class _CustomDrawerState extends State<CustomDrawer>
   String _userEmail = '';
   String? _userAvatar;
   String _appVersion = '';
+  String _walletBalance = '0';
+  WalletBloc? _walletBloc;
+  StreamSubscription<WalletState>? _walletSub;
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
 
@@ -66,6 +74,8 @@ class _CustomDrawerState extends State<CustomDrawer>
 
   @override
   void dispose() {
+    _walletSub?.cancel();
+    _walletBloc?.close();
     _animationController.dispose();
     super.dispose();
   }
@@ -107,6 +117,20 @@ class _CustomDrawerState extends State<CustomDrawer>
         _userAvatar = userData?['avatar'];
       }
     });
+
+    if (prefManager.isLoggedIn()) {
+      _walletSub?.cancel();
+      _walletBloc?.close();
+      _walletBloc = sl<WalletBloc>()..add(const FetchWalletBalance());
+      _walletSub = _walletBloc!.stream.listen((state) {
+        if (state is WalletLoaded && mounted) {
+          setState(() {
+            final val = double.tryParse(state.balance) ?? 0.0;
+            _walletBalance = val.toStringAsFixed(0);
+          });
+        }
+      });
+    }
   }
 
   @override
@@ -212,7 +236,7 @@ class _CustomDrawerState extends State<CustomDrawer>
                 ),
               ),
               child: Text(
-                '₹0',
+                '₹$_walletBalance',
                 style: TextStyle(
                   fontSize: context.labelSmall,
                   fontWeight: FontWeight.w600,
@@ -287,8 +311,8 @@ class _CustomDrawerState extends State<CustomDrawer>
           _buildMenuItem(
             context,
             icon: Icons.article_outlined,
-            title: 'Make Payment',
-            onTap: () => _navigateTo(context, '/payment'),
+            title: 'Upcoming Trips',
+            onTap: () => _navigateTo(context, '/trips'),
           ),
         ],
       ),
@@ -622,6 +646,15 @@ class _CustomDrawerState extends State<CustomDrawer>
           );
           break;
 
+        case '/about':
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => AboutUsScreen(),
+            ),
+          );
+          break;
+
         case '/bookings':
           Navigator.push(
             context,
@@ -676,6 +709,7 @@ class _CustomDrawerState extends State<CustomDrawer>
   }
 
   void _showLogoutDialog(BuildContext context) {
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
     Navigator.pop(context);
     showDialog(
       context: context,
@@ -748,7 +782,7 @@ class _CustomDrawerState extends State<CustomDrawer>
                       });
                     }
                   });
-                  ScaffoldMessenger.of(context).showSnackBar(
+                  scaffoldMessenger.showSnackBar(
                     SnackBar(
                       content: Text('Logged Out Successfully'),
                       backgroundColor: Colors.red,
@@ -759,14 +793,12 @@ class _CustomDrawerState extends State<CustomDrawer>
                   print('Logout API failed: ${state.error.message}');
 
                   // Optional: Show error message to user
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Logout failed: ${state.error.message ?? 'Please try again'}'),
-                        backgroundColor: Colors.red,
-                      ),
-                    );
-                  }
+                  scaffoldMessenger.showSnackBar(
+                    SnackBar(
+                      content: Text('Logout failed Please try again'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
                 }
               });
 

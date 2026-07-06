@@ -4,6 +4,7 @@ import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import 'package:wander_nova/core/resources/app_colours.dart';
 
 import '../../../../common_widgets/custom_bottom_nav.dart';
+import '../../../../common_widgets/hotel_loading_indicator.dart';
 import '../../../../common_widgets/logo.dart';
 import '../../../../core/services/hotel_session_service.dart';
 import '../../../../injection_container.dart';
@@ -43,8 +44,12 @@ class _HotelListingScreenState extends State<HotelListingScreen> {
   static const _blue = Color(0xFF1769F6);
   static const _pageBg = Color(0xFFF3F6FC);
 
-  // Local state to maintain hotel list and prevent flickering
+  // All hotels returned by the API (unfiltered client-side)
+  List<HotelUiModel> _allHotels = [];
+  // Hotels after client-side filters applied (star, price, amenities)
   List<HotelUiModel> _displayedHotels = [];
+  // Client-side filter values extracted from the drawer's filter map
+  Map<String, dynamic> _activeClientFilters = {};
   bool _hasReachedMax = false;
   bool _isLoadingMore = false;
   bool _isInitialLoading = true;
@@ -93,8 +98,38 @@ class _HotelListingScreenState extends State<HotelListingScreen> {
     );
   }
 
+  List<HotelUiModel> _applyClientFilters(List<HotelUiModel> hotels) {
+    var result = hotels;
+    final f = _activeClientFilters;
+
+    final minPrice = f['min_price'];
+    final maxPrice = f['max_price'];
+    final starRating = f['star_rating'];
+    final amenities = f['amenities'];
+
+    if (minPrice != null) {
+      result = result.where((h) => h.numericPrice >= (minPrice as num).toDouble()).toList();
+    }
+    if (maxPrice != null) {
+      result = result.where((h) => h.numericPrice <= (maxPrice as num).toDouble()).toList();
+    }
+    if (starRating != null) {
+      result = result.where((h) => h.rating == (starRating as num).toInt()).toList();
+    }
+    if (amenities != null && (amenities as List).isNotEmpty) {
+      final required = (amenities as List).map((a) => a.toString().toLowerCase()).toList();
+      result = result.where((h) {
+        final facilityText = h.facilities.join(' ').toLowerCase();
+        return required.every((a) => facilityText.contains(a));
+      }).toList();
+    }
+
+    return result;
+  }
+
   void _loadInitialHotels() {
     setState(() {
+      _allHotels = [];
       _displayedHotels = [];
       _hasReachedMax = false;
       _isLoadingMore = false;
@@ -161,12 +196,26 @@ class _HotelListingScreenState extends State<HotelListingScreen> {
   }
 
   void _applyFilters(Map<String, dynamic> newFilters) {
+    // Separate client-side fields from TBO fields
+    const clientKeys = {'min_price', 'max_price', 'star_rating', 'amenities'};
+    final clientFilters = <String, dynamic>{};
+    final tboFilters = <String, dynamic>{};
+    for (final entry in newFilters.entries) {
+      if (clientKeys.contains(entry.key)) {
+        clientFilters[entry.key] = entry.value;
+      } else {
+        tboFilters[entry.key] = entry.value;
+      }
+    }
+
     setState(() {
       _isFilterApplied = true;
+      _allHotels = [];
       _displayedHotels = [];
       _hasReachedMax = false;
       _isLoadingMore = false;
       _isInitialLoading = true;
+      _activeClientFilters = clientFilters;
     });
 
     context.read<HotelBloc>().add(
@@ -177,7 +226,7 @@ class _HotelListingScreenState extends State<HotelListingScreen> {
         guestNationality: widget.guestNationality,
         page: 1,
         pageSize: 20,
-        filters: newFilters,
+        filters: tboFilters.isNotEmpty ? tboFilters : newFilters,
         paxRooms: widget.paxRooms,
       ),
     );
@@ -186,6 +235,8 @@ class _HotelListingScreenState extends State<HotelListingScreen> {
   void _clearFilters() {
     setState(() {
       _isFilterApplied = false;
+      _activeClientFilters = {};
+      _allHotels = [];
       _displayedHotels = [];
       _hasReachedMax = false;
       _isLoadingMore = false;
@@ -252,10 +303,11 @@ class _HotelListingScreenState extends State<HotelListingScreen> {
 
             setState(() {
               if (state.currentPage == 1) {
-                _displayedHotels = newHotels;
+                _allHotels = newHotels;
               } else {
-                _displayedHotels = [..._displayedHotels, ...newHotels];
+                _allHotels = [..._allHotels, ...newHotels];
               }
+              _displayedHotels = _applyClientFilters(_allHotels);
               _hasReachedMax = state.hasReachedMax;
               _isLoadingMore = false;
               _isInitialLoading = false;
@@ -279,26 +331,7 @@ class _HotelListingScreenState extends State<HotelListingScreen> {
 
   Widget _buildHotelList() {
     if (_displayedHotels.isEmpty && _isInitialLoading) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(
-                Theme.of(context).primaryColor,
-              ),
-            ),
-            SizedBox(height: context.gapMedium),
-            Text(
-              'Finding best hotels for you...',
-              style: TextStyle(
-                fontSize: context.bodyMedium,
-                color: Colors.grey.shade600,
-              ),
-            ),
-          ],
-        ),
-      );
+      return const HotelLoadingIndicator();
     }
 
     if (_displayedHotels.isEmpty && !_isInitialLoading) {

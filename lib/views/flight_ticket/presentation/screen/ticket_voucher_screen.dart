@@ -38,12 +38,18 @@ class TicketVoucherScreen extends StatefulWidget {
   final TicketEntity ticket;
   final FlightRouteSegment route;
   final Map<String, dynamic> passengerData;
+  final double promoDiscount;
+  final String promoCode;
+  final Map<String, dynamic> ssrSelections;
 
   const TicketVoucherScreen({
     super.key,
     required this.ticket,
     required this.route,
     required this.passengerData,
+    this.promoDiscount = 0.0,
+    this.promoCode = '',
+    this.ssrSelections = const {},
   });
 
   @override
@@ -57,6 +63,41 @@ class _TicketVoucherScreenState extends State<TicketVoucherScreen> {
   bool _isExpanded = false;
 
   // ── Getters ─────────────────────────────────────────────────────────────────
+
+  /// Seat code for passenger 0: prefers GetBookingDetails PaxSeat, falls back
+  /// to the ssrSelections the user chose on the SSR screen.
+  String? get _resolvedSeatCode {
+    final fromApi = _dpax.isNotEmpty ? _dpax.first.seatCode : null;
+    if (fromApi?.isNotEmpty == true) return fromApi;
+    final seats = widget.ssrSelections['seat'];
+    if (seats is List && seats.isNotEmpty) {
+      final first = seats.first;
+      if (first is Map) return first['Code'] as String?;
+    }
+    return null;
+  }
+
+  /// Baggage label: prefers GetBookingDetails PaxBaggage, falls back to
+  /// ssrSelections. Returns a human-readable string like "BG65 · 65 Kg".
+  String? get _resolvedBaggageLabel {
+    String? code;
+    int? weight;
+
+    if (_dpax.isNotEmpty && _dpax.first.baggageCode?.isNotEmpty == true) {
+      code   = _dpax.first.baggageCode;
+      weight = _dpax.first.baggageWeight;
+    } else {
+      final bag = widget.ssrSelections['baggage'];
+      if (bag is Map) {
+        code   = bag['Code'] as String?;
+        weight = (bag['Weight'] as num?)?.toInt();
+      }
+    }
+
+    if (code == null) return null;
+    return weight != null ? '$code · ${weight} Kg' : code;
+  }
+
   String get _pnr    => widget.ticket.pnr ?? 'N/A';
   String get _bookId => (_details?.bookingId ?? widget.ticket.bookingId)
       ?.toString() ?? 'N/A';
@@ -76,6 +117,49 @@ class _TicketVoucherScreenState extends State<TicketVoucherScreen> {
   String get _currency  => _fare?.currency  ?? _d?.currency  ?? 'INR';
 
   String get _preferredCurrency => CurrencyConverter.getPreferredCurrency();
+
+  /// Total SSR add-on cost in preferred display currency.
+  double get _ssrDisplayAmount {
+    double total = 0;
+    final sel = widget.ssrSelections;
+
+    final baggage = sel['baggage'];
+    if (baggage is Map) {
+      final p = (baggage['Price'] as num?)?.toDouble() ?? 0;
+      final c = (baggage['Currency'] as String?) ?? _currency;
+      if (p > 0) total += SsrPriceFormatter.convertAmount(p, c);
+    }
+
+    final meal = sel['meal'];
+    if (meal is Map) {
+      final p = (meal['Price'] as num?)?.toDouble() ?? 0;
+      final c = (meal['Currency'] as String?) ?? _currency;
+      if (p > 0) total += SsrPriceFormatter.convertAmount(p, c);
+    }
+
+    final seats = sel['seat'];
+    if (seats is List) {
+      for (final seat in seats) {
+        if (seat is Map) {
+          final p = (seat['Price'] as num?)?.toDouble() ?? 0;
+          final c = (seat['Currency'] as String?) ?? _currency;
+          if (p > 0) total += SsrPriceFormatter.convertAmount(p, c);
+        }
+      }
+    }
+
+    return total;
+  }
+
+  /// Final amount actually paid: base fare (converted) + SSR − promo discount.
+  double get _finalDisplayAmount {
+    final base = SsrPriceFormatter.convertAmount(_total, _currency);
+    final result = base + _ssrDisplayAmount - widget.promoDiscount;
+    return result < 0 ? 0 : result;
+  }
+
+  String get _finalDisplayTotal =>
+      CurrencyConverter.format(_finalDisplayAmount, _preferredCurrency);
 
   String _fmt(double amount) {
     return SsrPriceFormatter.format(amount, _currency);
@@ -352,20 +436,83 @@ class _TicketVoucherScreenState extends State<TicketVoucherScreen> {
     );
   }
 
-  pw.Widget _pdfFareBox() => pw.Container(
-    padding: const pw.EdgeInsets.all(14),
-    decoration: pw.BoxDecoration(
-      color: PdfColors.blue50,
-      borderRadius: pw.BorderRadius.circular(8),
-    ),
-    child: pw.Column(children: [
-      _pdfFareRow('Base Fare', _fmt(_baseFare)),
-      pw.SizedBox(height: 8),
-      _pdfFareRow('Taxes & Fees', _fmt(_tax)),
-      pw.Divider(color: PdfColors.grey300, height: 20),
-      _pdfFareRow('Total Paid', _fmt(_total), bold: true),
-    ]),
-  );
+  pw.Widget _pdfFareBox() {
+    final sel = widget.ssrSelections;
+    final hasPromo = widget.promoDiscount > 0;
+
+    double baggagePrice = 0;
+    String baggageCurrency = _currency;
+    final baggage = sel['baggage'];
+    if (baggage is Map) {
+      baggagePrice = (baggage['Price'] as num?)?.toDouble() ?? 0;
+      baggageCurrency = (baggage['Currency'] as String?) ?? _currency;
+    }
+
+    double mealPrice = 0;
+    String mealCurrency = _currency;
+    final meal = sel['meal'];
+    if (meal is Map) {
+      mealPrice = (meal['Price'] as num?)?.toDouble() ?? 0;
+      mealCurrency = (meal['Currency'] as String?) ?? _currency;
+    }
+
+    double seatPrice = 0;
+    final seats = sel['seat'];
+    if (seats is List) {
+      for (final seat in seats) {
+        if (seat is Map) {
+          final p = (seat['Price'] as num?)?.toDouble() ?? 0;
+          final c = (seat['Currency'] as String?) ?? _currency;
+          seatPrice += SsrPriceFormatter.convertAmount(p, c);
+        }
+      }
+    }
+
+    final baggageDisplayPrice = SsrPriceFormatter.convertAmount(baggagePrice, baggageCurrency);
+    final mealDisplayPrice = SsrPriceFormatter.convertAmount(mealPrice, mealCurrency);
+    final hasSSR = baggagePrice > 0 || mealPrice > 0 || seatPrice > 0;
+
+    return pw.Container(
+      padding: const pw.EdgeInsets.all(14),
+      decoration: pw.BoxDecoration(
+        color: PdfColors.blue50,
+        borderRadius: pw.BorderRadius.circular(8),
+      ),
+      child: pw.Column(children: [
+        _pdfFareRow('Base Fare', _fmt(_baseFare)),
+        pw.SizedBox(height: 8),
+        _pdfFareRow('Taxes & Fees', _fmt(_tax)),
+        if (baggagePrice > 0) ...[
+          pw.SizedBox(height: 8),
+          _pdfFareRow('Baggage Add-on',
+              CurrencyConverter.format(baggageDisplayPrice, _preferredCurrency)),
+        ],
+        if (mealPrice > 0) ...[
+          pw.SizedBox(height: 8),
+          _pdfFareRow('Meal Add-on',
+              CurrencyConverter.format(mealDisplayPrice, _preferredCurrency)),
+        ],
+        if (seatPrice > 0) ...[
+          pw.SizedBox(height: 8),
+          _pdfFareRow('Seat Add-on',
+              CurrencyConverter.format(seatPrice, _preferredCurrency)),
+        ],
+        if (hasPromo) ...[
+          pw.SizedBox(height: 8),
+          _pdfFareRow(
+            'Promo Discount (${widget.promoCode})',
+            '- ${CurrencyConverter.format(widget.promoDiscount, _preferredCurrency)}',
+          ),
+        ],
+        pw.Divider(color: PdfColors.grey300, height: 20),
+        _pdfFareRow(
+          'Total Paid',
+          (hasSSR || hasPromo) ? _finalDisplayTotal : _fmt(_total),
+          bold: true,
+        ),
+      ]),
+    );
+  }
 
   pw.Widget _pdfFareRow(String label, String value, {bool bold = false}) =>
       pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
@@ -403,243 +550,6 @@ class _TicketVoucherScreenState extends State<TicketVoucherScreen> {
     ),
   );
 
-  // // ── PDF Generation ──────────────────────────────────────────────────────────
-  // Future<void> _downloadPdf() async {
-  //   try {
-  //     final bytes = await _buildPdf();
-  //     await Printing.sharePdf(bytes: bytes, filename: 'WanderNova_${_pnr}.pdf');
-  //   } catch (e) {
-  //     if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-  //         SnackBar(content: Text('PDF export failed: $e'), backgroundColor: _accent));
-  //   }
-  // }
-  //
-  // Future<Uint8List> _buildPdf() async {
-  //   final doc = pw.Document();
-  //
-  //   doc.addPage(pw.MultiPage(
-  //     pageFormat: PdfPageFormat.a4,
-  //     margin: const pw.EdgeInsets.all(36),
-  //     header: (_) => _pdfHeader(),
-  //     build: (_) => [
-  //       pw.SizedBox(height: 14),
-  //       _pdfConfirmBanner(),
-  //       pw.SizedBox(height: 18),
-  //       _pdfSectionTitle('FLIGHT DETAILS'),
-  //       pw.SizedBox(height: 8),
-  //       if (_segs.isNotEmpty)
-  //         ..._segs.map(_pdfSegment)
-  //       else
-  //         _pdfFallbackRoute(),
-  //       pw.SizedBox(height: 18),
-  //       _pdfSectionTitle('PASSENGER INFORMATION'),
-  //       pw.SizedBox(height: 8),
-  //       _pdfPassengerTable(),
-  //       pw.SizedBox(height: 18),
-  //       _pdfSectionTitle('FARE SUMMARY'),
-  //       pw.SizedBox(height: 8),
-  //       _pdfFareBox(),
-  //       pw.SizedBox(height: 20),
-  //       _pdfTerms(),
-  //       pw.SizedBox(height: 14),
-  //       _pdfFooter(),
-  //     ],
-  //   ));
-  //   return doc.save();
-  // }
-
-  // pw.Widget _pdfHeader() => pw.Container(
-  //   padding: const pw.EdgeInsets.only(bottom: 10),
-  //   decoration: const pw.BoxDecoration(
-  //       border: pw.Border(bottom: pw.BorderSide(color: PdfColors.grey300, width: 0.5))),
-  //   child: pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
-  //     pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
-  //       pw.Row(children: [
-  //         pw.Text('WANDER', style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold, color: PdfColors.blue800)),
-  //         pw.Text('NOVA',   style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold, color: PdfColors.orange700)),
-  //       ]),
-  //       pw.Text('TRAVEL SERVICES', style: pw.TextStyle(fontSize: 7, color: PdfColors.teal700, letterSpacing: 2)),
-  //     ]),
-  //     pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.end, children: [
-  //       pw.Text('E-TICKET', style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold, color: PdfColors.grey800, letterSpacing: 2)),
-  //       pw.SizedBox(height: 2),
-  //       pw.Text('Invoice: $_invoiceNo', style: pw.TextStyle(fontSize: 9, color: PdfColors.grey600)),
-  //       pw.Text('PNR: $_pnr', style: pw.TextStyle(fontSize: 9, color: PdfColors.grey600, letterSpacing: 1)),
-  //     ]),
-  //   ]),
-  // );
-
-  // pw.Widget _pdfConfirmBanner() => pw.Container(
-  //   padding: const pw.EdgeInsets.all(14),
-  //   decoration: pw.BoxDecoration(
-  //     color: PdfColors.green50,
-  //     borderRadius: pw.BorderRadius.circular(8),
-  //     border: pw.Border.all(color: PdfColors.green200),
-  //   ),
-  //   child: pw.Row(children: [
-  //     pw.Container(
-  //       width: 22, height: 22,
-  //       decoration: const pw.BoxDecoration(color: PdfColors.green, shape: pw.BoxShape.circle),
-  //       child: pw.Center(child: pw.Text('✓', style: pw.TextStyle(color: PdfColors.white, fontSize: 13, fontWeight: pw.FontWeight.bold))),
-  //     ),
-  //     pw.SizedBox(width: 12),
-  //     pw.Expanded(child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
-  //       pw.Text('Booking Confirmed', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 12, color: PdfColors.green800)),
-  //       pw.Text('Your e-ticket has been issued successfully.', style: pw.TextStyle(fontSize: 9, color: PdfColors.grey700)),
-  //     ])),
-  //     pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.end, children: [
-  //       pw.Text('Billed To', style: pw.TextStyle(fontSize: 8, color: PdfColors.grey600)),
-  //       pw.Text(_passengerName.toUpperCase(), style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: PdfColors.blue900)),
-  //       if (_email.isNotEmpty) pw.Text(_email, style: pw.TextStyle(fontSize: 8, color: PdfColors.grey600)),
-  //       if (_mobile.isNotEmpty) pw.Text(_mobile, style: pw.TextStyle(fontSize: 8, color: PdfColors.grey600)),
-  //     ]),
-  //   ]),
-  // );
-
-  // pw.Widget _pdfSegment(BookingSegmentDetail seg) => pw.Container(
-  //   margin: const pw.EdgeInsets.only(bottom: 10),
-  //   padding: const pw.EdgeInsets.all(12),
-  //   decoration: pw.BoxDecoration(
-  //     border: pw.Border.all(color: PdfColors.grey300, width: 0.5),
-  //     borderRadius: pw.BorderRadius.circular(6),
-  //   ),
-  //   child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
-  //     pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
-  //       pw.Text(
-  //           '${seg.airlineName ?? ''} (${seg.airlineCode ?? ''})  ·  Flt ${seg.flightNumber ?? ''}',
-  //           style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10)),
-  //       pw.Text('Class: ${seg.fareClass ?? '—'}  |  Duration: ${_dur(seg.duration)}',
-  //           style: pw.TextStyle(fontSize: 9, color: PdfColors.grey600)),
-  //     ]),
-  //     pw.SizedBox(height: 10),
-  //     pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
-  //       pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
-  //         pw.Text(seg.originCode ?? '', style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold)),
-  //         pw.Text(seg.originName ?? '', style: pw.TextStyle(fontSize: 8, color: PdfColors.grey600)),
-  //         pw.SizedBox(height: 3),
-  //         pw.Text(_timeOnly(seg.depTime), style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold)),
-  //         pw.Text(_dateOnly(seg.depTime), style: pw.TextStyle(fontSize: 8, color: PdfColors.grey500)),
-  //         if (seg.originTerminal?.isNotEmpty ?? false)
-  //           pw.Text('Terminal ${seg.originTerminal}', style: pw.TextStyle(fontSize: 8, color: PdfColors.grey500)),
-  //       ]),
-  //       pw.Column(children: [
-  //         pw.Text('──── ✈ ────', style: pw.TextStyle(fontSize: 9, color: PdfColors.red700)),
-  //       ]),
-  //       pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.end, children: [
-  //         pw.Text(seg.destCode ?? '', style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold)),
-  //         pw.Text(seg.destName ?? '', style: pw.TextStyle(fontSize: 8, color: PdfColors.grey600)),
-  //         pw.SizedBox(height: 3),
-  //         pw.Text(_timeOnly(seg.arrTime), style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold)),
-  //         pw.Text(_dateOnly(seg.arrTime), style: pw.TextStyle(fontSize: 8, color: PdfColors.grey500)),
-  //         if (seg.destTerminal?.isNotEmpty ?? false)
-  //           pw.Text('Terminal ${seg.destTerminal}', style: pw.TextStyle(fontSize: 8, color: PdfColors.grey500)),
-  //       ]),
-  //     ]),
-  //     if ((seg.baggage?.isNotEmpty ?? false) || (seg.cabinBaggage?.isNotEmpty ?? false)) ...[
-  //       pw.SizedBox(height: 6),
-  //       pw.Row(children: [
-  //         if (seg.baggage?.isNotEmpty ?? false)
-  //           _pdfBadge('Check-in: ${seg.baggage!}'),
-  //         if (seg.cabinBaggage?.isNotEmpty ?? false) ...[
-  //           pw.SizedBox(width: 6),
-  //           _pdfBadge('Cabin: ${seg.cabinBaggage!}'),
-  //         ],
-  //       ]),
-  //     ],
-  //   ]),
-  // );
-
-  // pw.Widget _pdfFallbackRoute() => pw.Container(
-  //   padding: const pw.EdgeInsets.all(12),
-  //   decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.grey300, width: 0.5), borderRadius: pw.BorderRadius.circular(6)),
-  //   child: pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
-  //     pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
-  //       pw.Text(widget.route.from, style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
-  //       pw.Text(widget.route.departureTime, style: pw.TextStyle(fontSize: 9, color: PdfColors.grey600)),
-  //     ]),
-  //     pw.Column(children: [
-  //       pw.Text(widget.route.duration, style: pw.TextStyle(fontSize: 9, color: PdfColors.grey500)),
-  //       pw.Text('──── ✈ ────', style: pw.TextStyle(fontSize: 9, color: PdfColors.red700)),
-  //     ]),
-  //     pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.end, children: [
-  //       pw.Text(widget.route.to, style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
-  //       pw.Text(widget.route.arrivalTime, style: pw.TextStyle(fontSize: 9, color: PdfColors.grey600)),
-  //     ]),
-  //   ]),
-  // );
-
-  // pw.Widget _pdfPassengerTable() {
-  //   List<List<String>> rows;
-  //   if (_dpax.isNotEmpty) {
-  //     rows = _dpax.map((p) => [
-  //       p.fullName.isNotEmpty ? p.fullName : _passengerName,
-  //       _email,
-  //       _mobile,
-  //       p.ticketStatus ?? 'Confirmed',
-  //     ]).toList();
-  //   } else if (_tpax.isNotEmpty) {
-  //     rows = _tpax.map((p) => [
-  //       '${p.firstName ?? ''} ${p.lastName ?? ''}'.trim().isEmpty ? _passengerName : '${p.firstName ?? ''} ${p.lastName ?? ''}'.trim(),
-  //       _email,
-  //       _mobile,
-  //       p.ticketNumber ?? 'N/A',
-  //       p.status ?? 'Confirmed',
-  //     ]).toList();
-  //   } else {
-  //     rows = [[_passengerName, _email, _mobile, 'Processing…', 'Confirmed']];
-  //   }
-  //
-  //   return pw.Table(
-  //     border: pw.TableBorder.all(color: PdfColors.grey300, width: 0.5),
-  //     columnWidths: {
-  //       0: const pw.FlexColumnWidth(2.2),
-  //       1: const pw.FlexColumnWidth(2.5),
-  //       2: const pw.FlexColumnWidth(1.8),
-  //       3: const pw.FlexColumnWidth(2.2),
-  //       4: const pw.FlexColumnWidth(1.3),
-  //     },
-  //     children: [
-  //       pw.TableRow(
-  //         decoration: const pw.BoxDecoration(color: PdfColors.blue900),
-  //         children: ['PASSENGER', 'EMAIL', 'MOBILE', 'TICKET NUMBER', 'STATUS']
-  //             .map((h) => pw.Padding(
-  //           padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 6),
-  //           child: pw.Text(h, style: pw.TextStyle(color: PdfColors.white, fontWeight: pw.FontWeight.bold, fontSize: 8)),
-  //         ))
-  //             .toList(),
-  //       ),
-  //       ...rows.map((row) => pw.TableRow(
-  //         children: row.map((cell) => pw.Padding(
-  //           padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 6),
-  //           child: pw.Text(cell.isEmpty ? '—' : cell, style: pw.TextStyle(fontSize: 8, color: PdfColors.grey900)),
-  //         )).toList(),
-  //       )),
-  //     ],
-  //   );
-  // }
-
-  // pw.Widget _pdfFareBox() => pw.Container(
-  //   padding: const pw.EdgeInsets.all(14),
-  //   decoration: pw.BoxDecoration(
-  //     color: PdfColors.grey50,
-  //     borderRadius: pw.BorderRadius.circular(6),
-  //     border: pw.Border.all(color: PdfColors.grey300, width: 0.5),
-  //   ),
-  //   child: pw.Column(children: [
-  //     _pdfFareRow('Base Fare',   _fmt(_baseFare)),
-  //     pw.Divider(color: PdfColors.grey200, height: 12),
-  //     _pdfFareRow('Taxes & Fees', _fmt(_tax)),
-  //     pw.Divider(color: PdfColors.grey300, height: 16),
-  //     _pdfFareRow('Total Paid',  _fmt(_total), bold: true),
-  //   ]),
-  // );
-
-  // pw.Widget _pdfFareRow(String l, String v, {bool bold = false}) =>
-  //     pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
-  //       pw.Text(l, style: pw.TextStyle(fontSize: bold ? 12 : 10, fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal, color: bold ? PdfColors.grey900 : PdfColors.grey700)),
-  //       pw.Text(v, style: pw.TextStyle(fontSize: bold ? 12 : 10, fontWeight: pw.FontWeight.bold, color: bold ? PdfColors.red700 : PdfColors.grey900)),
-  //     ]);
-
   pw.Widget _pdfTerms() => pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
     pw.Divider(color: PdfColors.grey300, height: 1),
     pw.SizedBox(height: 8),
@@ -669,6 +579,7 @@ class _TicketVoucherScreenState extends State<TicketVoucherScreen> {
         tax: _tax,
         total: _total,
         currency: _currency,
+        finalTotalStr: _finalDisplayTotal,
         segs: _segs,
         dpax: _dpax,
         tpax: _tpax,
@@ -680,6 +591,10 @@ class _TicketVoucherScreenState extends State<TicketVoucherScreen> {
         durFn: _dur,
         totalDurFn: _totalDur,
         fmtFn: _fmt,
+        ssrSelections: widget.ssrSelections,
+        promoDiscount: widget.promoDiscount,
+        promoCode: widget.promoCode,
+        preferredCurrency: _preferredCurrency,
       ),
     );
   }
@@ -838,109 +753,6 @@ class _TicketVoucherScreenState extends State<TicketVoucherScreen> {
     );
   }
 
-  // ── PNR Card ─────────────────────────────────────────────────────────────────
-  // Widget _buildPNRCard(BuildContext context) {
-  //   return _card(context,
-  //     child: Column(
-  //       children: [
-  //         Row(
-  //           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-  //           children: [
-  //             Text(
-  //               'PNR / Booking Reference',
-  //               style: TextStyle(
-  //                 fontSize: context.labelSmall,
-  //                 color: _textTertiary,
-  //                 fontWeight: FontWeight.w600,
-  //                 letterSpacing: 0.8,
-  //               ),
-  //             ),
-  //             GestureDetector(
-  //               onTap: () {
-  //                 Clipboard.setData(ClipboardData(text: _pnr));
-  //                 ScaffoldMessenger.of(context).showSnackBar(
-  //                   SnackBar(
-  //                     content: const Text('PNR copied to clipboard'),
-  //                     backgroundColor: _primary,
-  //                     behavior: SnackBarBehavior.floating,
-  //                     shape: RoundedRectangleBorder(
-  //                       borderRadius: BorderRadius.circular(10),
-  //                     ),
-  //                   ),
-  //                 );
-  //               },
-  //               child: Container(
-  //                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-  //                 decoration: BoxDecoration(
-  //                   color: _primary.withOpacity(0.08),
-  //                   borderRadius: BorderRadius.circular(12),
-  //                   border: Border.all(color: _primary.withOpacity(0.15)),
-  //                 ),
-  //                 child: Row(
-  //                   children: [
-  //                     Icon(Icons.copy_rounded, size: 14, color: _primary),
-  //                     const SizedBox(width: 4),
-  //                     Text(
-  //                       'Copy',
-  //                       style: TextStyle(
-  //                         color: _primary,
-  //                         fontSize: context.labelSmall,
-  //                         fontWeight: FontWeight.w600,
-  //                       ),
-  //                     ),
-  //                   ],
-  //                 ),
-  //               ),
-  //             ),
-  //           ],
-  //         ),
-  //         SizedBox(height: context.gapSmall),
-  //         Container(
-  //           padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-  //           decoration: BoxDecoration(
-  //             color: _accent.withOpacity(0.05),
-  //             borderRadius: BorderRadius.circular(12),
-  //             border: Border.all(color: _accent.withOpacity(0.15)),
-  //           ),
-  //           child: Text(
-  //             _pnr,
-  //             style: TextStyle(
-  //               fontSize: 34,
-  //               fontWeight: FontWeight.w800,
-  //               letterSpacing: 6,
-  //               color: _accent,
-  //             ),
-  //           ),
-  //         ),
-  //         SizedBox(height: context.h(6)),
-  //         Row(
-  //           mainAxisAlignment: MainAxisAlignment.center,
-  //           children: [
-  //             _buildInfoChip('Booking ID', _bookId),
-  //             const SizedBox(width: 12),
-  //             _buildInfoChip('Invoice', _invoiceNo),
-  //           ],
-  //         ),
-  //         if (_loadingDetails) ...[
-  //           SizedBox(height: context.gapSmall),
-  //           const LinearProgressIndicator(
-  //             backgroundColor: Color(0xFFE8ECF2),
-  //             color: _primary,
-  //             minHeight: 2,
-  //           ),
-  //           SizedBox(height: context.h(4)),
-  //           Text(
-  //             'Loading booking details…',
-  //             style: TextStyle(
-  //               color: _textTertiary,
-  //               fontSize: context.labelSmall,
-  //             ),
-  //           ),
-  //         ],
-  //       ],
-  //     ),
-  //   );
-  // }
 
   Widget _buildInfoChip(String label, String value) {
     return Container(
@@ -990,19 +802,6 @@ class _TicketVoucherScreenState extends State<TicketVoucherScreen> {
                 children: [
                   if (i > 0) _stopoverDivider(context, seg.originCode ?? ''),
                   _buildSegmentRow(context, seg),
-                  // SizedBox(height: context.gapSmall),
-                  // if ((seg.baggage?.isNotEmpty ?? false) ||
-                  //     (seg.cabinBaggage?.isNotEmpty ?? false))
-                  //   Wrap(
-                  //     spacing: 8,
-                  //     runSpacing: 4,
-                  //     children: [
-                  //       if (seg.baggage?.isNotEmpty ?? false)
-                  //         _buildBadge('🧳 ${seg.baggage!}'),
-                  //       if (seg.cabinBaggage?.isNotEmpty ?? false)
-                  //         _buildBadge('🎒 ${seg.cabinBaggage!}'),
-                  //     ],
-                  //   ),
                   if (i < _segs.length - 1)
                     SizedBox(height: context.h(8)),
                 ],
@@ -1456,6 +1255,48 @@ class _TicketVoucherScreenState extends State<TicketVoucherScreen> {
             })
           else
             _buildPassengerTicketRow(context, _passengerName, null, 'Confirmed'),
+          // ── SSR add-ons (seat / baggage) ──────────────────────────────────
+          if (_resolvedSeatCode != null || _resolvedBaggageLabel != null) ...[
+            SizedBox(height: context.h(10)),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: _background,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: _borderLight),
+              ),
+              child: Row(
+                children: [
+                  if (_resolvedSeatCode != null) ...[
+                    const Icon(Icons.event_seat_outlined, size: 15, color: _primaryLight),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Seat $_resolvedSeatCode',
+                      style: TextStyle(
+                        fontSize: context.labelSmall,
+                        fontWeight: FontWeight.w600,
+                        color: _textPrimary,
+                      ),
+                    ),
+                  ],
+                  if (_resolvedSeatCode != null && _resolvedBaggageLabel != null)
+                    const SizedBox(width: 16),
+                  if (_resolvedBaggageLabel != null) ...[
+                    const Icon(Icons.luggage_outlined, size: 15, color: _primaryLight),
+                    const SizedBox(width: 6),
+                    Text(
+                      _resolvedBaggageLabel!,
+                      style: TextStyle(
+                        fontSize: context.labelSmall,
+                        fontWeight: FontWeight.w600,
+                        color: _textPrimary,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -1686,6 +1527,41 @@ class _TicketVoucherScreenState extends State<TicketVoucherScreen> {
 
   // ── Fare Card ───────────────────────────────────────────────────────────────
   Widget _buildFareCard(BuildContext context) {
+    final sel = widget.ssrSelections;
+    final hasPromo = widget.promoDiscount > 0;
+
+    double baggagePrice = 0;
+    String baggageCurrency = _currency;
+    final baggage = sel['baggage'];
+    if (baggage is Map) {
+      baggagePrice = (baggage['Price'] as num?)?.toDouble() ?? 0;
+      baggageCurrency = (baggage['Currency'] as String?) ?? _currency;
+    }
+
+    double mealPrice = 0;
+    String mealCurrency = _currency;
+    final meal = sel['meal'];
+    if (meal is Map) {
+      mealPrice = (meal['Price'] as num?)?.toDouble() ?? 0;
+      mealCurrency = (meal['Currency'] as String?) ?? _currency;
+    }
+
+    double seatPrice = 0;
+    final seats = sel['seat'];
+    if (seats is List) {
+      for (final seat in seats) {
+        if (seat is Map) {
+          final p = (seat['Price'] as num?)?.toDouble() ?? 0;
+          final c = (seat['Currency'] as String?) ?? _currency;
+          seatPrice += SsrPriceFormatter.convertAmount(p, c);
+        }
+      }
+    }
+
+    final baggageDisplayPrice = SsrPriceFormatter.convertAmount(baggagePrice, baggageCurrency);
+    final mealDisplayPrice = SsrPriceFormatter.convertAmount(mealPrice, mealCurrency);
+    final hasSSR = baggagePrice > 0 || mealPrice > 0 || seatPrice > 0;
+
     return _card(context,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1704,8 +1580,37 @@ class _TicketVoucherScreenState extends State<TicketVoucherScreen> {
                 _fareRow(context, 'Base Fare', _fmt(_baseFare)),
                 SizedBox(height: context.gapSmall),
                 _fareRow(context, 'Taxes & Fees', _fmt(_tax)),
+                if (baggagePrice > 0) ...[
+                  SizedBox(height: context.gapSmall),
+                  _fareRow(context, 'Baggage Add-on',
+                      CurrencyConverter.format(baggageDisplayPrice, _preferredCurrency)),
+                ],
+                if (mealPrice > 0) ...[
+                  SizedBox(height: context.gapSmall),
+                  _fareRow(context, 'Meal Add-on',
+                      CurrencyConverter.format(mealDisplayPrice, _preferredCurrency)),
+                ],
+                if (seatPrice > 0) ...[
+                  SizedBox(height: context.gapSmall),
+                  _fareRow(context, 'Seat Add-on',
+                      CurrencyConverter.format(seatPrice, _preferredCurrency)),
+                ],
+                if (hasPromo) ...[
+                  SizedBox(height: context.gapSmall),
+                  _fareRow(
+                    context,
+                    'Promo Discount (${widget.promoCode})',
+                    '- ${CurrencyConverter.format(widget.promoDiscount, _preferredCurrency)}',
+                    isDiscount: true,
+                  ),
+                ],
                 Divider(height: context.gapMedium, color: _borderLight),
-                _fareRow(context, 'Total Paid', _fmt(_total), isTotal: true),
+                _fareRow(
+                  context,
+                  'Total Paid',
+                  (hasSSR || hasPromo) ? _finalDisplayTotal : _fmt(_total),
+                  isTotal: true,
+                ),
               ],
             ),
           ),
@@ -1715,16 +1620,24 @@ class _TicketVoucherScreenState extends State<TicketVoucherScreen> {
   }
 
   Widget _fareRow(BuildContext context, String label, String value,
-      {bool isTotal = false}) {
+      {bool isTotal = false, bool isDiscount = false}) {
+    final labelColor = isDiscount
+        ? Colors.green.shade700
+        : (isTotal ? _textPrimary : _textSecondary);
+    final valueColor = isDiscount
+        ? Colors.green.shade700
+        : (isTotal ? _accent : _textPrimary);
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: isTotal ? context.bodyLarge : context.bodyMedium,
-            fontWeight: isTotal ? FontWeight.bold : FontWeight.normal,
-            color: isTotal ? _textPrimary : _textSecondary,
+        Expanded(
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: isTotal ? context.bodyLarge : context.bodyMedium,
+              fontWeight: isTotal ? FontWeight.bold : FontWeight.normal,
+              color: labelColor,
+            ),
           ),
         ),
         Text(
@@ -1732,7 +1645,7 @@ class _TicketVoucherScreenState extends State<TicketVoucherScreen> {
           style: TextStyle(
             fontSize: isTotal ? context.bodyLarge : context.bodyMedium,
             fontWeight: FontWeight.bold,
-            color: isTotal ? _accent : _textPrimary,
+            color: valueColor,
           ),
         ),
       ],
@@ -1777,30 +1690,30 @@ class _TicketVoucherScreenState extends State<TicketVoucherScreen> {
   Widget _buildActions(BuildContext context) {
     return Column(
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: _buildActionButton(
-                context,
-                label: 'Download PDF',
-                icon: Icons.download_rounded,
-                onTap: _downloadPdf,
-                primary: true,
-              ),
-            ),
-            SizedBox(width: context.gapSmall),
-            Expanded(
-              child: _buildActionButton(
-                context,
-                label: 'View Invoice',
-                icon: Icons.receipt_outlined,
-                onTap: _showInvoice,
-                primary: false,
-              ),
-            ),
-          ],
-        ),
-        SizedBox(height: context.gapSmall),
+        // Row(
+        //   children: [
+        //     Expanded(
+        //       child: _buildActionButton(
+        //         context,
+        //         label: 'Download PDF',
+        //         icon: Icons.download_rounded,
+        //         onTap: _downloadPdf,
+        //         primary: true,
+        //       ),
+        //     ),
+        //     SizedBox(width: context.gapSmall),
+        //     Expanded(
+        //       child: _buildActionButton(
+        //         context,
+        //         label: 'View Invoice',
+        //         icon: Icons.receipt_outlined,
+        //         onTap: _showInvoice,
+        //         primary: false,
+        //       ),
+        //     ),
+        //   ],
+        // ),
+        // SizedBox(height: context.gapSmall),
         SizedBox(
           width: double.infinity,
           height: context.buttonHeight + 4,

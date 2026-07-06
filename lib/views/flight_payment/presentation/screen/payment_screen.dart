@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:razorpay_flutter/razorpay_flutter.dart';
 import 'package:wander_nova/injection_container.dart' as di;
+import '../../../../UI_helper/currency_converter.dart';
 import '../../../../UI_helper/responsive_layout.dart';
 import '../../../../common_widgets/logo.dart';
 import '../../../../core/constants/urls.dart';
@@ -33,6 +35,8 @@ class FlightPaymentScreen
   final String resultIndex;
   final Map<String, dynamic> passengerData;
   final Map<String, dynamic> ssrSelections;
+  final double promoDiscount;
+  final String promoCode;
 
   const FlightPaymentScreen({
     super.key,
@@ -41,6 +45,8 @@ class FlightPaymentScreen
     required this.resultIndex,
     required this.passengerData,
     required this.ssrSelections,
+    this.promoDiscount = 0.0,
+    this.promoCode = '',
   });
 
   @override
@@ -79,8 +85,40 @@ class _FlightPaymentScreenState extends State<FlightPaymentScreen> {
   Map<String, String> _extractFlightDetails() {
     final details = <String, String>{};
 
-    // Flight type - check if available from route
-    details['flight_type'] = widget.route.flightType ?? 'one_way';
+    // Derive flight type: prefer explicit route value, fall back to segment analysis.
+    String flightType = widget.route.flightType ?? '';
+    if (flightType.isEmpty) {
+      try {
+        final rawItinerary = widget.route.fareQuoteData?.rawItinerary;
+        if (rawItinerary != null) {
+          final rawSegs = rawItinerary['Segments'] ?? rawItinerary['Segments_BE'] ?? [];
+          final flat = <dynamic>[];
+          if (rawSegs is List) {
+            for (final s in rawSegs) {
+              if (s is List) flat.addAll(s); else if (s != null) flat.add(s);
+            }
+          }
+          if (flat.length > 1) {
+            final first = flat.first;
+            final last  = flat.last;
+            String firstOrigin = '';
+            String lastDest   = '';
+            if (first is Map) {
+              final o = first['Origin'];
+              if (o is Map) firstOrigin = ((o['Airport'] as Map?)?['AirportCode'] as String?) ?? '';
+            }
+            if (last is Map) {
+              final d = last['Destination'];
+              if (d is Map) lastDest = ((d['Airport'] as Map?)?['AirportCode'] as String?) ?? '';
+            }
+            if (firstOrigin.isNotEmpty && firstOrigin == lastDest) {
+              flightType = 'round_trip';
+            }
+          }
+        }
+      } catch (_) {}
+    }
+    details['flight_type'] = flightType.isNotEmpty ? flightType : 'one_way';
 
     // From/To cities - extract airport codes
     details['from_city'] = _extractCityCode(widget.route.from);
@@ -321,10 +359,57 @@ class _FlightPaymentScreenState extends State<FlightPaymentScreen> {
   }
 
   String get _currency => widget.route.fareQuoteData?.currency ?? 'INR';
-  double get _displayAmount =>
+
+  /// Base fare converted to the user's preferred display currency (no discount).
+  double get _baseDisplayAmount =>
       SsrPriceFormatter.convertAmount(_totalAmount, _currency);
+
+  /// Total SSR add-on cost (baggage + meal + seats) in preferred display currency.
+  double get _ssrDisplayAmount {
+    double total = 0;
+    final sel = widget.ssrSelections;
+
+    final baggage = sel['baggage'];
+    if (baggage is Map) {
+      final p = (baggage['Price'] as num?)?.toDouble() ?? 0;
+      final c = (baggage['Currency'] as String?) ?? _currency;
+      if (p > 0) total += SsrPriceFormatter.convertAmount(p, c);
+    }
+
+    final meal = sel['meal'];
+    if (meal is Map) {
+      final p = (meal['Price'] as num?)?.toDouble() ?? 0;
+      final c = (meal['Currency'] as String?) ?? _currency;
+      if (p > 0) total += SsrPriceFormatter.convertAmount(p, c);
+    }
+
+    final seats = sel['seat'];
+    if (seats is List) {
+      for (final seat in seats) {
+        if (seat is Map) {
+          final p = (seat['Price'] as num?)?.toDouble() ?? 0;
+          final c = (seat['Currency'] as String?) ?? _currency;
+          if (p > 0) total += SsrPriceFormatter.convertAmount(p, c);
+        }
+      }
+    }
+
+    return total;
+  }
+
+  /// Final payable amount in preferred display currency
+  /// (base fare + SSR add-ons − promo discount).
+  double get _displayAmount {
+    final total = _baseDisplayAmount + _ssrDisplayAmount - widget.promoDiscount;
+    return total < 0 ? 0 : total;
+  }
+
   String get _displayCurrency => SsrPriceFormatter.preferredCurrency(_currency);
-  String get _displayTotal => SsrPriceFormatter.format(_totalAmount, _currency);
+
+  String get _displayTotal {
+    final preferredCurrency = SsrPriceFormatter.preferredCurrency(_currency);
+    return CurrencyConverter.format(_displayAmount, preferredCurrency);
+  }
 
   // ============================================================
   // ----- Razorpay flow (commented out) -----
@@ -584,10 +669,13 @@ class _FlightPaymentScreenState extends State<FlightPaymentScreen> {
         endUserIp: _endUserIp,
         traceId: widget.traceId,
         tokenId: '',
-        // resultIndex: widget.resultIndex,
         resultIndex: effectiveResultIndex,
         itinerary: _rawItinerary,
         passengers: [_builtPassenger!],
+        flightType: flightDetails['flight_type'] ?? 'one_way',
+        fromCity: flightDetails['from_city'] ?? '',
+        toCity: flightDetails['to_city'] ?? '',
+        departureDate: flightDetails['departure_date'] ?? '',
       );
       payload = {
         'trace_id': widget.traceId,
@@ -615,7 +703,8 @@ class _FlightPaymentScreenState extends State<FlightPaymentScreen> {
 
 
     print('====== PREPARE-TICKET PAYLOAD ======');
-    print(jsonEncode(payload));
+    // print(jsonEncode(payload));
+    _printLongText(const JsonEncoder.withIndent('  ').convert(payload));
     print('=====================================');
 
     try {
@@ -689,6 +778,9 @@ class _FlightPaymentScreenState extends State<FlightPaymentScreen> {
               ticket: ticket,
               route: widget.route,
               passengerData: widget.passengerData,
+              promoDiscount: widget.promoDiscount,
+              promoCode: widget.promoCode,
+              ssrSelections: widget.ssrSelections,
             ),
           ),
         );
@@ -808,8 +900,6 @@ class _FlightPaymentScreenState extends State<FlightPaymentScreen> {
       return;
     }
 
-    // Non-truncated diagnostic: confirms the itinerary really is the FareQuote
-    // result (Android logcat truncates the full payload dump).
     print('====== ITINERARY DIAGNOSTIC ======');
     print('fareQuoteData null? ${widget.route.fareQuoteData == null}');
     print('isLcc            : $_isLcc');
@@ -822,9 +912,7 @@ class _FlightPaymentScreenState extends State<FlightPaymentScreen> {
     print('widget.resultIndex (search): $resultIndex');
     print('==================================');
 
-    // The ResultId sent to Book/Ticket must match the Itinerary it describes.
-    // FareQuote can return a NEW ResultIndex, so prefer the one inside the
-    // itinerary; fall back to the search index only if absent.
+
     final itineraryResultIndex =
         (_rawItinerary['ResultIndex'] as String?)?.trim();
     final effectiveResultIndex =
@@ -843,9 +931,12 @@ class _FlightPaymentScreenState extends State<FlightPaymentScreen> {
 
   void _printLongText(String text) {
     const int chunkSize = 800;
+
     for (int i = 0; i < text.length; i += chunkSize) {
-      final end = (i + chunkSize < text.length) ? i + chunkSize : text.length;
-      debugPrint(text.substring(i, end));
+      final end =
+      (i + chunkSize < text.length) ? i + chunkSize : text.length;
+
+      debugPrintSynchronously(text.substring(i, end));
     }
   }
 
@@ -992,55 +1083,14 @@ class _FlightPaymentScreenState extends State<FlightPaymentScreen> {
     print('  to_city       : ${request.toCity}');
     print('  departure_date: ${request.departureDate}');
     print('--- full JSON ---');
-    print(jsonEncode(request.toJson()));
+    // print(jsonEncode(request.toJson()));
+    _printLongText(
+      const JsonEncoder.withIndent('  ').convert(request.toJson()),
+    );
     print('======================================');
 
     _ticketBloc.add(IssueTicketEvent(request));
   }
-  /// Non-LCC: issue the ticket on the already-booked PNR.
-
-  // void _callNonLccTicketApi(String pnr, int bookingId) {
-  //   final itineraryResultIndex = (_rawItinerary['ResultIndex'] as String?)?.trim();
-  //   final effectiveResultIndex =
-  //       (itineraryResultIndex != null && itineraryResultIndex.isNotEmpty)
-  //           ? itineraryResultIndex
-  //           : widget.resultIndex.trim();
-  //
-  //   final fullItinerary = buildItinerary(
-  //     _rawItinerary,
-  //     [_builtPassenger!],
-  //     traceId: widget.traceId,
-  //   );
-  //
-  //   print('=== TICKET ITINERARY DEBUG ===');
-  //   print('Has Passenger: ${fullItinerary.containsKey('Passenger')}');
-  //   print('Passenger count: ${fullItinerary['Passenger']?.length}');
-  //   print('Has Segments_BE: ${fullItinerary.containsKey('Segments_BE')}');
-  //   print('Segments count: ${fullItinerary['Segments_BE']?.length}');
-  //   print('ResultIndex: $effectiveResultIndex');
-  //   print('===============================');
-  //
-  //   final request = TicketRequestModel.nonLcc(
-  //     endUserIp: _endUserIp,
-  //     traceId: widget.traceId.trim(),
-  //     bookingId: bookingId,
-  //     pnr: pnr,
-  //     itinerary: fullItinerary,
-  //     passengers: [_builtPassenger!],
-  //     resultIndex: effectiveResultIndex,
-  //   );
-  //
-  //   print('====== TICKET API PAYLOAD (Non-LCC) ======');
-  //   print('EndUserIp  : ${request.endUserIp}');
-  //   print('TrackingId : ${request.traceId}');
-  //   print('BookingId  : ${request.bookingId}');
-  //   print('PNR        : ${request.pnr}');
-  //   print('--- full JSON ---');
-  //   print(jsonEncode(request.toJson()));
-  //   print('==========================================');
-  //
-  //   _ticketBloc.add(IssueTicketEvent(request));
-  // }
 
   /// Non-LCC: issue the ticket on the already-booked PNR.
   void _callNonLccTicketApi(String pnr, int bookingId) {
@@ -1110,6 +1160,9 @@ class _FlightPaymentScreenState extends State<FlightPaymentScreen> {
             ticket: ticket,
             route: widget.route,
             passengerData: widget.passengerData,
+            promoDiscount: widget.promoDiscount,
+            promoCode: widget.promoCode,
+            ssrSelections: widget.ssrSelections,
           ),
         ),
       );
@@ -1304,23 +1357,52 @@ class _FlightPaymentScreenState extends State<FlightPaymentScreen> {
 
   Widget _buildFareSummaryCard(BuildContext context) {
     final fare = widget.route.fareQuoteData;
+    final hasPromo = widget.promoDiscount > 0;
+    final preferredCurrency = SsrPriceFormatter.preferredCurrency(_currency);
+    final sel = widget.ssrSelections;
+
+    // Extract SSR prices for individual rows
+    double baggagePrice = 0;
+    String baggageCurrency = _currency;
+    final baggage = sel['baggage'];
+    if (baggage is Map) {
+      baggagePrice = (baggage['Price'] as num?)?.toDouble() ?? 0;
+      baggageCurrency = (baggage['Currency'] as String?) ?? _currency;
+    }
+
+    double mealPrice = 0;
+    String mealCurrency = _currency;
+    final meal = sel['meal'];
+    if (meal is Map) {
+      mealPrice = (meal['Price'] as num?)?.toDouble() ?? 0;
+      mealCurrency = (meal['Currency'] as String?) ?? _currency;
+    }
+
+    double seatPrice = 0;
+    final seats = sel['seat'];
+    if (seats is List) {
+      for (final seat in seats) {
+        if (seat is Map) {
+          final p = (seat['Price'] as num?)?.toDouble() ?? 0;
+          final c = (seat['Currency'] as String?) ?? _currency;
+          seatPrice += SsrPriceFormatter.convertAmount(p, c);
+        }
+      }
+    }
+    final baggageDisplayPrice = SsrPriceFormatter.convertAmount(baggagePrice, baggageCurrency);
+    final mealDisplayPrice = SsrPriceFormatter.convertAmount(mealPrice, mealCurrency);
+
     return _card(
       context,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              // Icon(Icons.receipt_long, color: _blue, size: context.iconMedium),
-              // SizedBox(width: context.gapSmall),
-              Text(
-                'Fare Breakdown',
-                style: TextStyle(
-                  fontSize: context.titleMedium,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
+          Text(
+            'Fare Breakdown',
+            style: TextStyle(
+              fontSize: context.titleMedium,
+              fontWeight: FontWeight.bold,
+            ),
           ),
           SizedBox(height: context.gapLarge),
           if (fare != null) ...[
@@ -1335,18 +1417,51 @@ class _FlightPaymentScreenState extends State<FlightPaymentScreen> {
               'Taxes & Fees',
               SsrPriceFormatter.format(fare.tax, fare.currency),
             ),
+            if (baggagePrice > 0) ...[
+              SizedBox(height: context.gapSmall),
+              _fareRow(
+                context,
+                'Baggage Add-on',
+                CurrencyConverter.format(baggageDisplayPrice, preferredCurrency),
+              ),
+            ],
+            if (mealPrice > 0) ...[
+              SizedBox(height: context.gapSmall),
+              _fareRow(
+                context,
+                'Meal Add-on',
+                CurrencyConverter.format(mealDisplayPrice, preferredCurrency),
+              ),
+            ],
+            if (seatPrice > 0) ...[
+              SizedBox(height: context.gapSmall),
+              _fareRow(
+                context,
+                'Seat Add-on',
+                CurrencyConverter.format(seatPrice, preferredCurrency),
+              ),
+            ],
+            if (hasPromo) ...[
+              SizedBox(height: context.gapSmall),
+              _fareRow(
+                context,
+                'Promo Discount (${widget.promoCode})',
+                '- ${CurrencyConverter.format(widget.promoDiscount, preferredCurrency)}',
+                isDiscount: true,
+              ),
+            ],
             Divider(height: context.gapLarge, color: Colors.grey.shade200),
             _fareRow(
               context,
               'Total Amount',
-              SsrPriceFormatter.format(fare.total, fare.currency),
+              _displayTotal,
               isTotal: true,
             ),
           ] else
             _fareRow(
               context,
               'Total Amount',
-              widget.route.price,
+              (hasPromo || _ssrDisplayAmount > 0) ? _displayTotal : widget.route.price,
               isTotal: true,
             ),
         ],
@@ -1359,16 +1474,22 @@ class _FlightPaymentScreenState extends State<FlightPaymentScreen> {
     String label,
     String value, {
     bool isTotal = false,
+    bool isDiscount = false,
   }) {
+    final color = isDiscount
+        ? Colors.green.shade700
+        : (isTotal ? _blue : _navy);
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: isTotal ? context.bodyLarge : context.bodyMedium,
-            fontWeight: isTotal ? FontWeight.bold : FontWeight.normal,
-            color: isTotal ? _navy : Colors.grey.shade700,
+        Expanded(
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: isTotal ? context.bodyLarge : context.bodyMedium,
+              fontWeight: isTotal ? FontWeight.bold : FontWeight.normal,
+              color: isDiscount ? Colors.green.shade700 : (isTotal ? _navy : Colors.grey.shade700),
+            ),
           ),
         ),
         Text(
@@ -1376,7 +1497,7 @@ class _FlightPaymentScreenState extends State<FlightPaymentScreen> {
           style: TextStyle(
             fontSize: isTotal ? context.bodyLarge : context.bodyMedium,
             fontWeight: isTotal ? FontWeight.bold : FontWeight.w600,
-            color: isTotal ? _blue : _navy,
+            color: color,
           ),
         ),
       ],

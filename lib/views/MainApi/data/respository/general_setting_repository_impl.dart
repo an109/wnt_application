@@ -42,6 +42,37 @@ class GeneralSettingsRepositoryImpl implements GeneralSettingsRepository {
   }
 
   @override
+  Future<DataState<List<PromoCodeEntity>>> getPromoCodes({String? domain}) async {
+    try {
+      final response = await apiService.getPopularDestinationsData(domain: domain ?? 'thewandernova.com');
+
+      if (response.statusCode == 200) {
+        final responseData = PopularDestinationsResponseModel.fromJson(response.data);
+        // Extract promo codes from the full response model
+        return DataSuccess(responseData.promoCodes.map((e) => e.toEntity()).toList());
+      } else {
+        return DataFailed(
+          DioException(
+            requestOptions: RequestOptions(path: response.requestOptions.path),
+            response: response,
+            type: DioExceptionType.badResponse,
+          ),
+        );
+      }
+    } on DioException catch (e) {
+      return DataFailed(e);
+    } catch (e) {
+      return DataFailed(
+        DioException(
+          requestOptions: RequestOptions(path: 'flights-popular-destinations'),
+          error: e.toString(),
+          type: DioExceptionType.unknown,
+        ),
+      );
+    }
+  }
+
+  @override
   Future<DataState<SectionHeroesEntity>> getSectionHeroes({String? domain}) async {
     try {
       final response = await apiService.getPopularDestinationsData(domain: domain ?? 'thewandernova.com');

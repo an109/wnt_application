@@ -4,6 +4,7 @@ import '../../domain/entities/general_setting_entity.dart';
 import '../../domain/entities/section_heros_entity.dart';
 import '../../domain/usecase/get_faq_list_usecase.dart';
 import '../../domain/usecase/get_general_setting_usecase.dart';
+import '../../domain/usecase/get_promo_codes_usecase.dart';
 import '../../domain/usecase/get_section_heros_usecase.dart';
 import 'general_settings_event.dart';
 import 'general_settings_state.dart';
@@ -12,16 +13,35 @@ class GeneralSettingsBloc extends Bloc<GeneralSettingsEvent, GeneralSettingsStat
   final GetGeneralSettingsUsecase getGeneralSettingsUsecase;
   final GetSectionHeroesUsecase getSectionHeroesUsecase;
   final GetFaqListUsecase getFaqListUsecase;
+  final GetPromoCodesUsecase getPromoCodesUsecase;
 
   GeneralSettingsBloc({
     required this.getGeneralSettingsUsecase,
     required this.getSectionHeroesUsecase,
     required this.getFaqListUsecase,
+    required this.getPromoCodesUsecase,
   }) : super(GeneralSettingsInitial()) {
     on<LoadGeneralSettings>(_onLoadGeneralSettings);
     on<LoadSectionHeroes>(_onLoadSectionHeroes);
     on<LoadFaqList>(_onLoadFaqList);
+    on<LoadPromoCodes>(_onLoadPromoCodes);
     on<LoadAllPopularDestinationsData>(_onLoadAllPopularDestinationsData);
+  }
+
+  Future<void> _onLoadPromoCodes(
+      LoadPromoCodes event,
+      Emitter<GeneralSettingsState> emit,
+      ) async {
+    emit(GeneralSettingsLoading());
+
+    final result = await getPromoCodesUsecase(domain: event.domain);
+
+    if (result is DataSuccess<List<PromoCodeEntity>>) {
+      emit(PromoCodesLoaded(result.data!));
+    } else if (result is DataFailed<List<PromoCodeEntity>>) {
+      final errorMessage = result.error?.message ?? 'Failed to load promo codes';
+      emit(GeneralSettingsError(errorMessage));
+    }
   }
 
   Future<void> _onLoadGeneralSettings(

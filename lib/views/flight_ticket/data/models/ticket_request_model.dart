@@ -104,9 +104,17 @@ class TicketRequestModel {
     return payload;
   }
 
+  // Non-LCC Ticket (GDS airlines like Air India) needs the Itinerary with
+  // Passenger + booking identifiers so TBO can issue e-tickets.  We use the
+  // FareQuote-based Itinerary (valid Segments, not the Book response which has
+  // Segments:null) and stamp in the PNR/BookingId obtained from the Book call.
+  // buildItinerary() in booking_request_model.dart already trims MiniFareRules
+  // and corrects WayTypes, so this Itinerary is safe to forward to TBO.
+  // ConfirmPriceChangeTicket is always true because:
+  //   • Book Status=5 (On Hold) often comes with IsPriceChanged=true
+  //   • Without this flag TBO's .NET code dereferences a null error-return object
   Map<String, dynamic> _nonLccJson() {
     final fullItinerary = Map<String, dynamic>.from(itinerary ?? {});
-    // Stamp PNR and BookingId from the Book response into the Itinerary.
     fullItinerary['PNR'] = pnr;
     fullItinerary['BookingId'] = bookingId;
 
@@ -118,7 +126,7 @@ class TicketRequestModel {
       'PNR': pnr,
       'BookingId': bookingId,
       'CorporateCode': '',
-      'ConfirmPriceChangeTicket': false,
+      'ConfirmPriceChangeTicket': true,
       'IsGenerateTicketRequestFromQueues': false,
       'SegmentAnalyticsToken': '',
       'TrackingId': traceId,
@@ -127,6 +135,10 @@ class TicketRequestModel {
       'RequestOrigin': 'API',
       'UserData': '',
       'WebServerIP': '',
+      'IsHoldEligibleForLcc': false,
+      'NoOfSeatAvailable': 9,
+      'OperatingCarrier': '',
+      'SegmentIndicator': 1,
       'IsPriceChangeAccepted': true,
       'FlightBookingSource': 72,
     };

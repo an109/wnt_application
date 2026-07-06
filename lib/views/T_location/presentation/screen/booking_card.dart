@@ -87,6 +87,25 @@ class _TransportBookingCardState extends State<TransportBookingCard> {
     }
   }
 
+  Future<void> _addToSearchHistory() async {
+    try {
+      final prefsManager =
+          await PreferencesManager.create(await SharedPreferences.getInstance());
+      final searchData = {
+        'type': 'transport',
+        'pickup': _locationToJson(_selectedPickup),
+        'dropoff': _locationToJson(_selectedDropoff),
+        'passengerCount': _passengerCount,
+        'isOneWay': widget.isOneWay,
+        'pickupDate': _pickupDate.toIso8601String(),
+        'timestamp': DateTime.now().toIso8601String(),
+      };
+      await prefsManager.addToSearchHistory(searchData);
+    } catch (e) {
+      debugPrint('Error adding transport search to history: $e');
+    }
+  }
+
   Future<void> _loadLastSearch() async {
     try {
       final prefsManager =
@@ -164,7 +183,7 @@ class _TransportBookingCardState extends State<TransportBookingCard> {
       padding: EdgeInsets.all(context.w(12)),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(context.r(12)),
+        borderRadius: BorderRadius.circular(context.r(22)),
         boxShadow: [
           BoxShadow(
             color: _mmtNavy.withValues(alpha: 0.06),
@@ -511,6 +530,7 @@ class _TransportBookingCardState extends State<TransportBookingCard> {
 
     // Persist this search so the form is prefilled next time.
     _saveLastSearch();
+    _addToSearchHistory();
 
     final pickupDatetime =
         "${_pickupDate.toIso8601String().split('T')[0]}T${widget.selectedTime.hour.toString().padLeft(2, '0')}:${widget.selectedTime.minute.toString().padLeft(2, '0')}:00";
@@ -526,12 +546,12 @@ class _TransportBookingCardState extends State<TransportBookingCard> {
         ? _selectedDropoff!.iataCode
         : _selectedDropoff!.formattedAddress;
 
-    print('DEBUG: Displayed pickup date: ${_formatDate(_pickupDate)}');
-    print('DEBUG: API pickup datetime: $pickupDatetime');
-    print('DEBUG: API params - start: $startAddress, end: $endAddress, datetime: $pickupDatetime');
+    // print('DEBUG: Displayed pickup date: ${_formatDate(_pickupDate)}');
+    // print('DEBUG: API pickup datetime: $pickupDatetime');
+    // print('DEBUG: API params - start: $startAddress, end: $endAddress, datetime: $pickupDatetime');
 
     final transportBloc = sl<TransportSearchBloc>();
-    print('DEBUG: Got TransportSearchBloc instance: ${transportBloc.runtimeType}');
+    // print('DEBUG: Got TransportSearchBloc instance: ${transportBloc.runtimeType}');
 
     final event = SearchTransport(
       startAddress: startAddress,
@@ -542,16 +562,16 @@ class _TransportBookingCardState extends State<TransportBookingCard> {
       mode: widget.isOneWay ? TripMode.oneWay : TripMode.roundTrip,
       returnDatetime: returnDatetime,
     );
-    print('DEBUG: Adding event: ${event.runtimeType}');
+    // print('DEBUG: Adding event: ${event.runtimeType}');
     transportBloc.add(event);
 
     StreamSubscription<TransportSearchState>? subscription;
     subscription = transportBloc.stream.listen((state) {
-      print('DEBUG: Bloc state changed: ${state.runtimeType}');
+      // print('DEBUG: Bloc state changed: ${state.runtimeType}');
 
       if (state is TransportSearchSuccess) {
         final searchId = state.transportSearch.local.searchId;
-        print('Transport Search Success - search_id: $searchId');
+        // print('Transport Search Success - search_id: $searchId');
         subscription?.cancel();
         Navigator.push(
           context,
@@ -566,7 +586,7 @@ class _TransportBookingCardState extends State<TransportBookingCard> {
           ),
         );
       } else if (state is TransportSearchFailed) {
-        print('Transport Search Failed: ${state.dataState.error?.message ?? 'Unknown error'}');
+        // print('Transport Search Failed: ${state.dataState.error?.message ?? 'Unknown error'}');
         print('DEBUG: Full error: ${state.dataState.error}');
         subscription?.cancel();
         ScaffoldMessenger.of(context).showSnackBar(
@@ -576,7 +596,7 @@ class _TransportBookingCardState extends State<TransportBookingCard> {
           ),
         );
       } else if (state is TransportSearchLoading) {
-        print('DEBUG: Transport search loading...');
+        // print('DEBUG: Transport search loading...');
       }
     });
   }

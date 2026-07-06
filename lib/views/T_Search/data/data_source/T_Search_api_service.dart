@@ -6,6 +6,7 @@ abstract class TransportSearchApiService {
     required String startAddress,
     required String endAddress,
     required String pickupDatetime,
+    String? returnPickupDatetime,
     required int numPassengers,
     required String currency,
     required String mode,
@@ -22,6 +23,7 @@ class TransportSearchApiServiceImpl implements TransportSearchApiService {
     required String startAddress,
     required String endAddress,
     required String pickupDatetime,
+    String? returnPickupDatetime,
     required int numPassengers,
     required String currency,
     required String mode,
@@ -29,27 +31,20 @@ class TransportSearchApiServiceImpl implements TransportSearchApiService {
     try {
       final url = '${Urls.transportSearch}';
 
-      print('API CALL: POST $url');
-      print('Request Body: {');
-      print('  "currency": "$currency",');
-      print('  "end_address": "$endAddress",');
-      print('  "mode": "$mode",');
-      print('  "num_passengers": $numPassengers,');
-      print('  "pickup_datetime": "$pickupDatetime",');
-      print('  "start_address": "$startAddress"');
-      print('}');
+      final body = <String, dynamic>{
+        'currency': currency,
+        'end_address': endAddress,
+        'mode': mode,
+        'num_passengers': numPassengers,
+        'pickup_datetime': pickupDatetime,
+        'start_address': startAddress,
+      };
 
-      final response = await dio.post(
-        url,
-        data: {
-          'currency': currency,
-          'end_address': endAddress,
-          'mode': mode,
-          'num_passengers': numPassengers,
-          'pickup_datetime': pickupDatetime,
-          'start_address': startAddress,
-        },
-      );
+      if (mode == 'round_trip' && returnPickupDatetime != null) {
+        body['return_pickup_datetime'] = returnPickupDatetime;
+      }
+
+      final response = await dio.post(url, data: body);
 
       print('API RESPONSE: Status ${response.statusCode}, Data: ${response.data}');
       return response;

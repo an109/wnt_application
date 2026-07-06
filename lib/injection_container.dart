@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:get_it/get_it.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:wander_nova/views/Document/domain/usecase/upload_document_usecase.dart';
 import 'package:wander_nova/views/Exchange_rate/data/data_source/exchange_rate_api_service.dart';
 import 'package:wander_nova/views/Exchange_rate/data/repository/exchange_rate_repository_impl.dart';
 import 'package:wander_nova/views/Exchange_rate/domain/repository/exchange_rate_repository.dart';
@@ -42,6 +43,7 @@ import 'package:wander_nova/views/MainApi/data/respository/general_setting_repos
 import 'package:wander_nova/views/MainApi/domain/repository/general_setting_repository.dart';
 import 'package:wander_nova/views/MainApi/domain/usecase/get_faq_list_usecase.dart';
 import 'package:wander_nova/views/MainApi/domain/usecase/get_general_setting_usecase.dart';
+import 'package:wander_nova/views/MainApi/domain/usecase/get_promo_codes_usecase.dart';
 import 'package:wander_nova/views/MainApi/domain/usecase/get_section_heros_usecase.dart';
 import 'package:wander_nova/views/MainApi/presentation/bloc/general_setting_bloc.dart';
 import 'package:wander_nova/views/MyBookings/Flights/data/data_source/FlightBookApiService.dart';
@@ -231,6 +233,12 @@ import 'package:wander_nova/views/wallet/data/repository/wallet_repository_impl.
 import 'package:wander_nova/views/wallet/domain/repository/wallet_repository.dart';
 import 'package:wander_nova/views/wallet/domain/usecase/get_wallet_balance_usecase.dart';
 import 'package:wander_nova/views/wallet/presentation/bloc/wallet_bloc.dart';
+import 'views/Document/data/data_source/document_api_service.dart';
+import 'views/Document/data/repository/Document_repository_impl.dart';
+import 'views/Document/domain/repository/document_repository.dart';
+import 'views/Document/domain/usecase/document_usecase.dart';
+import 'views/Document/domain/usecase/submit_payment_usecase.dart';
+import 'views/Document/presentation/bloc/document_bloc.dart';
 import 'views/MyBookings/Flights/data/repository/FlightBookRepo_impl.dart';
 import 'views/MyBookings/Flights/domain/usecase/GetFlightBookUsecase.dart';
 import 'views/Send_otp/data/data_source/send_otp_api_service.dart';
@@ -315,7 +323,8 @@ Future<void> initializeDependencies() async {
   sl.registerFactory<ReservationPollApiService>(() => ReservationPollApiServiceImpl(sl<DioClient>().instance),);
   sl.registerFactory<VisaApplicationApiService>(() => VisaApplicationApiServiceImpl(sl<DioClient>().instance));
   sl.registerFactory<VApiService>(() => VApiServiceImpl(sl<DioClient>().instance),);
-  sl.registerLazySingleton<FlightBookApiService>(() => FlightBookApiServiceImpl(sl<DioClient>().instance),);
+  sl.registerFactory<FlightBookApiService>(() => FlightBookApiServiceImpl(sl<DioClient>().instance),);
+  sl.registerLazySingleton<DocumentVisaApiService>(() => DocumentVisaApiServiceImpl(sl<DioClient>().instance));
 
 
 
@@ -371,6 +380,7 @@ Future<void> initializeDependencies() async {
   sl.registerLazySingleton<FlightBookRepository>(
         () => FlightBookRepositoryImpl(sl<FlightBookApiService>()),
   );
+  sl.registerLazySingleton<DocumentRepository>(() => DocumentRepositoryImpl(sl<DocumentVisaApiService>()));
 
 
 
@@ -407,6 +417,7 @@ Future<void> initializeDependencies() async {
   sl.registerLazySingleton<GetFooterSettingsUseCase>(() => GetFooterSettingsUseCase(sl<FooterSettingsRepository>()));
   sl.registerLazySingleton<GetVisaDestinationsUseCase>(() => GetVisaDestinationsUseCase(sl<VisaDestinationRepository>()));
   sl.registerLazySingleton<GetGeneralSettingsUsecase>(() => GetGeneralSettingsUsecase(sl<GeneralSettingsRepository>()));
+  sl.registerLazySingleton<GetPromoCodesUsecase>(() => GetPromoCodesUsecase(sl<GeneralSettingsRepository>()));
   sl.registerLazySingleton<GetFaqListUsecase>(() => GetFaqListUsecase(sl<GeneralSettingsRepository>()));
   sl.registerLazySingleton<GetSectionHeroesUsecase>(() => GetSectionHeroesUsecase(sl<GeneralSettingsRepository>()));
   sl.registerLazySingleton<GetDestinationsUseCase>(() => GetDestinationsUseCase(sl<HolidayRepository>()));
@@ -434,6 +445,9 @@ Future<void> initializeDependencies() async {
   // sl.registerLazySingleton<UploadVisaDocumentsUseCase>(() => UploadVisaDocumentsUseCase(sl<VisaApplicationRepository>()));
   sl.registerLazySingleton(() => GetVApplicationsUseCase(sl<VRepository>()));
   sl.registerLazySingleton(() => GetBookUseCase(sl<FlightBookRepository>()));
+  sl.registerLazySingleton(() => GetDocumentVisaUseCase(sl()));
+  sl.registerLazySingleton(() => SubmitDocumentPaymentUseCase(sl()));
+  sl.registerLazySingleton(() => UploadDocumentsUseCase(sl()));
 
 
 
@@ -469,7 +483,9 @@ Future<void> initializeDependencies() async {
   sl.registerFactory<VisaDestinationBloc>(() => VisaDestinationBloc(getVisaDestinationsUseCase: sl<GetVisaDestinationsUseCase>()));
   sl.registerFactory<GeneralSettingsBloc>(() => GeneralSettingsBloc(getGeneralSettingsUsecase: sl<GetGeneralSettingsUsecase>(),
       getSectionHeroesUsecase: sl<GetSectionHeroesUsecase>(),
-      getFaqListUsecase: sl<GetFaqListUsecase>()));
+      getFaqListUsecase: sl<GetFaqListUsecase>(),
+      getPromoCodesUsecase: sl<GetPromoCodesUsecase>(),
+  ));
   sl.registerFactory<HolidayBloc>(() => HolidayBloc(getPopularDestinationsUseCase: sl<GetDestinationsUseCase>()));
   sl.registerFactory<ExchangeRateBloc>(() => ExchangeRateBloc(
       getExchangeRatesUseCase: sl<GetExchangeRatesUseCase>(), convertCurrencyUseCase: sl<ConvertCurrencyUseCase>()));
@@ -494,10 +510,15 @@ Future<void> initializeDependencies() async {
       getVisaApplicationsUseCase: sl<GetVisaApplicationsUseCase>(),
       getVisaApplicationByIdUseCase: sl<GetVisaApplicationByIdUseCase>(),
       createVisaApplicationUseCase: sl<CreateVisaApplicationUseCase>(),
-      // uploadVisaDocumentsUseCase: sl<UploadVisaDocumentsUseCase>(),
     ),
   );
   sl.registerFactory(() => VApplicationBloc(getVApplicationsUseCase: sl()));
   sl.registerFactory(() => FlightBookBloc(sl<GetBookUseCase>()));
+  sl.registerFactory(() => DocumentBloc(
+    getDocumentVisaUseCase: sl(),
+    submitDocumentPaymentUseCase: sl(),
+    uploadDocumentsUseCase: sl()
+  ));
+
 
 }

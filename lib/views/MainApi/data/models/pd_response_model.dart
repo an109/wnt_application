@@ -8,6 +8,7 @@ class PopularDestinationsResponseModel extends Equatable {
   final GeneralSettingsModel generalSettings;
   final SectionHeroesModel sectionHeroes;
   final List<FaqModel> faqList;
+  final List<PromoCodeModel> promoCodes;
 
   const PopularDestinationsResponseModel({
     required this.success,
@@ -15,6 +16,7 @@ class PopularDestinationsResponseModel extends Equatable {
     required this.generalSettings,
     required this.sectionHeroes,
     required this.faqList,
+    required this.promoCodes,
   });
 
   factory PopularDestinationsResponseModel.fromJson(Map<String, dynamic> json) {
@@ -27,6 +29,10 @@ class PopularDestinationsResponseModel extends Equatable {
           ?.map((e) => FaqModel.fromJson(e as Map<String, dynamic>))
           .toList() ??
           [],
+      promoCodes: (json['promo_codes'] as List<dynamic>?)
+          ?.map((e) => PromoCodeModel.fromJson(e as Map<String, dynamic>))
+          .toList() ??
+          [],
     );
   }
 
@@ -37,5 +43,6 @@ class PopularDestinationsResponseModel extends Equatable {
     generalSettings,
     sectionHeroes,
     faqList,
+    promoCodes,
   ];
 }

@@ -863,9 +863,9 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
       color: const Color(0xffF3F6FF),
       child: CustomScrollView(
         slivers: [
-          SliverToBoxAdapter(
-            child: _buildRouteSummary(_applyFilters(_allFlights)),
-          ),
+          // SliverToBoxAdapter(
+          //   child: _buildRouteSummary(_applyFilters(_allFlights)),
+          // ),
           SliverToBoxAdapter(
             child: Padding(
               padding: EdgeInsets.fromLTRB(
@@ -906,13 +906,13 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
       icon: Icons.airline_seat_recline_extra_rounded,
     ),
     _FlightOffer(
-      title: 'Get ₹1,500 OFF with HDFC Credit Cards',
-      code: 'WNHDFC',
+      title: 'Get 80% OFF with HDFC Credit Cards',
+      code: 'TESTING',
       icon: Icons.local_offer_rounded,
     ),
     _FlightOffer(
       title: 'Up to ₹2,000 OFF on your first booking',
-      code: 'WELCOME2K',
+      code: 'TESTING-1',
       icon: Icons.card_giftcard_rounded,
     ),
     _FlightOffer(
@@ -1582,7 +1582,7 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
     FlightDetailsPopup.show(
       context,
       airlineName: flight.airlineName ?? "Unknown",
-      airlineCode: flight.airlineName ?? "--",
+      airlineCode: flight.airlineCode ?? "--",
       flightNumber: flight.flightNumber ?? "--",
       fromCode: flight.origin ?? "--",
       toCode: flight.destination ?? "--",

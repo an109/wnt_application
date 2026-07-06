@@ -462,7 +462,6 @@ class PaymentSection extends StatefulWidget {
   final Map<String, dynamic> formData;
   final VoidCallback onBack;
   final VoidCallback onPaymentSuccess;
-  final VoidCallback onPaymentComplete;
 
   const PaymentSection({
     Key? key,
@@ -473,7 +472,6 @@ class PaymentSection extends StatefulWidget {
     required this.formData,
     required this.onBack,
     required this.onPaymentSuccess,
-    required this.onPaymentComplete,
   }) : super(key: key);
 
   @override
@@ -832,8 +830,6 @@ class _PaymentSectionState extends State<PaymentSection>
       setState(() => _isProcessing = false);
 
       if (balance >= widget.amountInr) {
-        // ✅ Payment successful - trigger API with 'completed' status
-        widget.onPaymentComplete(); // This will call the API with payment_completed status
         widget.onPaymentSuccess();
       } else {
         _snack(
@@ -897,7 +893,6 @@ class _PaymentSectionState extends State<PaymentSection>
       if (!mounted) return;
       switch (result) {
         case PaymentResult.success:
-          widget.onPaymentComplete();
           widget.onPaymentSuccess();
           break;
         case PaymentResult.failure:

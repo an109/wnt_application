@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:screenshot/screenshot.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 
 import '../../../../UI_helper/currency_converter.dart';
@@ -10,6 +9,7 @@ import '../../../../core/services/pdf_generator.dart';
 import '../../../UpcomingTrips/data/models/tripModel.dart';
 import 'Visa_Invoice_widget.dart';
 import 'Visa_ticket_widget.dart';
+import 'visa_pdf_builder.dart';
 
 class VisaBookingDetailsScreen extends StatefulWidget {
   final TripItem trip;
@@ -29,8 +29,6 @@ class _VisaBookingDetailsScreenState extends State<VisaBookingDetailsScreen> {
   bool _currencyInitialized = false;
   String _selectedView = 'ticket';
   bool _isDownloading = false;
-
-  final ScreenshotController _screenshotController = ScreenshotController();
 
   @override
   void initState() {
@@ -124,9 +122,6 @@ class _VisaBookingDetailsScreenState extends State<VisaBookingDetailsScreen> {
       final type = _selectedView;
       final filename = '${type}_${widget.trip.refId}.pdf';
 
-      final double pixelRatio = 1.0;
-      final realScreenSize = MediaQuery.of(context).size;
-
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Row(
@@ -149,33 +144,13 @@ class _VisaBookingDetailsScreenState extends State<VisaBookingDetailsScreen> {
         ),
       );
 
-      final imageBytes = await _screenshotController.captureFromLongWidget(
-        MediaQuery(
-          data: MediaQuery.of(context).copyWith(size: realScreenSize),
-          child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: context.w(16)),
-            child: _selectedView == 'ticket'
-                ? VisaTicketWidget(trip: widget.trip)
-                : VisaInvoiceWidget(trip: widget.trip),
-          ),
-        ),
-        constraints: BoxConstraints(
-          maxWidth: realScreenSize.width,
-          maxHeight: double.infinity,
-        ),
-        delay: const Duration(milliseconds: 1000),
-        pixelRatio: pixelRatio,
-      );
+      // Build a native, text-based PDF that mirrors the on-screen layout
+      // instead of capturing a screenshot of the widget.
+      final pdf = type == 'ticket'
+          ? VisaPdfBuilder.buildTicket(widget.trip)
+          : VisaPdfBuilder.buildInvoice(widget.trip);
 
-      if (imageBytes == null) {
-        throw Exception('Failed to capture widget');
-      }
-
-      final file = await PDFService.generatePDFFromImage(
-        imageBytes,
-        filename,
-        pixelRatio,
-      );
+      final file = await PDFService.savePDF(pdf, filename);
 
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
       _showDownloadSuccessDialog(context, file);

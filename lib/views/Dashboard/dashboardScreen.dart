@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import 'package:wander_nova/views/Dashboard/profile/screen/Profile_screen.dart';
 import 'package:wander_nova/views/Dashboard/screen/make_payment.dart';
@@ -6,6 +7,11 @@ import 'package:wander_nova/views/Dashboard/screen/support_screen.dart';
 import 'package:wander_nova/views/UpcomingTrips/presentation/screen/upcoming_trip.dart';
 import 'package:wander_nova/views/wallet/wallet/screen/wallet_screen.dart';
 
+import '../../injection_container.dart';
+import '../MainApi/domain/entities/general_setting_entity.dart';
+import '../MainApi/presentation/bloc/general_setting_bloc.dart';
+import '../MainApi/presentation/bloc/general_settings_event.dart';
+import '../MainApi/presentation/bloc/general_settings_state.dart';
 import '../MyBookings/Screen/MyBooking_Screen.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -21,6 +27,7 @@ class DashboardScreen extends StatefulWidget {
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
 }
+
 
 class _DashboardScreenState extends State<DashboardScreen>
     with SingleTickerProviderStateMixin {
@@ -131,12 +138,89 @@ class _DashboardScreenState extends State<DashboardScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
-      body: FadeTransition(
-        opacity: _fadeAnimation,
-        child: SafeArea(
-          child: _buildContent(context),
+      body: BlocProvider<GeneralSettingsBloc>(
+        create: (_) => sl<GeneralSettingsBloc>()
+          ..add(const LoadGeneralSettings(domain: 'thewandernova.com')),
+        child: BlocBuilder<GeneralSettingsBloc, GeneralSettingsState>(
+          buildWhen: (previous, current) =>
+              current is GeneralSettingsLoaded ||
+              current is PopularDestinationsDataLoaded,
+          builder: (context, state) {
+            String? bannerUrl;
+            if (state is GeneralSettingsLoaded) {
+              bannerUrl = _dashboardBannerUrl(state.generalSettings);
+            } else if (state is PopularDestinationsDataLoaded) {
+              bannerUrl = _dashboardBannerUrl(state.generalSettings);
+            }
+            return Stack(
+              fit: StackFit.expand,
+              children: [
+                _buildDashboardBackground(context, bannerUrl),
+                FadeTransition(
+                  opacity: _fadeAnimation,
+                  child: SafeArea(
+                    child: _buildContent(context),
+                  ),
+                ),
+              ],
+            );
+          },
         ),
       ),
+    );
+  }
+
+  /// Same source used by HomeScreen's hero banner, so both screens stay visually consistent.
+  String? _dashboardBannerUrl(GeneralSettingsEntity settings) {
+    final url = settings.dashboardImage.trim();
+    return url.isNotEmpty ? url : null;
+  }
+
+  Widget _buildDashboardBackground(BuildContext context, String? bannerUrl) {
+    const brandGradient = LinearGradient(
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: [
+        Color(0xFF003B95),
+        Color(0xFF005B7F),
+      ],
+    );
+
+    if (bannerUrl == null) {
+      return const DecoratedBox(
+        decoration: BoxDecoration(color: Color(0xFFF5F5F5)),
+      );
+    }
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        const DecoratedBox(
+          decoration: BoxDecoration(gradient: brandGradient),
+        ),
+        Image.network(
+          bannerUrl,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+          loadingBuilder: (ctx, child, progress) =>
+              progress == null ? child : const SizedBox.shrink(),
+        ),
+        // Light scrim so the white content cards below stay readable while
+        // still letting the banner show through in the header area.
+        DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Colors.black.withOpacity(0.35),
+                const Color(0xFFF5F5F5).withOpacity(0.97),
+              ],
+              stops: const [0.0, 0.35],
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -180,7 +264,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                 style: TextStyle(
                   fontSize: context.isMobile ? 24 : 28,
                   fontWeight: FontWeight.w700,
-                  color: Colors.black87,
+                  color: Colors.white,
                 ),
               ),
               const SizedBox(height: 4),
@@ -188,7 +272,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                 'View your recent orders and manage\nyour bookings',
                 style: TextStyle(
                   fontSize: 14,
-                  color: Colors.grey.shade600,
+                  color: Colors.white.withOpacity(.85),
                 ),
               ),
             ],
@@ -196,31 +280,30 @@ class _DashboardScreenState extends State<DashboardScreen>
         ),
 
         // Profile Avatar
-        Container(
-          padding: const EdgeInsets.all(2),
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: const Color(0xFF0054A0),
-              width: 2,
-            ),
-          ),
-          child: CircleAvatar(
-            radius: context.isMobile ? 20 : 24,
-            backgroundColor:
-            const Color(0xFF0054A0).withOpacity(0.1),
-            child: Text(
-              widget.userName.isNotEmpty
-                  ? widget.userName[0].toUpperCase()
-                  : 'Hii',
-              style: TextStyle(
-                fontWeight: FontWeight.w600,
-                color: const Color(0xFF0054A0),
-                fontSize: context.isMobile ? 16 : 18,
-              ),
-            ),
-          ),
-        ),
+        // Container(
+        //   padding: const EdgeInsets.all(2),
+        //   decoration: BoxDecoration(
+        //     shape: BoxShape.circle,
+        //     border: Border.all(
+        //       color: Colors.white,
+        //       width: 2,
+        //     ),
+        //   ),
+        //   child: CircleAvatar(
+        //     radius: context.isMobile ? 20 : 24,
+        //     backgroundColor: Colors.white,
+        //     child: Text(
+        //       widget.userName.isNotEmpty
+        //           ? widget.userName[0].toUpperCase()
+        //           : 'Hii',
+        //       style: TextStyle(
+        //         fontWeight: FontWeight.w600,
+        //         color: const Color(0xFF0054A0),
+        //         fontSize: context.isMobile ? 16 : 18,
+        //       ),
+        //     ),
+        //   ),
+        // ),
       ],
     );
   }
@@ -253,10 +336,10 @@ class _DashboardScreenState extends State<DashboardScreen>
                   Expanded(
                     child: _buildQuickSearch(context),
                   ),
-                  SizedBox(width: context.gapMedium),
-                  Expanded(
-                    child: _buildWalletCard(context),
-                  ),
+                  // SizedBox(width: context.gapMedium),
+                  // Expanded(
+                  //   child: _buildWalletCard(context),
+                  // ),
                 ],
               ),
             ],
@@ -278,8 +361,8 @@ class _DashboardScreenState extends State<DashboardScreen>
         _buildQuickSearch(context),
         SizedBox(height: context.gapMedium),
 
-        _buildWalletCard(context),
-        SizedBox(height: context.gapMedium),
+        // _buildWalletCard(context),
+        // SizedBox(height: context.gapMedium),
 
         _buildUpcomingTripsCard(context),
       ],
@@ -332,9 +415,7 @@ class _DashboardScreenState extends State<DashboardScreen>
     ];
 
     return Container(
-      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
@@ -344,24 +425,47 @@ class _DashboardScreenState extends State<DashboardScreen>
           ),
         ],
       ),
-      child: GridView.builder(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: context.isMobile ? 3 : 4,
-          crossAxisSpacing: 16,
-          mainAxisSpacing: 16,
-          childAspectRatio: 0.9,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: Image.asset(
+                'assets/images/dashboard_bg.jpg',
+                fit: BoxFit.cover,
+              ),
+            ),
+            Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.25),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: context.isMobile ? 3 : 4,
+                  crossAxisSpacing: 16,
+                  mainAxisSpacing: 16,
+                  childAspectRatio: 0.9,
+                ),
+                itemCount: menuItems.length,
+                itemBuilder: (context, index) {
+                  return _buildCompactMenuCard(
+                    context,
+                    menuItems[index]['icon'] as IconData,
+                    menuItems[index]['title'] as String,
+                    menuItems[index]['color'] as Color,
+                  );
+                },
+              ),
+            ),
+          ],
         ),
-        itemCount: menuItems.length,
-        itemBuilder: (context, index) {
-          return _buildCompactMenuCard(
-            context,
-            menuItems[index]['icon'] as IconData,
-            menuItems[index]['title'] as String,
-            menuItems[index]['color'] as Color,
-          );
-        },
       ),
     );
   }
@@ -379,10 +483,10 @@ class _DashboardScreenState extends State<DashboardScreen>
         borderRadius: BorderRadius.circular(10),
         child: Container(
           decoration: BoxDecoration(
-            color: color.withOpacity(0.08),
+            color: Colors.white.withOpacity(0.14),
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
-              color: color.withOpacity(0.2),
+              color: Colors.white.withOpacity(0.25),
             ),
           ),
           child: Column(
@@ -391,13 +495,13 @@ class _DashboardScreenState extends State<DashboardScreen>
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.15),
+                  color: color.withOpacity(0.85),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
                   icon,
                   size: 24,
-                  color: color,
+                  color: Colors.white,
                 ),
               ),
 
@@ -407,8 +511,8 @@ class _DashboardScreenState extends State<DashboardScreen>
                 title,
                 style: const TextStyle(
                   fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.black87,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
                 ),
                 textAlign: TextAlign.center,
                 maxLines: 2,
@@ -515,68 +619,68 @@ class _DashboardScreenState extends State<DashboardScreen>
     );
   }
 
-  Widget _buildWalletCard(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.06),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'WALLET',
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: Colors.grey.shade500,
-              letterSpacing: 0.5,
-            ),
-          ),
-
-          const SizedBox(height: 8),
-
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: Colors.green.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: const Icon(
-                  Icons.account_balance_wallet,
-                  color: Colors.green,
-                  size: 18,
-                ),
-              ),
-
-              const SizedBox(width: 8),
-
-              const Expanded(
-                child: Text(
-                  'Available Balance Points: 0',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black87,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
+  // Widget _buildWalletCard(BuildContext context) {
+  //   return Container(
+  //     padding: const EdgeInsets.all(16),
+  //     decoration: BoxDecoration(
+  //       color: Colors.white,
+  //       borderRadius: BorderRadius.circular(12),
+  //       boxShadow: [
+  //         BoxShadow(
+  //           color: Colors.black.withOpacity(0.06),
+  //           blurRadius: 10,
+  //           offset: const Offset(0, 2),
+  //         ),
+  //       ],
+  //     ),
+  //     child: Column(
+  //       crossAxisAlignment: CrossAxisAlignment.start,
+  //       children: [
+  //         Text(
+  //           'WALLET',
+  //           style: TextStyle(
+  //             fontSize: 11,
+  //             fontWeight: FontWeight.w600,
+  //             color: Colors.grey.shade500,
+  //             letterSpacing: 0.5,
+  //           ),
+  //         ),
+  //
+  //         const SizedBox(height: 8),
+  //
+  //         Row(
+  //           children: [
+  //             Container(
+  //               padding: const EdgeInsets.all(6),
+  //               decoration: BoxDecoration(
+  //                 color: Colors.green.withOpacity(0.1),
+  //                 borderRadius: BorderRadius.circular(6),
+  //               ),
+  //               child: const Icon(
+  //                 Icons.account_balance_wallet,
+  //                 color: Colors.green,
+  //                 size: 18,
+  //               ),
+  //             ),
+  //
+  //             const SizedBox(width: 8),
+  //
+  //             const Expanded(
+  //               child: Text(
+  //                 'Available Balance Points: 0',
+  //                 style: TextStyle(
+  //                   fontSize: 14,
+  //                   fontWeight: FontWeight.w600,
+  //                   color: Colors.black87,
+  //                 ),
+  //               ),
+  //             ),
+  //           ],
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
 
   Widget _buildUpcomingTripsCard(BuildContext context) {
     return Container(

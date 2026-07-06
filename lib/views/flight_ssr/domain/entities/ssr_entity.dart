@@ -141,7 +141,7 @@ class SsrEntity extends Equatable {
           }
 
           for (final seatModel in seatModels) {
-            print('Found seat: row=${seatModel.rowNo}, seat=${seatModel.seatNo}, avail=${seatModel.availablityType}');
+            // print('Found seat: row=${seatModel.rowNo}, seat=${seatModel.seatNo}, avail=${seatModel.availablityType}');
 
             // Skip invalid seats
             if (seatModel.rowNo == null || seatModel.rowNo == "0") {

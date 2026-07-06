@@ -58,12 +58,12 @@ class ContactSection extends StatelessWidget {
                 Icons.business,
                 'Entity: Wander Nova Pvt. Ltd.',
               ),
-              SizedBox(height: context.h(12)),
-              _buildContactItem(
-                context,
-                Icons.location_on,
-                'Office No. 114, Al Khaleej Center Near Sharaf DG Metro Station, Bur Dubai',
-              ),
+              // SizedBox(height: context.h(12)),
+              // _buildContactItem(
+              //   context,
+              //   Icons.location_on,
+              //   'Office No. 114, Al Khaleej Center Near Sharaf DG Metro Station, Bur Dubai',
+              // ),
               SizedBox(height: context.h(12)),
               GestureDetector(
                 onTap: () {
@@ -72,7 +72,7 @@ class ContactSection extends StatelessWidget {
                 child: _buildContactItem(
                   context,
                   Icons.email,
-                  'Email: contact@thewandernova.com',
+                  'Email: info@thewandernova.com',
                   isLink: true,
                 ),
               ),

@@ -451,7 +451,7 @@ class _ServicesInfoSectionState extends State<ServicesInfoSection> {
             child: Text(
               service.text,
               style: TextStyle(
-                fontSize: context.bodyMedium,
+                fontSize: context.bodySmall,
                 color: Colors.grey.shade700,
                 height: 1.6,
               ),

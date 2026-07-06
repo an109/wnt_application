@@ -1,15 +1,14 @@
 // flights/Screen/flight_booking_detail_screen.dart
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:screenshot/screenshot.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import '../../../../core/resources/app_colours.dart';
 import '../../../../core/services/pdf_generator.dart';
 import '../domain/entities/FlightBookEntity.dart';
 import 'Flight_Invoice_widget.dart';
 import 'Flight_Ticket_widget.dart';
+import 'flight_pdf_builder.dart';
 
 class FlightBookingDetailsScreen extends StatefulWidget {
   final FlightBookEntity booking;
@@ -25,8 +24,6 @@ class _FlightBookingDetailsScreenState
     extends State<FlightBookingDetailsScreen> {
   String _selectedView = 'ticket';
   bool _isDownloading = false;
-
-  final ScreenshotController _screenshotController = ScreenshotController();
 
   @override
   Widget build(BuildContext context) {
@@ -102,9 +99,6 @@ class _FlightBookingDetailsScreenState
     try {
       final type = _selectedView;
       final filename = '${type}_${widget.booking.pnr}.pdf';
-      final double pixelRatio = 1.0;
-
-      final realScreenSize = MediaQuery.of(context).size;
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -126,31 +120,13 @@ class _FlightBookingDetailsScreenState
         ),
       );
 
-      final imageBytes = await _screenshotController.captureFromLongWidget(
-        MediaQuery(
-          data: MediaQuery.of(context).copyWith(size: realScreenSize),
-          child: Padding(
-            padding: EdgeInsets.symmetric(
-                horizontal: context.w(12), vertical: context.h(8)),
-            child: _selectedView == 'ticket'
-                ? FlightTicketWidget(booking: widget.booking)
-                : FlightInvoiceWidget(booking: widget.booking),
-          ),
-        ),
-        constraints: BoxConstraints(
-          maxWidth: realScreenSize.width,
-          maxHeight: double.infinity,
-        ),
-        delay: const Duration(milliseconds: 1000),
-        pixelRatio: pixelRatio,
-      );
+      // Build a native, text-based PDF that mirrors the on-screen layout
+      // instead of capturing a screenshot of the widget.
+      final pdf = type == 'ticket'
+          ? FlightPdfBuilder.buildTicket(widget.booking)
+          : FlightPdfBuilder.buildInvoice(widget.booking);
 
-      if (imageBytes == null) {
-        throw Exception('Failed to capture widget');
-      }
-
-      final file = await PDFService.generatePDFFromImage(
-          imageBytes, filename, pixelRatio);
+      final file = await PDFService.savePDF(pdf, filename);
 
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
       _showDownloadSuccessDialog(context, file);

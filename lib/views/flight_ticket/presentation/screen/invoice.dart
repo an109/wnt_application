@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import '../../../../UI_helper/currency_converter.dart';
 import '../../../flight_search/presentation/screen/booking_screen.dart';
+import '../../../flight_ssr/presentation/screen/ssr/ssr_price_formatter.dart';
 import '../../domain/entities/ticket_entity.dart';
 import '../../data/services/booking_details_service.dart';
 import 'e-ticket.dart';
@@ -21,6 +23,7 @@ class TicketVoucherInvoice extends StatefulWidget {
   final String passengerName, email, mobile;
   final double baseFare, tax, total;
   final String currency;
+  final String finalTotalStr;
   final List<BookingSegmentDetail> segs;
   final List<BookingPassengerDetail> dpax;
   final List<TicketPassengerEntity> tpax;
@@ -30,6 +33,10 @@ class TicketVoucherInvoice extends StatefulWidget {
   final String Function(int?) durFn;
   final int Function() totalDurFn;
   final String Function(double) fmtFn;
+  final Map<String, dynamic> ssrSelections;
+  final double promoDiscount;
+  final String promoCode;
+  final String preferredCurrency;
 
   const TicketVoucherInvoice({
     super.key,
@@ -43,6 +50,7 @@ class TicketVoucherInvoice extends StatefulWidget {
     required this.tax,
     required this.total,
     required this.currency,
+    this.finalTotalStr = '',
     required this.segs,
     required this.dpax,
     required this.tpax,
@@ -54,6 +62,10 @@ class TicketVoucherInvoice extends StatefulWidget {
     required this.durFn,
     required this.totalDurFn,
     required this.fmtFn,
+    this.ssrSelections = const {},
+    this.promoDiscount = 0.0,
+    this.promoCode = '',
+    this.preferredCurrency = 'INR',
   });
 
   @override
@@ -75,6 +87,34 @@ class _TicketVoucherInvoiceState extends State<TicketVoucherInvoice>
     _tab.dispose();
     super.dispose();
   }
+
+  // ── SSR helpers ─────────────────────────────────────────────────────────────
+  double _ssrPrice(String key) {
+    if (key == 'seat') {
+      double total = 0;
+      final seats = widget.ssrSelections['seat'];
+      if (seats is List) {
+        for (final s in seats) {
+          if (s is Map) {
+            final p = (s['Price'] as num?)?.toDouble() ?? 0;
+            final c = (s['Currency'] as String?) ?? widget.currency;
+            total += SsrPriceFormatter.convertAmount(p, c);
+          }
+        }
+      }
+      return total;
+    }
+    final item = widget.ssrSelections[key];
+    if (item is Map) {
+      final p = (item['Price'] as num?)?.toDouble() ?? 0;
+      final c = (item['Currency'] as String?) ?? widget.currency;
+      return SsrPriceFormatter.convertAmount(p, c);
+    }
+    return 0;
+  }
+
+  String _fmtPreferred(double amount) =>
+      CurrencyConverter.format(amount, widget.preferredCurrency);
 
   @override
   Widget build(BuildContext context) {
@@ -248,8 +288,11 @@ class _TicketVoucherInvoiceState extends State<TicketVoucherInvoice>
         ? widget.tpax.map((p) => '${p.firstName ?? ''} ${p.lastName ?? ''}'.trim()).join(', ')
         : widget.passengerName;
     final totalDur = widget.totalDurFn();
-    final durStr = totalDur > 0 ? widget.durFn(totalDur) : widget.route.duration;
-    final totalStr = widget.fmtFn(widget.total);
+    final durStr   = totalDur > 0 ? widget.durFn(totalDur) : widget.route.duration;
+    // Show final total (with SSR + promo) if available, otherwise fall back.
+    final totalStr = widget.finalTotalStr.isNotEmpty
+        ? widget.finalTotalStr
+        : widget.fmtFn(widget.total);
 
     return Table(
       border: TableBorder.all(color: Colors.grey.shade200, width: 0.5),
@@ -290,15 +333,45 @@ class _TicketVoucherInvoiceState extends State<TicketVoucherInvoice>
     _infoRow('Payment Basis',    'InvoiceDate'),
   ]);
 
-  Widget _invFareSummary() => Column(children: [
-    _fareLine('BASE FARE',  widget.fmtFn(widget.baseFare)),
-    const SizedBox(height: 8),
-    _fareLine('TAX & FEES', widget.fmtFn(widget.tax)),
-    const SizedBox(height: 8),
-    Divider(color: Colors.grey.shade300),
-    const SizedBox(height: 4),
-    _fareLine('TOTAL', widget.fmtFn(widget.total), large: true),
-  ]);
+  Widget _invFareSummary() {
+    final baggageAmt = _ssrPrice('baggage');
+    final mealAmt    = _ssrPrice('meal');
+    final seatAmt    = _ssrPrice('seat');
+    final hasPromo   = widget.promoDiscount > 0;
+    final hasSSR     = baggageAmt > 0 || mealAmt > 0 || seatAmt > 0;
+
+    return Column(children: [
+      _fareLine('BASE FARE',  widget.fmtFn(widget.baseFare)),
+      const SizedBox(height: 8),
+      _fareLine('TAX & FEES', widget.fmtFn(widget.tax)),
+      if (baggageAmt > 0) ...[
+        const SizedBox(height: 8),
+        _fareLine('BAGGAGE ADD-ON', _fmtPreferred(baggageAmt)),
+      ],
+      if (mealAmt > 0) ...[
+        const SizedBox(height: 8),
+        _fareLine('MEAL ADD-ON', _fmtPreferred(mealAmt)),
+      ],
+      if (seatAmt > 0) ...[
+        const SizedBox(height: 8),
+        _fareLine('SEAT ADD-ON', _fmtPreferred(seatAmt)),
+      ],
+      if (hasPromo) ...[
+        const SizedBox(height: 8),
+        _fareLine('PROMO (${widget.promoCode})', '- ${_fmtPreferred(widget.promoDiscount)}', discount: true),
+      ],
+      const SizedBox(height: 8),
+      Divider(color: Colors.grey.shade300),
+      const SizedBox(height: 4),
+      _fareLine(
+        'TOTAL',
+        (hasSSR || hasPromo) && widget.finalTotalStr.isNotEmpty
+            ? widget.finalTotalStr
+            : widget.finalTotalStr.isNotEmpty ? widget.finalTotalStr : widget.fmtFn(widget.total),
+        large: true,
+      ),
+    ]);
+  }
 
   // ── E-TICKET TAB ─────────────────────────────────────────────────────────────
   Widget _buildETicketTab(ScrollController sc) {
@@ -313,11 +386,16 @@ class _TicketVoucherInvoiceState extends State<TicketVoucherInvoice>
       baseFare: widget.baseFare,
       tax: widget.tax,
       total: widget.total,
+      finalTotalStr: widget.finalTotalStr,
       route: widget.route,
       fmtFn: widget.fmtFn,
       timeOnlyFn: widget.timeOnlyFn,
       dateOnlyFn: widget.dateOnlyFn,
       durFn: widget.durFn,
+      ssrSelections: widget.ssrSelections,
+      promoDiscount: widget.promoDiscount,
+      promoCode: widget.promoCode,
+      preferredCurrency: widget.preferredCurrency,
     );
   }
 
@@ -335,9 +413,10 @@ class _TicketVoucherInvoiceState extends State<TicketVoucherInvoice>
     ]),
   );
 
-  Widget _fareLine(String label, String value, {bool large = false}) =>
+  Widget _fareLine(String label, String value, {bool large = false, bool discount = false}) =>
       Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
         Text(label, style: TextStyle(fontSize: large ? 14 : 12, fontWeight: FontWeight.w600, color: large ? _textDark : _textMid)),
-        Text(value,  style: TextStyle(fontSize: large ? 14 : 12, fontWeight: FontWeight.bold, color: large ? _red   : _textDark)),
+        Text(value,  style: TextStyle(fontSize: large ? 14 : 12, fontWeight: FontWeight.bold,
+            color: discount ? _green : large ? _red : _textDark)),
       ]);
 }

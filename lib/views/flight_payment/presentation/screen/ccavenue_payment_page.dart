@@ -37,6 +37,10 @@ class _CCAvenuePaymentPageState extends State<CCAvenuePaymentPage> {
   bool _confirming = false;
   bool _finished = false;
   String? _loadError;
+  // Tracks the last result URL so _confirmAndPop can fall back to URL-based
+  // success/failure when getStatus fails (e.g. wallet flow uses WTX reference
+  // as orderId, not a raw CCAvenue order ID).
+  String? _lastResultUrl;
 
   @override
   void initState() {
@@ -116,15 +120,29 @@ class _CCAvenuePaymentPageState extends State<CCAvenuePaymentPage> {
     _controller.loadRequest(Uri.parse(widget.session.checkoutUrl));
   }
 
-  bool _isResultUrl(String url) =>
-      url.contains('/payment/success') || url.contains('/payment/failed');
+  // Matches both the hosted-checkout scheme (/payment/success path) and the
+  // wallet add-money scheme (?payment=success query param).
+  bool _isSuccessUrl(String url) =>
+      url.contains('/payment/success') || url.contains('payment=success');
+
+  bool _isFailureUrl(String url) =>
+      url.contains('/payment/failed') ||
+      url.contains('payment=failed') ||
+      url.contains('payment=failure') ||
+      url.contains('payment=cancel');
+
+  bool _isResultUrl(String url) => _isSuccessUrl(url) || _isFailureUrl(url);
 
   void _maybeFinishFromUrl(String url) {
-    if (_isResultUrl(url)) _confirmAndPop();
+    if (_isResultUrl(url)) {
+      _lastResultUrl = url;
+      _confirmAndPop();
+    }
   }
 
-  /// Always confirm with the backend status endpoint — the redirect alone is
-  /// not trusted as the source of truth.
+  /// Confirm with the backend status endpoint when possible, otherwise fall
+  /// back to the redirect URL (wallet flow uses a WTX reference as orderId
+  /// which the CCAvenue status endpoint cannot look up).
   Future<void> _confirmAndPop() async {
     if (_finished) return;
     _finished = true;
@@ -138,7 +156,12 @@ class _CCAvenuePaymentPageState extends State<CCAvenuePaymentPage> {
           ? PaymentResult.success
           : PaymentResult.failure;
     } catch (_) {
-      result = PaymentResult.failure;
+      // getStatus failed (e.g. wallet flow where orderId is a WTX reference).
+      // Trust the redirect URL as the fallback source of truth.
+      final resultUrl = _lastResultUrl ?? '';
+      result = _isSuccessUrl(resultUrl)
+          ? PaymentResult.success
+          : PaymentResult.failure;
     }
     if (mounted) Navigator.of(context).pop(result);
   }

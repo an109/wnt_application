@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import '../../../../UI_helper/currency_converter.dart';
 import '../../../flight_search/presentation/screen/booking_screen.dart';
+import '../../../flight_ssr/presentation/screen/ssr/ssr_price_formatter.dart';
 import '../../domain/entities/ticket_entity.dart';
 import '../../data/services/booking_details_service.dart';
 
@@ -26,11 +28,16 @@ class TicketVoucherETicket extends StatelessWidget {
   final double baseFare;
   final double tax;
   final double total;
+  final String finalTotalStr;
   final FlightRouteSegment route;
   final String Function(double) fmtFn;
   final String Function(String?) timeOnlyFn;
   final String Function(String?) dateOnlyFn;
   final String Function(int?) durFn;
+  final Map<String, dynamic> ssrSelections;
+  final double promoDiscount;
+  final String promoCode;
+  final String preferredCurrency;
 
   const TicketVoucherETicket({
     super.key,
@@ -44,15 +51,56 @@ class TicketVoucherETicket extends StatelessWidget {
     required this.baseFare,
     required this.tax,
     required this.total,
+    this.finalTotalStr = '',
     required this.route,
     required this.fmtFn,
     required this.timeOnlyFn,
     required this.dateOnlyFn,
     required this.durFn,
+    this.ssrSelections = const {},
+    this.promoDiscount = 0.0,
+    this.promoCode = '',
+    this.preferredCurrency = 'INR',
   });
+
+  // ── SSR helpers ────────────────────────────────────────────────────────────
+  String get _currency => route.fareQuoteData?.currency ?? 'INR';
+
+  double _ssrPrice(String key) {
+    if (key == 'seat') {
+      double total = 0;
+      final seats = ssrSelections['seat'];
+      if (seats is List) {
+        for (final s in seats) {
+          if (s is Map) {
+            final p = (s['Price'] as num?)?.toDouble() ?? 0;
+            final c = (s['Currency'] as String?) ?? _currency;
+            total += SsrPriceFormatter.convertAmount(p, c);
+          }
+        }
+      }
+      return total;
+    }
+    final item = ssrSelections[key];
+    if (item is Map) {
+      final p = (item['Price'] as num?)?.toDouble() ?? 0;
+      final c = (item['Currency'] as String?) ?? _currency;
+      return SsrPriceFormatter.convertAmount(p, c);
+    }
+    return 0;
+  }
+
+  String _fmtPreferred(double amount) =>
+      CurrencyConverter.format(amount, preferredCurrency);
 
   @override
   Widget build(BuildContext context) {
+    final baggageAmt = _ssrPrice('baggage');
+    final mealAmt    = _ssrPrice('meal');
+    final seatAmt    = _ssrPrice('seat');
+    final hasSSR     = baggageAmt > 0 || mealAmt > 0 || seatAmt > 0;
+    final hasPromo   = promoDiscount > 0;
+
     return SingleChildScrollView(
       controller: sc,
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
@@ -148,7 +196,6 @@ class TicketVoucherETicket extends StatelessWidget {
         Container(
           decoration: BoxDecoration(border: Border.all(color: _borderC), borderRadius: BorderRadius.circular(8)),
           child: Column(children: [
-            // header
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: const BoxDecoration(color: Color(0xFF005EB8), borderRadius: BorderRadius.vertical(top: Radius.circular(8))),
@@ -163,18 +210,40 @@ class TicketVoucherETicket extends StatelessWidget {
         ),
         const SizedBox(height: 16),
 
-        // fare
+        // fare summary
         const Text('FARE SUMMARY', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, letterSpacing: 1, color: _textMid)),
         const SizedBox(height: 8),
         Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(color: _indigoBg, borderRadius: BorderRadius.circular(8)),
           child: Column(children: [
-            _fareLine('Base Fare',  fmtFn(baseFare)),
+            _fareLine('Base Fare',    fmtFn(baseFare)),
             const SizedBox(height: 8),
             _fareLine('Taxes & Fees', fmtFn(tax)),
+            if (baggageAmt > 0) ...[
+              const SizedBox(height: 8),
+              _fareLine('Baggage Add-on', _fmtPreferred(baggageAmt)),
+            ],
+            if (mealAmt > 0) ...[
+              const SizedBox(height: 8),
+              _fareLine('Meal Add-on', _fmtPreferred(mealAmt)),
+            ],
+            if (seatAmt > 0) ...[
+              const SizedBox(height: 8),
+              _fareLine('Seat Add-on', _fmtPreferred(seatAmt)),
+            ],
+            if (hasPromo) ...[
+              const SizedBox(height: 8),
+              _fareLine('Promo Discount ($promoCode)', '- ${_fmtPreferred(promoDiscount)}', discount: true),
+            ],
             Divider(color: Colors.grey.shade300, height: 20),
-            _fareLine('Total Paid', fmtFn(total), large: true),
+            _fareLine(
+              'Total Paid',
+              (hasSSR || hasPromo) && finalTotalStr.isNotEmpty
+                  ? finalTotalStr
+                  : finalTotalStr.isNotEmpty ? finalTotalStr : fmtFn(total),
+              large: true,
+            ),
           ]),
         ),
         const SizedBox(height: 20),
@@ -223,9 +292,10 @@ class TicketVoucherETicket extends StatelessWidget {
     return rows;
   }
 
-  Widget _fareLine(String label, String value, {bool large = false}) =>
+  Widget _fareLine(String label, String value, {bool large = false, bool discount = false}) =>
       Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
         Text(label, style: TextStyle(fontSize: large ? 14 : 12, fontWeight: FontWeight.w600, color: large ? _textDark : _textMid)),
-        Text(value,  style: TextStyle(fontSize: large ? 14 : 12, fontWeight: FontWeight.bold, color: large ? _red   : _textDark)),
+        Text(value,  style: TextStyle(fontSize: large ? 14 : 12, fontWeight: FontWeight.bold,
+            color: discount ? _green : large ? _red : _textDark)),
       ]);
 }

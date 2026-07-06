@@ -110,7 +110,44 @@ class GeneralSettingsModel extends Equatable {
 
 }
 
+class PromoCodeModel extends Equatable {
+  final String code;
+  final String category;
+  final String discountType; // percent or fixed
+  final String discountValue;
+  final String description;
 
+  const PromoCodeModel({
+    required this.code,
+    required this.category,
+    required this.discountType,
+    required this.discountValue,
+    required this.description,
+  });
+
+  factory PromoCodeModel.fromJson(Map<String, dynamic> json) {
+    return PromoCodeModel(
+      code: json['code'] ?? '',
+      category: json['category'] ?? '',
+      discountType: json['discount_type'] ?? '',
+      discountValue: json['discount_value']?.toString() ?? '0',
+      description: json['description'] ?? '',
+    );
+  }
+
+  PromoCodeEntity toEntity() {
+    return PromoCodeEntity(
+      code: code,
+      category: category,
+      discountType: discountType,
+      discountValue: discountValue,
+      description: description,
+    );
+  }
+
+  @override
+  List<Object?> get props => [code, category, discountType, discountValue, description];
+}
 
 class AboutTabModel extends Equatable {
   final String content;

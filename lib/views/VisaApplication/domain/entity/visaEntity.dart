@@ -23,6 +23,7 @@ class VisaApplicationEntity extends Equatable {
   final List<dynamic> documents;
   final String? created;
   final String? updated;
+  final String? userId;
 
   const VisaApplicationEntity({
     this.id,
@@ -45,6 +46,7 @@ class VisaApplicationEntity extends Equatable {
     required this.documents,
     this.created,
     this.updated,
+    this.userId
   });
 
   @override
@@ -69,5 +71,6 @@ class VisaApplicationEntity extends Equatable {
     documents,
     created,
     updated,
+    userId
   ];
 }

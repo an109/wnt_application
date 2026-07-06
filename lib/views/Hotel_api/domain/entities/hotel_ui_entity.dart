@@ -8,6 +8,7 @@ class HotelUiModel {
   final String hotelName;
   final String address;
   final String price;
+  final double numericPrice;
   final String taxes;
   final int rating;
   final String roomInfo;
@@ -28,6 +29,7 @@ class HotelUiModel {
     required this.hotelName,
     required this.address,
     required this.price,
+    required this.numericPrice,
     required this.taxes,
     required this.rating,
     required this.roomInfo,
@@ -116,6 +118,7 @@ class HotelUiModel {
       hotelName: entity.hotelName,
       address: entity.address,
       price: formattedPrice,
+      numericPrice: priceValue,
       taxes: formattedTax,
       rating: entity.hotelRating,
       roomInfo: entity.roomName,

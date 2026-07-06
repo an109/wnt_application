@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 
-import '../../../../core/constants/urls.dart';
 import '../../../../core/utils/storage/shared_preference.dart';
 import '../../../../injection_container.dart' as di;
 import '../../../flight_payment/data/ccavenue_service.dart';
@@ -447,7 +446,6 @@ class _AddMoneyDialogState extends State<AddMoneyDialog> {
   Future<void> _pay(double amount) async {
     final prefs = di.sl<PreferencesManager>();
 
-    // Adding money to the wallet requires a logged-in user.
     if (!prefs.isLoggedIn()) {
       _snack('Please log in to add money to your wallet.');
       return;
@@ -455,53 +453,29 @@ class _AddMoneyDialogState extends State<AddMoneyDialog> {
 
     setState(() => _isProcessing = true);
     try {
-      // Backend requires a short order_id (CCAvenue limits length ~30 chars).
-      final orderId = '${DateTime.now().millisecondsSinceEpoch}';
-      // final orderId = 'WTXW${DateTime.now().millisecondsSinceEpoch}';
       final payable = double.parse(amount.toStringAsFixed(2));
 
-      final userData = prefs.getUserData() ?? {};
-      final fullName = (userData['userName'] ??
-              userData['name'] ??
-              userData['first_name'] ??
-              prefs.getString('user_name') ??
-              '')
-          .toString()
-          .trim();
-      final parts = fullName.isEmpty ? <String>[] : fullName.split(' ');
-      final firstName = parts.isNotEmpty ? parts.first : '';
-      final lastName = parts.length > 1 ? parts.sublist(1).join(' ') : '';
-      final email = (userData['email'] ?? prefs.getString('user_email') ?? '')
-          .toString();
-      final phone = (userData['phone'] ??
-              userData['mobile'] ??
-              userData['phone_number'] ??
-              '')
-          .toString()
-          .replaceAll(RegExp(r'[^0-9]'), '');
-
-      final session = await _ccavenueService.createCheckout(
-        orderId: orderId,
+      // Step 1: create a pending wallet transaction record and get checkout URL.
+      // Using add-money ensures the backend has a WTX reference before payment.
+      final topUp = await _ccavenueService.initiateWalletTopUp(
         amount: payable,
         currency: 'INR',
-        transactionType: 'wallet',
-        userId: prefs.getUserId(),
-        firstName: firstName,
-        lastName: lastName,
-        email: email,
-        phone: phone,
-        successUrl: Urls.ccavenueSuccessUrl,
-        failureUrl: Urls.ccavenueFailureUrl,
       );
 
       if (!mounted) return;
       setState(() => _isProcessing = false);
 
+      // Step 2: open CCAvenue WebView with the checkout URL from add-money.
+      final ccSession = CheckoutSession(
+        checkoutUrl: topUp.checkoutUrl,
+        orderId: topUp.orderId,
+      );
+
       final result = await Navigator.of(context).push<PaymentResult>(
         MaterialPageRoute(
           builder: (_) => CCAvenuePaymentPage(
             service: _ccavenueService,
-            session: session,
+            session: ccSession,
           ),
         ),
       );
@@ -509,7 +483,19 @@ class _AddMoneyDialogState extends State<AddMoneyDialog> {
       if (!mounted) return;
       switch (result) {
         case PaymentResult.success:
-          // Let the parent record the top-up / refresh the balance, then close.
+          // Step 3: confirm with the wallet backend using the WTX reference.
+          setState(() => _isProcessing = true);
+          try {
+            await _ccavenueService.verifyWalletPayment(topUp.walletReference);
+          } catch (_) {
+            if (mounted) {
+              setState(() => _isProcessing = false);
+              _snack('Payment succeeded but wallet credit failed. Please contact support.');
+            }
+            return;
+          }
+          if (!mounted) return;
+          setState(() => _isProcessing = false);
           widget.onConfirm(payable, _selectedPaymentMethod);
           Navigator.pop(context);
           break;

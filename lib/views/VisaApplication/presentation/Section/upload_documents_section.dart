@@ -1,6 +1,13 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
+import '../../../../injection_container.dart';
+import '../../../../core/utils/storage/shared_preference.dart';
+import '../../../Document/presentation/bloc/document_bloc.dart';
+import '../../../Document/presentation/bloc/document_event.dart';
+import '../../../Document/presentation/bloc/document_state.dart';
+
 
 /// User uploads the required documents, then submits the application.
 class UploadDocumentsSection extends StatefulWidget {
@@ -9,6 +16,8 @@ class UploadDocumentsSection extends StatefulWidget {
   final bool isActive;
   final VoidCallback onBack;
   final VoidCallback onSubmit;
+  final int? applicationId;
+  final String? userEmail;
 
   const UploadDocumentsSection({
     Key? key,
@@ -17,6 +26,8 @@ class UploadDocumentsSection extends StatefulWidget {
     required this.isActive,
     required this.onBack,
     required this.onSubmit,
+    this.applicationId,
+    this.userEmail,
   }) : super(key: key);
 
   @override
@@ -27,25 +38,57 @@ class _UploadDocumentsSectionState extends State<UploadDocumentsSection>
     with SingleTickerProviderStateMixin {
   static const _navy = Color(0xff0D47A1);
 
-  // Required documents for the visa application.
-  static const List<String> _requiredDocs = [
-    'Passport (front & back)',
-    'Passport-size Photograph',
+  // Documents for the visa application. The visa document is optional.
+  static const List<_DocSpec> _requiredDocs = [
+    _DocSpec('Passport (front & back)', optional: false),
+    _DocSpec('Bank Statement', optional: false),
+    _DocSpec('Visa Document', optional: true),
   ];
 
   final Map<String, PlatformFile> _uploaded = {};
   bool _isExpanded = false;
+  bool _isUploading = false;
 
   late AnimationController _animationController;
   late Animation<double> _heightAnimation;
+  late DocumentBloc _documentBloc;
+
+  List<_DocSpec> get _mandatoryDocs =>
+      _requiredDocs.where((d) => !d.optional).toList();
 
   bool get _allUploaded =>
-      _requiredDocs.every((d) => _uploaded.containsKey(d));
+      _mandatoryDocs.every((d) => _uploaded.containsKey(d.name));
 
   @override
   void initState() {
     super.initState();
     _isExpanded = widget.isActive;
+    _documentBloc = sl<DocumentBloc>();
+
+    // Listen to bloc state changes
+    _documentBloc.stream.listen((state) {
+      if (state is DocumentUploadSuccess) {
+        setState(() => _isUploading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Documents uploaded successfully!'),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        // Call the original onSubmit callback
+        widget.onSubmit();
+      } else if (state is DocumentError) {
+        setState(() => _isUploading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: ${state.message}'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    });
 
     _animationController = AnimationController(
       duration: const Duration(milliseconds: 300),
@@ -74,6 +117,7 @@ class _UploadDocumentsSectionState extends State<UploadDocumentsSection>
   @override
   void dispose() {
     _animationController.dispose();
+    _documentBloc.close();
     super.dispose();
   }
 
@@ -108,6 +152,55 @@ class _UploadDocumentsSectionState extends State<UploadDocumentsSection>
         ),
       );
     }
+  }
+
+  void _submitDocuments() {
+    if (widget.applicationId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Application ID is required. Please complete previous steps.'),
+          backgroundColor: Colors.orange,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    // Get user email from widget parameter or from PreferencesManager
+    String userEmail = widget.userEmail ?? '';
+    if (userEmail.isEmpty) {
+      final prefs = sl<PreferencesManager>();
+      final userData = prefs.getUserData();
+      userEmail = userData?['email'] ?? '';
+    }
+
+    if (userEmail.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('User email is required. Please login again.'),
+          backgroundColor: Colors.orange,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isUploading = true);
+
+    // Prepare documents list for API
+    final List<Map<String, dynamic>> documents = _uploaded.entries.map((entry) {
+      return {
+        'file': entry.value,
+        'type': entry.key,
+      };
+    }).toList();
+
+    // Dispatch event to bloc
+    _documentBloc.add(UploadDocuments(
+      applicationId: widget.applicationId!,
+      documents: documents,
+      userEmail: userEmail,
+    ));
   }
 
   @override
@@ -197,6 +290,10 @@ class _UploadDocumentsSectionState extends State<UploadDocumentsSection>
   }
 
   Widget _buildBody() {
+    final mandatoryTotal = _mandatoryDocs.length;
+    final mandatoryDone =
+        _mandatoryDocs.where((d) => _uploaded.containsKey(d.name)).length;
+
     return Padding(
       padding: EdgeInsets.all(context.w(12)),
       child: Column(
@@ -206,7 +303,32 @@ class _UploadDocumentsSectionState extends State<UploadDocumentsSection>
             'Upload clear scans (PDF/JPG/PNG) of the documents below.',
             style: TextStyle(fontSize: context.fs(10), color: Colors.grey.shade600),
           ),
-          SizedBox(height: context.h(12)),
+          SizedBox(height: context.h(10)),
+          Row(
+            children: [
+              Expanded(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(context.r(4)),
+                  child: LinearProgressIndicator(
+                    value: mandatoryTotal == 0 ? 0 : mandatoryDone / mandatoryTotal,
+                    minHeight: context.h(6),
+                    backgroundColor: Colors.grey.shade200,
+                    valueColor: const AlwaysStoppedAnimation<Color>(_navy),
+                  ),
+                ),
+              ),
+              SizedBox(width: context.w(8)),
+              Text(
+                '$mandatoryDone/$mandatoryTotal required',
+                style: TextStyle(
+                  fontSize: context.fs(10),
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey.shade600,
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: context.h(14)),
           ..._requiredDocs.map(_buildDocTile),
           SizedBox(height: context.h(8)),
           Row(
@@ -230,7 +352,7 @@ class _UploadDocumentsSectionState extends State<UploadDocumentsSection>
               SizedBox(width: context.w(8)),
               Expanded(
                 child: ElevatedButton(
-                  onPressed: _allUploaded ? widget.onSubmit : null,
+                  onPressed: _allUploaded && !_isUploading ? _submitDocuments : null,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: _navy,
                     disabledBackgroundColor: Colors.grey.shade300,
@@ -238,7 +360,16 @@ class _UploadDocumentsSectionState extends State<UploadDocumentsSection>
                         borderRadius: BorderRadius.circular(context.r(6))),
                     padding: EdgeInsets.symmetric(vertical: context.h(10)),
                   ),
-                  child: const Text('SUBMIT APPLICATION',
+                  child: _isUploading
+                      ? SizedBox(
+                    height: context.h(16),
+                    width: context.w(16),
+                    child: const CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  )
+                      : const Text('CONTINUE TO PAYMENT',
                       style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
@@ -247,48 +378,82 @@ class _UploadDocumentsSectionState extends State<UploadDocumentsSection>
               ),
             ],
           ),
-          if (!_allUploaded) ...[
-            SizedBox(height: context.h(8)),
-            Text(
-              'Please upload all required documents to submit.',
-              style: TextStyle(fontSize: context.fs(10), color: Colors.orange.shade800),
-            ),
-          ],
         ],
       ),
     );
   }
 
-  Widget _buildDocTile(String doc) {
-    final file = _uploaded[doc];
+  IconData _iconFor(PlatformFile? file) {
+    final ext = file?.extension?.toLowerCase();
+    if (ext == 'pdf') return Icons.picture_as_pdf_outlined;
+    if (ext == 'jpg' || ext == 'jpeg' || ext == 'png') return Icons.image_outlined;
+    return Icons.check_circle;
+  }
+
+  Widget _buildDocTile(_DocSpec doc) {
+    final file = _uploaded[doc.name];
     final isDone = file != null;
     return Container(
       margin: EdgeInsets.only(bottom: context.h(8)),
       padding: EdgeInsets.all(context.w(10)),
       decoration: BoxDecoration(
         color: isDone ? Colors.green.shade50 : Colors.grey.shade50,
-        borderRadius: BorderRadius.circular(context.r(6)),
+        borderRadius: BorderRadius.circular(context.r(8)),
         border: Border.all(
           color: isDone ? Colors.green.shade300 : Colors.grey.shade200,
         ),
       ),
       child: Row(
         children: [
-          Icon(
-            isDone ? Icons.check_circle : Icons.description_outlined,
-            size: context.iconMedium,
-            color: isDone ? Colors.green : Colors.grey.shade600,
+          Container(
+            width: context.w(34),
+            height: context.w(34),
+            decoration: BoxDecoration(
+              color: isDone ? Colors.green.shade100 : Colors.white,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              isDone ? _iconFor(file) : Icons.description_outlined,
+              size: context.iconSmall,
+              color: isDone ? Colors.green.shade700 : Colors.grey.shade500,
+            ),
           ),
           SizedBox(width: context.w(10)),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(doc,
-                    style: TextStyle(
-                        fontSize: context.fs(11), fontWeight: FontWeight.w600)),
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(doc.name,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                              fontSize: context.fs(11), fontWeight: FontWeight.w600)),
+                    ),
+                    if (doc.optional) ...[
+                      SizedBox(width: context.w(6)),
+                      Container(
+                        padding: EdgeInsets.symmetric(
+                            horizontal: context.w(6), vertical: context.h(2)),
+                        decoration: BoxDecoration(
+                          color: Colors.blueGrey.shade50,
+                          borderRadius: BorderRadius.circular(context.r(4)),
+                        ),
+                        child: Text(
+                          'Optional',
+                          style: TextStyle(
+                              fontSize: context.fs(9),
+                              fontWeight: FontWeight.w600,
+                              color: Colors.blueGrey.shade400),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+                SizedBox(height: context.h(2)),
                 Text(
-                  isDone ? file.name : 'Required',
+                  isDone ? file.name : (doc.optional ? 'Not uploaded' : 'Required'),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
@@ -299,8 +464,15 @@ class _UploadDocumentsSectionState extends State<UploadDocumentsSection>
               ],
             ),
           ),
+          if (isDone && !_isUploading)
+            IconButton(
+              onPressed: () => setState(() => _uploaded.remove(doc.name)),
+              icon: Icon(Icons.close, size: context.iconXSmall, color: Colors.grey.shade500),
+              padding: EdgeInsets.zero,
+              constraints: BoxConstraints(minWidth: context.w(28), minHeight: context.w(28)),
+            ),
           TextButton(
-            onPressed: () => _pickFor(doc),
+            onPressed: _isUploading ? null : () => _pickFor(doc.name),
             style: TextButton.styleFrom(
               padding: EdgeInsets.symmetric(horizontal: context.w(10)),
               minimumSize: Size(0, context.h(32)),
@@ -315,4 +487,10 @@ class _UploadDocumentsSectionState extends State<UploadDocumentsSection>
       ),
     );
   }
+}
+
+class _DocSpec {
+  final String name;
+  final bool optional;
+  const _DocSpec(this.name, {required this.optional});
 }

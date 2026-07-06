@@ -52,6 +52,25 @@ class GeneralSettingsEntity extends Equatable {
   ];
 }
 
+class PromoCodeEntity extends Equatable {
+  final String code;
+  final String category;
+  final String discountType;
+  final String discountValue;
+  final String description;
+
+  const PromoCodeEntity({
+    required this.code,
+    required this.category,
+    required this.discountType,
+    required this.discountValue,
+    required this.description,
+  });
+
+  @override
+  List<Object?> get props => [code, category, discountType, discountValue, description];
+}
+
 class AboutTabEntity extends Equatable {
   final String content;
   final String heading;

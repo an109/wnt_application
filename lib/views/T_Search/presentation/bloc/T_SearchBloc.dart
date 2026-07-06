@@ -28,6 +28,7 @@ class TransportSearchBloc
       startAddress: event.startAddress,
       endAddress: event.endAddress,
       pickupDatetime: event.pickupDatetime,
+      returnPickupDatetime: event.returnDatetime,
       numPassengers: event.numPassengers,
       currency: event.currency,
       mode: event.modeValue,

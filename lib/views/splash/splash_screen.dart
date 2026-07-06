@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:wander_nova/core/resources/app_colours.dart';
 import '../../UI_helper/navigation_queue.dart';
 import '../../UI_helper/responsive_layout.dart';
 import '../home/presentation/screens/home_screen.dart';
@@ -108,7 +109,8 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      // backgroundColor: Colors.white,
+      backgroundColor: AppColors.navy,
       body: Stack(
         children:[
           Center(
@@ -125,7 +127,8 @@ class _SplashScreenState extends State<SplashScreen>
                 child: Opacity(
                   opacity: (1.0 - (_controller.value * 0.6)).clamp(0.0, 1.0),
                   child: Image.asset(
-                    'assets/images/wander_nova_logo.jpg',
+                    'assets/images/wander_logo.png',
+                    // 'assets/images/wander_nova_logo.jpg',
                     height: context.h(150),
                     fit: BoxFit.contain,
                     filterQuality: FilterQuality.high,

@@ -124,6 +124,10 @@ class BookingPassengerDetail {
   final String? ticketNumber;
   final String? ticketStatus;
   final String? ticketIssueDate;
+  // Parsed from PaxSeat / PaxBaggage — TBO's top-level Seat.Code is always null.
+  final String? seatCode;
+  final String? baggageCode;
+  final int? baggageWeight;
 
   BookingPassengerDetail({
     this.paxId,
@@ -140,6 +144,9 @@ class BookingPassengerDetail {
     this.ticketNumber,
     this.ticketStatus,
     this.ticketIssueDate,
+    this.seatCode,
+    this.baggageCode,
+    this.baggageWeight,
   });
 
   String get fullName => '${firstName ?? ''} ${lastName ?? ''}'.trim();
@@ -147,6 +154,18 @@ class BookingPassengerDetail {
   factory BookingPassengerDetail.fromJson(Map<String, dynamic> json) {
     final ticket = json['Ticket'] as Map<String, dynamic>?;
     final rawStatus = ticket?['Status'] as String?;
+
+    // PaxSeat contains the actual chosen seat (Seat.Code is always null from TBO).
+    final paxSeatList = json['PaxSeat'] as List?;
+    final firstSeat = paxSeatList?.whereType<Map>().firstOrNull;
+    final seatCode = firstSeat?['Code'] as String?;
+
+    // PaxBaggage contains the chosen baggage allowance.
+    final paxBagList = json['PaxBaggage'] as List?;
+    final firstBag = paxBagList?.whereType<Map>().firstOrNull;
+    final baggageCode = firstBag?['Code'] as String?;
+    final baggageWeight = (firstBag?['Weight'] as num?)?.toInt();
+
     return BookingPassengerDetail(
       paxId: json['PaxId'] as int?,
       title: json['Title'] as String?,
@@ -160,9 +179,11 @@ class BookingPassengerDetail {
       dateOfBirth: json['DateOfBirth'] as String?,
       passportNo: json['PassportNo'] as String?,
       ticketNumber: ticket?['TicketNumber'] as String? ?? ticket?['TicketId']?.toString(),
-      // Map "OK" → "Confirmed" for display
       ticketStatus: (rawStatus == 'OK' || rawStatus == null) ? 'Confirmed' : rawStatus,
       ticketIssueDate: ticket?['IssueDate'] as String?,
+      seatCode: seatCode,
+      baggageCode: baggageCode,
+      baggageWeight: baggageWeight,
     );
   }
 }
@@ -257,9 +278,15 @@ class BookingSegmentDetail {
       destName: dest?['AirportName'] as String?,
       destCityName: dest?['CityName'] as String?,
       destTerminal: dest?['Terminal'] as String? ?? json['ArrTerminal'] as String?,
-      // Times are top-level fields, not inside Origin/Destination
-      depTime: json['DepartureTime'] as String?,
-      arrTime: json['ArrivalTime'] as String?,
+      // TBO GetBookingDetails uses DepartureDateTime / ArrivalDateTime at
+      // segment level. Fall back to the nested DepTime/ArrTime inside Origin /
+      // Destination (used by some response variants).
+      depTime: json['DepartureTime'] as String?
+          ?? json['DepartureDateTime'] as String?
+          ?? origin?['DepTime'] as String?,
+      arrTime: json['ArrivalTime'] as String?
+          ?? json['ArrivalDateTime'] as String?
+          ?? dest?['ArrTime'] as String?,
       duration: durationMinutes,
       durationRaw: durationStr,
       baggage: json['IncludedBaggage'] as String?,

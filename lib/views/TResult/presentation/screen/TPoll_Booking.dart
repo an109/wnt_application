@@ -1,12 +1,18 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:lottie/lottie.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import 'package:wander_nova/views/TResevation/presentation/screen/payment_screen.dart';
 import '../../../../UI_helper/currency_converter.dart';
 import '../../../../common_widgets/logo.dart';
 import '../../../../core/utils/storage/shared_preference.dart';
 import '../../../../injection_container.dart';
+import '../../../MainApi/domain/entities/general_setting_entity.dart';
+import '../../../MainApi/presentation/bloc/general_setting_bloc.dart';
+import '../../../MainApi/presentation/bloc/general_settings_event.dart';
+import '../../../MainApi/presentation/bloc/general_settings_state.dart';
 import '../../../TPoll_Search/domain/entities/TPollSearchEntity.dart';
 import '../../../TResevation/domain/entities/TReservation-entity.dart';
 import '../../../TResevation/presentation/bloc/TReservation_bloc.dart';
@@ -58,6 +64,7 @@ class _TPollBookingScreenState extends State<TPollBookingScreen> {
   double _smsPrice = 0;
   bool _promoCodeApplied = false;
   String _appliedPromoCode = '';
+  double _promoDiscountAmount = 0.0;
   final Set<String> _selectedAmenities = {};
 
   // Track which fields have errors
@@ -148,6 +155,7 @@ class _TPollBookingScreenState extends State<TPollBookingScreen> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadUserData();
+      context.read<GeneralSettingsBloc>().add(const LoadPromoCodes());
     });
 
     print('========================================');
@@ -266,30 +274,37 @@ class _TPollBookingScreenState extends State<TPollBookingScreen> {
     print('   Converted: $_baseFare ${_getPreferredCurrency()}');
   }
 
-  // double get _totalPrice {
-  //   double total = _baseFare;
-  //
-  //   for (var amenity in widget.result.amenities) {
-  //     if (_selectedAmenities.contains(amenity.key)) {
-  //       total += double.tryParse(amenity.price?.value ?? '0') ?? 0;
-  //     }
-  //   }
-  //
-  //   return total;
-  // }
-
-  double get _totalPrice {
+  // RENAME your existing _totalPrice to this:
+  double get _totalPriceBeforeDiscount {
     double total = _baseFare;
-
     for (var amenity in widget.result.amenities) {
       if (_selectedAmenities.contains(amenity.key)) {
         final amenityPriceUSD = double.tryParse(amenity.price?.value ?? '0') ?? 0;
         total += _getConvertedPrice(amenityPriceUSD);
       }
     }
-
     return total;
   }
+
+  // ADD THIS new getter for the final price:
+  double get _totalPrice {
+    double finalPrice = _totalPriceBeforeDiscount - _promoDiscountAmount;
+    return finalPrice < 0 ? 0 : finalPrice; // Prevent negative totals
+  }
+
+
+  // double get _totalPrice {
+  //   double total = _baseFare;
+  //
+  //   for (var amenity in widget.result.amenities) {
+  //     if (_selectedAmenities.contains(amenity.key)) {
+  //       final amenityPriceUSD = double.tryParse(amenity.price?.value ?? '0') ?? 0;
+  //       total += _getConvertedPrice(amenityPriceUSD);
+  //     }
+  //   }
+  //
+  //   return total;
+  // }
 
   @override
   void dispose() {
@@ -435,12 +450,12 @@ class _TPollBookingScreenState extends State<TPollBookingScreen> {
   }
 
   void _applyPromoCode() {
-    final code = _promoCodeController.text.trim();
+    final code = _promoCodeController.text.trim().toUpperCase();
     if (code.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Please enter a promo code'),
-          backgroundColor: Colors.red,
+          content: const Text('Please enter a promo code'),
+          backgroundColor: _errorRed,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
@@ -448,19 +463,71 @@ class _TPollBookingScreenState extends State<TPollBookingScreen> {
       return;
     }
 
+    // 1. Get Promo Codes from BLoC
+    final bloc = context.read<GeneralSettingsBloc>();
+    List<PromoCodeEntity> promoCodes = [];
+
+    if (bloc.state is PromoCodesLoaded) {
+      promoCodes = (bloc.state as PromoCodesLoaded).promoCodes;
+    }
+
+    // 2. Find matching promo code (case-insensitive)
+    final matchedPromo = promoCodes.firstWhere(
+          (p) => p.code.toUpperCase() == code,
+      orElse: () => const PromoCodeEntity(code: '', category: '', discountType: '', discountValue: '0', description: ''),
+    );
+
+    if (matchedPromo.code.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Invalid promo code. Please try again.'),
+          backgroundColor: _errorRed,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+      );
+      return;
+    }
+
+    // 3. Calculate Discount
+    double discount = 0;
+    final discountValue = double.tryParse(matchedPromo.discountValue) ?? 0;
+
+    if (matchedPromo.discountType == 'percent') {
+      discount = (_totalPriceBeforeDiscount * discountValue) / 100;
+    } else {
+      discount = _getConvertedPrice(discountValue);
+    }
+
+    // 4. Apply State
     setState(() {
       _promoCodeApplied = true;
-      _appliedPromoCode = code;
+      _appliedPromoCode = matchedPromo.code;
+      _promoDiscountAmount = discount;
     });
 
+    // 5. Show Celebration Dialog with animation
+    _showCelebrationDialog(discount, matchedPromo.code);
+
+    // Optional: Show a snackbar for additional feedback
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Promo code "$code" applied successfully!'),
+        content: Text('Promo code "${matchedPromo.code}" applied successfully!'),
         backgroundColor: _successGreen,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
     );
+  }
+
+  // ADD THIS METHOD
+  void _removePromoCode() {
+    setState(() {
+      _promoCodeApplied = false;
+      _appliedPromoCode = '';
+      _promoDiscountAmount = 0.0;
+      _promoCodeController.clear();
+    });
   }
 
   Widget _buildLeadPassengerSection() {
@@ -870,96 +937,403 @@ class _TPollBookingScreenState extends State<TPollBookingScreen> {
   }
 
 
+  // Widget _buildPromoCodeSection() {
+  //   return Container(
+  //     padding: EdgeInsets.all(context.wp(4)),
+  //     decoration: BoxDecoration(
+  //       color: Colors.white,
+  //       borderRadius: BorderRadius.circular(context.borderRadius),
+  //       boxShadow: [
+  //         BoxShadow(
+  //           color: Colors.black.withOpacity(0.05),
+  //           blurRadius: 10,
+  //           offset: const Offset(0, 2),
+  //         ),
+  //       ],
+  //     ),
+  //     child: Column(
+  //       crossAxisAlignment: CrossAxisAlignment.start,
+  //       children: [
+  //         Row(
+  //           children: [
+  //             Icon(Icons.local_offer_outlined, size: context.iconMedium, color: _primaryBlue),
+  //             const SizedBox(width: 8),
+  //             Text(
+  //               'Promo Code',
+  //               style: TextStyle(
+  //                 fontSize: context.titleMedium,
+  //                 fontWeight: FontWeight.w700,
+  //                 color: _darkNavy,
+  //               ),
+  //             ),
+  //           ],
+  //         ),
+  //         const SizedBox(height: 16),
+  //         Row(
+  //           children: [
+  //             Expanded(
+  //               flex: 3,
+  //               child: TextField(
+  //                 controller: _promoCodeController,
+  //                 decoration: InputDecoration(
+  //                   hintText: 'ENTER PROMO CODE',
+  //                   hintStyle: TextStyle(
+  //                     fontSize: context.bodySmall,
+  //                     color: Colors.grey.shade400,
+  //                   ),
+  //                   border: OutlineInputBorder(
+  //                     borderRadius: BorderRadius.circular(8),
+  //                     borderSide: BorderSide(color: Colors.grey.shade300),
+  //                   ),
+  //                   enabledBorder: OutlineInputBorder(
+  //                     borderRadius: BorderRadius.circular(8),
+  //                     borderSide: BorderSide(color: Colors.grey.shade300),
+  //                   ),
+  //                   focusedBorder: OutlineInputBorder(
+  //                     borderRadius: BorderRadius.circular(8),
+  //                     borderSide: const BorderSide(color: _primaryBlue, width: 2),
+  //                   ),
+  //                   contentPadding: EdgeInsets.all(context.wp(3)),
+  //                 ),
+  //                 enabled: !_promoCodeApplied,
+  //               ),
+  //             ),
+  //             SizedBox(width: context.wp(1.5)),
+  //             Expanded(
+  //               flex: 2,
+  //               child: SizedBox(
+  //                 height: context.formFieldHeight,
+  //                 child: ElevatedButton(
+  //                   onPressed: _promoCodeApplied ? null : _applyPromoCode,
+  //                   style: ElevatedButton.styleFrom(
+  //                     backgroundColor: _promoCodeApplied ? Colors.grey.shade300 : _primaryBlue,
+  //                     foregroundColor: Colors.white,
+  //                     elevation: 0,
+  //                     shape: RoundedRectangleBorder(
+  //                       borderRadius: BorderRadius.circular(8),
+  //                     ),
+  //                   ),
+  //                   child: Text(
+  //                     _promoCodeApplied ? 'Applied' : 'Apply',
+  //                     style: TextStyle(
+  //                       fontSize: context.bodyMedium,
+  //                       fontWeight: FontWeight.w600,
+  //                     ),
+  //                   ),
+  //                 ),
+  //               ),
+  //             ),
+  //           ],
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
   Widget _buildPromoCodeSection() {
-    return Container(
-      padding: EdgeInsets.all(context.wp(4)),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(context.borderRadius),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.local_offer_outlined, size: context.iconMedium, color: _primaryBlue),
-              const SizedBox(width: 8),
-              Text(
-                'Promo Code',
-                style: TextStyle(
-                  fontSize: context.titleMedium,
-                  fontWeight: FontWeight.w700,
-                  color: _darkNavy,
-                ),
+    return BlocBuilder<GeneralSettingsBloc, GeneralSettingsState>(
+      builder: (context, state) {
+        final filtered = state is PromoCodesLoaded
+            ? state.promoCodes
+                .where((p) =>
+                    p.category == 'transport_booking' ||
+                    p.category == 'payment')
+                .toList()
+            : <PromoCodeEntity>[];
+
+        return Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(context.borderRadius),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 2),
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                flex: 3,
-                child: TextField(
-                  controller: _promoCodeController,
-                  decoration: InputDecoration(
-                    hintText: 'ENTER PROMO CODE',
-                    hintStyle: TextStyle(
-                      fontSize: context.bodySmall,
-                      color: Colors.grey.shade400,
-                    ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(color: Colors.grey.shade300),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(color: Colors.grey.shade300),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(color: _primaryBlue, width: 2),
-                    ),
-                    contentPadding: EdgeInsets.all(context.wp(3)),
-                  ),
-                  enabled: !_promoCodeApplied,
-                ),
-              ),
-              SizedBox(width: context.wp(1.5)),
-              Expanded(
-                flex: 2,
-                child: SizedBox(
-                  height: context.formFieldHeight,
-                  child: ElevatedButton(
-                    onPressed: _promoCodeApplied ? null : _applyPromoCode,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _promoCodeApplied ? Colors.grey.shade300 : _primaryBlue,
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                    child: Text(
-                      _promoCodeApplied ? 'Applied' : 'Apply',
+              Padding(
+                padding: EdgeInsets.fromLTRB(
+                    context.wp(4), context.hp(1.5), context.wp(4), 0),
+                child: Row(
+                  children: [
+                    Icon(Icons.local_offer_rounded,
+                        size: context.iconMedium, color: _primaryBlue),
+                    SizedBox(width: context.wp(2)),
+                    Text(
+                      'Coupons & Offers',
                       style: TextStyle(
-                        fontSize: context.bodyMedium,
-                        fontWeight: FontWeight.w600,
+                        fontSize: context.titleMedium,
+                        fontWeight: FontWeight.w700,
+                        color: _darkNavy,
                       ),
+                    ),
+                    if (filtered.isNotEmpty && !_promoCodeApplied) ...[
+                      const Spacer(),
+                      Container(
+                        padding: EdgeInsets.symmetric(
+                            horizontal: context.wp(2),
+                            vertical: context.hp(0.4)),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.shade50,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          '${filtered.length} offer${filtered.length > 1 ? 's' : ''}',
+                          style: TextStyle(
+                            fontSize: context.labelSmall,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.orange.shade700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              SizedBox(height: context.hp(1.5)),
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: context.wp(4)),
+                child: _promoCodeApplied
+                    ? _buildTransportPromoAppliedBanner()
+                    : _buildTransportPromoInputRow(),
+              ),
+              if (!_promoCodeApplied && filtered.isNotEmpty) ...[
+                SizedBox(height: context.hp(1.5)),
+                Divider(height: 1, thickness: 1, color: Colors.grey.shade100),
+                Padding(
+                  padding: EdgeInsets.fromLTRB(
+                      context.wp(4), context.hp(1), context.wp(4), 0),
+                  child: Text(
+                    'AVAILABLE OFFERS',
+                    style: TextStyle(
+                      fontSize: context.labelSmall,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.grey.shade500,
+                      letterSpacing: 0.8,
                     ),
                   ),
                 ),
-              ),
+                ...filtered.asMap().entries.map(
+                  (e) => _buildTransportCouponCard(e.value,
+                      showTopDivider: e.key > 0),
+                ),
+              ],
+              SizedBox(height: context.hp(1.5)),
             ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildTransportPromoAppliedBanner() {
+    return Container(
+      padding: EdgeInsets.all(context.wp(3)),
+      decoration: BoxDecoration(
+        color: _successGreen.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: _successGreen.withOpacity(0.3)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.check_circle_rounded, color: _successGreen, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '$_appliedPromoCode applied',
+                  style: TextStyle(
+                    fontSize: context.bodyMedium,
+                    fontWeight: FontWeight.w600,
+                    color: _successGreen,
+                  ),
+                ),
+                Text(
+                  'You saved ${_getDisplayCurrencySymbol()}${_promoDiscountAmount.toStringAsFixed(2)}',
+                  style: TextStyle(
+                      fontSize: context.bodySmall, color: _successGreen),
+                ),
+              ],
+            ),
+          ),
+          InkWell(
+            onTap: _removePromoCode,
+            child: Text(
+              'Remove',
+              style: TextStyle(
+                fontSize: context.bodySmall,
+                fontWeight: FontWeight.w600,
+                color: _errorRed,
+              ),
+            ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildTransportPromoInputRow() {
+    return Row(
+      children: [
+        Expanded(
+          flex: 3,
+          child: TextField(
+            controller: _promoCodeController,
+            textCapitalization: TextCapitalization.characters,
+            decoration: InputDecoration(
+              hintText: 'ENTER COUPON CODE',
+              hintStyle: TextStyle(
+                  fontSize: context.bodySmall, color: Colors.grey.shade400),
+              border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: Colors.grey.shade300)),
+              enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: Colors.grey.shade300)),
+              focusedBorder: const OutlineInputBorder(
+                  borderRadius: BorderRadius.all(Radius.circular(8)),
+                  borderSide: BorderSide(color: _primaryBlue, width: 2)),
+              contentPadding: EdgeInsets.all(context.wp(3)),
+            ),
+          ),
+        ),
+        SizedBox(width: context.wp(2)),
+        SizedBox(
+          height: context.formFieldHeight,
+          child: ElevatedButton(
+            onPressed: _applyPromoCode,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _primaryBlue,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8)),
+            ),
+            child: Text('APPLY',
+                style: TextStyle(
+                    fontSize: context.bodyMedium,
+                    fontWeight: FontWeight.w700)),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTransportCouponCard(PromoCodeEntity promo,
+      {bool showTopDivider = false}) {
+    final discountLabel = promo.discountType == 'percent'
+        ? 'Get ${double.tryParse(promo.discountValue)?.toStringAsFixed(0) ?? promo.discountValue}% off on this booking'
+        : 'Get ${_getDisplayCurrencySymbol()}${promo.discountValue} off on this booking';
+
+    return Column(
+      children: [
+        if (showTopDivider)
+          Divider(
+              height: 1,
+              thickness: 1,
+              color: Colors.grey.shade100,
+              indent: context.wp(4),
+              endIndent: context.wp(4)),
+        InkWell(
+          onTap: () {
+            _promoCodeController.text = promo.code;
+            _applyPromoCode();
+          },
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(context.wp(4), context.hp(1.2),
+                context.wp(4), context.hp(1.2)),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Container(
+                  padding: EdgeInsets.all(context.wp(2)),
+                  decoration: BoxDecoration(
+                    color: _primaryBlue.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(Icons.confirmation_number_outlined,
+                      color: _primaryBlue, size: context.iconMedium),
+                ),
+                SizedBox(width: context.wp(3)),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: EdgeInsets.symmetric(
+                            horizontal: context.wp(2),
+                            vertical: context.hp(0.4)),
+                        decoration: BoxDecoration(
+                          color: _primaryBlue.withOpacity(0.06),
+                          borderRadius: BorderRadius.circular(4),
+                          border:
+                              Border.all(color: _primaryBlue.withOpacity(0.2)),
+                        ),
+                        child: Text(
+                          promo.code,
+                          style: TextStyle(
+                            fontSize: context.bodySmall,
+                            fontWeight: FontWeight.w800,
+                            color: _primaryBlue,
+                            letterSpacing: 1,
+                          ),
+                        ),
+                      ),
+                      SizedBox(height: context.hp(0.5)),
+                      Text(
+                        discountLabel,
+                        style: TextStyle(
+                          fontSize: context.bodyMedium,
+                          fontWeight: FontWeight.w600,
+                          color: _darkNavy,
+                        ),
+                      ),
+                      if (promo.description.isNotEmpty)
+                        Text(
+                          promo.description,
+                          style: TextStyle(
+                              fontSize: context.bodySmall,
+                              color: Colors.grey.shade600),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                    ],
+                  ),
+                ),
+                SizedBox(width: context.wp(2)),
+                OutlinedButton(
+                  onPressed: () {
+                    _promoCodeController.text = promo.code;
+                    _applyPromoCode();
+                  },
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: _primaryBlue,
+                    side: const BorderSide(color: _primaryBlue, width: 1.5),
+                    padding: EdgeInsets.symmetric(
+                        horizontal: context.wp(3), vertical: context.hp(0.8)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(6)),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: Text(
+                    'APPLY',
+                    style: TextStyle(
+                        fontSize: context.labelSmall,
+                        fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -1021,6 +1395,110 @@ class _TPollBookingScreenState extends State<TPollBookingScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  void _showCelebrationDialog(double discountAmount, String promoCode) {
+    showDialog(
+      context: context,
+      barrierDismissible: false, // User must tap button to dismiss
+      builder: (BuildContext context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          elevation: 0,
+          backgroundColor: Colors.transparent,
+          child: Container(
+            padding: EdgeInsets.all(context.wp(4)),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.2),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Lottie Animation
+                Container(
+                  height: context.hp(25),
+                  width: double.infinity,
+                  child: Lottie.asset(
+                    'assets/animation/celebrate.json',
+                    repeat: true,
+                    fit: BoxFit.contain,
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
+                // Success Message
+                Text(
+                  '🎉 Promo Applied!',
+                  style: TextStyle(
+                    fontSize: context.titleLarge,
+                    fontWeight: FontWeight.w700,
+                    color: _darkNavy,
+                  ),
+                ),
+
+                const SizedBox(height: 8),
+
+                Text(
+                  'You saved ${_getDisplayCurrencySymbol()}${discountAmount.toStringAsFixed(2)}',
+                  style: TextStyle(
+                    fontSize: context.titleMedium,
+                    fontWeight: FontWeight.w600,
+                    color: _successGreen,
+                  ),
+                ),
+
+                const SizedBox(height: 4),
+
+                Text(
+                  'Code: $_appliedPromoCode',
+                  style: TextStyle(
+                    fontSize: context.bodyMedium,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+
+                const SizedBox(height: 20),
+
+                // OK Button
+                SizedBox(
+                  width: double.infinity,
+                  height: context.buttonHeight,
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _primaryBlue,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: Text(
+                      'Great!',
+                      style: TextStyle(
+                        fontSize: context.bodyLarge,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -1119,6 +1597,34 @@ class _TPollBookingScreenState extends State<TPollBookingScreen> {
                 ),
               );
             }).toList(),
+
+
+            // Show Promo Discount if applied
+            if (_promoDiscountAmount > 0)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Promo Discount ($_appliedPromoCode)',
+                      style: TextStyle(
+                        fontSize: context.bodySmall,
+                        color: _successGreen,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    Text(
+                      '- $displaySymbol${_promoDiscountAmount.toStringAsFixed(2)}',
+                      style: TextStyle(
+                        fontSize: context.bodySmall,
+                        color: _successGreen,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             const Divider(height: 24),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,

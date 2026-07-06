@@ -32,6 +32,15 @@ class SectionHeroesLoaded extends GeneralSettingsState {
   List<Object?> get props => [sectionHeroes];
 }
 
+class PromoCodesLoaded extends GeneralSettingsState {
+  final List<PromoCodeEntity> promoCodes;
+
+  const PromoCodesLoaded(this.promoCodes);
+
+  @override
+  List<Object?> get props => [promoCodes];
+}
+
 class FaqListLoaded extends GeneralSettingsState {
   final List<FaqEntity> faqList;
 

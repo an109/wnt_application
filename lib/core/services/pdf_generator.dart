@@ -91,6 +91,12 @@ class PDFService {
     return await _savePDF(pdf, filename);
   }
 
+  /// Saves an already-built [pw.Document] (e.g. a native, text-based PDF)
+  /// to the app's documents directory, the same way [generatePDFFromImage] does.
+  static Future<File> savePDF(pw.Document pdf, String filename) {
+    return _savePDF(pdf, filename);
+  }
+
   static Future<File> _savePDF(pw.Document pdf, String filename) async {
     final bytes = await pdf.save();
     final dir = await getApplicationDocumentsDirectory();

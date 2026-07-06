@@ -81,57 +81,57 @@ class FlightDetailsPopup extends StatelessWidget {
 
     return Padding(
       padding: EdgeInsets.only(
-        left: context.w(12),
-        right: context.w(12),
-        bottom: MediaQuery.of(context).viewInsets.bottom + context.h(10),
+        left: context.w(10),
+        right: context.w(10),
+        bottom: MediaQuery.of(context).viewInsets.bottom + context.h(8),
       ),
       child: Container(
-        constraints: BoxConstraints(maxHeight: context.screenHeight * 0.88),
+        constraints: BoxConstraints(maxHeight: context.screenHeight * 0.85),
         decoration: BoxDecoration(
           color: const Color(0xffF4F7FF),
           borderRadius: BorderRadius.vertical(
-            top: Radius.circular(context.r(26)),
+            top: Radius.circular(context.r(22)),
           ),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.18),
-              blurRadius: context.w(26),
-              offset: Offset(0, -context.h(8)),
+              blurRadius: context.w(22),
+              offset: Offset(0, -context.h(6)),
             ),
           ],
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.vertical(
-            top: Radius.circular(context.r(26)),
+            top: Radius.circular(context.r(22)),
           ),
           child: SingleChildScrollView(
             child: Padding(
               padding: EdgeInsets.fromLTRB(
-                context.w(18),
-                context.h(10),
-                context.w(18),
-                context.h(18),
+                context.w(14),
+                context.h(8),
+                context.w(14),
+                context.h(14),
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Container(
-                    width: context.w(42),
-                    height: context.h(4),
+                    width: context.w(36),
+                    height: context.h(3.5),
                     decoration: BoxDecoration(
                       color: const Color(0xffCBD5E1),
                       borderRadius: BorderRadius.circular(context.r(4)),
                     ),
                   ),
-                  SizedBox(height: context.h(14)),
+                  SizedBox(height: context.h(10)),
                   _header(context, code),
-                  SizedBox(height: context.h(16)),
-                  _ticket(context, code),
-                  SizedBox(height: context.h(14)),
-                  _amenities(context),
                   SizedBox(height: context.h(12)),
+                  _ticket(context, code),
+                  SizedBox(height: context.h(10)),
+                  _amenities(context),
+                  SizedBox(height: context.h(8)),
                   _features(context),
-                  SizedBox(height: context.h(14)),
+                  SizedBox(height: context.h(10)),
                   _bottomBar(context),
                 ],
               ),
@@ -145,8 +145,8 @@ class FlightDetailsPopup extends StatelessWidget {
   Widget _header(BuildContext context, String code) {
     return Row(
       children: [
-        _airlineBadge(context, code, size: context.w(38)),
-        SizedBox(width: context.w(10)),
+        _airlineBadge(context, code, size: context.w(32)),
+        SizedBox(width: context.w(8)),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -155,18 +155,18 @@ class FlightDetailsPopup extends StatelessWidget {
                 airlineName,
                 style: TextStyle(
                   color: const Color(0xff07163B),
-                  fontSize: context.fs(16),
+                  fontSize: context.fs(13),
                   fontWeight: FontWeight.w800,
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
-              SizedBox(height: context.h(2)),
+              SizedBox(height: context.h(1)),
               Text(
                 'Flight $flightNumber',
                 style: TextStyle(
                   color: const Color(0xff8D95B3),
-                  fontSize: context.fs(12),
+                  fontSize: context.fs(10),
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -174,11 +174,11 @@ class FlightDetailsPopup extends StatelessWidget {
           ),
         ),
         InkWell(
-          borderRadius: BorderRadius.circular(context.r(18)),
+          borderRadius: BorderRadius.circular(context.r(16)),
           onTap: () => Navigator.pop(context),
           child: Container(
-            width: context.w(34),
-            height: context.w(34),
+            width: context.w(28),
+            height: context.w(28),
             decoration: const BoxDecoration(
               color: Colors.white,
               shape: BoxShape.circle,
@@ -186,7 +186,7 @@ class FlightDetailsPopup extends StatelessWidget {
             child: Icon(
               Icons.close,
               color: const Color(0xff4B5563),
-              size: context.w(19),
+              size: context.w(15),
             ),
           ),
         ),
@@ -202,10 +202,10 @@ class FlightDetailsPopup extends StatelessWidget {
       ),
       child: Padding(
         padding: EdgeInsets.fromLTRB(
-          context.w(18),
-          context.h(18),
-          context.w(18),
-          context.h(18),
+          context.w(14),
+          context.h(14),
+          context.w(14),
+          context.h(14),
         ),
         child: Column(
           children: [
@@ -215,38 +215,38 @@ class FlightDetailsPopup extends StatelessWidget {
                 const Spacer(),
                 Container(
                   padding: EdgeInsets.symmetric(
-                    horizontal: context.w(12),
-                    vertical: context.h(4),
+                    horizontal: context.w(9),
+                    vertical: context.h(3),
                   ),
                   decoration: BoxDecoration(
                     color: const Color(0xffF8FAFF),
-                    borderRadius: BorderRadius.circular(context.r(14)),
+                    borderRadius: BorderRadius.circular(context.r(12)),
                     border: Border.all(color: const Color(0xffE6ECFF)),
                   ),
                   child: Text(
                     'Flight $code$flightNumber',
                     style: TextStyle(
                       color: const Color(0xff8D95B3),
-                      fontSize: context.fs(10),
+                      fontSize: context.fs(9),
                       fontWeight: FontWeight.w700,
                     ),
                   ),
                 ),
               ],
             ),
-            SizedBox(height: context.h(22)),
+            SizedBox(height: context.h(16)),
             Row(
               children: [
                 _timeBlock(context, departureTime, fromCode, false),
-                SizedBox(width: context.w(10)),
+                SizedBox(width: context.w(8)),
                 Expanded(child: _flightPath(context)),
-                SizedBox(width: context.w(10)),
+                SizedBox(width: context.w(8)),
                 _timeBlock(context, arrivalTime, toCode, true),
               ],
             ),
-            SizedBox(height: context.h(16)),
+            SizedBox(height: context.h(12)),
             _dashedDivider(context),
-            SizedBox(height: context.h(14)),
+            SizedBox(height: context.h(10)),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -263,12 +263,12 @@ class FlightDetailsPopup extends StatelessWidget {
   Widget _priceBox(BuildContext context) {
     return Container(
       padding: EdgeInsets.symmetric(
-        horizontal: context.w(12),
-        vertical: context.h(9),
+        horizontal: context.w(10),
+        vertical: context.h(7),
       ),
       decoration: BoxDecoration(
         color: const Color(0xffEAFBF1),
-        borderRadius: BorderRadius.circular(context.r(14)),
+        borderRadius: BorderRadius.circular(context.r(12)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -277,16 +277,16 @@ class FlightDetailsPopup extends StatelessWidget {
             'Total Price',
             style: TextStyle(
               color: const Color(0xff4B5563),
-              fontSize: context.fs(11),
+              fontSize: context.fs(9),
               fontWeight: FontWeight.w600,
             ),
           ),
-          SizedBox(height: context.h(4)),
+          SizedBox(height: context.h(3)),
           Text(
             price,
             style: TextStyle(
               color: const Color(0xff07163B),
-              fontSize: context.fs(20),
+              fontSize: context.fs(17),
               fontWeight: FontWeight.w900,
             ),
           ),
@@ -294,7 +294,7 @@ class FlightDetailsPopup extends StatelessWidget {
             'per adult',
             style: TextStyle(
               color: const Color(0xff6B7280),
-              fontSize: context.fs(10),
+              fontSize: context.fs(9),
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -310,7 +310,7 @@ class FlightDetailsPopup extends StatelessWidget {
     bool alignRight,
   ) {
     return SizedBox(
-      width: context.w(74),
+      width: context.w(62),
       child: Column(
         crossAxisAlignment: alignRight
             ? CrossAxisAlignment.end
@@ -320,16 +320,16 @@ class FlightDetailsPopup extends StatelessWidget {
             time,
             style: TextStyle(
               color: const Color(0xff3D3F4A),
-              fontSize: context.fs(22),
+              fontSize: context.fs(19),
               fontWeight: FontWeight.w900,
             ),
           ),
-          SizedBox(height: context.h(4)),
+          SizedBox(height: context.h(3)),
           Text(
             code,
             style: TextStyle(
               color: const Color(0xffA0A6C2),
-              fontSize: context.fs(12),
+              fontSize: context.fs(11),
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -350,8 +350,8 @@ class FlightDetailsPopup extends StatelessWidget {
           ),
         ),
         Padding(
-          padding: EdgeInsets.symmetric(horizontal: context.w(6)),
-          child: Icon(Icons.flight, color: color, size: context.w(24)),
+          padding: EdgeInsets.symmetric(horizontal: context.w(4)),
+          child: Icon(Icons.flight, color: color, size: context.w(20)),
         ),
         Expanded(
           child: CustomPaint(
@@ -366,15 +366,15 @@ class FlightDetailsPopup extends StatelessWidget {
 
   Widget _pathDot(BuildContext context, Color color) {
     return Container(
-      width: context.w(9),
-      height: context.w(9),
+      width: context.w(7),
+      height: context.w(7),
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: color,
         boxShadow: [
           BoxShadow(
             color: color.withValues(alpha: 0.26),
-            blurRadius: context.w(8),
+            blurRadius: context.w(6),
             spreadRadius: context.w(1),
           ),
         ],
@@ -397,26 +397,26 @@ class FlightDetailsPopup extends StatelessWidget {
           label,
           style: TextStyle(
             color: const Color(0xffA0A6C2),
-            fontSize: context.fs(11),
+            fontSize: context.fs(9),
             fontWeight: FontWeight.w600,
           ),
         ),
-        SizedBox(height: context.h(4)),
+        SizedBox(height: context.h(3)),
         Container(
           padding: EdgeInsets.symmetric(
-            horizontal: context.w(10),
-            vertical: context.h(4),
+            horizontal: context.w(8),
+            vertical: context.h(3),
           ),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(context.r(14)),
+            borderRadius: BorderRadius.circular(context.r(12)),
             border: Border.all(color: const Color(0xffE6ECFF)),
           ),
           child: Text(
             value,
             style: TextStyle(
               color: const Color(0xff3D3F4A),
-              fontSize: context.fs(11),
+              fontSize: context.fs(10),
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -434,10 +434,10 @@ class FlightDetailsPopup extends StatelessWidget {
             icon: Icons.airline_seat_recline_normal,
             iconColor: const Color(0xff9B5DE5),
             title: 'Seats & Meals',
-            subtitle: 'Meals information not available',
+            subtitle: 'Meals info not available',
           ),
         ),
-        SizedBox(width: context.w(10)),
+        SizedBox(width: context.w(8)),
         Expanded(
           child: _infoCard(
             context,
@@ -459,25 +459,25 @@ class FlightDetailsPopup extends StatelessWidget {
     required String subtitle,
   }) {
     return Container(
-      padding: EdgeInsets.all(context.w(12)),
+      padding: EdgeInsets.all(context.w(10)),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(context.r(16)),
+        borderRadius: BorderRadius.circular(context.r(14)),
         border: Border.all(color: const Color(0xffE6ECFF)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: context.w(30),
-            height: context.w(30),
+            width: context.w(26),
+            height: context.w(26),
             decoration: BoxDecoration(
               color: iconColor.withValues(alpha: 0.12),
               shape: BoxShape.circle,
             ),
-            child: Icon(icon, color: iconColor, size: context.w(17)),
+            child: Icon(icon, color: iconColor, size: context.w(14)),
           ),
-          SizedBox(width: context.w(9)),
+          SizedBox(width: context.w(7)),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -486,16 +486,16 @@ class FlightDetailsPopup extends StatelessWidget {
                   title,
                   style: TextStyle(
                     color: const Color(0xff07163B),
-                    fontSize: context.fs(13),
+                    fontSize: context.fs(11),
                     fontWeight: FontWeight.w800,
                   ),
                 ),
-                SizedBox(height: context.h(3)),
+                SizedBox(height: context.h(2)),
                 Text(
                   subtitle,
                   style: TextStyle(
                     color: const Color(0xff7C849F),
-                    fontSize: context.fs(10),
+                    fontSize: context.fs(9),
                     fontWeight: FontWeight.w500,
                     height: 1.25,
                   ),
@@ -514,33 +514,33 @@ class FlightDetailsPopup extends StatelessWidget {
     final items = [
       (Icons.lock_outline, 'Trusted Booking', '100% Secure'),
       (Icons.headphones, '24/7 Support', "We're here to help"),
-      (Icons.sync_alt, 'Easy Changes', 'Hassle-free process'),
+      (Icons.sync_alt, 'Easy Changes', 'Hassle-free'),
       (Icons.verified_outlined, 'Best Price', 'Best deals'),
     ];
 
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.all(context.w(12)),
+      padding: EdgeInsets.all(context.w(10)),
       decoration: BoxDecoration(
         color: const Color(0xffFFFDF2),
-        borderRadius: BorderRadius.circular(context.r(16)),
+        borderRadius: BorderRadius.circular(context.r(14)),
         border: Border.all(color: const Color(0xffFDE68A)),
       ),
       child: Wrap(
-        spacing: context.w(16),
-        runSpacing: context.h(12),
+        spacing: context.w(12),
+        runSpacing: context.h(8),
         children: items
             .map(
               (item) => SizedBox(
-                width: context.w(136),
+                width: context.w(130),
                 child: Row(
                   children: [
                     Icon(
                       item.$1,
                       color: const Color(0xffF59E0B),
-                      size: context.w(16),
+                      size: context.w(13),
                     ),
-                    SizedBox(width: context.w(7)),
+                    SizedBox(width: context.w(5)),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -549,7 +549,7 @@ class FlightDetailsPopup extends StatelessWidget {
                             item.$2,
                             style: TextStyle(
                               color: const Color(0xff07163B),
-                              fontSize: context.fs(11),
+                              fontSize: context.fs(9),
                               fontWeight: FontWeight.w800,
                             ),
                           ),
@@ -557,7 +557,7 @@ class FlightDetailsPopup extends StatelessWidget {
                             item.$3,
                             style: TextStyle(
                               color: const Color(0xff7C849F),
-                              fontSize: context.fs(10),
+                              fontSize: context.fs(8),
                               fontWeight: FontWeight.w500,
                             ),
                           ),
@@ -582,9 +582,9 @@ class FlightDetailsPopup extends StatelessWidget {
               Icon(
                 Icons.verified_user_outlined,
                 color: const Color(0xff16A34A),
-                size: context.w(18),
+                size: context.w(15),
               ),
-              SizedBox(width: context.w(8)),
+              SizedBox(width: context.w(6)),
               Expanded(
                 child: RichText(
                   text: TextSpan(
@@ -594,7 +594,7 @@ class FlightDetailsPopup extends StatelessWidget {
                         style: TextStyle(
                           color: const Color(0xff16A34A),
                           fontWeight: FontWeight.w800,
-                          fontSize: context.fs(11),
+                          fontSize: context.fs(9),
                         ),
                       ),
                       TextSpan(
@@ -602,7 +602,7 @@ class FlightDetailsPopup extends StatelessWidget {
                         style: TextStyle(
                           color: const Color(0xff4B5563),
                           fontWeight: FontWeight.w500,
-                          fontSize: context.fs(11),
+                          fontSize: context.fs(9),
                         ),
                       ),
                     ],
@@ -612,24 +612,24 @@ class FlightDetailsPopup extends StatelessWidget {
             ],
           ),
         ),
-        SizedBox(width: context.w(12)),
+        SizedBox(width: context.w(10)),
         SizedBox(
-          height: context.h(48),
+          height: context.h(42),
           child: ElevatedButton(
             onPressed: () => _bookNow(context),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xff1663F7),
               foregroundColor: Colors.white,
               elevation: 0,
-              padding: EdgeInsets.symmetric(horizontal: context.w(22)),
+              padding: EdgeInsets.symmetric(horizontal: context.w(18)),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(context.r(14)),
+                borderRadius: BorderRadius.circular(context.r(12)),
               ),
             ),
             child: Text(
               'Book Now',
               style: TextStyle(
-                fontSize: context.fs(14),
+                fontSize: context.fs(13),
                 fontWeight: FontWeight.w800,
               ),
             ),
@@ -644,8 +644,6 @@ class FlightDetailsPopup extends StatelessWidget {
     String code, {
     required double size,
   }) {
-    // Real airline logo from the Kiwi CDN (by IATA code), with a graceful
-    // fallback to the coloured initials badge when the logo is missing/offline.
     final logoCode = airlineCode.trim().toUpperCase();
 
     Widget initialsTile() => Container(
@@ -655,7 +653,7 @@ class FlightDetailsPopup extends StatelessWidget {
             code.length > 2 ? code.substring(0, 2) : code,
             style: TextStyle(
               color: Colors.white,
-              fontSize: context.fs(10),
+              fontSize: context.fs(9),
               fontWeight: FontWeight.w900,
             ),
           ),
@@ -665,21 +663,21 @@ class FlightDetailsPopup extends StatelessWidget {
       width: size,
       height: size,
       clipBehavior: Clip.antiAlias,
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: Colors.white,
-        shape: BoxShape.circle,
+        borderRadius: BorderRadius.circular(context.r(8)),
+        border: Border.all(color: const Color(0xffE6ECFF)),
       ),
       child: logoCode.isEmpty
           ? initialsTile()
-          : CachedNetworkImage(
-              imageUrl: 'https://images.kiwi.com/airlines/64/$logoCode.png',
-              fit: BoxFit.contain,
-              imageBuilder: (context, imageProvider) => Padding(
-                padding: EdgeInsets.all(context.w(3)),
-                child: Image(image: imageProvider, fit: BoxFit.contain),
+          : Padding(
+              padding: EdgeInsets.all(context.w(3)),
+              child: CachedNetworkImage(
+                imageUrl: 'https://images.kiwi.com/airlines/64/$logoCode.png',
+                fit: BoxFit.contain,
+                placeholder: (_, __) => initialsTile(),
+                errorWidget: (_, __, ___) => initialsTile(),
               ),
-              placeholder: (_, __) => initialsTile(),
-              errorWidget: (_, __, ___) => initialsTile(),
             ),
     );
   }
