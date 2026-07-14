@@ -89,6 +89,7 @@ class DioClient {
               final prefs = sl<PreferencesManager>();
               await prefs.clearToken();
               await prefs.clearUserData();
+              await prefs.clearAuth();
               return handler.next(e);
             }
           }

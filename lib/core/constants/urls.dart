@@ -1,8 +1,8 @@
 class Urls {
-  static const String baseUrl = 'http://192.168.1.53:8000/api/';
-  // static const String baseUrl = 'https://thewandernova.com/api/';
-  static const String basesUrl = 'http://192.168.1.53:8000/api';
-  // static const String basesUrl = 'https://thewandernova.com/api';
+  // static const String baseUrl = 'http://192.168.1.61:8000/api/';
+  static const String baseUrl = 'https://thewandernova.com/api/';
+  // static const String basesUrl = 'http://192.168.1.61:8000/api';
+  static const String basesUrl = 'https://thewandernova.com/api';
 
   static const String airports = '$basesUrl/flights/airports';
   static const String flightSearch = '$basesUrl/tbo/Search/';
@@ -62,6 +62,8 @@ class Urls {
 
   // ----- Holidays -----
   static const String holidaysPopularDestinations = '$basesUrl/holidays-popular-destinations/';
+  // Saves a holiday package booking after a successful CCAvenue/wallet payment.
+  static const String holidayBookings = '$basesUrl/holidays/bookings/';
 
   // Exchange Rate API endpoints
   // static const String exchangeRatePrimary = 'https://v6.exchangerate-api.com/v6/5dff9de8575af8e0fcbeb0c5/latest/USD';
@@ -75,6 +77,7 @@ class Urls {
   static const String walletBalance = '$basesUrl/wallet/balance/';
   static const String logout = '$basesUrl/auth/logout/';
   static const String tokenRefresh = '$basesUrl/auth/token/refresh/';
+  static const String deleteAccount = '$basesUrl/auth/delete-account/';
   static const String userProfile = '$basesUrl/user/profile/';
   static const String updateUserProfile = '$basesUrl/user/profile/';
   // My Bookings ----
@@ -85,6 +88,9 @@ class Urls {
   // Visa Applications / Upcoming Trips
   static const String visaApplications = '$basesUrl/visa-applications/';
   static const String visaApplicationDetail = '$basesUrl/visa-applications/';
+  // Marks a visa application as paid after a successful CCAvenue/wallet payment.
+  static String visaCompletePayment(dynamic applicationId) =>
+      '$basesUrl/visa-applications/$applicationId/complete-payment/';
   // Referral endpoint
   static const String userReferral = '$basesUrl/user/referral/';
   // New Loyalty Endpoint
@@ -98,4 +104,8 @@ class Urls {
 
   static String reservationPoll(String searchId) => '$basesUrl/transport/reservations/$searchId/poll/';
   static const String holidayDestinations = '$basesUrl/holidays-popular-destinations';
+
+  // Saved travellers (Profile > Add Traveller)
+  static const String travellers = '$basesUrl/travellers/';
+  static String travellersByEmail(String email) => '$travellers?user_email=$email';
 }

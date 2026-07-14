@@ -1,7 +1,11 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import 'package:wander_nova/core/resources/app_colours.dart';
+import 'package:wander_nova/core/utils/storage/shared_preference.dart';
+import 'package:wander_nova/injection_container.dart';
+import 'package:wander_nova/views/Dashboard/Section/data/traveller_api_service.dart';
 
 class AddTravellerModal extends StatefulWidget {
   final Function(Map<String, dynamic>) onTravellerAdded;
@@ -24,6 +28,7 @@ class _AddTravellerModalState extends State<AddTravellerModal> {
   final _firstNameController = TextEditingController();
   final _lastNameController = TextEditingController();
   final _dateOfBirthController = TextEditingController();
+  final _genderController = TextEditingController(text: 'Male');
   final _nationalityController = TextEditingController(text: 'Indian');
   final _visaTypeController = TextEditingController(text: 'Tourist');
   final _passportNumberController = TextEditingController();
@@ -42,6 +47,7 @@ class _AddTravellerModalState extends State<AddTravellerModal> {
     _firstNameController.dispose();
     _lastNameController.dispose();
     _dateOfBirthController.dispose();
+    _genderController.dispose();
     _nationalityController.dispose();
     _visaTypeController.dispose();
     _passportNumberController.dispose();
@@ -75,31 +81,78 @@ class _AddTravellerModalState extends State<AddTravellerModal> {
     }
   }
 
-  void _saveTraveller() {
+  // Converts a 'dd-MM-yyyy' field value (as produced by _selectDate) to the
+  // 'yyyy-MM-dd' format the /api/travellers/ endpoint expects. Leaves blank
+  // optional dates (e.g. passport expiry) as null.
+  String? _toApiDate(String value) {
+    if (value.trim().isEmpty) return null;
+    try {
+      final parsed = DateFormat('dd-MM-yyyy').parse(value);
+      return DateFormat('yyyy-MM-dd').format(parsed);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<String?> _currentUserEmail() async {
+    final prefs = sl<PreferencesManager>();
+    final storedEmail = prefs.getString('user_email');
+    if (storedEmail != null && storedEmail.isNotEmpty) return storedEmail;
+    return prefs.getUserData()?['email'] as String?;
+  }
+
+  Future<void> _saveTraveller() async {
     if (_formKey.currentState!.validate()) {
       setState(() => _isLoading = true);
 
-      final travellerData = {
+      final payload = {
         'paxType': _paxTypeController.text,
         'title': _titleController.text,
         'firstName': _firstNameController.text.trim(),
         'lastName': _lastNameController.text.trim(),
-        'dateOfBirth': _dateOfBirthController.text,
+        'dob': _toApiDate(_dateOfBirthController.text),
+        'gender': _genderController.text,
         'nationality': _nationalityController.text,
         'visaType': _visaTypeController.text,
         'passportNumber': _passportNumberController.text.trim(),
         'placeOfIssue': _placeOfIssueController.text.trim(),
-        'passportExpiry': _passportExpiryController.text,
+        'passportExpiry': _toApiDate(_passportExpiryController.text),
         'issuingCountry': _issuingCountryController.text,
-        'createdAt': DateTime.now().toIso8601String(),
+        'user_email': await _currentUserEmail(),
       };
 
-      Future.delayed(const Duration(milliseconds: 500), () {
+      try {
+        final response =
+            await sl<TravellerApiService>().addTraveller(payload);
+        final data = response.data;
+        final traveller = (data is Map && data['traveller'] is Map)
+            ? Map<String, dynamic>.from(data['traveller'] as Map)
+            : payload;
+
         if (mounted) {
-          widget.onTravellerAdded(travellerData);
+          widget.onTravellerAdded(traveller);
           Navigator.pop(context);
         }
-      });
+      } on DioException catch (e) {
+        if (mounted) {
+          setState(() => _isLoading = false);
+          final message = e.response?.data is Map
+              ? (e.response?.data['message'] ??
+                  e.response?.data['error'] ??
+                  'Failed to save traveller')
+              : 'Failed to save traveller';
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(message.toString())),
+          );
+        }
+      } catch (_) {
+        if (mounted) {
+          setState(() => _isLoading = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Failed to save traveller')),
+          );
+        }
+      }
     }
   }
 
@@ -273,8 +326,16 @@ class _AddTravellerModalState extends State<AddTravellerModal> {
                                         'Business',
                                         'Student',
                                         'Work',
-                                        'Transit'
+                                        'Transit',
+                                        'Other'
                                       ],
+                                    ),
+                                    _buildDropdownField(
+                                      context: context,
+                                      label: 'Gender',
+                                      controller: _genderController,
+                                      items: ['Male', 'Female', 'Other'],
+                                      isRequired: true,
                                     ),
                                   ],
                                 ),

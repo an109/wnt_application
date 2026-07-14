@@ -29,7 +29,9 @@ class FlightModel extends FlightEntity {
     final segments = json['Segments'] as List<dynamic>?;
 
     Map<String, dynamic>? firstSegment;
+    Map<String, dynamic>? lastSegment;
     Map<String, dynamic>? returnSegment;
+    Map<String, dynamic>? returnLastSegment;
     int? stops;
     int? returnStops;
 
@@ -39,6 +41,11 @@ class FlightModel extends FlightEntity {
     if (segments != null && segments.isNotEmpty && segments[0] is List && (segments[0] as List).isNotEmpty) {
       final outboundLegs = segments[0] as List;
       firstSegment = outboundLegs.first as Map<String, dynamic>;
+      // For connecting flights, the true destination is the LAST leg's
+      // destination, not the first leg's (which would be the layover
+      // airport, e.g. showing "Jaipur" instead of "Mumbai" for a
+      // Delhi -> Jaipur -> Mumbai itinerary).
+      lastSegment = outboundLegs.last as Map<String, dynamic>;
       // Stops = number of connecting legs (non-stop when there is a single leg).
       stops = outboundLegs.length - 1;
     }
@@ -46,16 +53,17 @@ class FlightModel extends FlightEntity {
     if (isRoundTrip && segments[1] is List && (segments[1] as List).isNotEmpty) {
       final returnLegs = segments[1] as List;
       returnSegment = returnLegs.first as Map<String, dynamic>;
+      returnLastSegment = returnLegs.last as Map<String, dynamic>;
       returnStops = returnLegs.length - 1;
     }
 
     final origin = firstSegment?['Origin'] as Map<String, dynamic>?;
-    final destination = firstSegment?['Destination'] as Map<String, dynamic>?;
+    final destination = (lastSegment ?? firstSegment)?['Destination'] as Map<String, dynamic>?;
     final originAirport = origin?['Airport'] as Map<String, dynamic>?;
     final destinationAirport = destination?['Airport'] as Map<String, dynamic>?;
 
     final returnOrigin = returnSegment?['Origin'] as Map<String, dynamic>?;
-    final returnDestination = returnSegment?['Destination'] as Map<String, dynamic>?;
+    final returnDestination = (returnLastSegment ?? returnSegment)?['Destination'] as Map<String, dynamic>?;
     final returnOriginAirport = returnOrigin?['Airport'] as Map<String, dynamic>?;
     final returnDestinationAirport = returnDestination?['Airport'] as Map<String, dynamic>?;
 

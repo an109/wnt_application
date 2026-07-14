@@ -264,3 +264,52 @@ extension ResponsiveExtension on BuildContext {
   double get letterSpacingWider => 1;
   double get letterSpacingWidest => 1.5;
 }
+
+/// App-wide responsive shell, plugged in via `MaterialApp(builder: ...)`.
+///
+/// On phones (width < 600) it is a strict no-op: `child` is returned
+/// untouched, so font sizes and layout are byte-for-byte identical to
+/// before this wrapper existed. On tablets/desktop it centers the existing
+/// phone-designed UI inside a fixed-width frame (instead of letting
+/// hardcoded pixel layouts stretch or misalign across the full screen).
+/// Font sizes are never altered by this wrapper on any screen size.
+class ResponsiveAppWrapper extends StatelessWidget {
+  final Widget? child;
+
+  const ResponsiveAppWrapper({super.key, required this.child});
+
+  static const double _tabletBreakpoint = 600;
+  static const double _maxContentWidth = 480;
+
+  @override
+  Widget build(BuildContext context) {
+    final child = this.child;
+    if (child == null) return const SizedBox.shrink();
+
+    final mediaQuery = MediaQuery.of(context);
+
+    if (mediaQuery.size.width < _tabletBreakpoint) {
+      return child;
+    }
+
+    final frameWidth = mediaQuery.size.width < _maxContentWidth
+        ? mediaQuery.size.width
+        : _maxContentWidth;
+
+    return ColoredBox(
+      color: Theme.of(context).scaffoldBackgroundColor,
+      child: Center(
+        child: SizedBox(
+          width: frameWidth,
+          height: mediaQuery.size.height,
+          child: MediaQuery(
+            data: mediaQuery.copyWith(
+              size: Size(frameWidth, mediaQuery.size.height),
+            ),
+            child: child,
+          ),
+        ),
+      ),
+    );
+  }
+}

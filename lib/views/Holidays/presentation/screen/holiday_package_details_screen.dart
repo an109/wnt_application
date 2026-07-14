@@ -5,6 +5,7 @@ import 'package:wander_nova/UI_helper/responsive_layout.dart';
 
 import '../../../../UI_helper/currency_converter.dart';
 import '../../../../core/services/exchange_rate_service.dart';
+import 'holiday_traveller_details_screen.dart';
 
 const Color _kAccent = Color(0xffFF3B3B);
 const Color _kInk = Color(0xff1A1A2E);
@@ -15,12 +16,17 @@ class HolidayPackageDetailsScreen extends StatefulWidget {
   final int children;
   final int Infants;
 
+  /// The departure date the user picked on the holiday search card, carried
+  /// through so the eventual booking's check-in reflects what was searched.
+  final DateTime? departureDate;
+
   const HolidayPackageDetailsScreen({
     super.key,
     required this.package,
     this.adults = 2,
     this.children = 0,
     this.Infants = 1,
+    this.departureDate,
   });
 
   @override
@@ -669,7 +675,7 @@ class _HolidayPackageDetailsScreenState extends State<HolidayPackageDetailsScree
                   child: ElevatedButton(
                     onPressed: () {
                       Navigator.pop(sheetContext);
-                      _onProceedToPay();
+                      _onProceedToPay(total, gst, grandTotal);
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: _kAccent,
@@ -711,13 +717,35 @@ class _HolidayPackageDetailsScreenState extends State<HolidayPackageDetailsScree
     );
   }
 
-  void _onProceedToPay() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('Booking & payment for holiday packages is coming soon.'),
-        backgroundColor: _kAccent,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(context.r(8))),
+  void _onProceedToPay(double total, double gst, double grandTotal) {
+    final title = (_pkg['title'] as String?) ?? 'Holiday Package';
+    final imageUrl = (_pkg['image_url'] as String?) ?? '';
+    final packageId = (_pkg['id'] as num?)?.toInt() ?? 0;
+    final packageSlug = (_pkg['slug'] as String?) ?? '';
+    final city = (_pkg['city'] as String?) ?? '';
+    final nights = (_pkg['nights'] as num?)?.toInt() ?? 0;
+    final days = (_pkg['days'] as num?)?.toInt() ?? 0;
+
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => HolidayTravellerDetailsScreen(
+          packageTitle: title,
+          packageImage: imageUrl,
+          packageLocation: _locationLabel,
+          travellersCount: _travellersCount,
+          grandTotalInr: grandTotal,
+          baseTotalDisplay: _format(total),
+          gstDisplay: _format(gst),
+          grandTotalDisplay: _format(grandTotal),
+          gstPercent: _gstPercent,
+          packageInventoryId: packageId,
+          packageSlug: packageSlug,
+          city: city,
+          nights: nights,
+          days: days,
+          packageSnapshot: {'id': packageId, 'slug': packageSlug, 'title': title},
+          departureDate: widget.departureDate,
+        ),
       ),
     );
   }

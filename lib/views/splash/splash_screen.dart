@@ -73,38 +73,6 @@ class _SplashScreenState extends State<SplashScreen>
     super.dispose();
   }
 
-  Widget _loadingDots() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: List.generate(
-        3,
-            (index) => Container(
-          margin: const EdgeInsets.symmetric(horizontal: 4),
-          width: 8,
-          height: 8,
-          decoration: const BoxDecoration(
-            shape: BoxShape.circle,
-            color: Colors.black,
-          ),
-        )
-            .animate(
-          onPlay: (controller) => controller.repeat(),
-          delay: Duration(milliseconds: index * 200),
-        )
-            .scale(
-          begin: const Offset(0.5, 0.5),
-          end: const Offset(1.0, 1.0),
-          duration: 600.ms,
-        )
-            .then()
-            .scale(
-          begin: const Offset(1.0, 1.0),
-          end: const Offset(0.5, 0.5),
-          duration: 600.ms,
-        ),
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -139,18 +107,6 @@ class _SplashScreenState extends State<SplashScreen>
           ),
 
         ),
-          // Positioned(
-          //   bottom: 70,
-          //   left: 40,
-          //   right: 40,
-          //   child: ClipRRect(
-          //     borderRadius: BorderRadius.circular(20),
-          //     child: LinearProgressIndicator(
-          //       minHeight: 4,
-          //       backgroundColor: Colors.grey.shade200,
-          //     ),
-          //   ),
-          // ),
         ],
       ),
     );

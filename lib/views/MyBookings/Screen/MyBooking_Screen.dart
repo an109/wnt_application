@@ -31,7 +31,7 @@ import '../Transport/Screen/Transport_detail_main_screen.dart';
 import '../Transport/bloc/MyBooking_bloc.dart';
 import '../Transport/bloc/MyBooking_event.dart';
 import '../Transport/bloc/MyBooking_state.dart';
-import '../visa/screen/visa_main_detail_Screen.dart';
+import '../visa/screen/visa_booking_summary_card.dart';
 
 class MyBookingScreen extends StatefulWidget {
   const MyBookingScreen({super.key});
@@ -1692,12 +1692,7 @@ class _MyBookingScreenState extends State<MyBookingScreen> {
                     ),
                     const Spacer(),
                     ElevatedButton(
-                      onPressed: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => VisaBookingDetailsScreen(trip: trip),
-                        ),
-                      ),
+                      onPressed: () => VisaBookingSummaryCard.showFromTrip(context, trip),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.OrangeColor,
                         shape: RoundedRectangleBorder(

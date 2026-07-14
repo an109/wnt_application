@@ -5,8 +5,7 @@ import '../../injection_container.dart';
 import 'geo_location_services.dart';
 
 class ExchangeRateService {
-  static const String _exchangeRateApiUrl = 'https://api.exchangerate-api.com/v4/latest/';
-  static const String _openExchangeRatesUrl = 'https://open.er-api.com/v6/latest/';
+  static const String _exchangeRateApiUrl = 'https://open.er-api.com/v6/latest/';
 
   /// Fetch latest exchange rates for base currency (usually USD)
   static Future<Map<String, double>?> fetchExchangeRates({String base = 'USD'}) async {
@@ -60,21 +59,41 @@ class ExchangeRateService {
     return await fetchExchangeRates();
   }
 
-  /// Initialize user's preferred currency based on IP
+  /// Initialize user's preferred currency based on IP.
+  ///
+  /// Runs on every app launch, but only actually re-detects location when
+  /// auto-detect is still on (first-ever launch, or the user hasn't manually
+  /// picked a currency). This is what keeps the shown currency in sync when
+  /// the device changes country — previously this bailed out permanently
+  /// after the very first detection, so e.g. a phone first used in Dubai
+  /// kept showing AED forever even after traveling to India. A user who has
+  /// explicitly chosen a currency (auto-detect off) is left untouched.
   static Future<void> initializeUserCurrency() async {
     final prefs = sl<PreferencesManager>();
 
-    // Check if already set
-    if (prefs.getPreferredCurrency() != null) {
+    final hasSavedPreference = prefs.getPreferredCurrency() != null;
+    if (hasSavedPreference && !prefs.isCurrencyAutoDetect()) {
+      // User manually chose a currency — don't override their choice.
       return;
     }
 
-    // Detect region and set preferred currency
-    final geoInfo = await GeoLocationService.getRegion();
+    // First launch, or auto-detect is still on: (re-)detect from IP.
+    final geoInfo = await GeoLocationService.detectRegion();
     await prefs.savePreferredCurrency(geoInfo.currencyCode);
+    await prefs.setCurrencyAutoDetect(true);
     print('💰 Preferred currency set to: ${geoInfo.currencyCode} based on IP');
 
     // Fetch exchange rates in background
+    await getRatesWithCache(forceRefresh: true);
+  }
+
+  /// Force a fresh IP-based lookup and switch back to auto-detected currency.
+  /// Used when the user explicitly picks "Auto (detect by location)" in settings.
+  static Future<void> refreshCurrencyFromLocation() async {
+    final prefs = sl<PreferencesManager>();
+    final geoInfo = await GeoLocationService.detectRegion();
+    await prefs.savePreferredCurrency(geoInfo.currencyCode);
+    await prefs.setCurrencyAutoDetect(true);
     await getRatesWithCache(forceRefresh: true);
   }
 }

@@ -9,6 +9,7 @@ import '../../../../core/services/pdf_generator.dart';
 import '../../../UpcomingTrips/data/models/tripModel.dart';
 import 'Visa_Invoice_widget.dart';
 import 'Visa_ticket_widget.dart';
+import 'visa_booking_summary_card.dart';
 import 'visa_pdf_builder.dart';
 
 class VisaBookingDetailsScreen extends StatefulWidget {
@@ -91,6 +92,18 @@ class _VisaBookingDetailsScreenState extends State<VisaBookingDetailsScreen> {
       ),
       centerTitle: true,
       actions: [
+        Container(
+          margin: EdgeInsets.only(right: context.w(8)),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.2),
+            borderRadius: BorderRadius.circular(context.r(8)),
+          ),
+          child: IconButton(
+            tooltip: 'Booking Summary',
+            icon: Icon(Icons.receipt_long_outlined, color: Colors.white, size: context.w(20)),
+            onPressed: () => VisaBookingSummaryCard.showFromTrip(context, widget.trip),
+          ),
+        ),
         Container(
           margin: EdgeInsets.only(right: context.w(8)),
           decoration: BoxDecoration(

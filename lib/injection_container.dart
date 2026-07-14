@@ -1,6 +1,12 @@
 import 'package:dio/dio.dart';
 import 'package:get_it/get_it.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:wander_nova/views/DeleteAccount/data/data_source/delete_account_api_service.dart';
+import 'package:wander_nova/views/DeleteAccount/data/repository/delete_account_repository_impl.dart';
+import 'package:wander_nova/views/DeleteAccount/domain/repository/delete_account_repository.dart';
+import 'package:wander_nova/views/DeleteAccount/domain/usecase/delete_account_usecase.dart';
+import 'package:wander_nova/views/DeleteAccount/presentation/bloc/delete_account_bloc.dart';
+import 'package:wander_nova/views/Dashboard/Section/data/traveller_api_service.dart';
 import 'package:wander_nova/views/Document/domain/usecase/upload_document_usecase.dart';
 import 'package:wander_nova/views/Exchange_rate/data/data_source/exchange_rate_api_service.dart';
 import 'package:wander_nova/views/Exchange_rate/data/repository/exchange_rate_repository_impl.dart';
@@ -82,6 +88,11 @@ import 'package:wander_nova/views/ReferCredit/data/repository/transaction_reposi
 import 'package:wander_nova/views/ReferCredit/domain/repository/transaction_repository.dart';
 import 'package:wander_nova/views/ReferCredit/domain/usecase/get_transaction_usecase.dart';
 import 'package:wander_nova/views/ReferCredit/presentation/bloc/transaction_bloc.dart';
+import 'package:wander_nova/views/ResetPassword/data/data_source/reset_password_api_service.dart';
+import 'package:wander_nova/views/ResetPassword/data/repository/reset_password_repository_impl.dart';
+import 'package:wander_nova/views/ResetPassword/domain/repository/reset_password_repository.dart';
+import 'package:wander_nova/views/ResetPassword/domain/usecase/reset_password_usecase.dart';
+import 'package:wander_nova/views/ResetPassword/presentation/bloc/reset_password_bloc.dart';
 import 'package:wander_nova/views/TPoll_Search/data/data_source/TPoll_Search_api-service.dart';
 import 'package:wander_nova/views/TPoll_Search/data/repository/TPoll_search_repository_impl.dart';
 import 'package:wander_nova/views/TPoll_Search/domain/repository/TPoll_Search_repository.dart';
@@ -309,10 +320,12 @@ Future<void> initializeDependencies() async {
   sl.registerFactory<ExchangeRateApiService>(() => ExchangeRateApiServiceImpl(sl<DioClient>().instance));
   sl.registerFactory<SendOtpApiService>(() => SendOtpApiServiceImpl(sl<DioClient>().instance));
   sl.registerFactory<VerifyOtpApiService>(() => VerifyOtpApiServiceImpl(sl<DioClient>().instance));
+  sl.registerFactory<ResetPasswordApiService>(() => ResetPasswordApiServiceImpl(sl<DioClient>().instance));
   sl.registerFactory<SignupApiService>(() => SignupApiServiceImpl(sl<DioClient>().instance),);
   sl.registerFactory<LoginApiService>(() => LoginApiServiceImpl(sl<DioClient>().instance),);
   sl.registerFactory<WalletApiService>(() => WalletApiServiceImpl(sl<DioClient>().instance));
   sl.registerFactory<LogoutApiService>(() => LogoutApiServiceImpl(sl<DioClient>().instance),);
+  sl.registerFactory<DeleteAccountApiService>(() => DeleteAccountApiServiceImpl(sl<DioClient>().instance),);
   sl.registerFactory<ProfileApiService>(() => ProfileApiServiceImpl(sl<DioClient>().instance));
   sl.registerFactory<MyBookingApiService>(() => MyBookingApiServiceImpl(sl<DioClient>().instance));
   sl.registerFactory<UpcomingTripApiService>(() => UpcomingTripApiServiceImpl(sl<DioClient>().instance));
@@ -325,6 +338,7 @@ Future<void> initializeDependencies() async {
   sl.registerFactory<VApiService>(() => VApiServiceImpl(sl<DioClient>().instance),);
   sl.registerFactory<FlightBookApiService>(() => FlightBookApiServiceImpl(sl<DioClient>().instance),);
   sl.registerLazySingleton<DocumentVisaApiService>(() => DocumentVisaApiServiceImpl(sl<DioClient>().instance));
+  sl.registerFactory<TravellerApiService>(() => TravellerApiServiceImpl(sl<DioClient>().instance));
 
 
 
@@ -363,10 +377,12 @@ Future<void> initializeDependencies() async {
   sl.registerLazySingleton<ExchangeRateRepository>(() => ExchangeRateRepositoryImpl(sl<ExchangeRateApiService>()));
   sl.registerLazySingleton<SendOtpRepository>(() => SendOtpRepositoryImpl(sl<SendOtpApiService>()));
   sl.registerLazySingleton<VerifyOtpRepository>(() => VerifyOtpRepositoryImpl(sl<VerifyOtpApiService>()));
+  sl.registerLazySingleton<ResetPasswordRepository>(() => ResetPasswordRepositoryImpl(sl<ResetPasswordApiService>()));
   sl.registerLazySingleton<SignupRepository>(() => SignupRepositoryImpl(sl<SignupApiService>()),);
   sl.registerLazySingleton<LoginRepository>(() => LoginRepositoryImpl(sl<LoginApiService>()),);
   sl.registerLazySingleton<WalletRepository>(() => WalletRepositoryImpl(sl<WalletApiService>()));
   sl.registerLazySingleton<LogoutRepository>(() => LogoutRepositoryImpl(sl<LogoutApiService>()),);
+  sl.registerLazySingleton<DeleteAccountRepository>(() => DeleteAccountRepositoryImpl(sl<DeleteAccountApiService>(), sl<PreferencesManager>()),);
   sl.registerLazySingleton<ProfileRepository>(() => ProfileRepositoryImpl(sl<ProfileApiService>()));
   sl.registerLazySingleton<MyBookingRepository>(() => MyBookingRepositoryImpl(sl<MyBookingApiService>(), sl<PreferencesManager>()));
   sl.registerLazySingleton<UpcomingTripRepository>(() => UpcomingTripRepositoryImpl(apiService: sl<UpcomingTripApiService>()));
@@ -425,10 +441,12 @@ Future<void> initializeDependencies() async {
   sl.registerLazySingleton<ConvertCurrencyUseCase>(() => ConvertCurrencyUseCase(sl<ExchangeRateRepository>()));
   sl.registerLazySingleton<SendOtpUseCase>(() => SendOtpUseCase(sl<SendOtpRepository>()));
   sl.registerLazySingleton<VerifyOtpUseCase>(() => VerifyOtpUseCase(sl<VerifyOtpRepository>()));
+  sl.registerLazySingleton<ResetPasswordUseCase>(() => ResetPasswordUseCase(sl<ResetPasswordRepository>()));
   sl.registerLazySingleton<SignupUseCase>(() => SignupUseCase(sl<SignupRepository>()));
   sl.registerLazySingleton<LoginUseCase>(() => LoginUseCase(sl<LoginRepository>()));
   sl.registerLazySingleton<GetWalletBalanceUseCase>(() => GetWalletBalanceUseCase(sl<WalletRepository>()));
   sl.registerLazySingleton<LogoutUseCase>(() => LogoutUseCase(sl<LogoutRepository>()));
+  sl.registerLazySingleton<DeleteAccountUseCase>(() => DeleteAccountUseCase(sl<DeleteAccountRepository>()));
   sl.registerLazySingleton<GetProfileUseCase>(() => GetProfileUseCase(sl()));
   sl.registerLazySingleton<UpdateProfileUseCase>(() => UpdateProfileUseCase(sl()));
   sl.registerLazySingleton<PatchProfileUseCase>(() => PatchProfileUseCase(sl()));
@@ -491,10 +509,12 @@ Future<void> initializeDependencies() async {
       getExchangeRatesUseCase: sl<GetExchangeRatesUseCase>(), convertCurrencyUseCase: sl<ConvertCurrencyUseCase>()));
   sl.registerFactory<SendOtpBloc>(() => SendOtpBloc(sendOtpUseCase: sl()));
   sl.registerFactory<VerifyOtpBloc>(() => VerifyOtpBloc(verifyOtpUseCase: sl()));
+  sl.registerFactory<ResetPasswordBloc>(() => ResetPasswordBloc(resetPasswordUseCase: sl()));
   sl.registerFactory<SignupBloc>(() => SignupBloc(signupUseCase: sl<SignupUseCase>()));
   sl.registerFactory<LoginBloc>(() => LoginBloc(loginUseCase: sl()),);
   sl.registerFactory<WalletBloc>(() => WalletBloc(getWalletBalanceUseCase: sl()));
   sl.registerFactory<LogoutBloc>(() => LogoutBloc(logoutUseCase: sl<LogoutUseCase>()));
+  sl.registerFactory<DeleteAccountBloc>(() => DeleteAccountBloc(deleteAccountUseCase: sl<DeleteAccountUseCase>()));
   sl.registerFactory<ProfileBloc>(() => ProfileBloc(
       getProfileUseCase: sl<GetProfileUseCase>(),
       updateProfileUseCase: sl<UpdateProfileUseCase>(),

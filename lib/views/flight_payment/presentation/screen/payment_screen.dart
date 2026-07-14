@@ -10,8 +10,11 @@ import '../../../../UI_helper/currency_converter.dart';
 import '../../../../UI_helper/responsive_layout.dart';
 import '../../../../common_widgets/logo.dart';
 import '../../../../core/constants/urls.dart';
+import '../../../../core/error/data_state.dart';
 import '../../../../core/network/dio_client.dart';
 import '../../../../core/utils/storage/shared_preference.dart';
+import '../../../fare_quote/domain/entities/fare_quote_entity.dart';
+import '../../../fare_quote/domain/usecase/fare_quote_usecase.dart';
 import '../../data/ccavenue_service.dart';
 import 'ccavenue_payment_page.dart';
 import '../../../flight_booking/data/models/booking_request_model.dart';
@@ -68,6 +71,17 @@ class _FlightPaymentScreenState extends State<FlightPaymentScreen> {
   bool _isCreatingOrder = false;
   String _loadingMessage = 'Creating payment order...';
   String? _error;
+
+  /// Result of re-fetching FareQuote immediately before payment (see
+  /// [_refreshFareQuoteBeforePayment]). The original FareQuote is fetched
+  /// once, back on the traveller-details screen — by the time the user has
+  /// filled the passenger form, picked SSR add-ons, chosen a payment method,
+  /// and completed the CCAvenue hosted checkout, that snapshot can be several
+  /// minutes stale. TBO can then silently fail to ticket it (no PNR, no
+  /// error object), which is what "No PNR received" at finalize means. When
+  /// set, this takes priority over the original `fareQuoteData.rawItinerary`
+  /// so prepare-ticket/Book/Ticket use a live itinerary instead of a stale one.
+  Map<String, dynamic>? _freshRawItinerary;
 
   // Payment method chosen by the user. Null until a method is selected, which
   // keeps the Pay button disabled. 'wallet' uses the wallet-balance flow; every
@@ -248,8 +262,11 @@ class _FlightPaymentScreenState extends State<FlightPaymentScreen> {
 
   BookingPassengerModel _buildPassengerFromForm() {
     final data = widget.passengerData;
+    final selectedTitle = (data['title'] as String?)?.trim();
     return BookingPassengerModel(
-      title: data['gender'] == 'Female' ? 'Ms' : 'Mr',
+      title: (selectedTitle != null && selectedTitle.isNotEmpty)
+          ? selectedTitle
+          : (data['gender'] == 'Female' ? 'Ms' : 'Mr'),
       firstName: data['firstName'] ?? '',
       lastName: data['lastName'] ?? '',
       paxType: 1,
@@ -534,6 +551,61 @@ class _FlightPaymentScreenState extends State<FlightPaymentScreen> {
     return safe.length > 40 ? safe.substring(0, 40) : safe;
   }
 
+  /// Re-fetches TBO FareQuote right before we persist the Book/Ticket payload
+  /// (prepare-ticket). The original FareQuote was captured once, back on the
+  /// traveller-details screen — by the time the user reaches this button
+  /// (passenger form + SSR add-ons + choosing a payment method, all
+  /// unbounded), that snapshot can be minutes old. A stale `ResultIndex`/
+  /// itinerary is a leading cause of TBO silently ticketing nothing ("No PNR
+  /// received", surfaced from the backend's finalize step). Returns false if
+  /// the fare is confirmed gone and payment should not proceed.
+  Future<bool> _refreshFareQuoteBeforePayment() async {
+    final traceId = widget.traceId.trim().isNotEmpty
+        ? widget.traceId.trim()
+        : (widget.route.traceId ?? '').trim();
+    final resultIndex = widget.resultIndex.trim().isNotEmpty
+        ? widget.resultIndex.trim()
+        : (widget.route.resultIndex ?? '').trim();
+
+    if (traceId.isEmpty || resultIndex.isEmpty) {
+      // Nothing to refresh against — proceed with the original snapshot
+      // rather than blocking payment on a search-session identifier we
+      // never had.
+      return true;
+    }
+
+    try {
+      final prefs = di.sl<PreferencesManager>();
+      final result = await di.sl<FareQuoteUsecase>()(
+        endUserIp: _endUserIp,
+        traceId: traceId,
+        tokenId: prefs.getToken() ?? '',
+        resultIndex: resultIndex,
+      );
+
+      if (result is DataSuccess<FareQuoteEntity>) {
+        final raw = result.data?.response?.results?.raw;
+        if (raw != null && raw.isNotEmpty) {
+          _freshRawItinerary = raw;
+        }
+        return true;
+      }
+
+      // TBO explicitly rejected the re-quote — the fare is genuinely gone.
+      // Fail fast instead of charging the card against a stale fare TBO has
+      // already refused.
+      if (!mounted) return false;
+      setState(() {
+        _error = 'This fare is no longer available. Please go back and search again.';
+      });
+      return false;
+    } catch (_) {
+      // Network hiccup on the re-quote call itself — don't block payment on
+      // this; the original snapshot is still the best data we have.
+      return true;
+    }
+  }
+
   Future<void> _initiatePayment() async {
     setState(() {
       _isCreatingOrder = true;
@@ -544,9 +616,17 @@ class _FlightPaymentScreenState extends State<FlightPaymentScreen> {
     try {
       final prefs = di.sl<PreferencesManager>();
 
-      // 1. Persist the Book/Ticket payload server-side BEFORE opening CCAvenue.
-      //    finalize_ticket will read this after payment to issue the ticket
-      //    without depending on any client state.
+      // 1. Re-confirm the fare is still live, then persist the Book/Ticket
+      //    payload server-side BEFORE opening CCAvenue. finalize_ticket will
+      //    read this after payment to issue the ticket without depending on
+      //    any client state.
+      final fareStillAvailable = await _refreshFareQuoteBeforePayment();
+      if (!mounted) return;
+      if (!fareStillAvailable) {
+        setState(() => _isCreatingOrder = false);
+        return;
+      }
+
       await _callPrepareTicket(prefs);
       if (!mounted) return;
 
@@ -866,7 +946,7 @@ class _FlightPaymentScreenState extends State<FlightPaymentScreen> {
 
   bool get _isLcc => widget.route.fareQuoteData?.isLcc ?? false;
   Map<String, dynamic> get _rawItinerary =>
-      widget.route.fareQuoteData?.rawItinerary ?? const {};
+      _freshRawItinerary ?? widget.route.fareQuoteData?.rawItinerary ?? const {};
 
   /// Entry point after a successful payment. Routes to the correct TBO flow:
   ///   LCC      → Ticket directly (Book + Ticket in one call).
@@ -1788,7 +1868,15 @@ class _FlightPaymentScreenState extends State<FlightPaymentScreen> {
     try {
       final prefs = di.sl<PreferencesManager>();
 
-      // Persist payload server-side before opening Razorpay checkout.
+      // Re-confirm the fare is still live, then persist payload server-side
+      // before opening Razorpay checkout — same staleness guard as CCAvenue.
+      final fareStillAvailable = await _refreshFareQuoteBeforePayment();
+      if (!mounted) return;
+      if (!fareStillAvailable) {
+        setState(() => _isCreatingOrder = false);
+        return;
+      }
+
       await _callPrepareTicket(prefs, gateway: 'razorpay');
       if (!mounted) return;
 

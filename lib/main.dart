@@ -3,6 +3,8 @@ import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:wander_nova/UI_helper/responsive_layout.dart';
+import 'package:wander_nova/views/DeleteAccount/presentation/bloc/delete_account_bloc.dart';
 import 'package:wander_nova/views/Exchange_rate/presentation/bloc/exchange_rate_bloc.dart';
 import 'package:wander_nova/views/Exchange_rate/presentation/bloc/exchange_rate_event.dart';
 import 'package:wander_nova/views/ExclusiveDeals/presentation/bloc/exclusive_deals_bloc.dart';
@@ -120,11 +122,13 @@ class MyApp extends StatelessWidget {
         BlocProvider(create: (_) => di.sl<VisaApplicationBloc>()),
         BlocProvider(create: (_) => di.sl<VApplicationBloc>()),
         BlocProvider(create: (_) => di.sl<FlightBookBloc>()),
+        BlocProvider(create: (_) => di.sl<DeleteAccountBloc>()),
       ],
 
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
         title: 'WanderNova',
+        builder: (context, child) => ResponsiveAppWrapper(child: child),
         theme: ThemeData(
           // primarySwatch: Colors.blue,
           //   textTheme: GoogleFonts.poppinsTextTheme(),

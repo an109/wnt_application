@@ -894,6 +894,7 @@ class _HolidayResultsScreenState extends State<HolidayResultsScreen> {
                             adults: widget.adults,
                             children: widget.children,
                             Infants: widget.Infants,
+                            departureDate: widget.departureDate,
                           ),
                         ),
                       ),

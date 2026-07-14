@@ -3,16 +3,20 @@ import 'package:intl/intl.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 
 class _TravellerControllers {
+  final title = TextEditingController(text: 'Mr');
   final firstName = TextEditingController();
   final lastName = TextEditingController();
+  final dob = TextEditingController();
   final gender = TextEditingController();
   final nationality = TextEditingController();
   final passport = TextEditingController();
   final passportExpiry = TextEditingController();
 
   void dispose() {
+    title.dispose();
     firstName.dispose();
     lastName.dispose();
+    dob.dispose();
     gender.dispose();
     nationality.dispose();
     passport.dispose();
@@ -142,8 +146,10 @@ class TravellerFormState extends State<TravellerInformationSection> {
 
   Map<String, dynamic> _travellerToMap(_TravellerControllers t) {
     return {
+      'title': t.title.text.trim(),
       'firstName': t.firstName.text.trim().toUpperCase(),
       'lastName': t.lastName.text.trim().toUpperCase(),
+      'dateOfBirth': t.dob.text.trim(),
       'mobileNumber': _phoneController.text.trim(),
       'email': _emailController.text.trim(),
       'gender': t.gender.text.trim(),
@@ -324,27 +330,42 @@ class TravellerFormState extends State<TravellerInformationSection> {
                 ),
                 child: Column(
                   children: [
+                    // _sectionLabel('IDENTITY'),
+                    SizedBox(height: context.h(8)),
                     _responsiveFields(context, [
+                      _buildDropdownField(
+                        controller: traveller.title,
+                        label: 'Title',
+                        icon: Icons.badge_outlined,
+                        items: const ['Mr', 'Mrs', 'Ms', 'Miss', 'Master'],
+                        validator: _required('Title'),
+                      ),
                       _buildTextField(
                         controller: traveller.firstName,
                         label: 'First Name',
                         hintText: 'John',
-                        icon: Icons.badge_outlined,
+                        icon: Icons.person_outline,
                         textCapitalization: TextCapitalization.words,
                         validator: _required('First name'),
                         forceUpperCase: true,
                       ),
+                    ]),
+                    SizedBox(height: context.h(12)),
+                    _responsiveFields(context, [
                       _buildTextField(
                         controller: traveller.lastName,
                         label: 'Last Name',
                         hintText: 'Doe',
-                        icon: Icons.badge_outlined,
+                        icon: Icons.person_outline,
                         textCapitalization: TextCapitalization.words,
                         validator: _required('Last name'),
                         forceUpperCase: true,
                       ),
+                      _buildDobField(traveller),
                     ]),
-                    SizedBox(height: context.h(12)),
+                    // SizedBox(height: context.h(16)),
+                    // _sectionLabel('DEMOGRAPHICS'),
+                    SizedBox(height: context.h(8)),
                     _responsiveFields(context, [
                       _buildDropdownField(
                         controller: traveller.gender,
@@ -365,7 +386,9 @@ class TravellerFormState extends State<TravellerInformationSection> {
                     // Passport section — shown for all flights.
                     // Required for international; optional for domestic (some
                     // airlines / GDS fares require it even on domestic routes).
-                    SizedBox(height: context.h(16)),
+                    // SizedBox(height: context.h(16)),
+                    // _sectionLabel('TRAVEL DOCUMENT'),
+                    SizedBox(height: context.h(8)),
                     _inlineNote(
                       widget.isInternational
                           ? 'Passport details are required for international flights.'
@@ -443,6 +466,20 @@ class TravellerFormState extends State<TravellerInformationSection> {
         fontSize: context.fs(17),
         fontWeight: FontWeight.w800,
         letterSpacing: 0.3,
+      ),
+    );
+  }
+
+  /// Small caps sub-heading used to group related fields within a
+  /// traveller card (Identity / Demographics / Travel Document).
+  Widget _sectionLabel(String label) {
+    return Text(
+      label,
+      style: TextStyle(
+        color: _primary,
+        fontSize: context.fs(11),
+        fontWeight: FontWeight.w800,
+        letterSpacing: 0.8,
       ),
     );
   }
@@ -592,6 +629,57 @@ class TravellerFormState extends State<TravellerInformationSection> {
           )
               .toList(),
           onChanged: (value) => setState(() => controller.text = value ?? ''),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDobField(_TravellerControllers traveller) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _label('Date of Birth'),
+        SizedBox(height: context.h(6)),
+        TextFormField(
+          controller: traveller.dob,
+          readOnly: true,
+          validator: _required('Date of birth'),
+          style: TextStyle(
+            color: _textDark,
+            fontSize: context.fs(14),
+            fontWeight: FontWeight.w600,
+          ),
+          decoration: _inputDecoration(
+            hintText: 'Select date',
+            icon: Icons.cake_outlined,
+          ),
+          onTap: () async {
+            final now = DateTime.now();
+            final pickedDate = await showDatePicker(
+              context: context,
+              initialDate: DateTime(now.year - 25, now.month, now.day),
+              firstDate: DateTime(now.year - 120),
+              lastDate: now,
+              builder: (context, child) {
+                return Theme(
+                  data: Theme.of(context).copyWith(
+                    colorScheme: const ColorScheme.light(
+                      primary: _primary,
+                      onPrimary: Colors.white,
+                      onSurface: _textDark,
+                    ),
+                  ),
+                  child: child!,
+                );
+              },
+            );
+            if (pickedDate != null) {
+              setState(() {
+                traveller.dob.text = DateFormat('dd MMM yyyy').format(pickedDate);
+              });
+              _formKey.currentState?.validate();
+            }
+          },
         ),
       ],
     );

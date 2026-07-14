@@ -31,6 +31,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     Emitter<AuthState> emit,
   ) async {
     await preferencesManager.saveUserData(user.toJson());
+    await preferencesManager.saveIsSocialLogin(true);
+    await preferencesManager.clearUserPassword();
     if (user.accessToken != null) {
       await preferencesManager.saveToken(user.accessToken!);
     }

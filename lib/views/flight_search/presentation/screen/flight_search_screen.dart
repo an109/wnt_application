@@ -604,131 +604,6 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
   }
 
   // ---------------------------------------------------------------------------
-  // Route summary
-  // ---------------------------------------------------------------------------
-  Widget _buildRouteSummary(List<FlightEntity> flights) {
-    final sampleFlight = flights.isNotEmpty ? flights.first : null;
-    final duration = sampleFlight?.duration != null
-        ? _formatDuration(int.tryParse(sampleFlight!.duration!))
-        : '';
-
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.fromLTRB(
-        context.w(15),
-        context.h(16),
-        context.w(15),
-        context.h(18),
-      ),
-      decoration: const BoxDecoration(color: Color(0xffF8FAFF)),
-      child: Column(
-        children: [
-          SizedBox(
-            height: context.h(98),
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                Positioned.fill(
-                  child: CustomPaint(
-                    painter: _RouteArcPainter(color: AppColors.primary),
-                  ),
-                ),
-                Positioned(
-                  top: context.h(36),
-                  child: Container(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: context.w(12),
-                      vertical: context.h(4),
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(context.r(14)),
-                      border: Border.all(color: const Color(0xffE6ECFF)),
-                      boxShadow: [
-                        BoxShadow(
-                          color:
-                              const Color(0xff4B74FF).withValues(alpha: 0.08),
-                          blurRadius: context.w(14),
-                          offset: Offset(0, context.h(4)),
-                        ),
-                      ],
-                    ),
-                    child: Text(
-                      duration.isEmpty ? widget.travelClass : duration,
-                      style: TextStyle(
-                        color: const Color(0xff3F4350),
-                        fontSize: context.fs(11),
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    _routeCityBlock(
-                        code: widget.fromCode,
-                        city: widget.from,
-                        alignRight: false),
-                    _routeCityBlock(
-                        code: widget.toCode,
-                        city: widget.to,
-                        alignRight: true),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          SizedBox(height: context.h(8)),
-          Text(
-            "${widget.travellers} Traveller${widget.travellers > 1 ? 's' : ''} • ${widget.travelClass}",
-            style: TextStyle(
-              color: const Color(0xff9AA2BF),
-              fontSize: context.fs(12),
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _routeCityBlock({
-    required String code,
-    required String city,
-    required bool alignRight,
-  }) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment:
-          alignRight ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-      children: [
-        Text(
-          code,
-          style: TextStyle(
-            color: const Color(0xff3D3F4A),
-            fontSize: context.fs(28),
-            fontWeight: FontWeight.w700,
-            height: 1,
-          ),
-        ),
-        SizedBox(height: context.h(5)),
-        Text(
-          city,
-          style: TextStyle(
-            color: const Color(0xffA0A6C2),
-            fontSize: context.fs(13),
-            fontWeight: FontWeight.w500,
-          ),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-      ],
-    );
-  }
-
-  // ---------------------------------------------------------------------------
   // Sort bar
   // ---------------------------------------------------------------------------
   Widget _buildSortBar() {
@@ -1148,7 +1023,8 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
                     children: [
                       _timeAirportBlock(
                         time: departure,
-                        code: flight.origin ?? widget.fromCode,
+                        code: flight.originName ??
+                            _locationName(flight.origin ?? widget.fromCode),
                         alignRight: false,
                       ),
                       SizedBox(width: context.w(8)),
@@ -1183,7 +1059,8 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
                       SizedBox(width: context.w(8)),
                       _timeAirportBlock(
                         time: arrival,
-                        code: flight.destination ?? widget.toCode,
+                        code: flight.destinationName ??
+                            _locationName(flight.destination ?? widget.toCode),
                         alignRight: true,
                       ),
                     ],
@@ -1470,8 +1347,10 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
         _legBlock(
           label: 'Depart',
           icon: Icons.flight_takeoff,
-          originCode: flight.origin ?? widget.fromCode,
-          destCode: flight.destination ?? widget.toCode,
+          originCode: flight.originName ??
+              _locationName(flight.origin ?? widget.fromCode),
+          destCode: flight.destinationName ??
+              _locationName(flight.destination ?? widget.toCode),
           depTime: _formatTime(flight.departureTime),
           arrTime: _formatTime(flight.arrivalTime),
           date: _formatReadableFlightDate(flight.departureTime),
@@ -1485,10 +1364,12 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
         _legBlock(
           label: 'Return',
           icon: Icons.flight_land,
-          originCode:
-              flight.returnOrigin ?? flight.destination ?? widget.toCode,
-          destCode:
-              flight.returnDestination ?? flight.origin ?? widget.fromCode,
+          originCode: flight.returnOriginName ??
+              _locationName(
+                  flight.returnOrigin ?? flight.destination ?? widget.toCode),
+          destCode: flight.returnDestinationName ??
+              _locationName(
+                  flight.returnDestination ?? flight.origin ?? widget.fromCode),
           depTime: _formatTime(flight.returnDepartureTime),
           arrTime: _formatTime(flight.returnArrivalTime),
           date: _formatReadableFlightDate(flight.returnDepartureTime),
@@ -1703,6 +1584,22 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
   // ---------------------------------------------------------------------------
   // Helpers
   // ---------------------------------------------------------------------------
+  /// Maps an airport IATA code back to the full location name the user
+  /// searched with (e.g. "DEL" -> "New Delhi"), so cards show the readable
+  /// city/airport name instead of the bare code. Falls back to the code
+  /// itself for anything outside the searched origin/destination pair.
+  String _locationName(String code) {
+    final normalized = code.trim().toUpperCase();
+    if (normalized.isEmpty) return code;
+    if (normalized == widget.fromCode.trim().toUpperCase()) {
+      return widget.from.isNotEmpty ? widget.from : widget.fromAirport;
+    }
+    if (normalized == widget.toCode.trim().toUpperCase()) {
+      return widget.to.isNotEmpty ? widget.to : widget.toAirport;
+    }
+    return code;
+  }
+
   String _formatTime(String? isoTime) {
     if (isoTime == null || isoTime.isEmpty) return '--:--';
     try {

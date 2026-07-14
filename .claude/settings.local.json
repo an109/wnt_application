@@ -19,7 +19,8 @@
       "Bash(Get-ChildItem -Path \"D:\\\\clone\\\\backend\" -Recurse -File -Filter \"*.py\")",
       "Bash(Select-Object -ExpandProperty FullName)",
       "Bash(Sort-Object)",
-      "Bash(find \"D:\\\\clone\\\\backend\" -name \"*.py\" -type f | sort)"
+      "Bash(find \"D:\\\\clone\\\\backend\" -name \"*.py\" -type f | sort)",
+      "Read(//d/clone/backend/flights/**)"
     ]
   }
 }

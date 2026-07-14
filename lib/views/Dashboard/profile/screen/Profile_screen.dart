@@ -10,6 +10,7 @@ import '../../../Profile/domain/entities/ProfileEntity.dart';
 import '../../../Profile/presentation/bloc/profile_event.dart';
 import '../../../Profile/presentation/bloc/profile_state.dart';
 import '../../Section/add_traveller_popup.dart';
+import '../../Section/data/traveller_api_service.dart';
 import '../../../../UI_helper/responsive_layout.dart';
 import '../section/change_password_dialogue.dart';
 import '../section/edit_profile_screen.dart';
@@ -51,6 +52,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     // Still load from SharedPreferences as fallback, but don't show it immediately
     _loadUserDataFromPrefs();
+
+    // Refresh the traveller list from the backend (falls back to whatever
+    // was already loaded from prefs if this fails or the user has no email).
+    _loadTravellersFromApi();
   }
 
   @override
@@ -158,6 +163,45 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _userData!['travellers'] = _travellers;
       await _prefsManager!.saveUserData(_userData!);
     }
+  }
+
+  Future<void> _loadTravellersFromApi() async {
+    try {
+      final prefs = sl<PreferencesManager>();
+      final email = prefs.getString('user_email') ??
+          prefs.getUserData()?['email'] as String?;
+      if (email == null || email.isEmpty) return;
+
+      final response = await sl<TravellerApiService>().getTravellers(email);
+      final travellers = _parseTravellersResponse(response.data);
+      if (travellers != null && mounted) {
+        setState(() => _travellers = travellers);
+        await _saveTravellers();
+      }
+    } catch (_) {
+      // Silent fail - keep whatever was already loaded from prefs.
+    }
+  }
+
+  // Accepts a plain array, or common wrapper shapes like
+  // {"travellers": [...]}, {"results": [...]}, {"data": [...]}.
+  List<Map<String, dynamic>>? _parseTravellersResponse(dynamic data) {
+    if (data is List) {
+      return data
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList();
+    }
+    if (data is Map) {
+      final list = data['travellers'] ?? data['results'] ?? data['data'];
+      if (list is List) {
+        return list
+            .whereType<Map>()
+            .map((e) => Map<String, dynamic>.from(e))
+            .toList();
+      }
+    }
+    return null;
   }
 
   void _showAddTravellerModal() {

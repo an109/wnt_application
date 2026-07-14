@@ -138,6 +138,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Scaffold(
       drawer: const CustomDrawer(),
+      onDrawerChanged: (isOpened) {
+        // Drawer login/logout/delete-account actions can switch the active
+        // user; refresh once it closes so Recent Searches reflects whoever
+        // is signed in now instead of stale data from before.
+        if (!isOpened) _loadRecentSearches();
+      },
       appBar: AppBar(
         title: WanderNovaLogo(
           scaleFactor: context.isMobile ? 0.6 : (context.isTablet ? 0.8 : 1.0),

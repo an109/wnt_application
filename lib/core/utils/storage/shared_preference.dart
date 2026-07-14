@@ -6,6 +6,8 @@ class PreferencesManager {
   static const String _userTypeKey = 'user_type';
   static const String _userDataKey = 'user_data';
   static const String _isLoggedInKey = 'is_logged_in';
+  static const String _isSocialLoginKey = 'is_social_login';
+  static const String _userPasswordKey = 'user_password_internal';
 
   final SharedPreferences _prefs;
 
@@ -17,6 +19,7 @@ class PreferencesManager {
 
   static const String _preferredCurrencyKey = 'preferred_currency';
   static const String _exchangeRatesKey = 'exchange_rates_cache';
+  static const String _currencyAutoDetectKey = 'currency_auto_detect';
 
   static const String _lastSearchKey = 'last_search_data';
   static const String _searchHistoryKey = 'search_history';
@@ -48,8 +51,22 @@ class PreferencesManager {
 
   bool isLoggedIn() => _prefs.getBool(_isLoggedInKey) ?? false;
 
+  // Tracks whether the current session came from Google/Apple sign-in (no
+  // password on file) vs a normal email/phone + password login.
+  Future<bool> saveIsSocialLogin(bool isSocialLogin) => _prefs.setBool(_isSocialLoginKey, isSocialLogin);
+  bool isSocialLogin() => _prefs.getBool(_isSocialLoginKey) ?? false;
+
+  // Kept only so a normal (email/phone + password) login can silently
+  // re-confirm identity for sensitive actions like account deletion,
+  // without prompting the user for their password again.
+  Future<bool> saveUserPassword(String password) => _prefs.setString(_userPasswordKey, password);
+  String? getUserPassword() => _prefs.getString(_userPasswordKey);
+  Future<bool> clearUserPassword() => _prefs.remove(_userPasswordKey);
+
   Future<bool> clearUserData() async {
     await _prefs.remove(_userDataKey);
+    await _prefs.remove(_isSocialLoginKey);
+    await _prefs.remove(_userPasswordKey);
     return _prefs.setBool(_isLoggedInKey, false);
   }
 
@@ -70,8 +87,17 @@ class PreferencesManager {
   }
 
 // Optional: Save search history (keep last 5-10 searches)
+  // Scoped per logged-in user (by user_id) so switching accounts on the same
+  // device doesn't leak one user's recent searches into another's. Guests
+  // (no user_id yet) fall back to the shared/unscoped key, same as before.
+  String _searchHistoryStorageKey() {
+    final userId = getUserId();
+    return userId != null ? '${_searchHistoryKey}_$userId' : _searchHistoryKey;
+  }
+
   Future<void> addToSearchHistory(Map<String, dynamic> searchData) async {
-    List<String> history = _prefs.getStringList(_searchHistoryKey) ?? [];
+    final key = _searchHistoryStorageKey();
+    List<String> history = _prefs.getStringList(key) ?? [];
 
     // Add new search to the beginning
     history.insert(0, jsonEncode(searchData));
@@ -81,11 +107,11 @@ class PreferencesManager {
       history = history.sublist(0, 10);
     }
 
-    await _prefs.setStringList(_searchHistoryKey, history);
+    await _prefs.setStringList(key, history);
   }
 
   List<Map<String, dynamic>> getSearchHistory() {
-    final history = _prefs.getStringList(_searchHistoryKey) ?? [];
+    final history = _prefs.getStringList(_searchHistoryStorageKey()) ?? [];
     return history.map((item) {
       try {
         return jsonDecode(item) as Map<String, dynamic>;
@@ -96,7 +122,7 @@ class PreferencesManager {
   }
 
   Future<void> clearSearchHistory() async {
-    await _prefs.remove(_searchHistoryKey);
+    await _prefs.remove(_searchHistoryStorageKey());
   }
 
   // ============ GENERIC METHODS ============
@@ -159,11 +185,17 @@ class PreferencesManager {
     await _prefs.remove('user_id');
     await _prefs.remove('user_email');
     await _prefs.remove('user_name');
+    await _prefs.remove(_isSocialLoginKey);
+    await _prefs.remove(_userPasswordKey);
   }
 
   String? getPreferredCurrency() => _prefs.getString(_preferredCurrencyKey);
 
   Future<bool> savePreferredCurrency(String currency) => _prefs.setString(_preferredCurrencyKey, currency);
+
+  bool isCurrencyAutoDetect() => _prefs.getBool(_currencyAutoDetectKey) ?? true;
+
+  Future<bool> setCurrencyAutoDetect(bool value) => _prefs.setBool(_currencyAutoDetectKey, value);
 
   Map<String, double>? getCachedExchangeRates() {
     final jsonString = _prefs.getString(_exchangeRatesKey);

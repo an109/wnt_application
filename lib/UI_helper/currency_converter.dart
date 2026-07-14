@@ -1,7 +1,39 @@
 import '../core/utils/storage/shared_preference.dart';
+import '../core/services/exchange_rate_service.dart';
 import '../injection_container.dart';
 
 class CurrencyConverter {
+  /// Currencies selectable from the app's currency setting.
+  static const Map<String, String> supportedCurrencies = {
+    'USD': 'US Dollar',
+    'INR': 'Indian Rupee',
+    'EUR': 'Euro',
+    'GBP': 'British Pound',
+    'AED': 'UAE Dirham',
+    'AUD': 'Australian Dollar',
+    'CAD': 'Canadian Dollar',
+    'SGD': 'Singapore Dollar',
+    'JPY': 'Japanese Yen',
+    'CNY': 'Chinese Yuan',
+  };
+
+  static bool isAutoDetectEnabled() {
+    final prefs = sl<PreferencesManager>();
+    return prefs.isCurrencyAutoDetect();
+  }
+
+  /// User explicitly picked a currency from settings — stop following IP location.
+  static Future<void> setManualCurrency(String currency) async {
+    final prefs = sl<PreferencesManager>();
+    await prefs.savePreferredCurrency(currency);
+    await prefs.setCurrencyAutoDetect(false);
+  }
+
+  /// User picked "Auto" from settings — re-detect from IP and follow it again.
+  static Future<String> enableAutoDetect() async {
+    await ExchangeRateService.refreshCurrencyFromLocation();
+    return getPreferredCurrency();
+  }
   static double convert({
     required double amount,
     required String fromCurrency,
