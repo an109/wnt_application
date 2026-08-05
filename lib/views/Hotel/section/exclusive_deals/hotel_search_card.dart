@@ -1,20 +1,29 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import 'package:wander_nova/common_widgets/compact_date_picker_dialog.dart';
+import 'package:wander_nova/core/error/data_state.dart';
 import 'package:wander_nova/core/utils/storage/shared_preference.dart';
 import '../../../../core/resources/app_colours.dart';
 import '../../../../injection_container.dart';
 import '../../../Hotel_Details/presentation/screens/widgets/room_config.dart';
-import '../../../Hotel_api/presentation/bloc/hotel_bloc.dart';
-import '../../../flight_destination/domain/entities/destination_entity.dart';
-import '../../../flight_destination/presentation/widget/destination_search_field.dart';
-import '../../../Hotel_api/presentation/screen/hotel_listing.dart';
+// Old tbo-hotel-backed integration (cityCode search + HotelListingScreen) —
+// commented out in favour of the Akbar Hotels Autosuggest + Search Init flow
+// below. Left in place rather than deleted so it's easy to compare/restore.
+// import 'package:flutter_bloc/flutter_bloc.dart';
+// import '../../../Hotel_api/presentation/bloc/hotel_bloc.dart';
+// import '../../../flight_destination/domain/entities/destination_entity.dart';
+// import '../../../flight_destination/presentation/widget/destination_search_field.dart';
+// import '../../../Hotel_api/presentation/screen/hotel_listing.dart';
 import 'package:http/http.dart' as http;
+import '../../../AKHotelAutosuggest/domain/entity/AKHotelAutosuggest_entity.dart';
+import '../../../AKHotelAutosuggest/presentation/widget/hotel_autosuggest_field.dart';
+import '../../../AKHotelSearchInit/domain/entity/AKHotelSearchInit_entity.dart';
+import '../../../AKHotelSearchInit/domain/usecase/AKHotelSearchInit_usecase.dart';
+import '../../../AKHotelBooking/presentation/screen/ak_hotel_results_screen.dart';
 
 class HotelSearchCard extends StatefulWidget {
   const HotelSearchCard({super.key});
@@ -26,7 +35,8 @@ class HotelSearchCard extends StatefulWidget {
 class _HotelSearchCardState extends State<HotelSearchCard> {
   DateTime? _checkInDate;
   DateTime? _checkOutDate;
-  DestinationEntity? _selectedDestination;
+  AkHotelLocationEntity? _selectedLocation;
+  bool _isSearching = false;
   static const _blue = Color(0xFF1769F6);
   static const _navy = Color(0xFF071638);
   static const _border = Color(0xFFE2E7F0);
@@ -58,7 +68,7 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
           await PreferencesManager.create(await SharedPreferences.getInstance());
 
       final searchData = {
-        'destination': _destinationToJson(_selectedDestination),
+        'location': _locationToJson(_selectedLocation),
         'checkInDate': _checkInDate?.toIso8601String(),
         'checkOutDate': _checkOutDate?.toIso8601String(),
         'rooms': _rooms
@@ -83,7 +93,7 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
           await PreferencesManager.create(await SharedPreferences.getInstance());
       final searchData = {
         'type': 'hotel',
-        'destination': _destinationToJson(_selectedDestination),
+        'location': _locationToJson(_selectedLocation),
         'checkInDate': _checkInDate?.toIso8601String(),
         'checkOutDate': _checkOutDate?.toIso8601String(),
         'rooms': _rooms
@@ -106,12 +116,12 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
 
       final lastSearch = jsonDecode(raw) as Map<String, dynamic>;
 
-      final savedDestination = _destinationFromJson(lastSearch['destination']);
+      final savedLocation = _locationFromJson(lastSearch['location']);
       final savedRooms = _roomsFromJson(lastSearch['rooms']);
       final today = DateUtils.dateOnly(DateTime.now());
 
       setState(() {
-        if (savedDestination != null) _selectedDestination = savedDestination;
+        if (savedLocation != null) _selectedLocation = savedLocation;
 
         // Restore dates, but never prefill a date in the past.
         if (lastSearch['checkInDate'] != null) {
@@ -135,32 +145,33 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
     }
   }
 
-  Map<String, dynamic>? _destinationToJson(DestinationEntity? d) {
-    if (d == null) return null;
+  Map<String, dynamic>? _locationToJson(AkHotelLocationEntity? l) {
+    if (l == null) return null;
     return {
-      'id': d.id,
-      'name': d.name,
-      'type': d.type.name,
-      'countryCode': d.countryCode,
-      'countryName': d.countryName,
-      'cityCode': d.cityCode,
-      'additionalInfo': d.additionalInfo,
+      'id': l.id,
+      'name': l.name,
+      'fullName': l.fullName,
+      'type': l.type,
+      'state': l.state,
+      'country': l.country,
+      'referenceId': l.referenceId,
+      'lat': l.lat,
+      'long': l.long,
     };
   }
 
-  DestinationEntity? _destinationFromJson(dynamic json) {
+  AkHotelLocationEntity? _locationFromJson(dynamic json) {
     if (json == null || json['id'] == null) return null;
-    return DestinationEntity(
+    return AkHotelLocationEntity(
       id: json['id'],
       name: json['name'] ?? '',
-      type: DestinationType.values.firstWhere(
-        (t) => t.name == json['type'],
-        orElse: () => DestinationType.city,
-      ),
-      countryCode: json['countryCode'],
-      countryName: json['countryName'],
-      cityCode: json['cityCode'],
-      additionalInfo: json['additionalInfo'],
+      fullName: json['fullName'] ?? json['name'] ?? '',
+      type: json['type'] ?? 'city',
+      state: json['state'],
+      country: json['country'],
+      referenceId: json['referenceId'],
+      lat: (json['lat'] as num?)?.toDouble(),
+      long: (json['long'] as num?)?.toDouble(),
     );
   }
 
@@ -563,9 +574,50 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
     return DateFormat('EEEE').format(date);
   }
 
-  void _onSearchPressed() {
-    // Validation
-    if (_selectedDestination == null) {
+  // Old tbo-hotel-backed search (cityCode + HotelListingScreen). Commented
+  // out in favour of the Akbar Hotels Autosuggest + Search Init flow below.
+  //
+  // void _onSearchPressedOldTboApi() {
+  //   if (_selectedDestination == null) { ... }
+  //   if (_checkInDate == null || _checkOutDate == null) { ... }
+  //   final checkInFormatted = DateFormat('yyyy-MM-dd').format(_checkInDate!);
+  //   final checkOutFormatted = DateFormat('yyyy-MM-dd').format(_checkOutDate!);
+  //   String cityCode;
+  //   if (_selectedDestination!.type == DestinationType.hotel) {
+  //     cityCode = _selectedDestination!.cityCode ?? '';
+  //   } else {
+  //     cityCode = _selectedDestination!.id;
+  //   }
+  //   final paxRooms = List.generate(_rooms.length, (index) {
+  //     final room = _rooms[index];
+  //     return {
+  //       'Adults': room.adults,
+  //       'Children': room.children,
+  //       'ChildrenAges': List.generate(room.children, (i) => room.childAges[i]),
+  //     };
+  //   });
+  //   Navigator.push(
+  //     context,
+  //     MaterialPageRoute(
+  //       builder: (_) => BlocProvider(
+  //         create: (context) => sl<HotelBloc>(),
+  //         child: HotelListingScreen(
+  //           cityCode: cityCode,
+  //           checkIn: checkInFormatted,
+  //           checkOut: checkOutFormatted,
+  //           guestNationality: _guestNationalityCode,
+  //           paxRooms: paxRooms,
+  //         ),
+  //       ),
+  //     ),
+  //   );
+  // }
+
+  /// New Akbar Hotels flow: Search Init needs the Autosuggest-picked
+  /// locationId (not free text), MM/DD/YYYY dates (not ISO), and rooms
+  /// shaped as {adults, children, childAges}.
+  Future<void> _onSearchPressed() async {
+    if (_selectedLocation == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Please select a destination'),
@@ -583,63 +635,69 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
       );
       return;
     }
-
-    print('SEARCH CLICKED');
-    print('Destination: ${_selectedDestination?.displayName}');
-    print('Destination Type: ${_selectedDestination?.type}');
-    print('Check-in: $_checkInDate');
-    print('Check-out: $_checkOutDate');
-    int totalAdults = _rooms.fold(0, (sum, room) => sum + room.adults);
-    int totalChildren = _rooms.fold(0, (sum, room) => sum + room.children);
-    print('Guests: $totalAdults adults, $totalChildren children');
-    print('Rooms: ${_rooms.length}');
-    print('Rooms: $_rooms');
+    if (_isSearching) return;
 
     // Persist this search so the form is prefilled next time.
     _saveLastSearch();
     _addToSearchHistory();
 
-    final checkInFormatted = DateFormat('yyyy-MM-dd').format(_checkInDate!);
-    final checkOutFormatted = DateFormat('yyyy-MM-dd').format(_checkOutDate!);
+    final checkInFormatted = DateFormat('MM/dd/yyyy').format(_checkInDate!);
+    final checkOutFormatted = DateFormat('MM/dd/yyyy').format(_checkOutDate!);
 
-    // Get the city code based on destination type
-    String cityCode;
-    if (_selectedDestination!.type == DestinationType.hotel) {
-      cityCode = _selectedDestination!.cityCode ?? '';
-      print('Hotel selected - using cityCode: $cityCode');
-    } else {
-      cityCode = _selectedDestination!.id;
-      print('City selected - using id: $cityCode');
-    }
+    final rooms = _rooms
+        .map((r) => AkHotelSearchInitRoomEntity(
+              adults: r.adults,
+              children: r.children,
+              childAges: r.childAges,
+            ))
+        .toList();
 
-    final paxRooms = List.generate(_rooms.length, (index) {
-      final room = _rooms[index];
-      return {
-        'Adults': room.adults,
-        'Children': room.children,
-        'ChildrenAges': List.generate(
-          room.children,
-          (childIndex) => room.childAges[childIndex],
-        ),
-      };
-    });
+    setState(() => _isSearching = true);
 
-    // Navigate with BlocProvider
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => BlocProvider(
-          create: (context) => sl<HotelBloc>(),
-          child: HotelListingScreen(
-            cityCode: cityCode,
-            checkIn: checkInFormatted,
-            checkOut: checkOutFormatted,
-            guestNationality: _guestNationalityCode,
-            paxRooms: paxRooms,
-          ),
-        ),
+    final result = await sl<AkHotelSearchInitUseCase>().call(
+      AkHotelSearchInitRequestEntity(
+        locationId: _selectedLocation!.id,
+        checkIn: checkInFormatted,
+        checkOut: checkOutFormatted,
+        rooms: rooms,
+        nationality: _guestNationalityCode,
+        countryOfResidence: _guestNationalityCode,
+        destinationCountryCode: _selectedLocation!.country ?? _guestNationalityCode,
       ),
     );
+
+    if (!mounted) return;
+    setState(() => _isSearching = false);
+
+    if (result is DataSuccess<AkHotelSearchInitEntity>) {
+      final data = result.data!;
+      final totalAdults = _rooms.fold(0, (sum, room) => sum + room.adults);
+      final totalChildren = _rooms.fold(0, (sum, room) => sum + room.children);
+
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => AkHotelResultsScreen(
+            searchId: data.searchId,
+            searchTracingKey: data.searchTracingKey,
+            locationName: _selectedLocation!.fullName,
+            checkIn: checkInFormatted,
+            checkOut: checkOutFormatted,
+            adults: totalAdults,
+            children: totalChildren,
+            nationality: _guestNationalityCode,
+            rooms: rooms,
+          ),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not start hotel search. Please try again.'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
   }
 
   @override
@@ -753,13 +811,12 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
             children: [
               Text('DESTINATION', style: _labelStyle(context)),
               SizedBox(height: context.h(2)),
-              DestinationSearchField(
-                label: 'Enter destination',
+              HotelAutosuggestField(
                 hint: 'Select Destination...',
-                initialDestination: _selectedDestination,
-                onDestinationSelected: (destination) {
+                initialLocation: _selectedLocation,
+                onLocationSelected: (location) {
                   setState(() {
-                    _selectedDestination = destination;
+                    _selectedLocation = location;
                   });
                 },
               ),
@@ -875,23 +932,29 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
             borderRadius: BorderRadius.circular(16),
           ),
         ),
-        onPressed: _onSearchPressed,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              'SEARCH',
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w800,
-                color: Colors.white,
-                letterSpacing: 0,
+        onPressed: _isSearching ? null : _onSearchPressed,
+        child: _isSearching
+            ? SizedBox(
+                width: context.w(18),
+                height: context.w(18),
+                child: const CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+              )
+            : Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    'SEARCH',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                      letterSpacing: 0,
+                    ),
+                  ),
+                  SizedBox(width: context.w(6)),
+                  const Icon(Icons.search, color: Colors.white, size: 17),
+                ],
               ),
-            ),
-            SizedBox(width: context.w(6)),
-            const Icon(Icons.search, color: Colors.white, size: 17),
-          ],
-        ),
       ),
     );
   }

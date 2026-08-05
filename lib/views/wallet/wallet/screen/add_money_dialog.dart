@@ -1,11 +1,13 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:razorpay_flutter/razorpay_flutter.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 
+import '../../../../core/constants/urls.dart';
+import '../../../../core/network/dio_client.dart';
 import '../../../../core/utils/storage/shared_preference.dart';
 import '../../../../injection_container.dart' as di;
-import '../../../flight_payment/data/ccavenue_service.dart';
-import '../../../flight_payment/presentation/screen/ccavenue_payment_page.dart';
 
 class AddMoneyDialog extends StatefulWidget {
   final Function(double amount, String paymentMethod) onConfirm;
@@ -22,11 +24,16 @@ class AddMoneyDialog extends StatefulWidget {
 class _AddMoneyDialogState extends State<AddMoneyDialog> {
   // Use local TextEditingController without GlobalKey
   late final TextEditingController _amountController;
-  String _selectedPaymentMethod = 'CCavenue';
+  String _selectedPaymentMethod = 'Razorpay';
   double? _selectedQuickAmount;
 
-  final CCAvenueService _ccavenueService = CCAvenueService();
+  late final Razorpay _razorpay;
   bool _isProcessing = false;
+
+  // Set when a Razorpay checkout is opened, so the async success handler knows
+  // which top-up it is confirming.
+  String _reference = '';
+  double _payableAmount = 0;
 
   final List<double> _quickAmounts = [500, 1000, 2000, 5000];
 
@@ -34,11 +41,16 @@ class _AddMoneyDialogState extends State<AddMoneyDialog> {
   void initState() {
     super.initState();
     _amountController = TextEditingController();
+    _razorpay = Razorpay();
+    _razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, _handleRazorpaySuccess);
+    _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _handleRazorpayError);
+    _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleRazorpayExternalWallet);
   }
 
   @override
   void dispose() {
     _amountController.dispose(); // Proper cleanup
+    _razorpay.clear();
     super.dispose();
   }
 
@@ -173,7 +185,7 @@ class _AddMoneyDialogState extends State<AddMoneyDialog> {
               SizedBox(height: context.gapMedium),
 
               Text(
-                'You will be redirected to CCavenue\'s secure checkout (INR).',
+                'You will be redirected to Razorpay\'s secure checkout (INR).',
                 style: TextStyle(
                   fontSize: context.bodySmall,
                   color: Colors.grey.shade600,
@@ -441,8 +453,21 @@ class _AddMoneyDialogState extends State<AddMoneyDialog> {
     );
   }
 
-  /// Recharges the wallet via the CCAvenue hosted gateway. On success the
-  /// parent's [onConfirm] runs (refreshes balance) and the dialog closes.
+  /// Recharges the wallet via Razorpay's native checkout. On a confirmed
+  /// credit the parent's [onConfirm] runs (refreshes balance) and the dialog
+  /// closes.
+  ///
+  /// KNOWN BACKEND GAP — the wallet is NOT yet credited automatically for
+  /// Razorpay top-ups. `/wallet/verify-payment/` only knows how to settle
+  /// Nomod checkouts (it needs `nomod_checkout_id`), and CCAvenue top-ups are
+  /// credited out-of-band by CCAvenue's own server-to-server response handler
+  /// (`ccavenue_payments/views.py::_credit_wallet_if_needed`). There is no
+  /// equivalent Razorpay branch, so [_creditWallet] below will normally fail.
+  /// The payment itself is still signature-verified server-side and recorded
+  /// as a paid RazorpayTransaction, and the user is shown their reference for
+  /// support — we never report a credit that did not happen. Wiring a
+  /// Razorpay branch into the wallet backend will make this flow complete
+  /// with no further changes here.
   Future<void> _pay(double amount) async {
     final prefs = di.sl<PreferencesManager>();
 
@@ -454,68 +479,141 @@ class _AddMoneyDialogState extends State<AddMoneyDialog> {
     setState(() => _isProcessing = true);
     try {
       final payable = double.parse(amount.toStringAsFixed(2));
+      // Short reference (Razorpay receipts are capped at 40 chars) that ties
+      // the gateway order to this top-up.
+      final reference = 'WTX${DateTime.now().millisecondsSinceEpoch}';
 
-      // Step 1: create a pending wallet transaction record and get checkout URL.
-      // Using add-money ensures the backend has a WTX reference before payment.
-      final topUp = await _ccavenueService.initiateWalletTopUp(
-        amount: payable,
-        currency: 'INR',
+      final dio = di.sl<DioClient>().instance;
+      final response = await dio.post(
+        Urls.razorpayCreateOrder,
+        data: {
+          'amount': payable,
+          'currency': 'INR',
+          'reference_id': reference,
+          'transaction_type': 'wallet',
+        },
       );
 
+      final orderId = response.data['order_id'];
+      final keyId = response.data['key_id'];
+
+      if (!mounted) return;
+      setState(() {
+        _isProcessing = false;
+        _reference = reference;
+        _payableAmount = payable;
+      });
+
+      final userData = prefs.getUserData() ?? {};
+      _razorpay.open({
+        'key': keyId,
+        'amount': (payable * 100).toInt(),
+        'currency': 'INR',
+        'name': 'WanderNova',
+        'description': 'Wallet Top-up',
+        'order_id': orderId,
+        'prefill': {
+          'name': '${userData['firstname'] ?? ''} ${userData['lastname'] ?? ''}'.trim(),
+          'email': (userData['email'] ?? '').toString(),
+          'contact': (userData['phone_number'] ?? '').toString(),
+        },
+        'theme': {'color': '#E53935'},
+      });
+    } on DioException catch (e) {
       if (!mounted) return;
       setState(() => _isProcessing = false);
-
-      // Step 2: open CCAvenue WebView with the checkout URL from add-money.
-      final ccSession = CheckoutSession(
-        checkoutUrl: topUp.checkoutUrl,
-        orderId: topUp.orderId,
-      );
-
-      final result = await Navigator.of(context).push<PaymentResult>(
-        MaterialPageRoute(
-          builder: (_) => CCAvenuePaymentPage(
-            service: _ccavenueService,
-            session: ccSession,
-          ),
-        ),
-      );
-
-      if (!mounted) return;
-      switch (result) {
-        case PaymentResult.success:
-          // Step 3: confirm with the wallet backend using the WTX reference.
-          setState(() => _isProcessing = true);
-          try {
-            await _ccavenueService.verifyWalletPayment(topUp.walletReference);
-          } catch (_) {
-            if (mounted) {
-              setState(() => _isProcessing = false);
-              _snack('Payment succeeded but wallet credit failed. Please contact support.');
-            }
-            return;
-          }
-          if (!mounted) return;
-          setState(() => _isProcessing = false);
-          widget.onConfirm(payable, _selectedPaymentMethod);
-          Navigator.pop(context);
-          break;
-        case PaymentResult.failure:
-          _snack('Payment failed. Please try again.');
-          break;
-        case PaymentResult.cancelled:
-        case null:
-          _snack('Payment cancelled.', color: Colors.grey.shade700);
-          break;
-      }
-    } on CCAvenueException catch (e) {
-      if (!mounted) return;
-      setState(() => _isProcessing = false);
-      _snack(e.message);
+      print('Razorpay order error: ${e.message}');
+      _snack('Could not create payment order. Please try again.');
     } catch (e) {
       if (!mounted) return;
       setState(() => _isProcessing = false);
       _snack('Could not start payment. Please try again.');
     }
+  }
+
+  Future<void> _handleRazorpaySuccess(PaymentSuccessResponse response) async {
+    if (!mounted) return;
+    setState(() => _isProcessing = true);
+
+    final dio = di.sl<DioClient>().instance;
+
+    // Step 1: verify the signature server-side. Until this passes the payment
+    // is not trustworthy, so nothing is credited on its basis.
+    try {
+      final verify = await dio.post(
+        Urls.razorpayVerify,
+        data: {
+          'razorpay_order_id': response.orderId,
+          'razorpay_payment_id': response.paymentId,
+          'razorpay_signature': response.signature,
+          'reference_id': _reference,
+        },
+      );
+      if (verify.data['success'] != true) {
+        if (!mounted) return;
+        setState(() => _isProcessing = false);
+        _snack(
+          'Payment could not be verified. If money was deducted, contact '
+          'support with reference: ${response.paymentId ?? _reference}',
+        );
+        return;
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isProcessing = false);
+      _snack(
+        'Payment could not be verified. If money was deducted, contact '
+        'support with reference: ${response.paymentId ?? _reference}',
+      );
+      return;
+    }
+
+    // Step 2: ask the wallet backend to credit the balance. See the note on
+    // [_pay] — this is expected to fail until the backend grows a Razorpay
+    // branch, which is why the failure path stays explicit rather than
+    // optimistically closing the dialog.
+    final credited = await _creditWallet();
+
+    if (!mounted) return;
+    setState(() => _isProcessing = false);
+
+    if (credited) {
+      widget.onConfirm(_payableAmount, _selectedPaymentMethod);
+      Navigator.pop(context);
+    } else {
+      _snack(
+        'Payment received, but your wallet balance has not updated yet. '
+        'Please contact support with reference: '
+        '${response.paymentId ?? _reference}',
+      );
+    }
+  }
+
+  /// Attempts to settle the top-up on the wallet backend. Returns true only
+  /// when the backend confirms the balance was actually credited.
+  Future<bool> _creditWallet() async {
+    try {
+      final dio = di.sl<DioClient>().instance;
+      final res = await dio.post(
+        Urls.walletVerifyPayment,
+        data: {'reference': _reference},
+      );
+      final body = (res.data as Map?)?.cast<String, dynamic>() ?? {};
+      return body['success'] == true;
+    } catch (e) {
+      print('Wallet credit after Razorpay top-up failed: $e');
+      return false;
+    }
+  }
+
+  void _handleRazorpayError(PaymentFailureResponse response) {
+    if (!mounted) return;
+    setState(() => _isProcessing = false);
+    _snack('Payment failed: ${response.message ?? 'Please try again.'}');
+  }
+
+  void _handleRazorpayExternalWallet(ExternalWalletResponse response) {
+    print('Razorpay external wallet: ${response.walletName}');
   }
 
   Widget _buildPaymentMethodCard() {
@@ -547,14 +645,14 @@ class _AddMoneyDialogState extends State<AddMoneyDialog> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'CCavenue',
+                  'Razorpay',
                   style: TextStyle(
                     fontSize: context.bodyMedium,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
                 Text(
-                  'UPI, Card, Net Banking (INR)',
+                  'UPI, Card, Net Banking, Wallets (INR)',
                   style: TextStyle(
                     fontSize: context.bodySmall,
                     color: Colors.grey.shade600,
@@ -564,7 +662,7 @@ class _AddMoneyDialogState extends State<AddMoneyDialog> {
             ),
           ),
           Radio<String>(
-            value: 'CCavenue',
+            value: 'Razorpay',
             groupValue: _selectedPaymentMethod,
             onChanged: (value) {
               if (value != null) {

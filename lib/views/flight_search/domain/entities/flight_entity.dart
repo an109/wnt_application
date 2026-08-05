@@ -60,6 +60,27 @@
 
 import 'package:equatable/equatable.dart';
 
+/// One sibling fare-class variant (Saver/Flexi/SME/...) of the same physical
+/// flight, as GetExpSearch returns them — same airline+flightNo+departureTime,
+/// different Index/NetFare. The search-results list only shows the cheapest
+/// one per flight (see `_cheapestPerFlight`); these are the others, kept so
+/// the flight-detail screen can offer a real "Choose Your Fare" picker
+/// instead of only ever showing the one fare the user happened to tap.
+class FareFamilyIndexEntity extends Equatable {
+  final String index;
+  final double amount;
+  final bool refundable;
+
+  const FareFamilyIndexEntity({
+    required this.index,
+    required this.amount,
+    required this.refundable,
+  });
+
+  @override
+  List<Object?> get props => [index, amount, refundable];
+}
+
 class FlightEntity extends Equatable {
   final String? resultIndex;
   final String? airlineCode;
@@ -95,6 +116,12 @@ class FlightEntity extends Equatable {
   final String? returnDestinationName;
   final int? returnStops;
 
+  // Sibling fare-class variants of this same physical flight (see
+  // [FareFamilyIndexEntity]). Null/empty for the common case where the
+  // flight only sells one fare, or when this FlightEntity wasn't produced
+  // via the search-results grouping step.
+  final List<FareFamilyIndexEntity>? fareFamilyOptions;
+
   const FlightEntity({
     this.resultIndex,
     this.airlineCode,
@@ -124,7 +151,42 @@ class FlightEntity extends Equatable {
     this.returnDestination,
     this.returnDestinationName,
     this.returnStops,
+    this.fareFamilyOptions,
   });
+
+  FlightEntity copyWith({List<FareFamilyIndexEntity>? fareFamilyOptions}) {
+    return FlightEntity(
+      resultIndex: resultIndex,
+      airlineCode: airlineCode,
+      airlineName: airlineName,
+      flightNumber: flightNumber,
+      origin: origin,
+      originName: originName,
+      destination: destination,
+      destinationName: destinationName,
+      departureTime: departureTime,
+      arrivalTime: arrivalTime,
+      duration: duration,
+      cabinClass: cabinClass,
+      baseFare: baseFare,
+      tax: tax,
+      totalFare: totalFare,
+      currency: currency,
+      seatsAvailable: seatsAvailable,
+      traceId: traceId,
+      stops: stops,
+      isRoundTrip: isRoundTrip,
+      returnDepartureTime: returnDepartureTime,
+      returnArrivalTime: returnArrivalTime,
+      returnDuration: returnDuration,
+      returnOrigin: returnOrigin,
+      returnOriginName: returnOriginName,
+      returnDestination: returnDestination,
+      returnDestinationName: returnDestinationName,
+      returnStops: returnStops,
+      fareFamilyOptions: fareFamilyOptions ?? this.fareFamilyOptions,
+    );
+  }
 
   @override
   List<Object?> get props => [
@@ -133,5 +195,6 @@ class FlightEntity extends Equatable {
     baseFare, tax, totalFare, currency, seatsAvailable, traceId, stops, isRoundTrip,
     returnDepartureTime, returnArrivalTime, returnDuration, returnOrigin,
     returnOriginName, returnDestination, returnDestinationName, returnStops,
+    fareFamilyOptions,
   ];
 }

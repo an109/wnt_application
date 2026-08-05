@@ -39,7 +39,7 @@ class _CustomDrawerState extends State<CustomDrawer>
   String _userEmail = '';
   String? _userAvatar;
   String _appVersion = '';
-  String _walletBalance = '0';
+  double _walletBalanceInr = 0;
   String _currentCurrency = 'USD';
   WalletBloc? _walletBloc;
   StreamSubscription<WalletState>? _walletSub;
@@ -139,8 +139,7 @@ class _CustomDrawerState extends State<CustomDrawer>
       _walletSub = _walletBloc!.stream.listen((state) {
         if (state is WalletLoaded && mounted) {
           setState(() {
-            final val = double.tryParse(state.balance) ?? 0.0;
-            _walletBalance = val.toStringAsFixed(0);
+            _walletBalanceInr = double.tryParse(state.balance) ?? 0.0;
           });
         }
       });
@@ -249,13 +248,23 @@ class _CustomDrawerState extends State<CustomDrawer>
                   color: Colors.green.shade200,
                 ),
               ),
-              child: Text(
-                '₹$_walletBalance',
-                style: TextStyle(
-                  fontSize: context.labelSmall,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.green.shade700,
-                ),
+              child: ValueListenableBuilder<String>(
+                valueListenable: CurrencyConverter.currencyListenable,
+                builder: (context, currency, _) {
+                  final converted = CurrencyConverter.convert(
+                    amount: _walletBalanceInr,
+                    fromCurrency: 'INR',
+                    toCurrency: currency,
+                  );
+                  return Text(
+                    CurrencyConverter.format(converted, currency),
+                    style: TextStyle(
+                      fontSize: context.labelSmall,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.green.shade700,
+                    ),
+                  );
+                },
               ),
             ),
           ),
@@ -319,12 +328,12 @@ class _CustomDrawerState extends State<CustomDrawer>
             subtitle: 'Find best deals',
             isHighlighted: true,
           ),
-          _buildMenuItem(
-            context,
-            icon: Icons.beach_access_outlined,
-            title: 'My Bookings',
-            onTap: () => _navigateTo(context, '/bookings'),
-          ),
+          // _buildMenuItem(
+          //   context,
+          //   icon: Icons.beach_access_outlined,
+          //   title: 'My Bookings',
+          //   onTap: () => _navigateTo(context, '/bookings'),
+          // ),
         ],
       ),
 

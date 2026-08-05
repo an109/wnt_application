@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import '../core/utils/storage/shared_preference.dart';
 import '../core/services/exchange_rate_service.dart';
 import '../injection_container.dart';
@@ -17,6 +18,13 @@ class CurrencyConverter {
     'CNY': 'Chinese Yuan',
   };
 
+  /// Broadcasts the current preferred currency. Screens that show a price
+  /// should wrap that part of their UI in a `ValueListenableBuilder` on this
+  /// so they update the moment the user changes currency, instead of only
+  /// picking it up on their next full rebuild (e.g. a fresh navigation).
+  static final ValueNotifier<String> currencyListenable =
+      ValueNotifier<String>(getPreferredCurrency());
+
   static bool isAutoDetectEnabled() {
     final prefs = sl<PreferencesManager>();
     return prefs.isCurrencyAutoDetect();
@@ -27,12 +35,15 @@ class CurrencyConverter {
     final prefs = sl<PreferencesManager>();
     await prefs.savePreferredCurrency(currency);
     await prefs.setCurrencyAutoDetect(false);
+    currencyListenable.value = currency;
   }
 
   /// User picked "Auto" from settings — re-detect from IP and follow it again.
   static Future<String> enableAutoDetect() async {
     await ExchangeRateService.refreshCurrencyFromLocation();
-    return getPreferredCurrency();
+    final currency = getPreferredCurrency();
+    currencyListenable.value = currency;
+    return currency;
   }
   static double convert({
     required double amount,
@@ -84,17 +95,18 @@ class CurrencyConverter {
   // Add to your existing CurrencyConverter class
   static String getPreferredCurrency() {
     final prefs = sl<PreferencesManager>();
-    return prefs.getPreferredCurrency() ?? 'USD';
+    return prefs.getPreferredCurrency() ?? 'INR';
   }
 
   static Future<void> setPreferredCurrency(String currency) async {
     final prefs = sl<PreferencesManager>();
     await prefs.savePreferredCurrency(currency);
+    currencyListenable.value = currency;
   }
 
   static Future<double> convertAmountWithPreferredCurrency(double amountInUSD) async {
     final prefs = sl<PreferencesManager>();
-    final targetCurrency = prefs.getPreferredCurrency() ?? 'USD';
+    final targetCurrency = prefs.getPreferredCurrency() ?? 'INR';
 
     if (targetCurrency == 'USD') return amountInUSD;
 

@@ -1,6 +1,129 @@
 import 'package:dio/dio.dart';
 import 'package:get_it/get_it.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:wander_nova/views/AKFlight_tui/data/data_source/akflight_Search_api_service.dart';
+import 'package:wander_nova/views/AKFlight_tui/data/repository/akflight_Search_repository_impl.dart';
+import 'package:wander_nova/views/AKFlight_tui/domain/repository/akflight_Search_repository.dart';
+import 'package:wander_nova/views/AKFlight_tui/domain/usecase/akflight_search_usecase.dart';
+import 'package:wander_nova/views/AKFlight_tui/presentation/bloc/akflight_Search_bloc.dart';
+import 'package:wander_nova/views/AKFlights/data/data_source/AKFlights_api_service.dart';
+import 'package:wander_nova/views/AKFlights/data/repository/AKFlights_repository_impl.dart';
+import 'package:wander_nova/views/AKFlights/domain/repository/AKFlights_repository.dart';
+import 'package:wander_nova/views/AKFlights/domain/usecase/AKFlights_usecase.dart';
+import 'package:wander_nova/views/AKFlights/presentation/bloc/AKFlights_bloc.dart';
+import 'package:wander_nova/views/AKFlightInfo/data/data_source/AKFlightInfo_api_service.dart';
+import 'package:wander_nova/views/AKFlightInfo/data/repository/AKFlightInfo_repository_impl.dart';
+import 'package:wander_nova/views/AKFlightInfo/domain/repository/AKFlightInfo_repository.dart';
+import 'package:wander_nova/views/AKFlightInfo/domain/usecase/AKFlightInfo_usecase.dart';
+import 'package:wander_nova/views/AKFlightInfo/presentation/bloc/AKFlightInfo_bloc.dart';
+import 'package:wander_nova/views/AKGetSPricer/data/data_source/AKGetSPricer_api_service.dart';
+import 'package:wander_nova/views/AKGetSPricer/data/repository/AKGetSPricer_repository_impl.dart';
+import 'package:wander_nova/views/AKGetSPricer/domain/repository/AKGetSPricer_repository.dart';
+import 'package:wander_nova/views/AKGetSPricer/domain/usecase/AKGetSPricer_usecase.dart';
+import 'package:wander_nova/views/AKGetSPricer/presentation/bloc/AKGetSPricer_bloc.dart';
+import 'package:wander_nova/views/AKSmartPricer/data/data_source/AKSmartPricer_api_service.dart';
+import 'package:wander_nova/views/AKSmartPricer/data/repository/AKSmartPricer_repository_impl.dart';
+import 'package:wander_nova/views/AKSmartPricer/domain/repository/AKSmartPricer_repository.dart';
+import 'package:wander_nova/views/AKSmartPricer/domain/usecase/AKSmartPricer_usecase.dart';
+import 'package:wander_nova/views/AKSmartPricer/presentation/bloc/AKSmartPricer_bloc.dart';
+import 'package:wander_nova/views/AKFareRule/data/data_source/AKFareRule_api_service.dart';
+import 'package:wander_nova/views/AKFareRule/data/repository/AKFareRule_repository_impl.dart';
+import 'package:wander_nova/views/AKFareRule/domain/repository/AKFareRule_repository.dart';
+import 'package:wander_nova/views/AKFareRule/domain/usecase/AKFareRule_usecase.dart';
+import 'package:wander_nova/views/AKFareRule/presentation/bloc/AKFareRule_bloc.dart';
+import 'package:wander_nova/views/AKAcceptFareChange/data/data_source/AKAcceptFareChange_api_service.dart';
+import 'package:wander_nova/views/AKAcceptFareChange/data/repository/AKAcceptFareChange_repository_impl.dart';
+import 'package:wander_nova/views/AKAcceptFareChange/domain/repository/AKAcceptFareChange_repository.dart';
+import 'package:wander_nova/views/AKAcceptFareChange/domain/usecase/AKAcceptFareChange_usecase.dart';
+import 'package:wander_nova/views/AKTravelCheckList/data/data_source/AKTravelCheckList_api_service.dart';
+import 'package:wander_nova/views/AKTravelCheckList/data/repository/AKTravelCheckList_repository_impl.dart';
+import 'package:wander_nova/views/AKTravelCheckList/domain/repository/AKTravelCheckList_repository.dart';
+import 'package:wander_nova/views/AKTravelCheckList/domain/usecase/AKTravelCheckList_usecase.dart';
+import 'package:wander_nova/views/AKTravelCheckList/presentation/bloc/AKTravelCheckList_bloc.dart';
+import 'package:wander_nova/views/AKCreateItinerary/data/data_source/AKCreateItinerary_api_service.dart';
+import 'package:wander_nova/views/AKCreateItinerary/data/repository/AKCreateItinerary_repository_impl.dart';
+import 'package:wander_nova/views/AKCreateItinerary/domain/repository/AKCreateItinerary_repository.dart';
+import 'package:wander_nova/views/AKCreateItinerary/domain/usecase/AKCreateItinerary_usecase.dart';
+import 'package:wander_nova/views/AKCreateItinerary/presentation/bloc/AKCreateItinerary_bloc.dart';
+import 'package:wander_nova/views/AKStartPay/data/data_source/AKStartPay_api_service.dart';
+import 'package:wander_nova/views/AKStartPay/data/repository/AKStartPay_repository_impl.dart';
+import 'package:wander_nova/views/AKStartPay/domain/repository/AKStartPay_repository.dart';
+import 'package:wander_nova/views/AKStartPay/domain/usecase/AKStartPay_usecase.dart';
+import 'package:wander_nova/views/AKStartPay/presentation/bloc/AKStartPay_bloc.dart';
+import 'package:wander_nova/views/AKRetrieveBooking/data/data_source/AKRetrieveBooking_api_service.dart';
+import 'package:wander_nova/views/AKRetrieveBooking/data/repository/AKRetrieveBooking_repository_impl.dart';
+import 'package:wander_nova/views/AKRetrieveBooking/domain/repository/AKRetrieveBooking_repository.dart';
+import 'package:wander_nova/views/AKRetrieveBooking/domain/usecase/AKRetrieveBooking_usecase.dart';
+import 'package:wander_nova/views/AKRetrieveBooking/presentation/bloc/AKRetrieveBooking_bloc.dart';
+import 'package:wander_nova/views/AKInsurance/data/data_source/AKInsurance_api_service.dart';
+import 'package:wander_nova/views/AKInsurance/data/repository/AKInsurance_repository_impl.dart';
+import 'package:wander_nova/views/AKInsurance/domain/repository/AKInsurance_repository.dart';
+import 'package:wander_nova/views/AKInsurance/domain/usecase/AKInsurance_usecase.dart';
+import 'package:wander_nova/views/AKInsurance/domain/usecase/resolve_trip_destination_usecase.dart';
+import 'package:wander_nova/views/AKInsurance/presentation/bloc/AKInsurance_bloc.dart';
+import 'package:wander_nova/views/AKHotelAutosuggest/data/data_source/AKHotelAutosuggest_api_service.dart';
+import 'package:wander_nova/views/AKHotelAutosuggest/data/repository/AKHotelAutosuggest_repository_impl.dart';
+import 'package:wander_nova/views/AKHotelAutosuggest/domain/repository/AKHotelAutosuggest_repository.dart';
+import 'package:wander_nova/views/AKHotelAutosuggest/domain/usecase/AKHotelAutosuggest_usecase.dart';
+import 'package:wander_nova/views/AKHotelAutosuggest/presentation/bloc/AKHotelAutosuggest_bloc.dart';
+import 'package:wander_nova/views/AKHotelSearchInit/data/data_source/AKHotelSearchInit_api_service.dart';
+import 'package:wander_nova/views/AKHotelSearchInit/data/repository/AKHotelSearchInit_repository_impl.dart';
+import 'package:wander_nova/views/AKHotelSearchInit/domain/repository/AKHotelSearchInit_repository.dart';
+import 'package:wander_nova/views/AKHotelSearchInit/domain/usecase/AKHotelSearchInit_usecase.dart';
+import 'package:wander_nova/views/AKHotelResultContent/data/data_source/AKHotelResultContent_api_service.dart';
+import 'package:wander_nova/views/AKHotelResultContent/data/repository/AKHotelResultContent_repository_impl.dart';
+import 'package:wander_nova/views/AKHotelResultContent/domain/repository/AKHotelResultContent_repository.dart';
+import 'package:wander_nova/views/AKHotelResultContent/domain/usecase/AKHotelResultContent_usecase.dart';
+import 'package:wander_nova/views/AKHotelResultRate/data/data_source/AKHotelResultRate_api_service.dart';
+import 'package:wander_nova/views/AKHotelResultRate/data/repository/AKHotelResultRate_repository_impl.dart';
+import 'package:wander_nova/views/AKHotelResultRate/domain/repository/AKHotelResultRate_repository.dart';
+import 'package:wander_nova/views/AKHotelResultRate/domain/usecase/AKHotelResultRate_usecase.dart';
+import 'package:wander_nova/views/AKHotelFilterData/data/data_source/AKHotelFilterData_api_service.dart';
+import 'package:wander_nova/views/AKHotelFilterData/data/repository/AKHotelFilterData_repository_impl.dart';
+import 'package:wander_nova/views/AKHotelFilterData/domain/repository/AKHotelFilterData_repository.dart';
+import 'package:wander_nova/views/AKHotelFilterData/domain/usecase/AKHotelFilterData_usecase.dart';
+import 'package:wander_nova/views/AKHotelRooms/data/data_source/AKHotelRooms_api_service.dart';
+import 'package:wander_nova/views/AKHotelRooms/data/repository/AKHotelRooms_repository_impl.dart';
+import 'package:wander_nova/views/AKHotelRooms/domain/repository/AKHotelRooms_repository.dart';
+import 'package:wander_nova/views/AKHotelRooms/domain/usecase/AKHotelRooms_usecase.dart';
+import 'package:wander_nova/views/AKHotelDetailContent/data/data_source/AKHotelDetailContent_api_service.dart';
+import 'package:wander_nova/views/AKHotelDetailContent/data/repository/AKHotelDetailContent_repository_impl.dart';
+import 'package:wander_nova/views/AKHotelDetailContent/domain/repository/AKHotelDetailContent_repository.dart';
+import 'package:wander_nova/views/AKHotelDetailContent/domain/usecase/AKHotelDetailContent_usecase.dart';
+import 'package:wander_nova/views/AKHotelPrice/data/data_source/AKHotelPrice_api_service.dart';
+import 'package:wander_nova/views/AKHotelPrice/data/repository/AKHotelPrice_repository_impl.dart';
+import 'package:wander_nova/views/AKHotelPrice/domain/repository/AKHotelPrice_repository.dart';
+import 'package:wander_nova/views/AKHotelPrice/domain/usecase/AKHotelPrice_usecase.dart';
+import 'package:wander_nova/views/AKHotelCreateItinerary/data/data_source/AKHotelCreateItinerary_api_service.dart';
+import 'package:wander_nova/views/AKHotelCreateItinerary/data/repository/AKHotelCreateItinerary_repository_impl.dart';
+import 'package:wander_nova/views/AKHotelCreateItinerary/domain/repository/AKHotelCreateItinerary_repository.dart';
+import 'package:wander_nova/views/AKHotelCreateItinerary/domain/usecase/AKHotelCreateItinerary_usecase.dart';
+import 'package:wander_nova/views/AKHotelStartPay/data/data_source/AKHotelStartPay_api_service.dart';
+import 'package:wander_nova/views/AKHotelStartPay/data/repository/AKHotelStartPay_repository_impl.dart';
+import 'package:wander_nova/views/AKHotelStartPay/domain/repository/AKHotelStartPay_repository.dart';
+import 'package:wander_nova/views/AKHotelStartPay/domain/usecase/AKHotelStartPay_usecase.dart';
+import 'package:wander_nova/views/AKHotelRetrieveBooking/data/data_source/AKHotelRetrieveBooking_api_service.dart';
+import 'package:wander_nova/views/AKHotelRetrieveBooking/data/repository/AKHotelRetrieveBooking_repository_impl.dart';
+import 'package:wander_nova/views/AKHotelRetrieveBooking/domain/repository/AKHotelRetrieveBooking_repository.dart';
+import 'package:wander_nova/views/AKHotelRetrieveBooking/domain/usecase/AKHotelRetrieveBooking_usecase.dart';
+import 'package:wander_nova/views/AKSsr/data/data_source/AKSsr_api_service.dart';
+import 'package:wander_nova/views/AKSsr/data/repository/AKSsr_repository_impl.dart';
+import 'package:wander_nova/views/AKSsr/domain/repository/AKSsr_repository.dart';
+import 'package:wander_nova/views/AKSsr/domain/usecase/AKSsr_usecase.dart';
+import 'package:wander_nova/views/AKSsr/presentation/bloc/AKSsr_bloc.dart';
+import 'package:wander_nova/views/AKSelectSsr/data/data_source/AKSelectSsr_api_service.dart';
+import 'package:wander_nova/views/AKSelectSsr/data/repository/AKSelectSsr_repository_impl.dart';
+import 'package:wander_nova/views/AKSelectSsr/domain/repository/AKSelectSsr_repository.dart';
+import 'package:wander_nova/views/AKSelectSsr/domain/usecase/AKSelectSsr_usecase.dart';
+import 'package:wander_nova/views/AKSeatLayout/data/data_source/AKSeatLayout_api_service.dart';
+import 'package:wander_nova/views/AKSeatLayout/data/repository/AKSeatLayout_repository_impl.dart';
+import 'package:wander_nova/views/AKSeatLayout/domain/repository/AKSeatLayout_repository.dart';
+import 'package:wander_nova/views/AKSeatLayout/domain/usecase/AKSeatLayout_usecase.dart';
+import 'package:wander_nova/views/AKSeatLayout/presentation/bloc/AKSeatLayout_bloc.dart';
+import 'package:wander_nova/views/AKSelectSeats/data/data_source/AKSelectSeats_api_service.dart';
+import 'package:wander_nova/views/AKSelectSeats/data/repository/AKSelectSeats_repository_impl.dart';
+import 'package:wander_nova/views/AKSelectSeats/domain/repository/AKSelectSeats_repository.dart';
+import 'package:wander_nova/views/AKSelectSeats/domain/usecase/AKSelectSeats_usecase.dart';
 import 'package:wander_nova/views/DeleteAccount/data/data_source/delete_account_api_service.dart';
 import 'package:wander_nova/views/DeleteAccount/data/repository/delete_account_repository_impl.dart';
 import 'package:wander_nova/views/DeleteAccount/domain/repository/delete_account_repository.dart';
@@ -337,8 +460,36 @@ Future<void> initializeDependencies() async {
   sl.registerFactory<VisaApplicationApiService>(() => VisaApplicationApiServiceImpl(sl<DioClient>().instance));
   sl.registerFactory<VApiService>(() => VApiServiceImpl(sl<DioClient>().instance),);
   sl.registerFactory<FlightBookApiService>(() => FlightBookApiServiceImpl(sl<DioClient>().instance),);
-  sl.registerLazySingleton<DocumentVisaApiService>(() => DocumentVisaApiServiceImpl(sl<DioClient>().instance));
+  sl.registerFactory<DocumentVisaApiService>(() => DocumentVisaApiServiceImpl(sl<DioClient>().instance));
   sl.registerFactory<TravellerApiService>(() => TravellerApiServiceImpl(sl<DioClient>().instance));
+  sl.registerFactory<AkFlightSearchApiService>(() => AkFlightSearchApiServiceImpl(sl<DioClient>().instance));
+  sl.registerFactory<AkflightsApiService>(() => AkflightsApiServiceImpl(sl<DioClient>().instance));
+  sl.registerFactory<AkFlightInfoApiService>(() => AkFlightInfoApiServiceImpl(sl<DioClient>().instance));
+  sl.registerFactory<AkGetSPricerApiService>(() => AkGetSPricerApiServiceImpl(sl<DioClient>().instance));
+  sl.registerFactory<AkSmartPricerApiService>(() => AkSmartPricerApiServiceImpl(sl<DioClient>().instance));
+  sl.registerFactory<AkFareRuleApiService>(() => AkFareRuleApiServiceImpl(sl<DioClient>().instance));
+  sl.registerFactory<AkAcceptFareChangeApiService>(() => AkAcceptFareChangeApiServiceImpl(sl<DioClient>().instance));
+  sl.registerFactory<AkTravelCheckListApiService>(() => AkTravelCheckListApiServiceImpl(sl<DioClient>().instance));
+  sl.registerFactory<AkCreateItineraryApiService>(() => AkCreateItineraryApiServiceImpl(sl<DioClient>().instance));
+  sl.registerFactory<AkStartPayApiService>(() => AkStartPayApiServiceImpl(sl<DioClient>().instance));
+  sl.registerFactory<AkRetrieveBookingApiService>(() => AkRetrieveBookingApiServiceImpl(sl<DioClient>().instance));
+  sl.registerFactory<AkSsrApiService>(() => AkSsrApiServiceImpl(sl<DioClient>().instance));
+  sl.registerFactory<AkSelectSsrApiService>(() => AkSelectSsrApiServiceImpl(sl<DioClient>().instance));
+  sl.registerFactory<AkSeatLayoutApiService>(() => AkSeatLayoutApiServiceImpl(sl<DioClient>().instance));
+  sl.registerFactory<AkSelectSeatsApiService>(() => AkSelectSeatsApiServiceImpl(sl<DioClient>().instance));
+  sl.registerFactory<AkHotelAutosuggestApiService>(() => AkHotelAutosuggestApiServiceImpl(sl<DioClient>().instance));
+  sl.registerFactory<AkHotelSearchInitApiService>(() => AkHotelSearchInitApiServiceImpl(sl<DioClient>().instance));
+  sl.registerFactory<AkHotelResultContentApiService>(() => AkHotelResultContentApiServiceImpl(sl<DioClient>().instance));
+  sl.registerFactory<AkHotelResultRateApiService>(() => AkHotelResultRateApiServiceImpl(sl<DioClient>().instance));
+  sl.registerFactory<AkHotelFilterDataApiService>(() => AkHotelFilterDataApiServiceImpl(sl<DioClient>().instance));
+  sl.registerFactory<AkHotelRoomsApiService>(() => AkHotelRoomsApiServiceImpl(sl<DioClient>().instance));
+  sl.registerFactory<AkHotelDetailContentApiService>(() => AkHotelDetailContentApiServiceImpl(sl<DioClient>().instance));
+  sl.registerFactory<AkHotelPriceApiService>(() => AkHotelPriceApiServiceImpl(sl<DioClient>().instance));
+  sl.registerFactory<AkHotelCreateItineraryApiService>(() => AkHotelCreateItineraryApiServiceImpl(sl<DioClient>().instance));
+  sl.registerFactory<AkHotelStartPayApiService>(() => AkHotelStartPayApiServiceImpl(sl<DioClient>().instance));
+  sl.registerFactory<AkHotelRetrieveBookingApiService>(() => AkHotelRetrieveBookingApiServiceImpl(sl<DioClient>().instance));
+  sl.registerFactory<AkInsuranceApiService>(() => AkInsuranceApiServiceImpl(sl<DioClient>().instance));
+
 
 
 
@@ -394,9 +545,35 @@ Future<void> initializeDependencies() async {
   sl.registerLazySingleton<VisaApplicationRepository>(() => VisaApplicationRepositoryImpl(sl()));
   sl.registerLazySingleton<VRepository>(() => VRepositoryImpl(sl<VApiService>()),);
   sl.registerLazySingleton<FlightBookRepository>(
-        () => FlightBookRepositoryImpl(sl<FlightBookApiService>()),
-  );
+        () => FlightBookRepositoryImpl(sl<FlightBookApiService>()));
   sl.registerLazySingleton<DocumentRepository>(() => DocumentRepositoryImpl(sl<DocumentVisaApiService>()));
+  sl.registerLazySingleton<AkFlightSearchRepository>(() => AkFlightSearchRepositoryImpl(sl<AkFlightSearchApiService>()));
+  sl.registerLazySingleton<AkflightsRepository>(() => AkflightsRepositoryImpl(sl()),);
+  sl.registerLazySingleton<AkFlightInfoRepository>(() => AkFlightInfoRepositoryImpl(sl<AkFlightInfoApiService>()));
+  sl.registerLazySingleton<AkGetSPricerRepository>(() => AkGetSPricerRepositoryImpl(sl<AkGetSPricerApiService>()));
+  sl.registerLazySingleton<AkSmartPricerRepository>(() => AkSmartPricerRepositoryImpl(sl<AkSmartPricerApiService>()));
+  sl.registerLazySingleton<AkFareRuleRepository>(() => AkFareRuleRepositoryImpl(sl<AkFareRuleApiService>()));
+  sl.registerLazySingleton<AkAcceptFareChangeRepository>(() => AkAcceptFareChangeRepositoryImpl(sl<AkAcceptFareChangeApiService>()));
+  sl.registerLazySingleton<AkTravelCheckListRepository>(() => AkTravelCheckListRepositoryImpl(sl<AkTravelCheckListApiService>()));
+  sl.registerLazySingleton<AkCreateItineraryRepository>(() => AkCreateItineraryRepositoryImpl(sl<AkCreateItineraryApiService>()));
+  sl.registerLazySingleton<AkStartPayRepository>(() => AkStartPayRepositoryImpl(sl<AkStartPayApiService>()));
+  sl.registerLazySingleton<AkRetrieveBookingRepository>(() => AkRetrieveBookingRepositoryImpl(sl<AkRetrieveBookingApiService>()));
+  sl.registerLazySingleton<AkSsrRepository>(() => AkSsrRepositoryImpl(sl<AkSsrApiService>()));
+  sl.registerLazySingleton<AkSelectSsrRepository>(() => AkSelectSsrRepositoryImpl(sl<AkSelectSsrApiService>()));
+  sl.registerLazySingleton<AkSeatLayoutRepository>(() => AkSeatLayoutRepositoryImpl(sl<AkSeatLayoutApiService>()));
+  sl.registerLazySingleton<AkSelectSeatsRepository>(() => AkSelectSeatsRepositoryImpl(sl<AkSelectSeatsApiService>()));
+  sl.registerLazySingleton<AkHotelAutosuggestRepository>(() => AkHotelAutosuggestRepositoryImpl(sl<AkHotelAutosuggestApiService>()));
+  sl.registerLazySingleton<AkHotelSearchInitRepository>(() => AkHotelSearchInitRepositoryImpl(sl<AkHotelSearchInitApiService>()));
+  sl.registerLazySingleton<AkHotelResultContentRepository>(() => AkHotelResultContentRepositoryImpl(sl<AkHotelResultContentApiService>()));
+  sl.registerLazySingleton<AkHotelResultRateRepository>(() => AkHotelResultRateRepositoryImpl(sl<AkHotelResultRateApiService>()));
+  sl.registerLazySingleton<AkHotelFilterDataRepository>(() => AkHotelFilterDataRepositoryImpl(sl<AkHotelFilterDataApiService>()));
+  sl.registerLazySingleton<AkHotelRoomsRepository>(() => AkHotelRoomsRepositoryImpl(sl<AkHotelRoomsApiService>()));
+  sl.registerLazySingleton<AkHotelDetailContentRepository>(() => AkHotelDetailContentRepositoryImpl(sl<AkHotelDetailContentApiService>()));
+  sl.registerLazySingleton<AkHotelPriceRepository>(() => AkHotelPriceRepositoryImpl(sl<AkHotelPriceApiService>()));
+  sl.registerLazySingleton<AkHotelCreateItineraryRepository>(() => AkHotelCreateItineraryRepositoryImpl(sl<AkHotelCreateItineraryApiService>()));
+  sl.registerLazySingleton<AkHotelStartPayRepository>(() => AkHotelStartPayRepositoryImpl(sl<AkHotelStartPayApiService>()));
+  sl.registerLazySingleton<AkHotelRetrieveBookingRepository>(() => AkHotelRetrieveBookingRepositoryImpl(sl<AkHotelRetrieveBookingApiService>()));
+  sl.registerLazySingleton<AkInsuranceRepository>(() => AkInsuranceRepositoryImpl(sl<AkInsuranceApiService>()));
 
 
 
@@ -466,6 +643,44 @@ Future<void> initializeDependencies() async {
   sl.registerLazySingleton(() => GetDocumentVisaUseCase(sl()));
   sl.registerLazySingleton(() => SubmitDocumentPaymentUseCase(sl()));
   sl.registerLazySingleton(() => UploadDocumentsUseCase(sl()));
+  sl.registerLazySingleton<AkFlightSearchUseCase>(() => AkFlightSearchUseCase(sl<AkFlightSearchRepository>()));
+  sl.registerLazySingleton<GetAkflightsUseCase>(() => GetAkflightsUseCase(sl()));
+  sl.registerLazySingleton<AkFlightInfoUseCase>(() => AkFlightInfoUseCase(sl<AkFlightInfoRepository>()));
+  sl.registerLazySingleton<AkGetSPricerUseCase>(() => AkGetSPricerUseCase(sl<AkGetSPricerRepository>()));
+  sl.registerLazySingleton<AkSmartPricerUseCase>(() => AkSmartPricerUseCase(sl<AkSmartPricerRepository>()));
+  sl.registerLazySingleton<AkFareRuleUseCase>(() => AkFareRuleUseCase(sl<AkFareRuleRepository>()));
+  sl.registerLazySingleton<AkAcceptFareChangeUseCase>(() => AkAcceptFareChangeUseCase(sl<AkAcceptFareChangeRepository>()));
+  sl.registerLazySingleton<AkTravelCheckListUseCase>(() => AkTravelCheckListUseCase(sl<AkTravelCheckListRepository>()));
+  sl.registerLazySingleton<AkCreateItineraryUseCase>(() => AkCreateItineraryUseCase(sl<AkCreateItineraryRepository>()));
+  sl.registerLazySingleton<AkStartPayUseCase>(() => AkStartPayUseCase(sl<AkStartPayRepository>()));
+  sl.registerLazySingleton<AkRetrieveBookingUseCase>(() => AkRetrieveBookingUseCase(sl<AkRetrieveBookingRepository>()));
+  sl.registerLazySingleton<AkSsrUseCase>(() => AkSsrUseCase(sl<AkSsrRepository>()));
+  sl.registerLazySingleton<AkSelectSsrUseCase>(() => AkSelectSsrUseCase(sl<AkSelectSsrRepository>()));
+  sl.registerLazySingleton<AkSeatLayoutUseCase>(() => AkSeatLayoutUseCase(sl<AkSeatLayoutRepository>()));
+  sl.registerLazySingleton<AkSelectSeatsUseCase>(() => AkSelectSeatsUseCase(sl<AkSelectSeatsRepository>()));
+  sl.registerLazySingleton<AkHotelAutosuggestUseCase>(() => AkHotelAutosuggestUseCase(sl<AkHotelAutosuggestRepository>()));
+  sl.registerLazySingleton<AkHotelSearchInitUseCase>(() => AkHotelSearchInitUseCase(sl<AkHotelSearchInitRepository>()));
+  sl.registerLazySingleton<AkHotelResultContentUseCase>(() => AkHotelResultContentUseCase(sl<AkHotelResultContentRepository>()));
+  sl.registerLazySingleton<AkHotelResultRateUseCase>(() => AkHotelResultRateUseCase(sl<AkHotelResultRateRepository>()));
+  sl.registerLazySingleton<AkHotelFilterDataUseCase>(() => AkHotelFilterDataUseCase(sl<AkHotelFilterDataRepository>()));
+  sl.registerLazySingleton<AkHotelRoomsUseCase>(() => AkHotelRoomsUseCase(sl<AkHotelRoomsRepository>()));
+  sl.registerLazySingleton<AkHotelDetailContentUseCase>(() => AkHotelDetailContentUseCase(sl<AkHotelDetailContentRepository>()));
+  sl.registerLazySingleton<AkHotelPriceUseCase>(() => AkHotelPriceUseCase(sl<AkHotelPriceRepository>()));
+  sl.registerLazySingleton<AkHotelCreateItineraryUseCase>(() => AkHotelCreateItineraryUseCase(sl<AkHotelCreateItineraryRepository>()));
+  sl.registerLazySingleton<AkHotelStartPayUseCase>(() => AkHotelStartPayUseCase(sl<AkHotelStartPayRepository>()));
+  sl.registerLazySingleton<AkHotelRetrieveBookingUseCase>(() => AkHotelRetrieveBookingUseCase(sl<AkHotelRetrieveBookingRepository>()));
+  sl.registerLazySingleton<AkInsuranceSignatureUseCase>(() => AkInsuranceSignatureUseCase(sl<AkInsuranceRepository>()));
+  sl.registerLazySingleton<AkInsuranceProviderChecklistUseCase>(() => AkInsuranceProviderChecklistUseCase(sl<AkInsuranceRepository>()));
+  sl.registerLazySingleton<AkInsuranceQuotesUseCase>(() => AkInsuranceQuotesUseCase(sl<AkInsuranceRepository>()));
+  sl.registerLazySingleton<AkInsurancePlanDetailsUseCase>(() => AkInsurancePlanDetailsUseCase(sl<AkInsuranceRepository>()));
+  sl.registerLazySingleton<AkInsuranceValidateKycUseCase>(() => AkInsuranceValidateKycUseCase(sl<AkInsuranceRepository>()));
+  sl.registerLazySingleton<AkInsuranceStartPayUseCase>(() => AkInsuranceStartPayUseCase(sl<AkInsuranceRepository>()));
+  sl.registerLazySingleton<AkInsuranceGetItineraryUseCase>(() => AkInsuranceGetItineraryUseCase(sl<AkInsuranceRepository>()));
+  sl.registerLazySingleton<ResolveTripDestinationUseCase>(() => ResolveTripDestinationUseCase(
+    getAirportsUsecase: sl<GetAirportsUsecase>(),
+  ));
+
+
 
 
 
@@ -539,6 +754,27 @@ Future<void> initializeDependencies() async {
     submitDocumentPaymentUseCase: sl(),
     uploadDocumentsUseCase: sl()
   ));
+  sl.registerFactory<AkFlightSearchBloc>(() => AkFlightSearchBloc(sl<AkFlightSearchUseCase>()));
+  sl.registerFactory<AkflightsBloc>(() => AkflightsBloc(getAkflightsUseCase: sl()));
+  sl.registerFactory<AkFlightInfoBloc>(() => AkFlightInfoBloc(sl<AkFlightInfoUseCase>()));
+  sl.registerFactory<AkGetSPricerBloc>(() => AkGetSPricerBloc(sl<AkGetSPricerUseCase>()));
+  sl.registerFactory<AkSmartPricerBloc>(() => AkSmartPricerBloc(sl<AkSmartPricerUseCase>()));
+  sl.registerFactory<AkFareRuleBloc>(() => AkFareRuleBloc(sl<AkFareRuleUseCase>()));
+  sl.registerFactory<AkTravelCheckListBloc>(() => AkTravelCheckListBloc(sl<AkTravelCheckListUseCase>()));
+  sl.registerFactory<AkCreateItineraryBloc>(() => AkCreateItineraryBloc(sl<AkCreateItineraryUseCase>()));
+  sl.registerFactory<AkStartPayBloc>(() => AkStartPayBloc(sl<AkStartPayUseCase>()));
+  sl.registerFactory<AkRetrieveBookingBloc>(() => AkRetrieveBookingBloc(sl<AkRetrieveBookingUseCase>()));
+  sl.registerFactory<AkSsrBloc>(() => AkSsrBloc(sl<AkSsrUseCase>()));
+  sl.registerFactory<AkSeatLayoutBloc>(() => AkSeatLayoutBloc(sl<AkSeatLayoutUseCase>()));
+  sl.registerFactory<AkHotelAutosuggestBloc>(() => AkHotelAutosuggestBloc(sl<AkHotelAutosuggestUseCase>()));
+  sl.registerFactory<AkInsuranceBloc>(() => AkInsuranceBloc(
+    signatureUseCase: sl<AkInsuranceSignatureUseCase>(),
+    providerChecklistUseCase: sl<AkInsuranceProviderChecklistUseCase>(),
+    quotesUseCase: sl<AkInsuranceQuotesUseCase>(),
+    planDetailsUseCase: sl<AkInsurancePlanDetailsUseCase>(),
+    validateKycUseCase: sl<AkInsuranceValidateKycUseCase>(),
+  ));
+
 
 
 }

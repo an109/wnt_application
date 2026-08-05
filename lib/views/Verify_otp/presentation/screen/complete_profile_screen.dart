@@ -37,10 +37,12 @@ class _CompleteProfilePopupState extends State<CompleteProfilePopup> {
   final _confirmPasswordController = TextEditingController();
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
+  late final SignupBloc _signupBloc;
 
   @override
   void initState() {
     super.initState();
+    _signupBloc = sl<SignupBloc>();
     // Pre-fill contact field based on type
     if (widget.contactType == ContactType.phone) {
       // Phone is already handled via phone/phoneCode fields in API
@@ -48,9 +50,19 @@ class _CompleteProfilePopupState extends State<CompleteProfilePopup> {
   }
 
   @override
+  void dispose() {
+    _firstNameController.dispose();
+    _lastNameController.dispose();
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
+    _signupBloc.close();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (context) => sl<SignupBloc>(),
+    return BlocProvider.value(
+      value: _signupBloc,
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: Stack(
@@ -385,30 +397,36 @@ class _CompleteProfilePopupState extends State<CompleteProfilePopup> {
   // }
   void _handleSignupSuccess(SignupEntity entity) async {
     try {
-      // 1. Save tokens and user data
+      // 1. Save tokens and user data, and mark the user as logged in
+      // (same fields/shape as the regular login flow) so the rest of the
+      // app treats this as an authenticated session immediately.
       final prefs = sl<PreferencesManager>();
       await prefs.saveToken(entity.tokens.access);
       await prefs.saveRefreshToken(entity.tokens.refresh);
+
+      final userData = {
+        'id': entity.user.id,
+        'firstname': entity.user.firstname,
+        'lastname': entity.user.lastname,
+        'email': entity.user.email,
+        'phone_code': entity.user.phoneCode,
+        'phone_number': entity.user.phoneNumber,
+        'platform': entity.user.platform,
+      };
+      await prefs.saveUserData(userData); // also flips isLoggedIn() to true
+      await prefs.saveIsSocialLogin(false);
+      await prefs.saveUserPassword(_passwordController.text);
+
       await prefs.saveUserId(entity.user.id);
       await prefs.saveUserEmail(entity.user.email ?? '');
       await prefs.saveUserName('${entity.user.firstname} ${entity.user.lastname}');
 
-      // 2. Show success message (check mounted first)
+      // 2. Show success popup with the message from the response
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(entity.message),
-            backgroundColor: Colors.green,
-            behavior: SnackBarBehavior.floating,
-            duration: const Duration(seconds: 2),
-          ),
-        );
+        await _showSuccessPopup(entity.message);
       }
 
-      // 3. Small delay so user sees the message
-      await Future.delayed(const Duration(milliseconds: 500));
-
-      // 4. Navigate using ROOT navigator (main app navigator, not dialog overlay)
+      // 3. Navigate using ROOT navigator (main app navigator, not dialog overlay)
       if (mounted) {
         // Get the root navigator that controls the main app routes
         final rootNavigator = Navigator.of(context, rootNavigator: true);
@@ -437,6 +455,62 @@ class _CompleteProfilePopupState extends State<CompleteProfilePopup> {
         );
       }
     }
+  }
+
+  Future<void> _showSuccessPopup(String message) {
+    return showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        // Auto-dismiss the popup shortly after showing it so navigation continues.
+        Future.delayed(const Duration(milliseconds: 1200), () {
+          if (Navigator.of(dialogContext).canPop()) {
+            Navigator.of(dialogContext).pop();
+          }
+        });
+
+        return Dialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(dialogContext.borderRadiusLarge),
+          ),
+          child: Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: dialogContext.wp(6),
+              vertical: dialogContext.hp(3),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  height: dialogContext.hp(7),
+                  width: dialogContext.hp(7),
+                  decoration: BoxDecoration(
+                    color: Colors.green.shade50,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.check_circle,
+                    color: Colors.green,
+                    size: dialogContext.iconLarge,
+                  ),
+                ),
+                SizedBox(height: dialogContext.hp(2)),
+                Text(
+                  message,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: dialogContext.sp(14),
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black87,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   void _showError(String message) {
@@ -476,8 +550,8 @@ class _CompleteProfilePopupState extends State<CompleteProfilePopup> {
         }
       }
 
-      // Trigger signup via SignupBloc
-      context.read<SignupBloc>().add(
+      // Trigger signup via SignupBloc (same instance provided to the widget tree below)
+      _signupBloc.add(
         SignupSubmitted(
           firstname: _firstNameController.text.trim(),
           lastname: _lastNameController.text.trim(),
@@ -566,14 +640,5 @@ class _CompleteProfilePopupState extends State<CompleteProfilePopup> {
         },
       ),
     );
-  }
-
-  @override
-  void dispose() {
-    _firstNameController.dispose();
-    _lastNameController.dispose();
-    _passwordController.dispose();
-    _confirmPasswordController.dispose();
-    super.dispose();
   }
 }

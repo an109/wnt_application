@@ -1,4 +1,7 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 
@@ -7,8 +10,7 @@ class _TravellerControllers {
   final firstName = TextEditingController();
   final lastName = TextEditingController();
   final dob = TextEditingController();
-  final gender = TextEditingController();
-  final nationality = TextEditingController();
+  final nationality = TextEditingController(text: 'Indian');
   final passport = TextEditingController();
   final passportExpiry = TextEditingController();
 
@@ -17,12 +19,47 @@ class _TravellerControllers {
     firstName.dispose();
     lastName.dispose();
     dob.dispose();
-    gender.dispose();
     nationality.dispose();
     passport.dispose();
     passportExpiry.dispose();
   }
 }
+
+/// Gender isn't collected as its own field — it's inferred from the salutation,
+/// same as most airlines' own booking forms do.
+String _inferredGender(String title) {
+  switch (title.trim()) {
+    case 'Mrs':
+    case 'Ms':
+    case 'Miss':
+      return 'Female';
+    default:
+      return 'Male';
+  }
+}
+
+/// Demonym for the handful of nationalities most likely to show up for this
+/// app's userbase — anything else falls back to the raw country name from
+/// the geolocation lookup, which is still a reasonable prefill.
+const Map<String, String> _nationalityByCountry = {
+  'India': 'Indian',
+  'United States': 'American',
+  'United Kingdom': 'British',
+  'Canada': 'Canadian',
+  'Australia': 'Australian',
+  'United Arab Emirates': 'Emirati',
+  'Singapore': 'Singaporean',
+  'Germany': 'German',
+  'France': 'French',
+  'China': 'Chinese',
+  'Japan': 'Japanese',
+  'Saudi Arabia': 'Saudi Arabian',
+  'Qatar': 'Qatari',
+  'Nepal': 'Nepali',
+  'Sri Lanka': 'Sri Lankan',
+  'Bangladesh': 'Bangladeshi',
+  'Pakistan': 'Pakistani',
+};
 
 class TravellerInformationSection extends StatefulWidget {
   final bool isInternational;
@@ -58,7 +95,7 @@ class TravellerFormState extends State<TravellerInformationSection> {
   late List<bool> _expanded;
 
   // ---- MMT-inspired color palette ----
-  static const _primary = Color(0xFF1B7BF2);      // MMT blue
+  static const _primary = Color(0xFF1B7BF2);      // blue
   static const _textDark = Color(0xFF1A2B4C);      // Dark navy for text
   static const _textGrey = Color(0xFF5A6879);      // Secondary text
   static const _surface = Color(0xFFFFFFFF);
@@ -104,11 +141,43 @@ class TravellerFormState extends State<TravellerInformationSection> {
   void initState() {
     super.initState();
     _initTravellers();
+    _detectNationality();
   }
 
   void _initTravellers() {
     _travellers = List.generate(_count, (_) => _TravellerControllers());
     _expanded = List.generate(_count, (i) => i == 0);
+  }
+
+  /// Prefills Nationality from the device's public IP location, so most
+  /// users don't have to type it. Defaults to 'Indian' (set synchronously in
+  /// [_TravellerControllers]) until this resolves, and silently keeps that
+  /// default on any failure — this is a convenience prefill, not a
+  /// requirement, and the field stays fully editable either way.
+  Future<void> _detectNationality() async {
+    String? nationality;
+    try {
+      final response = await http
+          .get(Uri.parse('https://ipapi.co/json/'))
+          .timeout(const Duration(seconds: 4));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final country = (data['country_name'] as String?)?.trim();
+        if (country != null && country.isNotEmpty) {
+          nationality = _nationalityByCountry[country] ?? country;
+        }
+      }
+    } catch (_) {
+      // Ignore — keep the 'Indian' default.
+    }
+    if (!mounted || nationality == null) return;
+    setState(() {
+      for (final t in _travellers) {
+        // Only overwrite if still the untouched default — never clobber
+        // something the user already typed while this call was in flight.
+        if (t.nationality.text == 'Indian') t.nationality.text = nationality!;
+      }
+    });
   }
 
   @override
@@ -152,7 +221,7 @@ class TravellerFormState extends State<TravellerInformationSection> {
       'dateOfBirth': t.dob.text.trim(),
       'mobileNumber': _phoneController.text.trim(),
       'email': _emailController.text.trim(),
-      'gender': t.gender.text.trim(),
+      'gender': _inferredGender(t.title.text),
       'nationality': t.nationality.text.trim(),
       'isInternational': widget.isInternational,
       // Always include passport keys so payment screen has them available.
@@ -361,19 +430,6 @@ class TravellerFormState extends State<TravellerInformationSection> {
                         validator: _required('Last name'),
                         forceUpperCase: true,
                       ),
-                      _buildDobField(traveller),
-                    ]),
-                    // SizedBox(height: context.h(16)),
-                    // _sectionLabel('DEMOGRAPHICS'),
-                    SizedBox(height: context.h(8)),
-                    _responsiveFields(context, [
-                      _buildDropdownField(
-                        controller: traveller.gender,
-                        label: 'Gender',
-                        icon: Icons.wc_outlined,
-                        items: const ['Male', 'Female', 'Other'],
-                        validator: _required('Gender'),
-                      ),
                       _buildTextField(
                         controller: traveller.nationality,
                         label: 'Nationality',
@@ -383,34 +439,27 @@ class TravellerFormState extends State<TravellerInformationSection> {
                         validator: _required('Nationality'),
                       ),
                     ]),
-                    // Passport section — shown for all flights.
-                    // Required for international; optional for domestic (some
-                    // airlines / GDS fares require it even on domestic routes).
-                    // SizedBox(height: context.h(16)),
-                    // _sectionLabel('TRAVEL DOCUMENT'),
-                    SizedBox(height: context.h(8)),
-                    _inlineNote(
-                      widget.isInternational
-                          ? 'Passport details are required for international flights.'
-                          : 'Passport details may be required by some airlines even for domestic flights. Fill in if you have one.',
-                    ),
                     SizedBox(height: context.h(12)),
-                    _responsiveFields(context, [
-                      _buildTextField(
-                        controller: traveller.passport,
-                        label: widget.isInternational
-                            ? 'Passport Number'
-                            : 'Passport Number (optional)',
-                        hintText: 'A1234567',
-                        icon: Icons.credit_card_outlined,
-                        textCapitalization: TextCapitalization.characters,
-                        // Validators: required for international, optional for domestic.
-                        validator: widget.isInternational
-                            ? _required('Passport number')
-                            : null,
-                      ),
-                      _buildPassportExpiryField(traveller),
-                    ]),
+                    // _responsiveFields(context, [_buildDobField(traveller)]),
+                    // Passport section — international flights only, and
+                    // optional even there (airlines/immigration verify the
+                    // physical document separately at check-in).
+                    if (widget.isInternational) ...[
+                      SizedBox(height: context.h(8)),
+                      _inlineNote('Passport details are optional here — add them if you have them handy.'),
+                      SizedBox(height: context.h(12)),
+                      _responsiveFields(context, [
+                        _buildTextField(
+                          controller: traveller.passport,
+                          label: 'Passport Number',
+                          hintText: 'A1234567',
+                          icon: Icons.credit_card_outlined,
+                          textCapitalization: TextCapitalization.characters,
+                          labelRequired: false,
+                        ),
+                        _buildPassportExpiryField(traveller),
+                      ]),
+                    ],
                   ],
                 ),
               ),
@@ -519,7 +568,7 @@ class TravellerFormState extends State<TravellerInformationSection> {
     );
   }
 
-  Widget _label(String label) {
+  Widget _label(String label, {bool required = true}) {
     return RichText(
       text: TextSpan(
         text: label,
@@ -529,15 +578,17 @@ class TravellerFormState extends State<TravellerInformationSection> {
           fontWeight: FontWeight.w600,
           letterSpacing: 0.2,
         ),
-        children: const [
-          TextSpan(
-            text: ' *',
-            style: TextStyle(
-              color: Color(0xFFFF4D4F),
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ],
+        children: required
+            ? const [
+                TextSpan(
+                  text: ' *',
+                  style: TextStyle(
+                    color: Color(0xFFFF4D4F),
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ]
+            : null,
       ),
     );
   }
@@ -553,11 +604,12 @@ class TravellerFormState extends State<TravellerInformationSection> {
     bool forceUpperCase = false,
     ValueChanged<String>? onChanged,
     String? errorText,
+    bool labelRequired = true,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _label(label),
+        _label(label, required: labelRequired),
         SizedBox(height: context.h(6)),
         TextFormField(
           controller: controller,
@@ -689,17 +741,11 @@ class TravellerFormState extends State<TravellerInformationSection> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _label(
-          widget.isInternational
-              ? 'Passport Expiry'
-              : 'Passport Expiry (optional)',
-        ),
+        _label('Passport Expiry', required: false),
         SizedBox(height: context.h(6)),
         TextFormField(
           controller: traveller.passportExpiry,
           readOnly: true,
-          // Required for international flights; optional for domestic.
-          validator: widget.isInternational ? _required('Passport expiry') : null,
           style: TextStyle(
             color: _textDark,
             fontSize: context.fs(14),

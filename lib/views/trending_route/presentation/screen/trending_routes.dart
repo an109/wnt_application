@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import '../../../../UI_helper/currency_converter.dart';
+import '../../../../core/error/data_state.dart';
 import '../../../../core/utils/storage/shared_preference.dart';
 import '../../../../injection_container.dart';
+import '../../../AKFlight_tui/domain/entity/akflight_search_entity.dart';
+import '../../../AKFlight_tui/domain/usecase/akflight_search_usecase.dart';
 import '../../../flight_search/presentation/screen/flight_search_screen.dart';
 import '../../domain/entities/trending_routes_entity.dart';
 import '../bloc/trending_routes_bloc.dart';
@@ -54,7 +57,7 @@ class _TrendingPackagesViewState extends State<TrendingPackagesView> {
   }
 
   // Navigate to FlightSearchScreen with route data
-  void _navigateToFlightSearch(BuildContext context, TrendingRouteEntity route) {
+  void _navigateToFlightSearch(BuildContext context, TrendingRouteEntity route) async {
     print('Navigating to FlightSearchScreen');
     print('From: ${route.from} (${route.fromCode})');
     print('To: ${route.to} (${route.toCode})');
@@ -64,28 +67,62 @@ class _TrendingPackagesViewState extends State<TrendingPackagesView> {
     // Parse date from API format "DD/MM/YYYY" to DateTime
     final parsedDate = DateTime.now();
 
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => FlightSearchScreen(
-          from: route.from,
-          to: route.to,
-          fromCode: route.fromCode,
-          toCode: route.toCode,
-          fromAirport: route.from,
-          toAirport: route.to,
-          date: parsedDate,
-          travellers: 1,
-          adults: 1,
-          children: 0,
-          infants: 0,
-          travelClass: 'Economy',
-          isRoundTrip: false,
-          returnDate: null,
+    // Kick off the Akbar ExpressSearch to get a search `tui` before opening
+    // FlightSearchScreen, which polls GetExpSearch using that tui.
+    final request = FlightSearchRequestEntity(
+      adults: 1,
+      children: 0,
+      infants: 0,
+      cabin: 'E',
+      fareType: 'ON',
+      trips: [
+        TripEntity(
+          from: route.fromCode,
+          to: route.toCode,
+          onwardDate: _formatDateForSearch(parsedDate),
         ),
-      ),
+      ],
     );
+
+    final result = await sl<AkFlightSearchUseCase>().call(request);
+
+    if (!context.mounted) return;
+
+    if (result is DataSuccess<AkFlightSearchEntity> && result.data != null) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => FlightSearchScreen(
+            from: route.from,
+            to: route.to,
+            fromCode: route.fromCode,
+            toCode: route.toCode,
+            fromAirport: route.from,
+            toAirport: route.to,
+            date: parsedDate,
+            travellers: 1,
+            adults: 1,
+            children: 0,
+            infants: 0,
+            travelClass: 'Economy',
+            isRoundTrip: false,
+            returnDate: null,
+            tui: result.data!.tui,
+          ),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result.error?.message ?? 'Failed to search flights'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
+
+  String _formatDateForSearch(DateTime date) =>
+      '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
 
   // Helper: Parse date string "DD/MM/YYYY" to DateTime
   DateTime? _parseDate(String dateString) {
@@ -213,7 +250,9 @@ class _TrendingPackagesViewState extends State<TrendingPackagesView> {
 
         SizedBox(
           height: context.isMobile ? context.hp(24) : (context.isTablet ? context.hp(28) : context.hp(32)),
-          child: BlocBuilder<TrendingRoutesBloc, TrendingRoutesState>(
+          child: ValueListenableBuilder<String>(
+            valueListenable: CurrencyConverter.currencyListenable,
+            builder: (context, _, __) => BlocBuilder<TrendingRoutesBloc, TrendingRoutesState>(
             builder: (context, state) {
               print('BLoC State: ${state.runtimeType}');
 
@@ -329,6 +368,7 @@ class _TrendingPackagesViewState extends State<TrendingPackagesView> {
               print('Showing initial/empty state');
               return const SizedBox.shrink();
             },
+            ),
           ),
         ),
       ],

@@ -10,9 +10,6 @@ import '../../core/constants/urls.dart';
 import '../../core/network/dio_client.dart';
 import '../../core/services/hotel_session_service.dart';
 import '../../core/utils/storage/shared_preference.dart';
-import '../flight_payment/data/ccavenue_service.dart';
-import '../flight_payment/presentation/screen/ccavenue_payment_page.dart';
-import 'gateway_selection.dart';
 
 class HotelPaymentScreen extends StatefulWidget {
   final String bookingCode;
@@ -62,12 +59,10 @@ class HotelPaymentScreen extends StatefulWidget {
 
 class _HotelPaymentScreenState extends State<HotelPaymentScreen> {
   late final Razorpay _razorpay;
-  final CCAvenueService _ccavenueService = CCAvenueService();
 
   bool _isCreatingOrder = false;
   bool _isBooking = false;
   String? _error;
-  PaymentGateway? _selectedGateway;
 
   @override
   void initState() {
@@ -167,108 +162,13 @@ class _HotelPaymentScreenState extends State<HotelPaymentScreen> {
   }
 
   // ============================================================
-  // ----- Modified: Show payment gateway selection first -----
-  // ============================================================
-  Future<void> _initiatePayment() async {
-    // Show payment gateway selection dialog
-    final gateway = await showDialog<PaymentGateway>(
-      context: context,
-      barrierDismissible: true,
-      builder: (_) => const PaymentGatewaySelectionDialog(),
-    );
-
-    if (gateway == null) {
-      // User cancelled
-      return;
-    }
-
-    setState(() {
-      _selectedGateway = gateway;
-      _error = null;
-    });
-
-    // Route to appropriate payment flow
-    switch (gateway) {
-      case PaymentGateway.ccavenue:
-        await _initiateCCAvenuePayment();
-        break;
-      case PaymentGateway.razorpay:
-        await _initiateRazorpayPayment();
-        break;
-    }
-  }
-
-  // ============================================================
-  // ----- CCAvenue hosted-checkout flow -----
-  // ============================================================
-  Future<void> _initiateCCAvenuePayment() async {
-    setState(() {
-      _isCreatingOrder = true;
-      _error = null;
-    });
-
-    try {
-      final orderId = '${DateTime.now().millisecondsSinceEpoch}';
-      // final orderId = 'WTXH${DateTime.now().millisecondsSinceEpoch}';
-      // final amount = double.parse(widget.totalFare.toStringAsFixed(2));
-      final inrAmount = _getInrAmount();
-      final amount = double.parse(inrAmount.toStringAsFixed(2));
-
-      final session = await _ccavenueService.createCheckout(
-        orderId: orderId,
-        amount: amount,
-        currency: 'INR',
-        transactionType: 'hotel',
-        firstName: widget.guestFirstName,
-        lastName: widget.guestLastName,
-        email: widget.email,
-        phone: widget.phone,
-        successUrl: Urls.ccavenueSuccessUrl,
-        failureUrl: Urls.ccavenueFailureUrl,
-      );
-
-      if (!mounted) return;
-      setState(() => _isCreatingOrder = false);
-
-      final result = await Navigator.of(context).push<PaymentResult>(
-        MaterialPageRoute(
-          builder: (_) => CCAvenuePaymentPage(
-            service: _ccavenueService,
-            session: session,
-          ),
-        ),
-      );
-
-      if (!mounted) return;
-      switch (result) {
-        case PaymentResult.success:
-          _callBookApi(session.orderId);
-          break;
-        case PaymentResult.failure:
-          setState(() => _error = 'Payment failed. Please try again.');
-          break;
-        case PaymentResult.cancelled:
-        case null:
-          setState(() => _error = 'Payment cancelled.');
-          break;
-      }
-    } on CCAvenueException catch (e) {
-      setState(() {
-        _isCreatingOrder = false;
-        _error = e.message;
-      });
-    } catch (e) {
-      setState(() {
-        _isCreatingOrder = false;
-        _error = 'Could not start payment. Please try again.';
-      });
-      print('CCAvenue checkout error: $e');
-    }
-  }
-
-  // ============================================================
   // ----- Razorpay flow -----
   // ============================================================
+  Future<void> _initiatePayment() async {
+    setState(() => _error = null);
+    await _initiateRazorpayPayment();
+  }
+
   Future<void> _initiateRazorpayPayment() async {
     setState(() {
       _isCreatingOrder = true;
@@ -291,6 +191,7 @@ class _HotelPaymentScreenState extends State<HotelPaymentScreen> {
 
       final orderId = response.data['order_id'];
       final keyId = response.data['key_id'];
+      print("Razorpay Key: $keyId");
 
       final options = {
         'key': keyId,

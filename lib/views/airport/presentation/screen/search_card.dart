@@ -5,12 +5,31 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import 'package:wander_nova/common_widgets/compact_date_picker_dialog.dart';
 import 'package:wander_nova/core/resources/app_colours.dart';
+import '../../../../core/error/data_state.dart';
 import '../../../../core/utils/storage/shared_preference.dart';
+import '../../../../injection_container.dart';
 import '../../domain/entities/airport_entities.dart';
 import '../bloc/airport_bloc.dart';
 import '../bloc/airport_event.dart';
+import '../../../AKFlight_tui/domain/entity/akflight_search_entity.dart';
+import '../../../AKFlight_tui/domain/usecase/akflight_search_usecase.dart';
+import '../../../flight_search/domain/entities/fare_trip_type.dart';
 import '../../../flight_search/presentation/screen/flight_search_screen.dart';
 import '../widgets/airport_dropdown.dart';
+
+/// GDS country code for the home market — used to auto-derive Multi City's
+/// Domestic (DM) vs International (IM) fare type from the legs' airports,
+/// with no extra UI for the user to pick it themselves.
+const String _homeCountryCode = 'IN';
+
+/// One row of the Multi City leg editor. Plain mutable holder (not
+/// Equatable/immutable) since it only ever lives as local widget state,
+/// edited in place by the airport/date pickers.
+class _MultiCityLeg {
+  AirportEntity? from;
+  AirportEntity? to;
+  DateTime? date;
+}
 
 class SearchCard extends StatefulWidget {
   const SearchCard({super.key});
@@ -22,6 +41,15 @@ class SearchCard extends StatefulWidget {
 class _SearchCardState extends State<SearchCard> {
 
   bool isRoundTrip = false;
+  // RS (Return Special-Fare) vs RT (Normal Round-Trip) — only meaningful
+  // while isRoundTrip is true; same request/response shape as RT, only the
+  // wire fareType string differs.
+  bool isSpecialFare = false;
+
+  // Multi City (IM/DM) — a separate mode from the One Way/Round Trip pair
+  // above, since it swaps the whole FROM/TO/date section for a leg editor.
+  bool isMultiCityMode = false;
+  List<_MultiCityLeg> multiCityLegs = [];
 
   // Store selected airports
   AirportEntity? fromAirport;
@@ -35,6 +63,8 @@ class _SearchCardState extends State<SearchCard> {
 
 
   String travelClass = "Economy";
+
+  bool _isSearching = false;
 
   @override
   void initState() {
@@ -71,6 +101,7 @@ class _SearchCardState extends State<SearchCard> {
       'departureDate': departureDate?.toIso8601String(),
       'returnDate': returnDate?.toIso8601String(),
       'isRoundTrip': isRoundTrip,
+      'isSpecialFare': isSpecialFare,
       'adults': adults,
       'children': children,
       'infants': infants,
@@ -108,6 +139,7 @@ class _SearchCardState extends State<SearchCard> {
         if (savedToAirport != null) toAirport = savedToAirport;
 
         isRoundTrip = lastSearch['isRoundTrip'] ?? false;
+        isSpecialFare = lastSearch['isSpecialFare'] ?? false;
 
         // Restore dates, but never prefill a date in the past.
         final today = DateUtils.dateOnly(DateTime.now());
@@ -151,65 +183,168 @@ class _SearchCardState extends State<SearchCard> {
     );
   }
 
-  void _performSearch() async {
-    if (fromAirport == null || toAirport == null || departureDate == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Please fill in all required fields',
-            style: TextStyle(fontSize: context.bodyMedium),
-          ),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message, style: TextStyle(fontSize: context.bodyMedium)),
+        backgroundColor: Colors.red,
+      ),
+    );
+  }
+
+  /// Resolves which of the five fare types this search is for. RS is just
+  /// RT with the "Special Fare" checkbox on; IM/DM is auto-derived from
+  /// whether every Multi City leg stays inside the home country.
+  FareTripType _resolveFareType() {
+    if (isMultiCityMode) {
+      final allDomestic = multiCityLegs.every((leg) =>
+          (leg.from?.countryCode.toUpperCase() ?? '') == _homeCountryCode &&
+          (leg.to?.countryCode.toUpperCase() ?? '') == _homeCountryCode);
+      return allDomestic
+          ? FareTripType.domesticMulticity
+          : FareTripType.internationalMulticity;
+    }
+    if (isRoundTrip) {
+      return isSpecialFare ? FareTripType.specialReturn : FareTripType.roundTrip;
+    }
+    return FareTripType.oneWay;
+  }
+
+  List<TripEntity> _buildTrips() {
+    if (isMultiCityMode) {
+      return multiCityLegs
+          .map((leg) => TripEntity(
+                from: leg.from!.airportCode,
+                to: leg.to!.airportCode,
+                onwardDate: DateFormat('yyyy-MM-dd').format(leg.date!),
+              ))
+          .toList();
+    }
+    return [
+      TripEntity(
+        from: fromAirport!.airportCode,
+        to: toAirport!.airportCode,
+        onwardDate: DateFormat('yyyy-MM-dd').format(departureDate!),
+        returnDate: isRoundTrip && returnDate != null
+            ? DateFormat('yyyy-MM-dd').format(returnDate!)
+            : null,
+      ),
+    ];
+  }
+
+  /// True once every field this mode needs is filled in — the shared
+  /// gate before building the request, checked before `_performSearch`
+  /// does its own mode-specific validation (with user-facing messages).
+  bool _validateBeforeSearch() {
+    if (isMultiCityMode) {
+      for (var i = 0; i < multiCityLegs.length; i++) {
+        final leg = multiCityLegs[i];
+        if (leg.from == null || leg.to == null || leg.date == null) {
+          _showError('Please complete all details for Flight ${i + 1}');
+          return false;
+        }
+        if (leg.from!.airportCode == leg.to!.airportCode) {
+          _showError(
+              'Origin and destination cannot be the same airport for Flight ${i + 1}');
+          return false;
+        }
+      }
+      return true;
     }
 
-    if (isRoundTrip && returnDate == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Please select return date for round trip',
-            style: TextStyle(fontSize: context.bodyMedium),
-          ),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
+    if (fromAirport == null || toAirport == null || departureDate == null) {
+      _showError('Please fill in all required fields');
+      return false;
     }
+    if (isRoundTrip && returnDate == null) {
+      _showError('Please select return date for round trip');
+      return false;
+    }
+    return true;
+  }
+
+  void _performSearch() async {
+    if (!_validateBeforeSearch()) return;
+
+    setState(() => _isSearching = true);
 
     try {
       await _saveSearchToPreferences();
 
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => FlightSearchScreen(
-            from: fromAirport!.cityName,
-            to: toAirport!.cityName,
-            fromCode: fromAirport!.airportCode,
-            toCode: toAirport!.airportCode,
-            fromAirport: fromAirport!.airportName,
-            toAirport: toAirport!.airportName,
-            date: departureDate,
-            travellers: adults + children + infants,
-            adults: adults,
-            children: children,
-            infants: infants,
-            travelClass: travelClass,
-            isRoundTrip: isRoundTrip,
-            returnDate: returnDate,
-          ),
-        ),
+      final fareType = _resolveFareType();
+
+      // Step 1: kick off the Akbar ExpressSearch to get a search `tui`.
+      // GetExpSearch (polled inside FlightSearchScreen) uses this tui to
+      // fetch the actual flight results.
+      final tuiRequest = FlightSearchRequestEntity(
+        adults: adults,
+        children: children,
+        infants: infants,
+        cabin: _cabinCode(travelClass),
+        fareType: fareType.wireValue,
+        trips: _buildTrips(),
       );
+
+      final result = await sl<AkFlightSearchUseCase>().call(tuiRequest);
+
+      if (!mounted) return;
+
+      if (result is DataSuccess<AkFlightSearchEntity> && result.data != null) {
+        final firstLeg = isMultiCityMode ? multiCityLegs.first : null;
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => FlightSearchScreen(
+              tui: result.data!.tui,
+              from: isMultiCityMode ? firstLeg!.from!.cityName : fromAirport!.cityName,
+              to: isMultiCityMode ? firstLeg!.to!.cityName : toAirport!.cityName,
+              fromCode: isMultiCityMode ? firstLeg!.from!.airportCode : fromAirport!.airportCode,
+              toCode: isMultiCityMode ? firstLeg!.to!.airportCode : toAirport!.airportCode,
+              fromAirport: isMultiCityMode ? firstLeg!.from!.airportName : fromAirport!.airportName,
+              toAirport: isMultiCityMode ? firstLeg!.to!.airportName : toAirport!.airportName,
+              date: isMultiCityMode ? firstLeg!.date : departureDate,
+              travellers: adults + children + infants,
+              adults: adults,
+              children: children,
+              infants: infants,
+              travelClass: travelClass,
+              isRoundTrip: isRoundTrip && !isMultiCityMode,
+              returnDate: returnDate,
+              fareType: fareType.wireValue,
+              multiCityLegs: isMultiCityMode
+                  ? multiCityLegs
+                      .map((leg) => MultiCityLegSummary(
+                            from: leg.from!.cityName,
+                            to: leg.to!.cityName,
+                            fromCode: leg.from!.airportCode,
+                            toCode: leg.to!.airportCode,
+                            date: leg.date!,
+                          ))
+                      .toList()
+                  : null,
+            ),
+          ),
+        );
+      } else {
+        _showError(result.error?.message ?? 'Failed to search flights');
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Error: ${e.toString()}',
-            style: TextStyle(fontSize: context.bodyMedium),
-          ),
-        ),
-      );
+      if (!mounted) return;
+      _showError('Error: ${e.toString()}');
+    } finally {
+      if (mounted) setState(() => _isSearching = false);
+    }
+  }
+
+  String _cabinCode(String travelClass) {
+    switch (travelClass) {
+      case 'Premium Economy':
+        return 'PE';
+      case 'Business':
+        return 'B';
+      case 'First':
+        return 'F';
+      default:
+        return 'E';
     }
   }
 
@@ -256,9 +391,10 @@ class _SearchCardState extends State<SearchCard> {
                 Expanded(
                   child: _tripButton(
                     title: "One Way",
-                    selected: !isRoundTrip,
+                    selected: !isRoundTrip && !isMultiCityMode,
                     onTap: () => setState(() {
                       isRoundTrip = false;
+                      isMultiCityMode = false;
                       returnDate = null;
                     }),
                   ),
@@ -266,24 +402,39 @@ class _SearchCardState extends State<SearchCard> {
                 Expanded(
                   child: _tripButton(
                     title: "Round Trip",
-                    selected: isRoundTrip,
-                    onTap: () => setState(() => isRoundTrip = true),
+                    selected: isRoundTrip && !isMultiCityMode,
+                    onTap: () => setState(() {
+                      isRoundTrip = true;
+                      isMultiCityMode = false;
+                    }),
                   ),
                 ),
                 Expanded(
                   child: _tripButton(
                     title: "Multi City",
-                    selected: false,
-                    comingSoon: true,
-                    onTap: _onMultiCityTap,
+                    selected: isMultiCityMode,
+                    onTap: () => setState(() {
+                      isMultiCityMode = true;
+                      if (multiCityLegs.length < 2) {
+                        multiCityLegs = [_MultiCityLeg(), _MultiCityLeg()];
+                      }
+                    }),
                   ),
                 ),
               ],
             ),
           ),
 
+          if (isRoundTrip && !isMultiCityMode) ...[
+            SizedBox(height: context.h(8)),
+            _specialFareCheckbox(),
+          ],
+
           SizedBox(height: context.h(12)),
 
+          if (isMultiCityMode) ...[
+            _buildMultiCityLegs(),
+          ] else ...[
           /// FROM - TO connected box with Swap Button on the boundary (MMT)
           Stack(
             clipBehavior: Clip.none,
@@ -454,6 +605,7 @@ class _SearchCardState extends State<SearchCard> {
               ),
             ),
           ),
+          ],
 
           SizedBox(height: context.h(4)),
 
@@ -483,10 +635,19 @@ class _SearchCardState extends State<SearchCard> {
                   borderRadius: BorderRadius.circular(context.r(14)),
                 ),
               ),
-              onPressed: _performSearch,
-              icon: Icon(Icons.search, size: context.w(18)),
+              onPressed: _isSearching ? null : _performSearch,
+              icon: _isSearching
+                  ? SizedBox(
+                      width: context.w(16),
+                      height: context.w(16),
+                      child: const CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation(Colors.white),
+                      ),
+                    )
+                  : Icon(Icons.search, size: context.w(18)),
               label: Text(
-                "Search Flights",
+                _isSearching ? "Searching..." : "Search Flights",
                 style: TextStyle(
                   fontSize: context.fs(14),
                   fontWeight: FontWeight.w700,
@@ -500,19 +661,193 @@ class _SearchCardState extends State<SearchCard> {
     );
   }
 
-  void _onMultiCityTap() {
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'Multi City booking is coming soon!',
-          style: TextStyle(fontSize: context.bodyMedium),
+  Widget _specialFareCheckbox() {
+    return InkWell(
+      onTap: () => setState(() => isSpecialFare = !isSpecialFare),
+      borderRadius: BorderRadius.circular(context.r(6)),
+      child: Padding(
+        padding: EdgeInsets.symmetric(vertical: context.h(2)),
+        child: Row(
+          children: [
+            SizedBox(
+              width: context.w(20),
+              height: context.w(20),
+              child: Checkbox(
+                value: isSpecialFare,
+                activeColor: AppColors.blue,
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                onChanged: (val) => setState(() => isSpecialFare = val ?? false),
+              ),
+            ),
+            SizedBox(width: context.w(8)),
+            Text(
+              "Special Fare (student / senior citizen / armed forces)",
+              style: TextStyle(
+                fontSize: context.fs(12),
+                fontWeight: FontWeight.w600,
+                color: const Color(0xff4B5563),
+              ),
+            ),
+          ],
         ),
-        backgroundColor: AppColors.blue,
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 2),
       ),
     );
+  }
+
+  static const int _maxMultiCityLegs = 6;
+
+  Widget _buildMultiCityLegs() {
+    return Column(
+      children: [
+        for (var i = 0; i < multiCityLegs.length; i++)
+          Padding(
+            padding: EdgeInsets.only(bottom: context.h(8)),
+            child: _multiCityLegCard(i),
+          ),
+        if (multiCityLegs.length < _maxMultiCityLegs)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: () => setState(() => multiCityLegs.add(_MultiCityLeg())),
+              icon: Icon(Icons.add, size: context.w(16), color: AppColors.blue),
+              label: Text(
+                "Add Flight",
+                style: TextStyle(
+                  fontSize: context.fs(13),
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.blue,
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _multiCityLegCard(int index) {
+    final leg = multiCityLegs[index];
+    final minDate = index == 0
+        ? DateUtils.dateOnly(DateTime.now())
+        : (multiCityLegs[index - 1].date ?? DateUtils.dateOnly(DateTime.now()));
+
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: AppColors.fieldFill,
+        borderRadius: BorderRadius.circular(context.r(6)),
+        border: Border.all(color: AppColors.fieldBorder, width: 1),
+      ),
+      child: Column(
+        children: [
+          Padding(
+            padding: EdgeInsets.fromLTRB(context.w(12), context.h(6), context.w(6), 0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    "FLIGHT ${index + 1}",
+                    style: TextStyle(
+                      fontSize: context.fs(10),
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.muted,
+                      letterSpacing: context.letterSpacingNormal,
+                    ),
+                  ),
+                ),
+                if (multiCityLegs.length > 2)
+                  InkWell(
+                    borderRadius: BorderRadius.circular(context.r(12)),
+                    onTap: () => setState(() => multiCityLegs.removeAt(index)),
+                    child: Padding(
+                      padding: EdgeInsets.all(context.w(4)),
+                      child: Icon(Icons.close, size: context.w(16), color: AppColors.muted),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          AirportSearchDropdown(
+            title: "FROM",
+            hint: "Search airports",
+            initialSubtitle: "Select origin airport",
+            selectedAirport: leg.from,
+            onAirportSelected: (airport) => setState(() => leg.from = airport),
+          ),
+          Divider(
+            height: 1,
+            thickness: 1,
+            color: AppColors.fieldBorder,
+            indent: context.w(41),
+          ),
+          AirportSearchDropdown(
+            title: "TO",
+            hint: "Search airports",
+            initialSubtitle: "Select destination airport",
+            selectedAirport: leg.to,
+            onAirportSelected: (airport) => setState(() => leg.to = airport),
+          ),
+          Divider(height: 1, thickness: 1, color: AppColors.fieldBorder),
+          InkWell(
+            onTap: () => _pickMultiCityDate(index, minDate),
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: context.w(12), vertical: context.h(10)),
+              child: Row(
+                children: [
+                  Icon(Icons.calendar_today, size: context.w(14), color: AppColors.navy),
+                  SizedBox(width: context.w(8)),
+                  Text(
+                    leg.date != null
+                        ? DateFormat('dd MMM yyyy').format(leg.date!)
+                        : 'Select date',
+                    style: TextStyle(
+                      fontSize: context.fs(13),
+                      fontWeight: FontWeight.w700,
+                      color: leg.date != null
+                          ? AppColors.navy
+                          : const Color(0xff777777),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _pickMultiCityDate(int index, DateTime minDate) async {
+    final leg = multiCityLegs[index];
+    final initial = leg.date != null && !leg.date!.isBefore(minDate)
+        ? leg.date!
+        : minDate;
+
+    final picked = await showDialog<DateTime>(
+      context: context,
+      barrierDismissible: true,
+      builder: (dialogContext) => CompactDatePickerDialog(
+        initialDate: initial,
+        firstDate: minDate,
+        lastDate: DateTime(2030, 12, 31),
+      ),
+    );
+
+    if (picked != null) {
+      setState(() {
+        leg.date = picked;
+        // A later leg's date can't precede this one anymore — clear it so
+        // the user re-confirms it rather than silently booking it out of order.
+        for (var i = index + 1; i < multiCityLegs.length; i++) {
+          final laterLeg = multiCityLegs[i];
+          final previousDate = multiCityLegs[i - 1].date;
+          if (laterLeg.date != null &&
+              previousDate != null &&
+              laterLeg.date!.isBefore(previousDate)) {
+            laterLeg.date = null;
+          }
+        }
+      });
+    }
   }
 
   Widget _tripButton({

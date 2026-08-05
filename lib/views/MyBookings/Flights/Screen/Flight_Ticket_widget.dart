@@ -584,33 +584,33 @@ class FlightTicketWidget extends StatelessWidget {
               Expanded(
                 child: Row(
                   children: [
-                    Text(
-                      'Passport: ${passenger.passportNo}',
-                      style: TextStyle(
-                        fontSize: context.fs(10),
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
+                    // Text(
+                    //   'Passport: ${passenger.passportNo}',
+                    //   style: TextStyle(
+                    //     fontSize: context.fs(10),
+                    //     color: AppColors.textSecondary,
+                    //   ),
+                    // ),
                   ],
                 ),
               ),
-              Row(
-                children: [
-                  Icon(
-                    Icons.cake_outlined,
-                    size: context.w(12),
-                    color: AppColors.textLight,
-                  ),
-                  SizedBox(width: context.w(4)),
-                  Text(
-                    _formatDate(passenger.dateOfBirth),
-                    style: TextStyle(
-                      fontSize: context.fs(10),
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ],
-              ),
+              // Row(
+              //   children: [
+              //     Icon(
+              //       Icons.cake_outlined,
+              //       size: context.w(12),
+              //       color: AppColors.textLight,
+              //     ),
+              //     SizedBox(width: context.w(4)),
+              //     Text(
+              //       _formatDate(passenger.dateOfBirth),
+              //       style: TextStyle(
+              //         fontSize: context.fs(10),
+              //         color: AppColors.textSecondary,
+              //       ),
+              //     ),
+              //   ],
+              // ),
             ],
           ),
           if (passenger.ticketNumber.isNotEmpty) ...[

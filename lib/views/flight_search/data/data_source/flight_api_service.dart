@@ -13,7 +13,7 @@ class FlightApiService {
       FlightSearchRequestModel request) async {
     try {
       final response = await _dioClient.instance.post(
-        Urls.flightSearch,
+        Urls.tboflightSearch,
         data: request.toJson(),
       );
 

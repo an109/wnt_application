@@ -15,8 +15,6 @@ import '../../../../core/network/dio_client.dart';
 import '../../../../core/utils/storage/shared_preference.dart';
 import '../../../fare_quote/domain/entities/fare_quote_entity.dart';
 import '../../../fare_quote/domain/usecase/fare_quote_usecase.dart';
-import '../../data/ccavenue_service.dart';
-import 'ccavenue_payment_page.dart';
 import '../../../flight_booking/data/models/booking_request_model.dart';
 import '../../../flight_booking/presentation/bloc/booking_bloc.dart';
 import '../../../flight_booking/presentation/bloc/booking_event.dart';
@@ -57,7 +55,6 @@ class FlightPaymentScreen
 }
 
 class _FlightPaymentScreenState extends State<FlightPaymentScreen> {
-  final CCAvenueService _ccavenueService = CCAvenueService();
   late final Razorpay _razorpay;
   late final BookingBloc _bookingBloc;
   late final TicketBloc _ticketBloc;
@@ -76,7 +73,7 @@ class _FlightPaymentScreenState extends State<FlightPaymentScreen> {
   /// [_refreshFareQuoteBeforePayment]). The original FareQuote is fetched
   /// once, back on the traveller-details screen — by the time the user has
   /// filled the passenger form, picked SSR add-ons, chosen a payment method,
-  /// and completed the CCAvenue hosted checkout, that snapshot can be several
+  /// and completed the Razorpay checkout, that snapshot can be several
   /// minutes stale. TBO can then silently fail to ticket it (no PNR, no
   /// error object), which is what "No PNR received" at finalize means. When
   /// set, this takes priority over the original `fareQuoteData.rawItinerary`
@@ -428,125 +425,10 @@ class _FlightPaymentScreenState extends State<FlightPaymentScreen> {
     return CurrencyConverter.format(_displayAmount, preferredCurrency);
   }
 
-  // ============================================================
-  // ----- Razorpay flow (commented out) -----
-  // ============================================================
-  /*
-  Future<void> _initiatePayment() async {
-    setState(() {
-      _isCreatingOrder = true;
-      _error = null;
-    });
-
-    try {
-      final dio = di.sl<DioClient>().instance;
-      final response = await dio.post(
-        Urls.razorpayCreateOrder,
-        data: {
-          'amount': _displayAmount,
-          'currency': _displayCurrency,
-          'reference_id': 'flight_${widget.traceId}',
-        },
-      );
-
-      final orderId = response.data['order_id'];
-      final keyId = response.data['key_id'];
-
-      final options = {
-        'key': keyId,
-        'amount': (_displayAmount * 100).toInt(),
-        'currency': _displayCurrency,
-        'name': 'WanderNova',
-        'description':
-            'Flight Booking ${widget.route.from} → ${widget.route.to}',
-        'order_id': orderId,
-        'prefill': {
-          'name':
-              '${widget.passengerData['firstName'] ?? ''} ${widget.passengerData['lastName'] ?? ''}',
-          'email': widget.passengerData['email'] ?? '',
-          'contact':
-              widget.passengerData['mobileNumber'] ??
-              widget.passengerData['phone'] ??
-              '',
-        },
-        'theme': {'color': '#1769F6'},
-      };
-
-      setState(() {
-        _isCreatingOrder = false;
-      });
-      _razorpay.open(options);
-    } on DioException catch (e) {
-      setState(() {
-        _isCreatingOrder = false;
-        _error = 'Could not create payment order. Please try again.';
-      });
-      print('Razorpay order error: ${e.message}');
-    }
-  }
-
-  Future<void> _handlePaymentSuccess(PaymentSuccessResponse response) async {
-    print('Payment success: ${response.paymentId}');
-
-    // Verify the payment signature server-side before booking. Razorpay's
-    // client-side success callback can be spoofed; the backend re-computes the
-    // HMAC and only marks the transaction paid if it matches.
-    setState(() {
-      _isCreatingOrder = true;
-      _error = null;
-    });
-
-    try {
-      final dio = di.sl<DioClient>().instance;
-      final verifyResponse = await dio.post(
-        Urls.razorpayVerify,
-        data: {
-          'razorpay_order_id': response.orderId,
-          'razorpay_payment_id': response.paymentId,
-          'razorpay_signature': response.signature,
-          'reference_id': 'flight_${widget.traceId}',
-        },
-      );
-
-      if (!mounted) return;
-      setState(() => _isCreatingOrder = false);
-
-      if (verifyResponse.data['success'] == true) {
-        _startBookingFlow();
-      } else {
-        setState(() {
-          _error = 'Payment verification failed. Please contact support.';
-        });
-      }
-    } on DioException catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _isCreatingOrder = false;
-        _error = 'Could not verify payment. Please contact support.';
-      });
-      print('Razorpay verify error: ${e.message}');
-    }
-  }
-
-  void _handlePaymentError(PaymentFailureResponse response) {
-    setState(() {
-      _error = 'Payment failed: ${response.message}';
-    });
-  }
-
-  void _handleExternalWallet(ExternalWalletResponse response) {
-    print('External wallet: ${response.walletName}');
-  }
-  */
-
-  // ============================================================
-  // ----- CCAvenue hosted-checkout flow -----
-  // ============================================================
-
-  /// CCAvenue order_id must equal the TBO traceId so the backend's finalize
-  /// endpoint can match the CCAvenue transaction to the booking session.
+  /// Razorpay order_id must equal the TBO traceId so the backend's finalize
+  /// endpoint can match the Razorpay transaction to the booking session.
   /// Sanitise: alphanumeric + hyphens only, max 30 chars.
-  String _ccavenueOrderId() {
+  String _paymentOrderId() {
     final safe = widget.traceId.replaceAll(RegExp(r'[^a-zA-Z0-9\-]'), '');
     return safe.length > 40 ? safe.substring(0, 40) : safe;
   }
@@ -606,104 +488,10 @@ class _FlightPaymentScreenState extends State<FlightPaymentScreen> {
     }
   }
 
-  Future<void> _initiatePayment() async {
-    setState(() {
-      _isCreatingOrder = true;
-      _loadingMessage = 'Preparing your booking...';
-      _error = null;
-    });
-
-    try {
-      final prefs = di.sl<PreferencesManager>();
-
-      // 1. Re-confirm the fare is still live, then persist the Book/Ticket
-      //    payload server-side BEFORE opening CCAvenue. finalize_ticket will
-      //    read this after payment to issue the ticket without depending on
-      //    any client state.
-      final fareStillAvailable = await _refreshFareQuoteBeforePayment();
-      if (!mounted) return;
-      if (!fareStillAvailable) {
-        setState(() => _isCreatingOrder = false);
-        return;
-      }
-
-      await _callPrepareTicket(prefs);
-      if (!mounted) return;
-
-      final orderId = _ccavenueOrderId();
-      // CCAvenue requires an amount with at most 2 decimal places.
-      final amount = double.parse(_displayAmount.toStringAsFixed(2));
-
-      final session = await _ccavenueService.createCheckout(
-        orderId: orderId,
-        amount: amount,
-        currency: _displayCurrency,
-        transactionType: 'flight',
-        userId: prefs.getUserId(),
-        firstName: widget.passengerData['firstName'] ?? '',
-        lastName: widget.passengerData['lastName'] ?? '',
-        email: widget.passengerData['email'] ?? '',
-        phone:
-            widget.passengerData['mobileNumber'] ??
-            widget.passengerData['phone'] ??
-            '',
-        successUrl: Urls.ccavenueSuccessUrl,
-        failureUrl: Urls.ccavenueFailureUrl,
-      );
-
-      if (!mounted) return;
-      setState(() => _isCreatingOrder = false);
-
-      final result = await Navigator.of(context).push<PaymentResult>(
-        MaterialPageRoute(
-          builder: (_) => CCAvenuePaymentPage(
-            service: _ccavenueService,
-            session: session,
-          ),
-        ),
-      );
-
-      if (!mounted) return;
-      switch (result) {
-        // case PaymentResult.success:
-        //   // 2. Payment confirmed — ask the server to issue the ticket.
-        //   //    finalize verifies the CCAvenue transaction by order_id == traceId.
-        //   await _callFinalizeTicket();
-        //   break;
-        case PaymentResult.success:
-          if (_isLcc) {
-            await _callFinalizeTicket();
-          } else {
-            _startBookingFlow();
-          }
-          break;
-        case PaymentResult.failure:
-          setState(() => _error = 'Payment failed. Please try again.');
-          break;
-        case PaymentResult.cancelled:
-        case null:
-          setState(() => _error = 'Payment cancelled.');
-          break;
-      }
-    } on CCAvenueException catch (e) {
-      setState(() {
-        _isCreatingOrder = false;
-        _error = e.message;
-      });
-    } catch (e) {
-      setState(() {
-        _isCreatingOrder = false;
-        _error = 'Could not start payment. Please try again.';
-      });
-      print('CCAvenue checkout error: $e');
-    }
-  }
-
-
   /// POST /api/flights/prepare-ticket/
   /// Stores the full Book/Ticket payload on the server keyed by traceId so the
   /// server can issue the ticket after payment without any client-side state.
-  Future<void> _callPrepareTicket(PreferencesManager prefs, {String gateway = 'ccavenue'}) async {
+  Future<void> _callPrepareTicket(PreferencesManager prefs, {String gateway = 'razorpay'}) async {
     final dio = di.sl<DioClient>().instance;
 
     final Map<String, dynamic> payload;
@@ -741,7 +529,7 @@ class _FlightPaymentScreenState extends State<FlightPaymentScreen> {
         'to_city': flightDetails['to_city'] ?? '',
         'departure_date': flightDetails['departure_date'] ?? '',
         'flight_number': widget.route.flightNo,
-        'ccavenue_order_id': _ccavenueOrderId(),
+        'ccavenue_order_id': _paymentOrderId(),
         'name': passengerName,
       };
     } else {
@@ -769,7 +557,7 @@ class _FlightPaymentScreenState extends State<FlightPaymentScreen> {
         'to_city': flightDetails['to_city'] ?? '',
         'departure_date': flightDetails['departure_date'] ?? '',
         'flight_number': widget.route.flightNo,
-        'ccavenue_order_id': _ccavenueOrderId(),
+        'ccavenue_order_id': _paymentOrderId(),
         'name': passengerName,
       };
     }
@@ -804,7 +592,7 @@ class _FlightPaymentScreenState extends State<FlightPaymentScreen> {
       'phone': p['mobileNumber'] ?? p['phone'] ?? '',
       'name': name,
       'flight_number': widget.route.flightNo,
-      'ccavenue_order_id': _ccavenueOrderId(),
+      'ccavenue_order_id': _paymentOrderId(),
       'passengers_data': [
         {
           'first_name': p['firstName'] ?? '',
@@ -822,7 +610,7 @@ class _FlightPaymentScreenState extends State<FlightPaymentScreen> {
 
   /// POST /api/flights/finalize/
   /// Verifies the payment transaction and issues the TBO ticket server-side.
-  Future<void> _callFinalizeTicket({String gateway = 'ccavenue'}) async {
+  Future<void> _callFinalizeTicket({String gateway = 'razorpay'}) async {
     setState(() {
       _isCreatingOrder = true;
       _loadingMessage = 'Issuing your ticket...';
@@ -883,7 +671,7 @@ class _FlightPaymentScreenState extends State<FlightPaymentScreen> {
       final body = e.response?.data;
       final errCode =
           (body is Map<String, dynamic>) ? body['error'] as String? : null;
-      // 402 payment_not_confirmed: CCAvenue/Razorpay response was never
+      // 402 payment_not_confirmed: Razorpay response was never
       // received by the backend (e.g. Mixed Content block in dev). Payment was
       // NOT confirmed — do not tell the user their payment was received.
       if (e.response?.statusCode == 402 ||
@@ -1744,33 +1532,9 @@ class _FlightPaymentScreenState extends State<FlightPaymentScreen> {
         'icon': Icons.account_balance_wallet,
       },
       {
-        'id': 'card',
-        'name': 'Credit / Debit Card',
-        'subtitle': 'Visa, Mastercard, Rupay',
-        'icon': Icons.credit_card,
-      },
-      {
-        'id': 'netbanking',
-        'name': 'Net Banking',
-        'subtitle': '40+ Banks Available',
-        'icon': Icons.account_balance,
-      },
-      {
-        'id': 'wallets',
-        'name': 'Digital Wallets',
-        'subtitle': 'Paytm, PhonePe, Amazon Pay',
-        'icon': Icons.wallet,
-      },
-      {
-        'id': 'upi',
-        'name': 'UPI',
-        'subtitle': 'GPay, PhonePe, BHIM & more',
-        'icon': Icons.payment,
-      },
-      {
         'id': 'razorpay',
         'name': 'Razorpay',
-        'subtitle': 'Cards, UPI, Net Banking (INR)',
+        'subtitle': 'Cards, UPI, Net Banking, Wallets (INR)',
         'icon': Icons.payment,
       },
     ];
@@ -1869,7 +1633,7 @@ class _FlightPaymentScreenState extends State<FlightPaymentScreen> {
       final prefs = di.sl<PreferencesManager>();
 
       // Re-confirm the fare is still live, then persist payload server-side
-      // before opening Razorpay checkout — same staleness guard as CCAvenue.
+      // before opening Razorpay checkout.
       final fareStillAvailable = await _refreshFareQuoteBeforePayment();
       if (!mounted) return;
       if (!fareStillAvailable) {
@@ -1989,10 +1753,9 @@ class _FlightPaymentScreenState extends State<FlightPaymentScreen> {
 
   // ============================================================
 
-  /// Routes payment to the correct gateway based on [_selectedPaymentMethod]:
+  /// Routes payment to the correct flow based on [_selectedPaymentMethod]:
   ///   wallet    → wallet-balance check then direct booking
-  ///   razorpay  → Razorpay native checkout
-  ///   everything else → CCAvenue hosted checkout (card/UPI/netbanking/wallets)
+  ///   razorpay  → Razorpay native checkout (card/UPI/netbanking/wallets)
   Future<void> _processPayment() async {
     if (_sessionExpired) {
       setState(() => _error = 'Booking session expired. Please go back and search again.');
@@ -2006,11 +1769,7 @@ class _FlightPaymentScreenState extends State<FlightPaymentScreen> {
       await _payWithWallet();
       return;
     }
-    if (_selectedPaymentMethod == 'razorpay') {
-      await _initiateRazorpayPayment();
-      return;
-    }
-    await _initiatePayment(); // CCAvenue: card, netbanking, wallets, upi
+    await _initiateRazorpayPayment();
   }
 
   /// Pays from the wallet if its balance covers the total (uses

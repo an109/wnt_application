@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:intl/intl.dart';
 import 'package:lottie/lottie.dart';
 import 'package:wander_nova/UI_helper/currency_converter.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import 'package:wander_nova/views/flight_search/presentation/screen/traveller_info_card.dart';
 
+import '../../../../common_widgets/airline_logo.dart';
 import '../../../../common_widgets/custom_bottom_nav.dart';
 import '../../../../common_widgets/logo.dart';
 import '../../../../core/utils/storage/shared_preference.dart';
@@ -14,12 +16,20 @@ import '../../../MainApi/presentation/bloc/general_setting_bloc.dart';
 import '../../../MainApi/presentation/bloc/general_settings_event.dart';
 import '../../../MainApi/presentation/bloc/general_settings_state.dart';
 import '../../../fare_quote/domain/entities/fare_quote_entity.dart';
-import '../../../fare_quote/presentation/bloc/fare_quote_bloc.dart';
-import '../../../fare_quote/presentation/bloc/fare_quote_event.dart';
-import '../../../fare_quote/presentation/bloc/fare_quote_state.dart';
-import '../../../fare_rule/presentation/screen/fare_rules_popup.dart';
-import '../../../flight_ssr/presentation/screen/ssr/main_screen.dart';
 import '../../../login/presentation/screen/login.dart';
+import '../../../AKGetSPricer/domain/entity/AKGetSPricer_entity.dart';
+import '../../../AKFareRule/presentation/screen/ak_fare_rule_popup.dart';
+import '../../../AKTravelCheckList/domain/entity/AKTravelCheckList_entity.dart';
+import '../../../AKTravelCheckList/presentation/bloc/AKTravelCheckList_bloc.dart';
+import '../../../AKTravelCheckList/presentation/bloc/AKTravelCheckList_event.dart';
+import '../../../AKTravelCheckList/presentation/bloc/AKTravelCheckList_state.dart';
+import '../../../AKCreateItinerary/domain/entity/AKCreateItinerary_entity.dart';
+import '../../../AKCreateItinerary/presentation/bloc/AKCreateItinerary_bloc.dart';
+import '../../../AKCreateItinerary/presentation/bloc/AKCreateItinerary_event.dart';
+import '../../../AKCreateItinerary/presentation/bloc/AKCreateItinerary_state.dart';
+import '../../../flight_payment/presentation/screen/ak_payment_screen.dart';
+import '../../../AKInsurance/domain/entity/AKInsurance_entity.dart';
+import '../../../AKInsurance/presentation/widget/trip_secure_section.dart';
 
 class FlightRouteSegment {
   final String from;
@@ -42,6 +52,20 @@ class FlightRouteSegment {
   final String? departureDate;
   final String? flightType;
 
+  // Number of stops (0 = direct) and the IATA codes of the connecting
+  // airports in between, derived from the journey's segment list. Null when
+  // unknown (e.g. not yet populated by an older call site).
+  final int? stops;
+  final List<String>? viaAirports;
+
+  // Akbar chain state, threaded from detail_popup.dart's
+  // FlightInfo -> SmartPricer -> GetSPricer sequence.
+  final String? searchTui; // original ExpressSearch/GetExpSearch tui
+  final String? pricingTui; // GetSPricer's returned TUI (GetTravelCheckList needs this)
+  final String? sessionId; // SmartPricer's session_id — used by every step from here on
+  final double? amount; // the chosen result's fare amount (FareRule's trips[].amount)
+  final AkGetSPricerEntity? akFareData; // GetSPricer's full response, for the fare breakdown
+
   FlightRouteSegment({
     required this.from,
     required this.to,
@@ -60,6 +84,13 @@ class FlightRouteSegment {
     this.fareQuoteData,
     this.departureDate,    // NEW
     this.flightType,
+    this.stops,
+    this.viaAirports,
+    this.searchTui,
+    this.pricingTui,
+    this.sessionId,
+    this.amount,
+    this.akFareData,
   });
 
   factory FlightRouteSegment.fromFareQuoteEntity({
@@ -98,6 +129,56 @@ class FlightRouteSegment {
           : null,
       departureDate: original.departureDate,
       flightType: original.flightType,
+      stops: original.stops,
+      viaAirports: original.viaAirports,
+    );
+  }
+
+  /// Synthesizes a [FareQuoteData]-shaped view over GetSPricer's response so
+  /// the existing fare-breakdown UI (built against the old TBO FareQuote
+  /// shape) can render Akbar's data with no other changes — there's no
+  /// separate fare fetch here, GetSPricer already ran in detail_popup.dart.
+  factory FlightRouteSegment.fromAkFareData({
+    required FlightRouteSegment original,
+    required AkGetSPricerEntity data,
+  }) {
+    final segments = data.trips.isNotEmpty && data.trips.first.journey.isNotEmpty
+        ? data.trips.first.journey.first.segments
+        : const <AkGetSPricerSegmentEntity>[];
+    final baseFare = segments.fold<double>(0, (s, seg) => s + seg.fare.totalBaseFare);
+    final taxesAndFees = segments.fold<double>(
+      0,
+      (s, seg) => s + seg.fare.totalTax + seg.fare.totalServiceTax + seg.fare.totalTransactionFee,
+    );
+
+    return FlightRouteSegment(
+      from: original.from,
+      to: original.to,
+      departureTime: original.departureTime,
+      arrivalTime: original.arrivalTime,
+      duration: original.duration,
+      airline: original.airline,
+      flightNo: original.flightNo,
+      traceId: original.traceId,
+      resultIndex: original.resultIndex,
+      price: original.price,
+      fareQuoteData: FareQuoteData(
+        currency: 'INR',
+        baseFare: baseFare,
+        tax: taxesAndFees,
+        offeredFare: data.netAmount,
+        publishedFare: data.grossAmount,
+        serviceFee: 0.0,
+      ),
+      departureDate: original.departureDate,
+      flightType: original.flightType,
+      stops: original.stops,
+      viaAirports: original.viaAirports,
+      searchTui: original.searchTui,
+      pricingTui: original.pricingTui,
+      sessionId: original.sessionId,
+      amount: original.amount,
+      akFareData: data,
     );
   }
 }
@@ -152,6 +233,17 @@ class FareQuoteData {
   });
 }
 
+/// "Direct Flight" when there are no stops, otherwise the stop count and
+/// (when known) the connecting airport(s), e.g. "1 Stop via BOM".
+String _stopsLabel(FlightRouteSegment route) {
+  final stops = route.stops;
+  if (stops == null || stops <= 0) return 'Direct Flight';
+  final via = route.viaAirports != null && route.viaAirports!.isNotEmpty
+      ? ' via ${route.viaAirports!.join(', ')}'
+      : '';
+  return '$stops Stop${stops > 1 ? 's' : ''}$via';
+}
+
 class FlightBookingScreen extends StatefulWidget {
   final List<FlightRouteSegment> routes;
   final String totalPrice;
@@ -179,12 +271,19 @@ class FlightBookingScreen extends StatefulWidget {
 }
 
 class _FlightBookingScreenState extends State<FlightBookingScreen> {
-  late final FareQuoteBloc _fareQuoteBloc;
+  late final AkTravelCheckListBloc _checkListBloc;
+  late final AkCreateItineraryBloc _createItineraryBloc;
 
   final _formKey = GlobalKey<TravellerFormState>();
+  final _tripSecureKey = GlobalKey<TripSecureSectionState>();
 
-  bool _isLoadingFareQuote = false;
-  String? _fareQuoteError;
+  /// The Trip Secure plan the traveller opted into, or null when they
+  /// declined. Purely additive to this screen — the flight itself prices and
+  /// books exactly as it did before.
+  AkInsurancePlanEntity? _insurancePlan;
+
+  // GetSPricer already fetched the live fare upstream in detail_popup.dart —
+  // this is synthesized once from route.akFareData, not fetched again here.
   FlightRouteSegment? _updatedRouteWithFareQuote;
   bool _isLoggedIn() => di.sl<PreferencesManager>().isLoggedIn();
 
@@ -192,6 +291,10 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
   String _appliedPromoCode = '';
   double _promoDiscountAmount = 0.0;
   final TextEditingController _promoCodeController = TextEditingController();
+
+  // Guards CreateItinerary's itinerary_changed retry to exactly one attempt.
+  bool _itineraryRetried = false;
+  bool _submittingItinerary = false;
 
   static const _blue = Color(0xFF1769F6);
   static const _navy = Color(0xFF071638);
@@ -201,19 +304,37 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
   @override
   void initState() {
     super.initState();
-    print('FlightBookingScreen: Initializing FareQuoteBloc');
 
-    _fareQuoteBloc = di.sl<FareQuoteBloc>();
+    _checkListBloc = di.sl<AkTravelCheckListBloc>();
+    _createItineraryBloc = di.sl<AkCreateItineraryBloc>();
 
-    _fareQuoteBloc.stream.listen(_onFareQuoteStateChange);
+    final route = widget.routes.isNotEmpty ? widget.routes.first : null;
+    if (route?.akFareData != null) {
+      _updatedRouteWithFareQuote = FlightRouteSegment.fromAkFareData(
+        original: route!,
+        data: route.akFareData!,
+      );
+    }
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _fetchFareQuote();
+      _fetchTravelCheckList();
       final bloc = context.read<GeneralSettingsBloc>();
       if (bloc.state is! PromoCodesLoaded) {
         bloc.add(const LoadPromoCodes());
       }
     });
+  }
+
+  void _fetchTravelCheckList() {
+    final route = widget.routes.isNotEmpty ? widget.routes.first : null;
+    final pricingTui = route?.pricingTui;
+    if (pricingTui == null || pricingTui.isEmpty) {
+      print('FlightBookingScreen: pricingTui not available, skipping GetTravelCheckList');
+      return;
+    }
+    _checkListBloc.add(LoadAkTravelCheckListEvent(
+      AkTravelCheckListRequestEntity(tui: pricingTui),
+    ));
   }
 
   String _getPreferredCurrencySymbol() {
@@ -443,85 +564,15 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
         );
       }
 
+      // Deliberately excludes the Trip Secure premium: the flight total shown
+      // here has to match what the payment screen charges (CreateItinerary's
+      // netAmount for this session), and the insurance premium is not part of
+      // that charge — see [_insurancePremiumInDisplayCurrency].
       final finalTotal = convertedTotal - _promoDiscountAmount;
       return CurrencyConverter.format(finalTotal > 0 ? finalTotal : 0, targetCurrency);
     } catch (e) {
       return _convertFareAmount(totalInOriginal, originalCurrency);
     }
-  }
-
-  void _onFareQuoteStateChange(FareQuoteState state) {
-    if (state is FareQuoteLoading) {
-      setState(() {
-        _isLoadingFareQuote = true;
-        _fareQuoteError = null;
-      });
-      print('FlightBookingScreen: FareQuote loading');
-    } else if (state is FareQuoteLoaded) {
-      setState(() {
-        _isLoadingFareQuote = false;
-        _fareQuoteError = null;
-        if (widget.routes.isNotEmpty) {
-          _updatedRouteWithFareQuote = FlightRouteSegment.fromFareQuoteEntity(
-            original: widget.routes.first,
-            entity: state.fareQuote,
-          );
-        }
-      });
-      // Debug: log all passport-related keys from the FareQuote raw result so we
-      // can verify which field name TBO uses for passport requirement.
-      final rawFq = _updatedRouteWithFareQuote?.fareQuoteData?.rawItinerary ?? {};
-      final passportKeys = rawFq.entries
-          .where((e) => e.key.toLowerCase().contains('passport'))
-          .map((e) => '${e.key}=${e.value}')
-          .join(', ');
-      print('FlightBookingScreen: FareQuote loaded successfully');
-      print('FlightBookingScreen: Passport fields in FareQuote → [$passportKeys]');
-      print('FlightBookingScreen: isPassportRequired=${_updatedRouteWithFareQuote?.fareQuoteData?.isPassportRequired}');
-    } else if (state is FareQuoteError) {
-      setState(() {
-        _isLoadingFareQuote = false;
-        _fareQuoteError = state.message;
-      });
-      print('FlightBookingScreen: FareQuote error: ${state.message}');
-    }
-  }
-
-  void _fetchFareQuote() {
-    print('FlightBookingScreen: Fetching FareQuote');
-
-    final traceId = widget.traceId ?? widget.routes.firstOrNull?.traceId;
-    final resultIndex =
-        widget.resultIndex ?? widget.routes.firstOrNull?.resultIndex;
-
-    if (traceId == null || traceId.isEmpty) {
-      print(
-        'FlightBookingScreen: traceId not available, skipping FareQuote fetch',
-      );
-      return;
-    }
-    if (resultIndex == null || resultIndex.isEmpty) {
-      print(
-        'FlightBookingScreen: resultIndex not available, skipping FareQuote fetch',
-      );
-      return;
-    }
-
-    final prefs = di.sl<PreferencesManager>();
-    final tokenId = prefs.getToken() ?? '';
-
-    print(
-      'FlightBookingScreen: Calling FareQuote with traceId=$traceId, resultIndex=$resultIndex',
-    );
-
-    _fareQuoteBloc.add(
-      FetchFareQuote(
-        endUserIp: '122.161.72.69',
-        traceId: traceId,
-        tokenId: tokenId,
-        resultIndex: resultIndex,
-      ),
-    );
   }
 
   bool get _isInternationalRoute {
@@ -533,14 +584,18 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
         !_indianAirportCodes.contains(toCode);
   }
 
-  /// True when the TBO FareQuote result explicitly requires passport for all
-  /// passengers (IsPassportRequiredForAllPax / IsPassportRequired flag).
-  /// This overrides the route-based domestic/international check so that
-  /// domestic fares that require passport still prompt the user.
-  bool get _isPassportRequired {
-    final route = _updatedRouteWithFareQuote ??
-        (widget.routes.isNotEmpty ? widget.routes.first : null);
-    return route?.fareQuoteData?.isPassportRequired ?? false;
+  /// Passport-required-ness is driven by GetTravelCheckList when it's
+  /// available; when the checklist is unavailable (called too early,
+  /// still loading, or failed) this falls back to the route-based
+  /// domestic/international heuristic as the conservative default.
+  bool _isPassportRequired(AkTravelCheckListState checklistState) {
+    if (checklistState is AkTravelCheckListLoaded && !checklistState.data.unavailable) {
+      final list = checklistState.data.travellerCheckList;
+      if (list.isNotEmpty) {
+        return list.any((e) => e.passportNo);
+      }
+    }
+    return _isInternationalRoute;
   }
 
   String _extractAirportCode(String value) {
@@ -609,8 +664,8 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
 
   @override
   void dispose() {
-    print('FlightBookingScreen: Disposing bloc');
-    _fareQuoteBloc.close();
+    _checkListBloc.close();
+    _createItineraryBloc.close();
     _promoCodeController.dispose();
     super.dispose();
   }
@@ -929,8 +984,11 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider.value(
-      value: _fareQuoteBloc,
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider<AkTravelCheckListBloc>.value(value: _checkListBloc),
+        BlocProvider<AkCreateItineraryBloc>.value(value: _createItineraryBloc),
+      ],
       child: Scaffold(
         backgroundColor: _pageBg,
         appBar: AppBar(
@@ -964,11 +1022,26 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
               _buildBookingSteps(),
               SizedBox(height: context.gapLarge),
 
-              TravellerInformationSection(
-                key: _formKey,
-                isInternational: _isInternationalRoute || _isPassportRequired,
-                travellerCount: widget.travellerCount,
+              BlocBuilder<AkTravelCheckListBloc, AkTravelCheckListState>(
+                builder: (context, checklistState) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (checklistState is AkTravelCheckListLoaded &&
+                          checklistState.data.unavailable)
+                        _buildCheckListUnavailableBanner(context),
+                      TravellerInformationSection(
+                        key: _formKey,
+                        isInternational: _isPassportRequired(checklistState),
+                        travellerCount: widget.travellerCount,
+                      ),
+                    ],
+                  );
+                },
               ),
+
+              SizedBox(height: context.gapLarge),
+              _buildTripSecureSection(context),
 
               SizedBox(height: context.hp(3)),
               _buildContinueButton(context),
@@ -981,39 +1054,91 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
     );
   }
 
-  Widget _buildRouteSummaryCard(BuildContext context) {
-    final route = _updatedRouteWithFareQuote ?? widget.routes.first;
+  /// Trip Secure — the optional travel-insurance add-on, placed after the
+  /// traveller forms so it can price against real dates of birth. It hides
+  /// itself when the provider has no cover for this trip.
+  Widget _buildTripSecureSection(BuildContext context) {
+    final outbound = widget.routes.first;
+    final inbound = widget.routes.length > 1 ? widget.routes.last : null;
 
-    return Container(
-      padding: EdgeInsets.all(context.w(14)),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        // borderRadius: BorderRadius.circular(9),
-        border: Border.all(color: _border),
-        boxShadow: [
-          BoxShadow(
-            color: _navy.withValues(alpha: 0.06),
-            blurRadius: 24,
-            offset: const Offset(0, 14),
-          ),
-        ],
+    return TripSecureSection(
+      key: _tripSecureKey,
+      destinationAirportCode: _extractAirportCode(outbound.to),
+      departureDate: _parseRouteDate(outbound.departureDate),
+      returnDate: _parseRouteDate(inbound?.departureDate),
+      travellerCount: widget.travellerCount,
+      travellerBirthdates: _travellerBirthdates,
+      onSelectionChanged: (plan) => setState(() => _insurancePlan = plan),
+    );
+  }
+
+  /// Dates of birth already typed into the traveller form, as "yyyy-MM-dd".
+  /// Entries are empty while a traveller card is still blank.
+  List<String> _travellerBirthdates() {
+    final travellers = _formKey.currentState?.getAllTravellersData() ?? const [];
+    return travellers
+        .map((t) => _toIsoDate((t['dateOfBirth'] ?? '').toString()))
+        .toList();
+  }
+
+  /// [FlightRouteSegment.departureDate] is formatted "dd MMM yyyy" upstream.
+  DateTime? _parseRouteDate(String? value) {
+    if (value == null || value.trim().isEmpty) return null;
+    try {
+      return DateFormat('dd MMM yyyy').parse(value.trim());
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Widget _buildCheckListUnavailableBanner(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: context.gapMedium),
+      child: Container(
+        width: double.infinity,
+        padding: EdgeInsets.all(context.w(10)),
+        decoration: BoxDecoration(
+          color: const Color(0xffFFF7E6),
+          borderRadius: BorderRadius.circular(context.r(10)),
+          border: Border.all(color: const Color(0xffFACC15)),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.info_outline, color: const Color(0xffB45309), size: context.w(14)),
+            SizedBox(width: context.w(6)),
+            Expanded(
+              child: Text(
+                "Couldn't verify required travel documents — showing default requirements.",
+                style: TextStyle(color: const Color(0xffB45309), fontSize: context.fs(10), fontWeight: FontWeight.w700),
+              ),
+            ),
+            TextButton(
+              onPressed: _fetchTravelCheckList,
+              child: Text('Retry', style: TextStyle(fontSize: context.fs(10), fontWeight: FontWeight.w800)),
+            ),
+          ],
+        ),
       ),
-      child: Column(
+    );
+  }
+
+  /// One leg's flight card content — extracted so [_buildRouteSummaryCard]
+  /// can stack it once per entry in `widget.routes` (RT/RS: onward +
+  /// return; Multi City: one per leg) instead of only ever showing
+  /// `routes.first`, which is all a plain one-way booking ever has anyway.
+  Widget _buildRouteLegContent(BuildContext context, FlightRouteSegment route) {
+    return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Container(
-                padding: EdgeInsets.all(context.gapSmall),
-                decoration: BoxDecoration(
-                  color: Colors.indigo.shade50,
-                  borderRadius: BorderRadius.circular(context.r(14)),
-                ),
-                child: Icon(
-                  Icons.flight_takeoff,
-                  color: _blue,
-                  size: context.iconMedium,
-                ),
+              AirlineLogo(
+                code: route.flightNo.contains('•')
+                    ? route.flightNo.split('•').first.trim()
+                    : '',
+                name: route.airline,
+                size: context.iconMedium + context.gapSmall * 2,
+                borderRadius: BorderRadius.circular(context.r(14)),
               ),
               SizedBox(width: context.gapMedium),
               Expanded(
@@ -1040,13 +1165,19 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
               ),
               GestureDetector(
                 onTap: () {
-                  print('FlightBookingScreen: Fare Rules tapped');
-                  FareRulePopup.show(
-                    context: context,
-                    traceId: widget.traceId ?? route.traceId,
-                    resultIndex: widget.resultIndex ?? route.resultIndex,
-                    routes: widget.routes,
-                    price: widget.price,
+                  final searchTui = route.searchTui;
+                  final resultIndex = widget.resultIndex ?? route.resultIndex;
+                  if (searchTui == null || searchTui.isEmpty || resultIndex == null || resultIndex.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Fare rules are not available for this fare.')),
+                    );
+                    return;
+                  }
+                  AkFareRulePopup.show(
+                    context,
+                    searchTui: searchTui,
+                    resultIndex: resultIndex,
+                    amount: route.amount ?? 0,
                   );
                 },
                 child: Container(
@@ -1139,7 +1270,7 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
                         ],
                       ),
                       Text(
-                        "Direct Flight",
+                        _stopsLabel(route),
                         style: TextStyle(
                           color: Colors.blue.shade700,
                           fontSize: context.labelSmall,
@@ -1199,6 +1330,39 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
             ),
           ],
         ],
+    );
+  }
+
+  Widget _buildRouteSummaryCard(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.all(context.w(14)),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        // borderRadius: BorderRadius.circular(9),
+        border: Border.all(color: _border),
+        boxShadow: [
+          BoxShadow(
+            color: _navy.withValues(alpha: 0.06),
+            blurRadius: 24,
+            offset: const Offset(0, 14),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (var i = 0; i < widget.routes.length; i++) ...[
+            if (i > 0) ...[
+              SizedBox(height: context.gapMedium),
+              Divider(color: Colors.grey.shade200),
+              SizedBox(height: context.gapMedium),
+            ],
+            _buildRouteLegContent(
+              context,
+              i == 0 ? (_updatedRouteWithFareQuote ?? widget.routes[i]) : widget.routes[i],
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -1241,11 +1405,7 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
     final route = _updatedRouteWithFareQuote ?? widget.routes.first;
     final fare = route.fareQuoteData;
 
-    if (fare == null && _isLoadingFareQuote) {
-      return _buildLoadingCard(context, 'Fetching fare details...');
-    }
-
-    if (fare == null && _fareQuoteError != null) {
+    if (fare == null) {
       return _buildErrorCard(
         context,
         'Could not load fare details. Using estimated price.',
@@ -1304,6 +1464,17 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
                 _convertFareAmount(fare.serviceFee, fare.currency),
               ),
             ],
+            // Shown for transparency but kept out of "Total Fare": the
+            // insurance premium is not part of the flight charge this screen
+            // hands to the payment step.
+            if (_insurancePlan != null) ...[
+              SizedBox(height: context.gapSmall),
+              _fareRow(
+                context,
+                'Trip Secure (billed separately)',
+                _convertFareAmount(_insurancePlan!.premium, _insurancePlan!.currency),
+              ),
+            ],
             if (_promoDiscountAmount > 0) ...[
               SizedBox(height: context.gapSmall),
               _fareRow(
@@ -1325,7 +1496,14 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
             _fareRow(
               context,
               'Estimated Total',
-              '₹${widget.totalPrice}',
+              // totalPrice already arrives pre-formatted as "₹1,23,456" (see
+              // detail_popup.dart's _formatAmount) — strip that back to a
+              // number before converting/reformatting for the preferred
+              // currency.
+              _convertFareAmount(
+                double.tryParse(widget.totalPrice.replaceAll(RegExp(r'[^0-9.]'), '')) ?? 0,
+                'INR',
+              ),
               isTotal: true,
             ),
             SizedBox(height: context.gapSmall),
@@ -1376,6 +1554,7 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
   Widget _buildBookingSteps() {
     const steps = [
       (Icons.flight_takeoff_rounded, 'Flight'),
+      (Icons.event_seat_outlined, 'Add-ons'),
       (Icons.call_outlined, 'Contact'),
       (Icons.person_outline_rounded, 'Traveller'),
       (Icons.payments_outlined, 'Pay'),
@@ -1398,13 +1577,13 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
                     width: context.w(34),
                     height: context.w(34),
                     decoration: BoxDecoration(
-                      color: i <= 2 ? _blue : const Color(0xFFF0F3F8),
+                      color: i <= 3 ? _blue : const Color(0xFFF0F3F8),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
                       steps[i].$1,
                       size: context.w(17),
-                      color: i <= 2 ? Colors.white : const Color(0xFF8A93A3),
+                      color: i <= 3 ? Colors.white : const Color(0xFF8A93A3),
                     ),
                   ),
                   SizedBox(height: context.h(6)),
@@ -1412,7 +1591,7 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
                     steps[i].$2,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      color: i <= 2 ? _navy : const Color(0xFF8A93A3),
+                      color: i <= 3 ? _navy : const Color(0xFF8A93A3),
                       fontSize: context.fs(11),
                       fontWeight: FontWeight.w700,
                     ),
@@ -1424,7 +1603,7 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
               Container(
                 width: context.w(16),
                 height: context.h(1),
-                color: i < 2 ? _blue.withValues(alpha: 0.45) : _border,
+                color: i < 3 ? _blue.withValues(alpha: 0.45) : _border,
               ),
           ],
         ],
@@ -1586,45 +1765,37 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
   //   );
   // }
   Widget _buildContinueButton(BuildContext context) {
+    if (_submittingItinerary) {
+      return _buildLoadingCard(context, 'Confirming your itinerary...');
+    }
     return SizedBox(
       width: double.infinity,
       height: context.buttonHeight + 10,
       child: ElevatedButton(
-        onPressed: _isLoadingFareQuote
-            ? null
-            : () {
-                print('FlightBookingScreen: Continue booking pressed');
-                _validateAndProceed();
-              },
+        onPressed: () {
+          print('FlightBookingScreen: Continue booking pressed');
+          _validateAndProceed();
+        },
         style: ElevatedButton.styleFrom(
-          backgroundColor: _isLoadingFareQuote ? Colors.grey : _blue,
+          backgroundColor: _blue,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(context.r(18)),
           ),
           elevation: 0,
         ),
-        child: _isLoadingFareQuote
-            ? SizedBox(
-                width: context.w(20),
-                height: context.w(20),
-                child: const CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                ),
-              )
-            : Text(
-                'Continue',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: context.bodyLarge,
-                ),
-              ),
+        child: Text(
+          'Continue',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: context.bodyLarge,
+          ),
+        ),
       ),
     );
   }
 
-  void _validateAndProceed() {
+  Future<void> _validateAndProceed() async {
     if (_formKey.currentState == null ||
         !_formKey.currentState!.validateForm()) {
       print('FlightBookingScreen: Validation failed');
@@ -1636,27 +1807,186 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
       return;
     }
 
-    final travellerData = _formKey.currentState!.getTravellerData();
     final route = _updatedRouteWithFareQuote ?? widget.routes.first;
+    final sessionId = route.sessionId;
+    if (sessionId == null || sessionId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Booking session expired. Please search again.')),
+      );
+      return;
+    }
 
-    print('FlightBookingScreen: Validation passed — navigating to SSR screen');
+    final travellers = _formKey.currentState!.getAllTravellersData();
+    final lead = travellers.first;
+    final travellerNames = travellers
+        .map((t) => '${t['title'] ?? ''} ${t['firstName'] ?? ''} ${t['lastName'] ?? ''}'.trim())
+        .where((n) => n.isNotEmpty)
+        .toList();
+
+    final contactInfo = AkContactInfoRequestEntity(
+      title: (lead['title'] ?? 'Mr').toString(),
+      fName: (lead['firstName'] ?? '').toString(),
+      lName: (lead['lastName'] ?? '').toString(),
+      mobile: (lead['mobileNumber'] ?? '').toString(),
+      destMob: (lead['mobileNumber'] ?? '').toString(),
+      phone: '',
+      email: (lead['email'] ?? '').toString(),
+      // CreateItinerary requires this shape to be present, not real values —
+      // the traveller form doesn't collect address/state/city/pin today.
+      address: 'NA',
+      // ISO two-letter country code — distinct from MobileCountryCode/
+      // DestMobCountryCode below, which are phone dialing-code prefixes.
+      // Akbar rejects "+91" here with "Country code must be two letter".
+      countryCode: 'IN',
+      mobileCountryCode: '+91',
+      destMobCountryCode: '+91',
+      state: 'NA',
+      city: 'NA',
+      pin: '000000',
+      gstCompanyName: '',
+      gstTIN: '',
+      gstMobile: '',
+      gstEmail: '',
+      updateProfile: false,
+      isGuest: !_isLoggedIn(),
+      saveGST: false,
+    );
+
+    final akTravellers = travellers
+        .map((t) => AkTravellerRequestEntity(
+              title: (t['title'] ?? 'Mr').toString(),
+              fName: (t['firstName'] ?? '').toString(),
+              lName: (t['lastName'] ?? '').toString(),
+              gender: _mapGender((t['gender'] ?? '').toString()),
+              // The form has no child/infant sub-forms today — every
+              // traveller is submitted as an adult (pre-existing limitation).
+              ptc: 'ADT',
+              dob: _toIsoDate((t['dateOfBirth'] ?? '').toString()),
+              email: (t['email'] ?? '').toString(),
+              pMobileNo: (t['mobileNumber'] ?? '').toString(),
+            ))
+        .toList();
+
+    setState(() => _submittingItinerary = true);
+    _itineraryRetried = false;
+
+    final result = await _submitItinerary(sessionId, contactInfo, akTravellers);
+
+    if (!mounted) return;
+    setState(() => _submittingItinerary = false);
+    if (result == null) return;
 
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => SSRMainScreen(
-          endUserIp: '122.161.72.69',
-          traceId: widget.traceId ?? route.traceId ?? '',
-          tokenId: '',
-          resultIndex: widget.resultIndex ?? route.resultIndex ?? '',
-          passengerData: travellerData,
-          fareQuoteData: route.fareQuoteData,
+        builder: (_) => AkFlightPaymentScreen(
           route: route,
+          leadPassenger: lead,
+          netAmount: result.netAmount,
+          additionalLegs: widget.routes.length > 1 ? widget.routes.sublist(1) : const [],
           travellerCount: widget.travellerCount,
-          promoDiscount: _promoDiscountAmount,
-          promoCode: _appliedPromoCode,
+          travellerNames: travellerNames,
+          // Null unless the traveller both picked a Trip Secure plan and
+          // passed its KYC — the payment screen treats a null context as
+          // "no insurance", so the flight-only path is unaffected.
+          insuranceBookingContext: _tripSecureKey.currentState?.bookingContext,
         ),
       ),
     );
+  }
+
+  /// Dispatches CreateItinerary and awaits its resolution. On
+  /// `itinerary_changed`, shows a confirm dialog and retries exactly once
+  /// (per the doc's caution that there's no built-in loop guard) before
+  /// giving up and asking the user to tap Continue again.
+  Future<AkCreateItineraryEntity?> _submitItinerary(
+    String sessionId,
+    AkContactInfoRequestEntity contactInfo,
+    List<AkTravellerRequestEntity> travellers,
+  ) async {
+    _createItineraryBloc.add(LoadAkCreateItineraryEvent(
+      AkCreateItineraryRequestEntity(
+        sessionId: sessionId,
+        contactInfo: contactInfo,
+        travellers: travellers,
+      ),
+    ));
+
+    final state = await _createItineraryBloc.stream.firstWhere(
+      (s) => s is AkCreateItineraryLoaded || s is AkCreateItineraryFailed,
+    );
+
+    if (state is AkCreateItineraryFailed) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(state.error.message ?? 'Could not confirm your itinerary. Please try again.'),
+          ),
+        );
+      }
+      return null;
+    }
+
+    final data = (state as AkCreateItineraryLoaded).data;
+    if (!data.itineraryChanged) return data;
+
+    if (_itineraryRetried) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Your itinerary keeps changing — please tap Continue again.')),
+        );
+      }
+      return null;
+    }
+
+    if (!mounted) return null;
+    final accepted = await _confirmItineraryChange(data.netAmount);
+    if (!accepted) return null;
+
+    _itineraryRetried = true;
+    return _submitItinerary(sessionId, contactInfo, travellers);
+  }
+
+  Future<bool> _confirmItineraryChange(double newAmount) async {
+    final wantsToContinue = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Itinerary Updated'),
+        content: Text(
+          'Your total has changed to ${_convertFareAmount(newAmount, 'INR')}. Continue with this itinerary?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Continue'),
+          ),
+        ],
+      ),
+    );
+    return wantsToContinue == true;
+  }
+
+  String _mapGender(String value) {
+    final v = value.trim().toLowerCase();
+    if (v.startsWith('f')) return 'F';
+    if (v.startsWith('m')) return 'M';
+    return 'O';
+  }
+
+  /// TravellerInformationSection stores DOB as "dd MMM yyyy" — CreateItinerary
+  /// expects an ISO date ("yyyy-MM-dd").
+  String _toIsoDate(String ddMmmYyyy) {
+    if (ddMmmYyyy.isEmpty) return '';
+    try {
+      final parsed = DateFormat('dd MMM yyyy').parse(ddMmmYyyy);
+      return DateFormat('yyyy-MM-dd').format(parsed);
+    } catch (_) {
+      return ddMmmYyyy;
+    }
   }
 }

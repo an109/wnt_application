@@ -9,6 +9,9 @@ import '../domain/entities/FlightBookEntity.dart';
 import 'Flight_Invoice_widget.dart';
 import 'Flight_Ticket_widget.dart';
 import 'flight_pdf_builder.dart';
+import 'dart:typed_data';
+import 'package:flutter/services.dart';
+import 'package:pdf/widgets.dart' as pw;
 
 class FlightBookingDetailsScreen extends StatefulWidget {
   final FlightBookEntity booking;
@@ -93,6 +96,56 @@ class _FlightBookingDetailsScreenState
     );
   }
 
+  // Future<void> _handleDownload() async {
+  //   setState(() => _isDownloading = true);
+  //
+  //   try {
+  //     final type = _selectedView;
+  //     final filename = '${type}_${widget.booking.pnr}.pdf';
+  //
+  //     ScaffoldMessenger.of(context).showSnackBar(
+  //       SnackBar(
+  //         content: Row(
+  //           children: [
+  //             SizedBox(
+  //               width: context.w(20),
+  //               height: context.w(20),
+  //               child: const CircularProgressIndicator(
+  //                   color: Colors.white, strokeWidth: 2),
+  //             ),
+  //             SizedBox(width: context.w(12)),
+  //             const Text('Generating PDF...'),
+  //           ],
+  //         ),
+  //         backgroundColor: AppColors.primary,
+  //         behavior: SnackBarBehavior.floating,
+  //         duration: const Duration(seconds: 5),
+  //       ),
+  //     );
+  //
+  //     // Build a native, text-based PDF that mirrors the on-screen layout
+  //     // instead of capturing a screenshot of the widget.
+  //     final pdf = type == 'ticket'
+  //         ? FlightPdfBuilder.buildTicket(widget.booking)
+  //         : FlightPdfBuilder.buildInvoice(widget.booking);
+  //
+  //     final file = await PDFService.savePDF(pdf, filename);
+  //
+  //     ScaffoldMessenger.of(context).hideCurrentSnackBar();
+  //     _showDownloadSuccessDialog(context, file);
+  //   } catch (e) {
+  //     ScaffoldMessenger.of(context).hideCurrentSnackBar();
+  //     ScaffoldMessenger.of(context).showSnackBar(
+  //       SnackBar(
+  //         content: Text('Download failed: $e'),
+  //         backgroundColor: Colors.red,
+  //         behavior: SnackBarBehavior.floating,
+  //       ),
+  //     );
+  //   } finally {
+  //     setState(() => _isDownloading = false);
+  //   }
+  // }
   Future<void> _handleDownload() async {
     setState(() => _isDownloading = true);
 
@@ -102,29 +155,29 @@ class _FlightBookingDetailsScreenState
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Row(
-            children: [
-              SizedBox(
-                width: context.w(20),
-                height: context.w(20),
-                child: const CircularProgressIndicator(
-                    color: Colors.white, strokeWidth: 2),
-              ),
-              SizedBox(width: context.w(12)),
-              const Text('Generating PDF...'),
-            ],
-          ),
+          content: Row(children: [
+            SizedBox(width: context.w(20), height: context.w(20), child: const CircularProgressIndicator(color: Colors.white, strokeWidth: 2)),
+            SizedBox(width: context.w(12)),
+            const Text('Generating PDF...'),
+          ]),
           backgroundColor: AppColors.primary,
           behavior: SnackBarBehavior.floating,
           duration: const Duration(seconds: 5),
         ),
       );
 
-      // Build a native, text-based PDF that mirrors the on-screen layout
-      // instead of capturing a screenshot of the widget.
+      // Load Wander Nova logo for PDF
+      pw.ImageProvider? logoImage;
+      try {
+        final ByteData data = await rootBundle.load('assets/images/wander_logo.png');
+        logoImage = pw.MemoryImage(data.buffer.asUint8List());
+      } catch (e) {
+        debugPrint('Logo load failed, using fallback: $e');
+      }
+
       final pdf = type == 'ticket'
-          ? FlightPdfBuilder.buildTicket(widget.booking)
-          : FlightPdfBuilder.buildInvoice(widget.booking);
+          ? FlightPdfBuilder.buildTicket(booking: widget.booking, logo: logoImage)
+          : FlightPdfBuilder.buildInvoice(booking: widget.booking, logo: logoImage);
 
       final file = await PDFService.savePDF(pdf, filename);
 
@@ -133,11 +186,7 @@ class _FlightBookingDetailsScreenState
     } catch (e) {
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Download failed: $e'),
-          backgroundColor: Colors.red,
-          behavior: SnackBarBehavior.floating,
-        ),
+        SnackBar(content: Text('Download failed: $e'), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating),
       );
     } finally {
       setState(() => _isDownloading = false);

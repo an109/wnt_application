@@ -30,6 +30,7 @@ import '../screen_sections/contact_section.dart';
 import '../screen_sections/faq/FAQ_section.dart';
 import '../../../flight_popularDestination/presentation/screen/popular_destination.dart';
 import '../../../trending_route/presentation/screen/trending_routes.dart';
+import '../../../Insurance/insurance_search_card.dart';
 import '../screen_sections/service_info_section.dart';
 import '../screen_sections/why_choose_us/why_choose_us.dart';
 import '../../flight/flight_screen.dart';
@@ -126,8 +127,12 @@ class _HomeScreenState extends State<HomeScreen> {
       icon: Icons.article_outlined,
     ),
     HomeServiceTab(
-      title: "Cabs",
+      title: "Transport",
       icon: Icons.local_taxi_rounded,
+    ),
+    HomeServiceTab(
+      title: "Insurance",
+      icon: Icons.health_and_safety_rounded,
     ),
   ];
 
@@ -477,6 +482,8 @@ class _HomeScreenState extends State<HomeScreen> {
             setState(() => selectedTime = time);
           },
         );
+      case 5:
+        return const InsuranceSearchCard(key: ValueKey("insurance"));
       default:
         return const SearchCard(key: ValueKey("default"));
     }

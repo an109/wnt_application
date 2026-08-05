@@ -1,15 +1,15 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:razorpay_flutter/razorpay_flutter.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 
 import '../../../../core/constants/urls.dart';
 import '../../../../core/network/dio_client.dart';
 import '../../../../core/utils/storage/shared_preference.dart';
 import '../../../../injection_container.dart' as di;
-import '../../../flight_payment/data/ccavenue_service.dart';
-import '../../../flight_payment/presentation/screen/ccavenue_payment_page.dart';
 import '../../../wallet/data/data_source/wallet_api_service.dart';
 
-/// The user picks Wallet or CCAvenue, then pays via the CCAvenue hosted gateway.
+/// The user picks Wallet or Razorpay, then pays via the Razorpay native checkout.
 class PaymentSection extends StatefulWidget {
   final int stepNumber;
   final bool isCompleted;
@@ -39,8 +39,8 @@ class _PaymentSectionState extends State<PaymentSection>
     with SingleTickerProviderStateMixin {
   static const _navy = Color(0xff0D47A1);
 
-  final CCAvenueService _ccavenueService = CCAvenueService();
-  String? _selectedMethod; // 'wallet' | 'ccavenue'
+  late final Razorpay _razorpay;
+  String? _selectedMethod; // 'wallet' | 'razorpay'
   bool _isProcessing = false;
   bool _isExpanded = false;
 
@@ -60,6 +60,11 @@ class _PaymentSectionState extends State<PaymentSection>
       CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
     );
     if (_isExpanded) _animationController.value = 1.0;
+
+    _razorpay = Razorpay();
+    _razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, _handleRazorpaySuccess);
+    _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _handleRazorpayError);
+    _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleRazorpayExternalWallet);
   }
 
   @override
@@ -79,6 +84,7 @@ class _PaymentSectionState extends State<PaymentSection>
   @override
   void dispose() {
     _animationController.dispose();
+    _razorpay.clear();
     super.dispose();
   }
 
@@ -198,10 +204,10 @@ class _PaymentSectionState extends State<PaymentSection>
           ),
           SizedBox(height: context.h(8)),
           _buildMethodTile(
-            value: 'ccavenue',
-            icon: Icons.credit_card,
-            title: 'CCAvenue',
-            subtitle: 'Cards, UPI, Net Banking',
+            value: 'razorpay',
+            icon: Icons.payment,
+            title: 'Razorpay',
+            subtitle: 'Cards, UPI, Net Banking, Wallets',
           ),
           SizedBox(height: context.h(16)),
           Container(
@@ -394,7 +400,7 @@ class _PaymentSectionState extends State<PaymentSection>
       } else {
         _snack(
           'Insufficient wallet balance (${balance.toStringAsFixed(2)} available). '
-              'Please choose CCAvenue.',
+              'Please choose Razorpay.',
         );
       }
     } catch (e) {
@@ -414,62 +420,58 @@ class _PaymentSectionState extends State<PaymentSection>
       return;
     }
 
-    // ----- CCAvenue hosted-checkout flow -----
+    await _initiateRazorpayPayment();
+  }
+
+  // ----- Razorpay flow -----
+  Future<void> _initiateRazorpayPayment() async {
     setState(() => _isProcessing = true);
     try {
-      // Backend requires a short order_id (CCAvenue limits length ~30 chars).
-      final orderId = '${DateTime.now().millisecondsSinceEpoch}';
-      // final orderId = 'WTXV${DateTime.now().millisecondsSinceEpoch}';
       final amount = double.parse(widget.amountInr.toStringAsFixed(2));
       final phone = (widget.formData['phone'] ?? '')
           .toString()
           .replaceAll(RegExp(r'[^0-9]'), '');
 
-      final session = await _ccavenueService.createCheckout(
-        orderId: orderId,
-        amount: amount,
-        currency: 'INR',
-        transactionType: 'visa',
-        firstName: (widget.formData['firstName'] ?? '').toString(),
-        lastName: (widget.formData['lastName'] ?? '').toString(),
-        email: (widget.formData['email'] ?? '').toString(),
-        phone: phone,
-        successUrl: Urls.ccavenueSuccessUrl,
-        failureUrl: Urls.ccavenueFailureUrl,
+      final dio = di.sl<DioClient>().instance;
+      final response = await dio.post(
+        Urls.razorpayCreateOrder,
+        data: {
+          'amount': amount,
+          'currency': 'INR',
+          'reference_id': 'visa_${DateTime.now().millisecondsSinceEpoch}',
+        },
       );
+
+      final orderId = response.data['order_id'];
+      final keyId = response.data['key_id'];
+      print("Razorpay Key: $keyId");
+
+      final firstName = (widget.formData['firstName'] ?? '').toString();
+      final lastName = (widget.formData['lastName'] ?? '').toString();
+
+      final options = {
+        'key': keyId,
+        'amount': (amount * 100).toInt(),
+        'currency': 'INR',
+        'name': 'WanderNova',
+        'description': 'Visa Application',
+        'order_id': orderId,
+        'prefill': {
+          'name': '$firstName $lastName'.trim(),
+          'email': (widget.formData['email'] ?? '').toString(),
+          'contact': phone,
+        },
+        'theme': {'color': '#0D47A1'},
+      };
 
       if (!mounted) return;
       setState(() => _isProcessing = false);
-
-      final result = await Navigator.of(context).push<PaymentResult>(
-        MaterialPageRoute(
-          builder: (_) => CCAvenuePaymentPage(
-            service: _ccavenueService,
-            session: session,
-          ),
-        ),
-      );
-
-      if (!mounted) return;
-      switch (result) {
-        case PaymentResult.success:
-          await _completePaymentOnBackend(
-            paymentReference: session.orderId,
-            paymentMode: 'ccavenue',
-          );
-          break;
-        case PaymentResult.failure:
-          _snack('Payment failed. Please try again.');
-          break;
-        case PaymentResult.cancelled:
-        case null:
-          _snack('Payment cancelled.', color: Colors.grey.shade700);
-          break;
-      }
-    } on CCAvenueException catch (e) {
+      _razorpay.open(options);
+    } on DioException catch (e) {
       if (!mounted) return;
       setState(() => _isProcessing = false);
-      _snack(e.message);
+      print('Razorpay order error: ${e.message}');
+      _snack('Could not create payment order. Please try again.');
     } catch (e) {
       if (!mounted) return;
       setState(() => _isProcessing = false);
@@ -477,9 +479,26 @@ class _PaymentSectionState extends State<PaymentSection>
     }
   }
 
+  void _handleRazorpaySuccess(PaymentSuccessResponse response) {
+    _completePaymentOnBackend(
+      paymentReference: response.paymentId ?? '',
+      paymentMode: 'razorpay',
+    );
+  }
+
+  void _handleRazorpayError(PaymentFailureResponse response) {
+    if (!mounted) return;
+    setState(() => _isProcessing = false);
+    _snack('Payment failed: ${response.message ?? 'Please try again.'}');
+  }
+
+  void _handleRazorpayExternalWallet(ExternalWalletResponse response) {
+    print('Razorpay external wallet: ${response.walletName}');
+  }
+
   /// Marks the visa application as paid on the backend
   /// (`/visa-application/{id}/complete-payment/`) after money has actually
-  /// moved (CCAvenue or wallet). If this call fails the payment itself has
+  /// moved (Razorpay or wallet). If this call fails the payment itself has
   /// still succeeded, so we surface the reference for support instead of
   /// silently retrying (which would risk charging the user twice).
   Future<void> _completePaymentOnBackend({

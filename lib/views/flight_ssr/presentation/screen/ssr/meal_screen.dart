@@ -585,6 +585,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../../UI_helper/responsive_layout.dart';
+import '../../../../../common_widgets/airline_logo.dart';
 import '../../../domain/entities/meal_option_entity.dart';
 import '../../../domain/entities/ssr_entity.dart';
 import '../../bloc/ssr_bloc.dart';
@@ -866,23 +867,11 @@ class _MealScreenState extends State<MealScreen> {
       child: Row(
         children: [
           // Airline logo
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: Colors.orange.shade50,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Center(
-              child: Text(
-                firstOption.airlineCode,
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: context.titleSmall,
-                  color: Colors.orange.shade700,
-                ),
-              ),
-            ),
+          AirlineLogo(
+            code: firstOption.airlineCode,
+            name: firstOption.airlineCode,
+            size: 48,
+            borderRadius: BorderRadius.circular(12),
           ),
           SizedBox(width: context.gapMedium),
 

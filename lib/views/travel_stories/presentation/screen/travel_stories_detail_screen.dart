@@ -127,7 +127,7 @@ class _TravelStoryDetailScreenState extends State<TravelStoryDetailScreen> {
                     SizedBox(height: context.hp(3)),
 
                     // Comment Section
-                    _buildCommentSection(),
+                    // _buildCommentSection(),
                   ],
                 ),
               ),

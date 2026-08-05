@@ -1,12 +1,13 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:razorpay_flutter/razorpay_flutter.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 
 import '../../../../common_widgets/logo.dart';
 import '../../../../core/constants/urls.dart';
+import '../../../../core/network/dio_client.dart';
 import '../../../../core/utils/storage/shared_preference.dart';
 import '../../../../injection_container.dart' as di;
-import '../../../flight_payment/data/ccavenue_service.dart';
-import '../../../flight_payment/presentation/screen/ccavenue_payment_page.dart';
 import '../../../wallet/data/data_source/wallet_api_service.dart';
 import '../../../../core/error/data_state.dart';
 import '../../domain/entities/TReservation-entity.dart';
@@ -63,7 +64,7 @@ class PaymentScreen extends StatefulWidget {
 
 class _PaymentScreenState extends State<PaymentScreen> {
   String? _selectedPaymentMethod;
-  final CCAvenueService _ccavenueService = CCAvenueService();
+  late final Razorpay _razorpay;
   bool _isProcessing = false;
 
   // Trip type chosen by the user — drives TransportReservationEntity.tripType.
@@ -76,6 +77,21 @@ class _PaymentScreenState extends State<PaymentScreen> {
   static const _darkNavy = Color(0xff0D1B3D);
   static const _successGreen = Color(0xff10B981);
   static const _lightGreen = Color(0xffECFDF5);
+
+  @override
+  void initState() {
+    super.initState();
+    _razorpay = Razorpay();
+    _razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, _handleRazorpaySuccess);
+    _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _handleRazorpayError);
+    _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleRazorpayExternalWallet);
+  }
+
+  @override
+  void dispose() {
+    _razorpay.clear();
+    super.dispose();
+  }
 
   TransportReservationEntity _buildReservationEntity() {
     print('BUILDING RESERVATION ENTITY');
@@ -712,39 +728,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
         'icon': Icons.account_balance_wallet,
       },
       {
-        'id': 'card',
-        'name': 'Credit / Debit Card',
-        'subtitle': 'Visa, Mastercard, Rupay',
-        'icon': Icons.credit_card,
-      },
-      {
-        'id': 'netbanking',
-        'name': 'Net Banking',
-        'subtitle': '40+ Banks Available',
-        'icon': Icons.account_balance,
-      },
-      {
-        'id': 'wallets',
-        'name': 'Digital Wallets',
-        'subtitle': 'Paytm, PhonePe, Amazon Pay',
-        'icon': Icons.wallet,
-      },
-      {
-        'id': 'upi',
-        'name': 'UPI',
-        'subtitle': 'GPay, PhonePe, BHIM & more',
-        'icon': Icons.payment,
-      },
-      {
-        'id': 'qr',
-        'name': 'QR Code',
-        'subtitle': 'Instant Refund · High Success',
-        'icon': Icons.qr_code,
-      },
-      {
         'id': 'razorpay',
         'name': 'Razorpay',
-        'subtitle': 'Cards, UPI, Net Banking (INR)',
+        'subtitle': 'Cards, UPI, Net Banking, Wallets',
         'icon': Icons.payment,
       },
     ];
@@ -1015,52 +1001,24 @@ class _PaymentScreenState extends State<PaymentScreen> {
   }
 
   IconData _getPaymentIcon() {
-    if (_selectedPaymentMethod == null) {
-      return Icons.qr_code_scanner;
-    }
-
     switch (_selectedPaymentMethod) {
-      case 'qr':
-        return Icons.qr_code_scanner;
       case 'wallet':
         return Icons.account_balance_wallet;
-      case 'card':
-        return Icons.credit_card;
-      case 'upi':
-        return Icons.payment;
-      case 'netbanking':
-        return Icons.account_balance;
-      case 'wallets':
-        return Icons.wallet;
       case 'razorpay':
         return Icons.payment;
       default:
-        return Icons.qr_code_scanner;
+        return Icons.payment;
     }
   }
 
   String _getButtonText() {
-    if (_selectedPaymentMethod == null) {
-      return 'Scan & Pay';
-    }
-
     switch (_selectedPaymentMethod) {
-      case 'qr':
-        return 'Scan & Pay';
       case 'wallet':
         return 'Pay with Wallet';
-      case 'card':
-        return 'Pay with Card';
-      case 'upi':
-        return 'Pay with UPI';
-      case 'netbanking':
-        return 'Pay with Net Banking';
-      case 'wallets':
-        return 'Pay with Digital Wallet';
       case 'razorpay':
         return 'Pay with Razorpay';
       default:
-        return 'Scan & Pay';
+        return 'Select a payment method';
     }
   }
 
@@ -1216,7 +1174,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
   }
 
   // ============================================================
-  // ----- CCAvenue hosted-checkout flow -----
+  // ----- Razorpay flow -----
   // ============================================================
   Future<void> _processPayment() async {
     print('=== PAYMENT SCREEN: Processing payment method ===');
@@ -1246,88 +1204,61 @@ class _PaymentScreenState extends State<PaymentScreen> {
       return;
     }
 
-    // Wallet uses the wallet-balance flow; all other methods go via CCAvenue.
+    // Wallet uses the wallet-balance flow; all other methods go via Razorpay.
     if (_selectedPaymentMethod == 'wallet') {
       await _payWithWallet();
       return;
     }
 
+    await _initiateRazorpayPayment();
+  }
+
+  Future<void> _initiateRazorpayPayment() async {
     setState(() => _isProcessing = true);
 
     try {
-      // Backend requires a short order_id (CCAvenue limits length ~30 chars).
-      final orderId = '${DateTime.now().millisecondsSinceEpoch}';
       // Total is shown in INR on this screen; send a 2-decimal amount.
       final amount = double.parse(widget.totalAmount.toStringAsFixed(2));
-      final nameParts = widget.passengerName.trim().split(' ');
-      final firstName = nameParts.isNotEmpty ? nameParts.first : '';
-      final lastName =
-          nameParts.length > 1 ? nameParts.sublist(1).join(' ') : '';
 
-      final session = await _ccavenueService.createCheckout(
-        orderId: orderId,
-        amount: amount,
-        currency: 'INR',
-        transactionType: 'transport',
-        userId: widget.userId,
-        firstName: firstName,
-        lastName: lastName,
-        email: widget.passengerEmail,
-        phone: widget.passengerPhone,
-        successUrl: Urls.ccavenueSuccessUrl,
-        failureUrl: Urls.ccavenueFailureUrl,
+      final dio = di.sl<DioClient>().instance;
+      final response = await dio.post(
+        Urls.razorpayCreateOrder,
+        data: {
+          'amount': amount,
+          'currency': 'INR',
+          'reference_id': 'transport_${DateTime.now().millisecondsSinceEpoch}',
+        },
       );
+
+      final orderId = response.data['order_id'];
+      final keyId = response.data['key_id'];
+      print("Razorpay Key: $keyId");
+
+      final options = {
+        'key': keyId,
+        'amount': (amount * 100).toInt(),
+        'currency': 'INR',
+        'name': 'WanderNova',
+        'description': 'Transport: ${widget.vehicleName}',
+        'order_id': orderId,
+        'prefill': {
+          'name': widget.passengerName,
+          'email': widget.passengerEmail,
+          'contact': widget.passengerPhone,
+        },
+        'theme': {'color': '#1663F7'},
+      };
 
       if (!mounted) return;
       setState(() => _isProcessing = false);
-
-      final result = await Navigator.of(context).push<PaymentResult>(
-        MaterialPageRoute(
-          builder: (_) => CCAvenuePaymentPage(
-            service: _ccavenueService,
-            session: session,
-          ),
-        ),
-      );
-
-      if (!mounted) return;
-      switch (result) {
-        case PaymentResult.success:
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text('Payment successful!'),
-              backgroundColor: _successGreen,
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-          // Payment done → now record the booking via the reservation API.
-          await _createReservation(orderId);
-          break;
-        case PaymentResult.failure:
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Payment failed. Please try again.'),
-              backgroundColor: Colors.red,
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-          break;
-        case PaymentResult.cancelled:
-        case null:
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Payment cancelled.'),
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-          break;
-      }
-    } on CCAvenueException catch (e) {
+      _razorpay.open(options);
+    } on DioException catch (e) {
       if (!mounted) return;
       setState(() => _isProcessing = false);
+      print('Razorpay order error: ${e.message}');
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(e.message),
+        const SnackBar(
+          content: Text('Could not create payment order. Please try again.'),
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
         ),
@@ -1335,7 +1266,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _isProcessing = false);
-      print('CCAvenue checkout error: $e');
+      print('Razorpay checkout error: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Could not start payment. Please try again.'),
@@ -1344,6 +1275,35 @@ class _PaymentScreenState extends State<PaymentScreen> {
         ),
       );
     }
+  }
+
+  void _handleRazorpaySuccess(PaymentSuccessResponse response) {
+    print('Transport payment success: ${response.paymentId}');
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('Payment successful!'),
+        backgroundColor: _successGreen,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+    // Payment done → now record the booking via the reservation API.
+    _createReservation(response.paymentId ?? '');
+  }
+
+  void _handleRazorpayError(PaymentFailureResponse response) {
+    if (!mounted) return;
+    setState(() => _isProcessing = false);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Payment failed: ${response.message ?? 'Please try again.'}'),
+        backgroundColor: Colors.red,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  void _handleRazorpayExternalWallet(ExternalWalletResponse response) {
+    print('Razorpay external wallet: ${response.walletName}');
   }
 
   String _formatDateTime(DateTime date) {

@@ -20,7 +20,9 @@
       "Bash(Select-Object -ExpandProperty FullName)",
       "Bash(Sort-Object)",
       "Bash(find \"D:\\\\clone\\\\backend\" -name \"*.py\" -type f | sort)",
-      "Read(//d/clone/backend/flights/**)"
+      "Read(//d/clone/backend/flights/**)",
+      "Bash(cat /tmp/ticket_full.txt)",
+      "Bash(grep -v \"^$\")"
     ]
   }
 }
