@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 
+import '../AKInsurance/domain/entity/AKInsurance_entity.dart';
+import '../AKInsurance/presentation/bloc/AKInsurance_bloc.dart';
+import '../AKInsurance/presentation/bloc/AKInsurance_event.dart';
+import '../AKInsurance/presentation/bloc/AKInsurance_state.dart';
+import 'new_booking_Screen.dart';
 import 'policy_detail_Screen.dart';
 
 /// Payload handed over by InsuranceSearchCard → GET QUOTES.
@@ -29,34 +35,32 @@ class InsuranceQuoteRequest {
       travellingCountries.isEmpty ? '—' : travellingCountries.join(', ');
 }
 
+/// Display model for one plan — built from the live [AkInsurancePlanEntity]
+/// the QuotesListing call returns.
 class InsurancePolicy {
+  final String planId;
   final String supplier;
   final String planName;
   final int coverageUsd;
   final int premiumInr;
   const InsurancePolicy({
+    required this.planId,
     required this.supplier,
     required this.planName,
     required this.coverageUsd,
     required this.premiumInr,
   });
-}
 
-// TODO: replace with your API response model / data source.
-const List<InsurancePolicy> _kPolicies = [
-  InsurancePolicy(supplier: 'TATA AIG', planName: 'TATA AIG Travel Insurance - International Plus Silver', coverageUsd: 50000, premiumInr: 539),
-  InsurancePolicy(supplier: 'TATA AIG', planName: 'TATA AIG Travel Insurance - International Plus Silver Plus', coverageUsd: 100000, premiumInr: 693),
-  InsurancePolicy(supplier: 'TATA AIG', planName: 'TATA AIG Travel Insurance - International Plus Gold', coverageUsd: 250000, premiumInr: 905),
-  InsurancePolicy(supplier: 'TATA AIG', planName: 'TATA AIG Travel Insurance - International Plus Platinum', coverageUsd: 500000, premiumInr: 1135),
-  InsurancePolicy(supplier: 'TATA AIG', planName: 'TATA AIG Travel Insurance - International Plus Titanium', coverageUsd: 750000, premiumInr: 1529),
-  InsurancePolicy(supplier: 'TATA AIG', planName: 'TATA AIG Travel Insurance - International Plus Titanium Plus', coverageUsd: 1000000, premiumInr: 1879),
-  InsurancePolicy(supplier: 'HDFC ERGO', planName: 'HDFC ERGO International Travel - Silver', coverageUsd: 50000, premiumInr: 559),
-  InsurancePolicy(supplier: 'HDFC ERGO', planName: 'HDFC ERGO International Travel - Gold', coverageUsd: 250000, premiumInr: 949),
-  InsurancePolicy(supplier: 'ICICI Lombard', planName: 'ICICI Lombard International Travel - Bronze', coverageUsd: 100000, premiumInr: 719),
-  InsurancePolicy(supplier: 'ICICI Lombard', planName: 'ICICI Lombard International Travel - Platinum', coverageUsd: 1000000, premiumInr: 1949),
-  InsurancePolicy(supplier: 'Bajaj Allianz', planName: 'Bajaj Allianz Travel Ace - Silver', coverageUsd: 50000, premiumInr: 545),
-  InsurancePolicy(supplier: 'Bajaj Allianz', planName: 'Bajaj Allianz Travel Ace - Gold', coverageUsd: 250000, premiumInr: 915),
-];
+  factory InsurancePolicy.fromPlan(AkInsurancePlanEntity plan) {
+    return InsurancePolicy(
+      planId: plan.planId,
+      supplier: plan.provider.isNotEmpty ? plan.provider : plan.planName,
+      planName: plan.planName,
+      coverageUsd: plan.sumInsured.round(),
+      premiumInr: plan.premium.round(),
+    );
+  }
+}
 
 class _Bucket {
   final String label;
@@ -64,6 +68,8 @@ class _Bucket {
   final int max;
   const _Bucket(this.label, this.min, this.max);
 }
+
+const String _kUnknownCoverageLabel = 'Coverage not specified';
 
 const List<_Bucket> _buckets = [
   _Bucket('USD 0 - 50,000', 0, 50000),
@@ -97,41 +103,32 @@ class _InsuranceQuotesScreenState extends State<InsuranceQuotesScreen> {
   final Set<String> _selectedSuppliers = {};
   final Set<String> _selectedRanges = {};
   String _sort = _sortOptions[0];
-  bool _loading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    // TODO: call your quotes API here with widget.request.
-    Future.delayed(const Duration(milliseconds: 600), () {
-      if (mounted) setState(() => _loading = false);
-    });
-  }
 
   String _bucketLabel(int coverage) {
+    if (coverage <= 0) return _kUnknownCoverageLabel;
     for (final b in _buckets) {
       if (coverage > b.min && coverage <= b.max) return b.label;
     }
     return _buckets.last.label;
   }
 
-  Map<String, int> get _supplierCounts {
+  Map<String, int> _supplierCounts(List<InsurancePolicy> all) {
     final m = <String, int>{};
-    for (final p in _kPolicies) m[p.supplier] = (m[p.supplier] ?? 0) + 1;
+    for (final p in all) m[p.supplier] = (m[p.supplier] ?? 0) + 1;
     return m;
   }
 
-  Map<String, int> get _rangeCounts {
+  Map<String, int> _rangeCounts(List<InsurancePolicy> all) {
     final m = <String, int>{};
-    for (final p in _kPolicies) {
+    for (final p in all) {
       final k = _bucketLabel(p.coverageUsd);
       m[k] = (m[k] ?? 0) + 1;
     }
     return m;
   }
 
-  List<InsurancePolicy> get _filtered {
-    final list = _kPolicies.where((p) {
+  List<InsurancePolicy> _filtered(List<InsurancePolicy> all) {
+    final list = all.where((p) {
       if (_selectedSuppliers.isNotEmpty &&
           !_selectedSuppliers.contains(p.supplier)) return false;
       if (_selectedRanges.isNotEmpty &&
@@ -155,52 +152,123 @@ class _InsuranceQuotesScreenState extends State<InsuranceQuotesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      key: _scaffoldKey,
-      backgroundColor: const Color(0xFFF8F9FA),
-      endDrawer: _buildFilterDrawer(context),
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: BackButton(color: _brandBlue),
-        title: Text('Insurance Quotes',
-            style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w800,
-                color: Colors.black87)),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.tune_rounded, color: _brandBlue),
-            onPressed: () => _scaffoldKey.currentState?.openEndDrawer(),
+    return BlocBuilder<AkInsuranceBloc, AkInsuranceState>(
+      builder: (context, state) {
+        final allPolicies =
+            state.plans.map(InsurancePolicy.fromPlan).toList();
+        return Scaffold(
+          key: _scaffoldKey,
+          backgroundColor: const Color(0xFFF8F9FA),
+          endDrawer: _buildFilterDrawer(context, allPolicies),
+          appBar: AppBar(
+            backgroundColor: Colors.white,
+            elevation: 0,
+            leading: BackButton(color: _brandBlue),
+            title: Text('Insurance Quotes',
+                style: TextStyle(
+                    fontSize: context.fs(20),
+                    fontWeight: FontWeight.w800,
+                    color: Colors.black87)),
+            actions: [
+              IconButton(
+                icon: Icon(Icons.tune_rounded, color: _brandBlue),
+                onPressed: () => _scaffoldKey.currentState?.openEndDrawer(),
+              ),
+            ],
           ),
-        ],
-      ),
-      body: Column(
-        children: [
-          _buildSummaryHead(context),
-          Expanded(
-            child: _loading
-                ? const Center(child: CircularProgressIndicator(color: _brandBlue))
-                : _buildList(context),
+          body: Column(
+            children: [
+              _buildSummaryHead(context),
+              Expanded(
+                child: _buildBody(context, state, allPolicies),
+              ),
+            ],
           ),
-        ],
+        );
+      },
+    );
+  }
+
+  Widget _buildBody(
+      BuildContext context, AkInsuranceState state, List<InsurancePolicy> allPolicies) {
+    if (state.quotesStatus == AkInsuranceStatus.loading ||
+        state.quotesStatus == AkInsuranceStatus.initial) {
+      return const Center(child: CircularProgressIndicator(color: _brandBlue));
+    }
+    if (state.quotesStatus == AkInsuranceStatus.failed) {
+      return _buildErrorState(context, state);
+    }
+    return _buildList(context, allPolicies);
+  }
+
+  Widget _buildErrorState(BuildContext context, AkInsuranceState state) {
+    return Center(
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: context.w(24)),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.error_outline_rounded,
+                size: context.w(48), color: Colors.grey.shade400),
+            SizedBox(height: context.h(12)),
+            Text(
+              state.errorMessage.isNotEmpty
+                  ? state.errorMessage
+                  : 'Could not fetch travel insurance plans. Please try again.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                  fontSize: context.fs(14),
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey.shade700),
+            ),
+            SizedBox(height: context.h(12)),
+            if (state.quotesRequest != null)
+              GestureDetector(
+                onTap: () => context
+                    .read<AkInsuranceBloc>()
+                    .add(LoadAkInsuranceQuotesEvent(state.quotesRequest!)),
+                child: Container(
+                  padding: EdgeInsets.symmetric(
+                      horizontal: context.w(20), vertical: context.h(10)),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(colors: [_brandBlue, _brandTeal]),
+                    borderRadius: BorderRadius.circular(context.r(10)),
+                  ),
+                  child: Text('Retry',
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontSize: context.fs(14),
+                          fontWeight: FontWeight.w700)),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
 
   void _openPolicySheet(BuildContext context, InsurancePolicy p) {
+    final tui = context.read<AkInsuranceBloc>().state.quotes?.tui ?? '';
     PolicyDetailsSheet.show(
       context,
       policy: p,
       request: widget.request,
-      onContinue: () {
-        // TODO: navigate to booking / checkout with the selected policy.
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          content: Text('Continuing with ${p.planName}…'),
-        ));
-      },
+      tui: tui,
+      onContinue: () => _goToBooking(context, p),
+    );
+  }
+
+  void _goToBooking(BuildContext context, InsurancePolicy p) {
+    final tui = context.read<AkInsuranceBloc>().state.quotes?.tui ?? '';
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => InsuranceBookingScreen(
+          request: widget.request,
+          policy: p,
+          tui: tui,
+        ),
+      ),
     );
   }
 
@@ -208,14 +276,14 @@ class _InsuranceQuotesScreenState extends State<InsuranceQuotesScreen> {
   Widget _buildSummaryHead(BuildContext context) {
     final r = widget.request;
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: EdgeInsets.symmetric(horizontal: context.w(12), vertical: context.h(10)),
       decoration: BoxDecoration(
-        color: Colors.white, // Move color here
+        color: Colors.white,
         boxShadow: [
           BoxShadow(
               color: Colors.black.withOpacity(0.06),
-              blurRadius: 8,
-              offset: const Offset(0, 2)),
+              blurRadius: context.w(8),
+              offset: Offset(0, context.h(2))),
         ],
       ),
       child: Column(
@@ -223,15 +291,15 @@ class _InsuranceQuotesScreenState extends State<InsuranceQuotesScreen> {
         children: [
           Row(children: [
             Icon(Icons.health_and_safety_rounded,
-                size: 24, color: _brandBlue),
-            const SizedBox(width: 6),
+                size: context.w(24), color: _brandBlue),
+            SizedBox(width: context.w(6)),
             Expanded(
               child: Text(
                 '${r.insuranceType}  ·  ${r.destination}',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                    fontSize: 16,
+                    fontSize: context.fs(16),
                     fontWeight: FontWeight.w800,
                     color: Colors.black87),
               ),
@@ -239,21 +307,22 @@ class _InsuranceQuotesScreenState extends State<InsuranceQuotesScreen> {
             GestureDetector(
               onTap: () => Navigator.pop(context), // back to search card
               child: Container(
-                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: EdgeInsets.symmetric(
+                    horizontal: context.w(12), vertical: context.h(8)),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
                       colors: [Color(0xFFF4503A), Color(0xFFE23A1E)]),
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(context.r(10)),
                 ),
                 child: Text('Modify Search',
                     style: TextStyle(
                         color: Colors.white,
-                        fontSize: 14,
+                        fontSize: context.fs(14),
                         fontWeight: FontWeight.w700)),
               ),
             ),
           ]),
-          const SizedBox(height: 10),
+          SizedBox(height: context.h(10)),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(children: [
@@ -282,14 +351,14 @@ class _InsuranceQuotesScreenState extends State<InsuranceQuotesScreen> {
       children: [
         Text(label,
             style: TextStyle(
-                fontSize: 10,
+                fontSize: context.fs(10),
                 fontWeight: FontWeight.w700,
                 color: Colors.grey.shade500,
-                letterSpacing: 1.2)),
-        const SizedBox(height: 2),
+                letterSpacing: context.letterSpacingWider)),
+        SizedBox(height: context.h(2)),
         Text(value,
             style: TextStyle(
-                fontSize: 14,
+                fontSize: context.fs(14),
                 fontWeight: FontWeight.w800,
                 color: Colors.black87)),
       ],
@@ -298,16 +367,16 @@ class _InsuranceQuotesScreenState extends State<InsuranceQuotesScreen> {
 
   Widget _headDivider(BuildContext context) => Container(
     width: 1,
-    height: 28,
-    margin: const EdgeInsets.symmetric(horizontal: 12),
+    height: context.h(28),
+    margin: EdgeInsets.symmetric(horizontal: context.w(12)),
     color: Colors.grey.shade200,
   );
 
   // ── List: title + sort + filter trigger + policy cards ─────────────────
-  Widget _buildList(BuildContext context) {
-    final policies = _filtered;
+  Widget _buildList(BuildContext context, List<InsurancePolicy> allPolicies) {
+    final policies = _filtered(allPolicies);
     return ListView(
-      padding: const EdgeInsets.all(12),
+      padding: EdgeInsets.all(context.w(12)),
       children: [
         Row(
           crossAxisAlignment: CrossAxisAlignment.end,
@@ -317,35 +386,37 @@ class _InsuranceQuotesScreenState extends State<InsuranceQuotesScreen> {
               children: [
                 Text(widget.request.insuranceType,
                     style: TextStyle(
-                        fontSize: 20,
+                        fontSize: context.fs(20),
                         fontWeight: FontWeight.w800,
                         color: _brandBlue)),
                 Container(
-                  height: 3,
-                  width: 40,
-                  margin: const EdgeInsets.only(top: 3),
+                  height: context.h(3),
+                  width: context.w(40),
+                  margin: EdgeInsets.only(top: context.h(3)),
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
                         colors: [_brandBlue, _brandTeal]),
-                    borderRadius: BorderRadius.circular(2),
+                    borderRadius: BorderRadius.circular(context.r(2)),
                   ),
                 ),
               ],
             ),
             const Spacer(),
-            Text('Showing ${policies.length} of ${_kPolicies.length} policies',
+            Text('Showing ${policies.length} of ${allPolicies.length} policies',
                 style: TextStyle(
-                    fontSize: 12, color: Colors.grey.shade600)),
+                    fontSize: context.fs(12), color: Colors.grey.shade600)),
           ],
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: context.h(12)),
         Row(children: [
           Expanded(child: _buildSortDropdown(context)),
-          const SizedBox(width: 8),
+          SizedBox(width: context.w(8)),
           _buildFilterButton(context),
         ]),
-        const SizedBox(height: 12),
-        if (policies.isEmpty)
+        SizedBox(height: context.h(12)),
+        if (allPolicies.isEmpty)
+          _buildNoPlansState(context)
+        else if (policies.isEmpty)
           _buildEmptyState(context)
         else
           ...policies.map((p) => _policyCard(context, p)),
@@ -355,10 +426,10 @@ class _InsuranceQuotesScreenState extends State<InsuranceQuotesScreen> {
 
   Widget _buildSortDropdown(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10),
+      padding: EdgeInsets.symmetric(horizontal: context.w(10)),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(context.r(10)),
         border: Border.all(color: Colors.grey.shade300),
       ),
       child: DropdownButtonHideUnderline(
@@ -367,7 +438,7 @@ class _InsuranceQuotesScreenState extends State<InsuranceQuotesScreen> {
           isExpanded: true,
           icon: Icon(Icons.arrow_drop_down_rounded, color: Colors.grey.shade700),
           style: TextStyle(
-              fontSize: 14,
+              fontSize: context.fs(14),
               fontWeight: FontWeight.w600,
               color: Colors.black87),
           items: [
@@ -384,30 +455,30 @@ class _InsuranceQuotesScreenState extends State<InsuranceQuotesScreen> {
     return GestureDetector(
       onTap: () => _scaffoldKey.currentState?.openEndDrawer(),
       child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+        padding: EdgeInsets.symmetric(horizontal: context.w(12), vertical: context.h(11)),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(context.r(10)),
           border: Border.all(color: _brandBlue.withOpacity(0.4)),
         ),
         child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Icon(Icons.tune_rounded, size: 20, color: _brandBlue),
-          const SizedBox(width: 6),
+          Icon(Icons.tune_rounded, size: context.w(20), color: _brandBlue),
+          SizedBox(width: context.w(6)),
           Text('Filter',
               style: TextStyle(
                   color: _brandBlue,
-                  fontSize: 14,
+                  fontSize: context.fs(14),
                   fontWeight: FontWeight.w700)),
           if (_activeFilters > 0)
             Container(
-              margin: const EdgeInsets.only(left: 6),
-              padding: const EdgeInsets.all(4),
+              margin: EdgeInsets.only(left: context.w(6)),
+              padding: EdgeInsets.all(context.w(4)),
               decoration: const BoxDecoration(
                   color: _accentOrange, shape: BoxShape.circle),
               child: Text('$_activeFilters',
                   style: TextStyle(
                       color: Colors.white,
-                      fontSize: 10,
+                      fontSize: context.fs(10),
                       fontWeight: FontWeight.w800)),
             ),
         ]),
@@ -419,17 +490,17 @@ class _InsuranceQuotesScreenState extends State<InsuranceQuotesScreen> {
   Widget _policyCard(BuildContext context, InsurancePolicy p) {
     final fmt = NumberFormat('#,##0');
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(12),
+      margin: EdgeInsets.only(bottom: context.h(12)),
+      padding: EdgeInsets.all(context.w(12)),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(context.r(14)),
         border: Border.all(color: Colors.grey.shade200),
         boxShadow: [
           BoxShadow(
               color: Colors.black.withOpacity(0.05),
-              blurRadius: 8,
-              offset: const Offset(0, 4)),
+              blurRadius: context.w(8),
+              offset: Offset(0, context.h(4))),
         ],
       ),
       child: Column(
@@ -438,7 +509,7 @@ class _InsuranceQuotesScreenState extends State<InsuranceQuotesScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _logoBox(context, p.supplier),
-              const SizedBox(width: 10),
+              SizedBox(width: context.w(10)),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -447,13 +518,15 @@ class _InsuranceQuotesScreenState extends State<InsuranceQuotesScreen> {
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                            fontSize: 16,
+                            fontSize: context.fs(16),
                             fontWeight: FontWeight.w800,
                             color: Colors.black87)),
-                    const SizedBox(height: 2),
+                    SizedBox(height: context.h(2)),
                     Text(p.supplier,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                            fontSize: 12,
+                            fontSize: context.fs(12),
                             fontWeight: FontWeight.w600,
                             color: Colors.grey.shade600)),
                   ],
@@ -464,20 +537,20 @@ class _InsuranceQuotesScreenState extends State<InsuranceQuotesScreen> {
                 children: [
                   Text('Premium',
                       style: TextStyle(
-                          fontSize: 10,
+                          fontSize: context.fs(10),
                           color: Colors.grey.shade500)),
                   Text('₹${fmt.format(p.premiumInr)}',
                       style: TextStyle(
-                          fontSize: 20,
+                          fontSize: context.fs(20),
                           fontWeight: FontWeight.w800,
                           color: _accentOrange)),
                 ],
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          SizedBox(height: context.h(10)),
           Divider(height: 1, color: Colors.grey.shade200),
-          const SizedBox(height: 8),
+          SizedBox(height: context.h(8)),
           Row(children: [
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -485,11 +558,14 @@ class _InsuranceQuotesScreenState extends State<InsuranceQuotesScreen> {
               children: [
                 Text('Coverage',
                     style: TextStyle(
-                        fontSize: 10,
+                        fontSize: context.fs(10),
                         color: Colors.grey.shade500)),
-                Text('USD ${fmt.format(p.coverageUsd)}',
+                Text(
+                    p.coverageUsd > 0
+                        ? 'USD ${fmt.format(p.coverageUsd)}'
+                        : '—',
                     style: TextStyle(
-                        fontSize: 14,
+                        fontSize: context.fs(14),
                         fontWeight: FontWeight.w800,
                         color: Colors.black87)),
               ],
@@ -499,37 +575,29 @@ class _InsuranceQuotesScreenState extends State<InsuranceQuotesScreen> {
               onTap: () => _openPolicySheet(context, p),
               child: Text('Policy details',
                   style: TextStyle(
-                      fontSize: 14,
+                      fontSize: context.fs(14),
                       fontWeight: FontWeight.w600,
                       color: _brandBlue,
                       decoration: TextDecoration.underline)),
             ),
-            const SizedBox(width: 10),
+            SizedBox(width: context.w(10)),
             GestureDetector(
-              onTap: () {
-                // TODO: navigate to checkout / payment screen.
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                  behavior: SnackBarBehavior.floating,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10)),
-                  content: Text('Proceeding with ${p.planName}…'),
-                ));
-              },
+              onTap: () => _goToBooking(context, p),
               child: Container(
-                padding: EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                padding: EdgeInsets.symmetric(horizontal: context.w(14), vertical: context.h(9)),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
                       colors: [_brandTeal, Color(0xFF044A56)]),
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(context.r(10)),
                 ),
                 child: Row(mainAxisSize: MainAxisSize.min, children: [
                   Icon(Icons.check_rounded,
-                      size: 18, color: Colors.white),
-                  const SizedBox(width: 4),
+                      size: context.w(18), color: Colors.white),
+                  SizedBox(width: context.w(4)),
                   Text('Select',
                       style: TextStyle(
                           color: Colors.white,
-                          fontSize: 14,
+                          fontSize: context.fs(14),
                           fontWeight: FontWeight.w700)),
                 ]),
               ),
@@ -548,38 +616,55 @@ class _InsuranceQuotesScreenState extends State<InsuranceQuotesScreen> {
         .join()
         .toUpperCase();
     return Container(
-      width: 44,
-      height: 44,
+      width: context.w(44),
+      height: context.w(44),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [Color(0xFF1A4FA0), Color(0xFF003B95)]),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(context.r(10)),
       ),
       child: Center(
         child: Text(initials,
             style: TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.w800,
-                fontSize: 16)),
+                fontSize: context.fs(16))),
       ),
+    );
+  }
+
+  Widget _buildNoPlansState(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: context.h(60)),
+      child: Column(children: [
+        Icon(Icons.search_off_rounded,
+            size: context.w(48), color: Colors.grey.shade400),
+        SizedBox(height: context.h(12)),
+        Text('No cover is available for this trip right now',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+                fontSize: context.fs(16),
+                fontWeight: FontWeight.w700,
+                color: Colors.grey.shade700)),
+      ]),
     );
   }
 
   Widget _buildEmptyState(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 60),
+      padding: EdgeInsets.symmetric(vertical: context.h(60)),
       child: Column(children: [
         Icon(Icons.search_off_rounded,
-            size: 48, color: Colors.grey.shade400),
-        const SizedBox(height: 12),
+            size: context.w(48), color: Colors.grey.shade400),
+        SizedBox(height: context.h(12)),
         Text('No policies match your filters',
             style: TextStyle(
-                fontSize: 16,
+                fontSize: context.fs(16),
                 fontWeight: FontWeight.w700,
                 color: Colors.grey.shade700)),
-        const SizedBox(height: 8),
+        SizedBox(height: context.h(8)),
         GestureDetector(
           onTap: () => setState(() {
             _selectedSuppliers.clear();
@@ -587,7 +672,7 @@ class _InsuranceQuotesScreenState extends State<InsuranceQuotesScreen> {
           }),
           child: Text('Clear all filters',
               style: TextStyle(
-                  fontSize: 14,
+                  fontSize: context.fs(14),
                   fontWeight: FontWeight.w700,
                   color: _brandBlue,
                   decoration: TextDecoration.underline)),
@@ -597,23 +682,25 @@ class _InsuranceQuotesScreenState extends State<InsuranceQuotesScreen> {
   }
 
   // ── Filter drawer (supplier + coverage buckets, like web sidebar) ──────
-  Widget _buildFilterDrawer(BuildContext context) {
+  Widget _buildFilterDrawer(BuildContext context, List<InsurancePolicy> allPolicies) {
+    final supplierCounts = _supplierCounts(allPolicies);
+    final rangeCounts = _rangeCounts(allPolicies);
     return Drawer(
-      width: 320,
+      width: context.w(320),
       child: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding(
-              padding: const EdgeInsets.all(16),
+              padding: EdgeInsets.all(context.w(16)),
               child: Row(children: [
                 Text('Filter Your Search',
                     style: TextStyle(
-                        fontSize: 20,
+                        fontSize: context.fs(20),
                         fontWeight: FontWeight.w800)),
                 const Spacer(),
                 IconButton(
-                  icon: Icon(Icons.close_rounded, size: 24),
+                  icon: Icon(Icons.close_rounded, size: context.w(24)),
                   onPressed: () => Navigator.pop(context),
                 ),
               ]),
@@ -621,16 +708,16 @@ class _InsuranceQuotesScreenState extends State<InsuranceQuotesScreen> {
             Divider(height: 1, color: Colors.grey.shade200),
             Expanded(
               child: ListView(
-                padding: const EdgeInsets.all(16),
+                padding: EdgeInsets.all(context.w(16)),
                 children: [
                   Text('INSURANCE SUPPLIER',
                       style: TextStyle(
-                          fontSize: 10,
+                          fontSize: context.fs(10),
                           fontWeight: FontWeight.w700,
                           color: Colors.grey.shade500,
-                          letterSpacing: 1.2)),
-                  const SizedBox(height: 6),
-                  for (final entry in _supplierCounts.entries)
+                          letterSpacing: context.letterSpacingWider)),
+                  SizedBox(height: context.h(6)),
+                  for (final entry in supplierCounts.entries)
                     _filterCheckRow(
                       context,
                       entry.key,
@@ -640,19 +727,19 @@ class _InsuranceQuotesScreenState extends State<InsuranceQuotesScreen> {
                           ? _selectedSuppliers.add(entry.key)
                           : _selectedSuppliers.remove(entry.key)),
                     ),
-                  const SizedBox(height: 20),
+                  SizedBox(height: context.h(20)),
                   Text('COVERAGE / SUM ASSURED',
                       style: TextStyle(
-                          fontSize: 10,
+                          fontSize: context.fs(10),
                           fontWeight: FontWeight.w700,
                           color: Colors.grey.shade500,
-                          letterSpacing: 1.2)),
-                  const SizedBox(height: 6),
+                          letterSpacing: context.letterSpacingWider)),
+                  SizedBox(height: context.h(6)),
                   for (final b in _buckets)
                     _filterCheckRow(
                       context,
                       b.label,
-                      _rangeCounts[b.label] ?? 0,
+                      rangeCounts[b.label] ?? 0,
                       _selectedRanges.contains(b.label),
                           (v) => setState(() => v
                           ? _selectedRanges.add(b.label)
@@ -662,7 +749,7 @@ class _InsuranceQuotesScreenState extends State<InsuranceQuotesScreen> {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.all(16),
+              padding: EdgeInsets.all(context.w(16)),
               child: Row(children: [
                 GestureDetector(
                   onTap: () => setState(() {
@@ -671,7 +758,7 @@ class _InsuranceQuotesScreenState extends State<InsuranceQuotesScreen> {
                   }),
                   child: Text('Clear all',
                       style: TextStyle(
-                          fontSize: 14,
+                          fontSize: context.fs(14),
                           fontWeight: FontWeight.w700,
                           color: Colors.grey.shade600)),
                 ),
@@ -679,16 +766,16 @@ class _InsuranceQuotesScreenState extends State<InsuranceQuotesScreen> {
                 GestureDetector(
                   onTap: () => Navigator.pop(context),
                   child: Container(
-                    padding: EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+                    padding: EdgeInsets.symmetric(horizontal: context.w(24), vertical: context.h(10)),
                     decoration: BoxDecoration(
                       gradient: const LinearGradient(
                           colors: [_brandBlue, _brandTeal]),
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(context.r(12)),
                     ),
                     child: Text('APPLY',
                         style: TextStyle(
                             color: Colors.white,
-                            fontSize: 14,
+                            fontSize: context.fs(14),
                             fontWeight: FontWeight.w800)),
                   ),
                 ),
@@ -705,49 +792,28 @@ class _InsuranceQuotesScreenState extends State<InsuranceQuotesScreen> {
     return InkWell(
       onTap: () => onChanged(!checked),
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6),
+        padding: EdgeInsets.symmetric(vertical: context.h(6)),
         child: Row(children: [
           Checkbox(
             value: checked,
             activeColor: _brandBlue,
             shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(4)),
+                borderRadius: BorderRadius.circular(context.r(4))),
             onChanged: (value) => onChanged(value ?? false),
           ),
-          const SizedBox(width: 4),
+          SizedBox(width: context.w(4)),
           Expanded(
             child: Text(label,
                 style: TextStyle(
-                    fontSize: 14,
+                    fontSize: context.fs(14),
                     fontWeight: FontWeight.w600,
                     color: Colors.black87)),
           ),
           Text('($count)',
               style: TextStyle(
-                  fontSize: 12, color: Colors.grey.shade500)),
+                  fontSize: context.fs(12), color: Colors.grey.shade500)),
         ]),
       ),
-    );
-  }
-
-  Widget _detailRow(BuildContext context, String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(children: [
-        SizedBox(
-          width: 100,
-          child: Text(label,
-              style: TextStyle(
-                  fontSize: 14, color: Colors.grey.shade600)),
-        ),
-        Expanded(
-          child: Text(value,
-              style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w800,
-                  color: Colors.black87)),
-        ),
-      ]),
     );
   }
 }

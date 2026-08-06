@@ -28,8 +28,6 @@ import '../../../AKCreateItinerary/presentation/bloc/AKCreateItinerary_bloc.dart
 import '../../../AKCreateItinerary/presentation/bloc/AKCreateItinerary_event.dart';
 import '../../../AKCreateItinerary/presentation/bloc/AKCreateItinerary_state.dart';
 import '../../../flight_payment/presentation/screen/ak_payment_screen.dart';
-import '../../../AKInsurance/domain/entity/AKInsurance_entity.dart';
-import '../../../AKInsurance/presentation/widget/trip_secure_section.dart';
 
 class FlightRouteSegment {
   final String from;
@@ -275,12 +273,6 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
   late final AkCreateItineraryBloc _createItineraryBloc;
 
   final _formKey = GlobalKey<TravellerFormState>();
-  final _tripSecureKey = GlobalKey<TripSecureSectionState>();
-
-  /// The Trip Secure plan the traveller opted into, or null when they
-  /// declined. Purely additive to this screen — the flight itself prices and
-  /// books exactly as it did before.
-  AkInsurancePlanEntity? _insurancePlan;
 
   // GetSPricer already fetched the live fare upstream in detail_popup.dart —
   // this is synthesized once from route.akFareData, not fetched again here.
@@ -1040,9 +1032,6 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
                 },
               ),
 
-              SizedBox(height: context.gapLarge),
-              _buildTripSecureSection(context),
-
               SizedBox(height: context.hp(3)),
               _buildContinueButton(context),
               SizedBox(height: context.hp(2)),
@@ -1052,43 +1041,6 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
         bottomNavigationBar: const CustomBottomNav(currentIndex: 0),
       ),
     );
-  }
-
-  /// Trip Secure — the optional travel-insurance add-on, placed after the
-  /// traveller forms so it can price against real dates of birth. It hides
-  /// itself when the provider has no cover for this trip.
-  Widget _buildTripSecureSection(BuildContext context) {
-    final outbound = widget.routes.first;
-    final inbound = widget.routes.length > 1 ? widget.routes.last : null;
-
-    return TripSecureSection(
-      key: _tripSecureKey,
-      destinationAirportCode: _extractAirportCode(outbound.to),
-      departureDate: _parseRouteDate(outbound.departureDate),
-      returnDate: _parseRouteDate(inbound?.departureDate),
-      travellerCount: widget.travellerCount,
-      travellerBirthdates: _travellerBirthdates,
-      onSelectionChanged: (plan) => setState(() => _insurancePlan = plan),
-    );
-  }
-
-  /// Dates of birth already typed into the traveller form, as "yyyy-MM-dd".
-  /// Entries are empty while a traveller card is still blank.
-  List<String> _travellerBirthdates() {
-    final travellers = _formKey.currentState?.getAllTravellersData() ?? const [];
-    return travellers
-        .map((t) => _toIsoDate((t['dateOfBirth'] ?? '').toString()))
-        .toList();
-  }
-
-  /// [FlightRouteSegment.departureDate] is formatted "dd MMM yyyy" upstream.
-  DateTime? _parseRouteDate(String? value) {
-    if (value == null || value.trim().isEmpty) return null;
-    try {
-      return DateFormat('dd MMM yyyy').parse(value.trim());
-    } catch (_) {
-      return null;
-    }
   }
 
   Widget _buildCheckListUnavailableBanner(BuildContext context) {
@@ -1462,17 +1414,6 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
                 context,
                 'Service Fee',
                 _convertFareAmount(fare.serviceFee, fare.currency),
-              ),
-            ],
-            // Shown for transparency but kept out of "Total Fare": the
-            // insurance premium is not part of the flight charge this screen
-            // hands to the payment step.
-            if (_insurancePlan != null) ...[
-              SizedBox(height: context.gapSmall),
-              _fareRow(
-                context,
-                'Trip Secure (billed separately)',
-                _convertFareAmount(_insurancePlan!.premium, _insurancePlan!.currency),
               ),
             ],
             if (_promoDiscountAmount > 0) ...[
@@ -1886,10 +1827,6 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
           additionalLegs: widget.routes.length > 1 ? widget.routes.sublist(1) : const [],
           travellerCount: widget.travellerCount,
           travellerNames: travellerNames,
-          // Null unless the traveller both picked a Trip Secure plan and
-          // passed its KYC — the payment screen treats a null context as
-          // "no insurance", so the flight-only path is unaffected.
-          insuranceBookingContext: _tripSecureKey.currentState?.bookingContext,
         ),
       ),
     );

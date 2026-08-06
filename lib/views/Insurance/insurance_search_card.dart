@@ -453,9 +453,19 @@
 // }
 
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
-import 'package:wander_nova/views/Insurance/insurance_quotesScreen.dart';
+import 'insurance_quotesScreen.dart';
 import '../../UI_helper/responsive_layout.dart';
+import '../../injection_container.dart' as di;
+import '../AKInsurance/domain/entity/AKInsurance_entity.dart';
+import '../AKInsurance/presentation/bloc/AKInsurance_bloc.dart';
+import '../AKInsurance/presentation/bloc/AKInsurance_event.dart';
+import '../AKInsurance/presentation/bloc/AKInsurance_state.dart';
+import '../countries/domain/entities/country_entity.dart';
+import '../countries/presentation/bloc/country_bloc.dart';
+import '../countries/presentation/bloc/country_event.dart';
+import '../countries/presentation/bloc/country_state.dart';
 
 /// Travel Insurance quote card — same visual design as before, but the
 /// fields mirror thewandernova.com/insurance:
@@ -480,13 +490,35 @@ class _InsuranceSearchCardState extends State<InsuranceSearchCard> {
   DateTime? _endDate;
   List<DateTime?> _travellerDobs = <DateTime?>[null];
 
-  static const List<String> _insuranceTypes = [
+  // Fallback options shown while the live ProviderChecklist/cached-countries
+  // calls are in flight or if they fail — keeps the form usable either way.
+  static const List<String> _fallbackInsuranceTypes = [
     'Individual', 'Family', 'Corporate', 'Student',
   ];
-  static const List<String> _countries = [
+  static const List<String> _fallbackCountries = [
     'India', 'Thailand', 'Singapore', 'Dubai', 'Malaysia', 'Japan',
     'Vietnam', 'USA', 'UK', 'Australia', 'Germany', 'France', 'Indonesia',
   ];
+
+  late final AkInsuranceBloc _bloc;
+
+  @override
+  void initState() {
+    super.initState();
+    _bloc = di.sl<AkInsuranceBloc>();
+    _bloc.add(const LoadAkInsuranceProviderChecklistEvent());
+
+    final countryState = context.read<CountryBloc>().state;
+    if (countryState is! CountryLoaded) {
+      context.read<CountryBloc>().add(const LoadCountriesEvent());
+    }
+  }
+
+  @override
+  void dispose() {
+    _bloc.close();
+    super.dispose();
+  }
 
   int? get _noOfDays {
     final s = _startDate, e = _endDate;
@@ -497,6 +529,33 @@ class _InsuranceSearchCardState extends State<InsuranceSearchCard> {
 
   @override
   Widget build(BuildContext context) {
+    return BlocBuilder<CountryBloc, CountryState>(
+      builder: (context, countryState) {
+        final countries = countryState is CountryLoaded
+            ? countryState.countries
+            : const <CountryEntity>[];
+        final countryNames = countries.isNotEmpty
+            ? countries.map((c) => c.name).toList()
+            : _fallbackCountries;
+
+        return BlocBuilder<AkInsuranceBloc, AkInsuranceState>(
+          bloc: _bloc,
+          builder: (context, akState) {
+            final policyTypes = akState.checklist?.policyTypes.isNotEmpty == true
+                ? akState.checklist!.policyTypes
+                : _fallbackInsuranceTypes;
+            return _buildCard(context, countryNames, policyTypes);
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildCard(
+    BuildContext context,
+    List<String> countryNames,
+    List<String> policyTypes,
+  ) {
     return Container(
       padding: EdgeInsets.all(context.w(14)),
       decoration: BoxDecoration(
@@ -519,28 +578,22 @@ class _InsuranceSearchCardState extends State<InsuranceSearchCard> {
           // Row 1 — Insurance Type | From Country
           Row(children: [
             Expanded(
-              child: _fieldShell(
+              child: _dropdownField(
                 context,
                 label: 'INSURANCE TYPE',
-                onTap: () async {
-                  final v = await _pickSingle(
-                      context, 'Insurance Type', _insuranceTypes, _insuranceType);
-                  if (v != null) setState(() => _insuranceType = v);
-                },
-                child: _valueRow(context, _insuranceType),
+                value: _insuranceType,
+                options: policyTypes,
+                onChanged: (v) => setState(() => _insuranceType = v),
               ),
             ),
             SizedBox(width: context.w(8)),
             Expanded(
-              child: _fieldShell(
+              child: _dropdownField(
                 context,
                 label: 'FROM COUNTRY',
-                onTap: () async {
-                  final v = await _pickSingle(
-                      context, 'From Country', _countries, _fromCountry);
-                  if (v != null) setState(() => _fromCountry = v);
-                },
-                child: _valueRow(context, _fromCountry),
+                value: _fromCountry,
+                options: countryNames,
+                onChanged: (v) => setState(() => _fromCountry = v),
               ),
             ),
           ]),
@@ -548,37 +601,11 @@ class _InsuranceSearchCardState extends State<InsuranceSearchCard> {
           // Row 2 — Travelling Country | No of Persons
           Row(children: [
             Expanded(
-              child: _fieldShell(
-                context,
+              child: _CountryDropdownField(
                 label: 'TRAVELLING COUNTRY',
-                onTap: () async {
-                  final v = await _CountryMultiDialog.show(context, _travelCountries);
-                  if (v != null) setState(() => _travelCountries = v);
-                },
-                child: Row(children: [
-                  Icon(Icons.public, size: context.iconSmall, color: _brandBlue),
-                  SizedBox(width: context.w(6)),
-                  Expanded(
-                    child: Text(
-                      _travelCountries.isEmpty
-                          ? 'Select Countries'
-                          : (_travelCountries.length == 1
-                          ? _travelCountries[0]
-                          : '${_travelCountries[0]}  +${_travelCountries.length - 1} more'),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: context.bodyLarge,
-                        fontWeight: FontWeight.w800,
-                        color: _travelCountries.isEmpty
-                            ? Colors.grey.shade400
-                            : Colors.black87,
-                      ),
-                    ),
-                  ),
-                  Icon(Icons.arrow_drop_down_rounded,
-                      size: context.iconMedium, color: Colors.grey.shade600),
-                ]),
+                options: countryNames,
+                selected: _travelCountries,
+                onChanged: (v) => setState(() => _travelCountries = v),
               ),
             ),
             SizedBox(width: context.w(8)),
@@ -721,20 +748,65 @@ class _InsuranceSearchCardState extends State<InsuranceSearchCard> {
     return onTap == null ? box : GestureDetector(onTap: onTap, child: box);
   }
 
-  Widget _valueRow(BuildContext context, String value) {
-    return Row(children: [
-      Expanded(
-        child: Text(value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-                fontSize: context.bodyLarge,
-                fontWeight: FontWeight.w800,
-                color: Colors.black87)),
+  // Inline native dropdown — tapping the field opens Flutter's own dropdown
+  // menu right there, populated from live API data (ProviderChecklist /
+  // cached-countries), instead of a separate picker dialog.
+  Widget _dropdownField(
+    BuildContext context, {
+    required String label,
+    required String value,
+    required List<String> options,
+    required ValueChanged<String> onChanged,
+  }) {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: context.w(10), vertical: context.h(4)),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF6F8FB),
+        borderRadius: BorderRadius.circular(context.r(12)),
+        border: Border.all(color: Colors.grey.shade200),
       ),
-      Icon(Icons.arrow_drop_down_rounded,
-          size: context.iconMedium, color: Colors.grey.shade600),
-    ]);
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: EdgeInsets.only(top: context.h(4)),
+            child: Text(label,
+                style: TextStyle(
+                    fontSize: context.overline,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.grey.shade500,
+                    letterSpacing: context.letterSpacingWider)),
+          ),
+          DropdownButtonHideUnderline(
+            child: DropdownButtonFormField<String>(
+              value: options.contains(value) ? value : null,
+              isDense: true,
+              isExpanded: true,
+              icon: Icon(Icons.arrow_drop_down_rounded,
+                  size: context.iconMedium, color: Colors.grey.shade600),
+              style: TextStyle(
+                  fontSize: context.bodyLarge,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.black87),
+              decoration: const InputDecoration(
+                isDense: true,
+                contentPadding: EdgeInsets.zero,
+                border: InputBorder.none,
+              ),
+              items: options
+                  .map((o) => DropdownMenuItem(
+                      value: o,
+                      child: Text(o, maxLines: 1, overflow: TextOverflow.ellipsis)))
+                  .toList(),
+              onChanged: (v) {
+                if (v != null) onChanged(v);
+              },
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _placeholder(BuildContext context, String text) => Text(text,
@@ -850,34 +922,6 @@ class _InsuranceSearchCardState extends State<InsuranceSearchCard> {
     });
   }
 
-  Future<String?> _pickSingle(BuildContext context, String title,
-      List<String> options, String current) {
-    return showDialog<String>(
-      context: context,
-      builder: (dialogCtx) => AlertDialog(
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(context.r(16))),
-        title: Text(title,
-            style: TextStyle(
-                fontSize: context.titleSmall, fontWeight: FontWeight.w800)),
-        content: SingleChildScrollView(
-          child: Wrap(
-            spacing: context.w(8),
-            runSpacing: context.h(8),
-            children: options
-                .map((o) => ChoiceChip(
-              label: Text(o, style: TextStyle(fontSize: context.labelLarge)),
-              selectedColor: _brandBlue.withOpacity(0.15),
-              selected: o == current,
-              onSelected: (_) => Navigator.of(dialogCtx).pop(o),
-            ))
-                .toList(),
-          ),
-        ),
-      ),
-    );
-  }
-
   void _onGetQuotes() {
     if (_travelCountries.isEmpty) {
       _snack('Select a travelling country first');
@@ -887,38 +931,58 @@ class _InsuranceSearchCardState extends State<InsuranceSearchCard> {
       _snack('Select an end date first');
       return;
     }
+    if (_travellerDobs.any((d) => d == null)) {
+      _snack('Enter date of birth for all travellers');
+      return;
+    }
+
+    final countryState = context.read<CountryBloc>().state;
+    final countries = countryState is CountryLoaded
+        ? countryState.countries
+        : const <CountryEntity>[];
+    final countryCodes = _travelCountries.map((name) {
+      final matches = countries.where((c) => c.name == name);
+      return matches.isNotEmpty ? matches.first.code : '';
+    }).toList();
+    final isoFmt = DateFormat('yyyy-MM-dd');
+
+    _bloc.add(LoadAkInsuranceQuotesEvent(
+      AkInsuranceQuotesRequestEntity(
+        policyType: _insuranceType.toUpperCase(),
+        countryCodes: countryCodes,
+        countryNames: List<String>.from(_travelCountries),
+        startDate: isoFmt.format(_startDate!),
+        endDate: isoFmt.format(_endDate!),
+        travellers: [
+          for (int i = 0; i < _travellerDobs.length; i++)
+            AkInsuranceTravellerEntity(
+              id: i,
+              birthdate: isoFmt.format(_travellerDobs[i]!),
+              relation: i == 0 ? 'SELF' : 'OTHER',
+            ),
+        ],
+      ),
+    ));
 
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => InsuranceQuotesScreen(
-          request: InsuranceQuoteRequest(
-            insuranceType: _insuranceType,
-            fromCountry: _fromCountry,
-            travellingCountries: List<String>.from(_travelCountries),
-            startDate: _startDate!,
-            endDate: _endDate!,
-            noOfDays: _noOfDays!,
-            travellerDobs: List<DateTime?>.from(_travellerDobs),
+        builder: (_) => BlocProvider<AkInsuranceBloc>.value(
+          value: _bloc,
+          child: InsuranceQuotesScreen(
+            request: InsuranceQuoteRequest(
+              insuranceType: _insuranceType,
+              fromCountry: _fromCountry,
+              travellingCountries: List<String>.from(_travelCountries),
+              startDate: _startDate!,
+              endDate: _endDate!,
+              noOfDays: _noOfDays!,
+              travellerDobs: List<DateTime?>.from(_travellerDobs),
+            ),
           ),
         ),
       ),
     );
-
-    // Payload ready for your quotes API / next screen — same keys as web form.
-    final payload = {
-      'insuranceType': _insuranceType,
-      'fromCountry': _fromCountry,
-      'travellingCountries': _travelCountries,
-      'startDate': _startDate?.toIso8601String(),
-      'endDate': _endDate?.toIso8601String(),
-      'noOfDays': _noOfDays,
-      'travellers': _travellerDobs.map((d) => d?.toIso8601String()).toList(),
-    };
-    debugPrint('Insurance quote payload: $payload');
-    // TODO: Navigator.push(context, MaterialPageRoute(
-    //         builder: (_) => InsuranceQuotesScreen(payload: payload)));
-    _snack('Fetching quotes for ${_travelCountries.join(', ')}…');
   }
 
   void _snack(String msg) {
@@ -930,64 +994,230 @@ class _InsuranceSearchCardState extends State<InsuranceSearchCard> {
   }
 }
 
-// ── Multi-select travelling countries (web: "Select Countries") ──────────
-class _CountryMultiDialog extends StatefulWidget {
-  final List<String> initial;
-  const _CountryMultiDialog({required this.initial});
+// ── Travelling countries — anchored multi-select dropdown (search + checks),
+// opens right under the field instead of a centered dialog. ────────────────
+class _CountryDropdownField extends StatefulWidget {
+  final String label;
+  final List<String> options;
+  final List<String> selected;
+  final ValueChanged<List<String>> onChanged;
 
-  static Future<List<String>?> show(BuildContext context, List<String> initial) =>
-      showDialog<List<String>>(
-        context: context,
-        builder: (_) => _CountryMultiDialog(initial: initial),
-      );
+  const _CountryDropdownField({
+    required this.label,
+    required this.options,
+    required this.selected,
+    required this.onChanged,
+  });
 
   @override
-  State<_CountryMultiDialog> createState() => _CountryMultiDialogState();
+  State<_CountryDropdownField> createState() => _CountryDropdownFieldState();
 }
 
-class _CountryMultiDialogState extends State<_CountryMultiDialog> {
-  late Set<String> _selected = Set<String>.from(widget.initial);
+class _CountryDropdownFieldState extends State<_CountryDropdownField> {
+  static const Color _brandBlue = Color(0xFF003B95);
+
+  final OverlayPortalController _overlayController = OverlayPortalController();
+  final LayerLink _link = LayerLink();
+  final GlobalKey _fieldKey = GlobalKey();
+  final TextEditingController _search = TextEditingController();
+
+  late Set<String> _draft;
+
+  @override
+  void initState() {
+    super.initState();
+    _draft = Set<String>.from(widget.selected);
+  }
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  void _open() {
+    _draft = Set<String>.from(widget.selected);
+    _search.clear();
+    _overlayController.show();
+  }
+
+  void _apply() {
+    widget.onChanged(_draft.toList());
+    _overlayController.hide();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(context.r(16))),
-      title: Text('Travelling to…',
-          style: TextStyle(fontSize: context.titleSmall, fontWeight: FontWeight.w800)),
-      content: SingleChildScrollView(
-        child: Wrap(
-          spacing: context.w(8),
-          runSpacing: context.h(8),
-          children: _InsuranceSearchCardCountries
-              .map((c) => FilterChip(
-            label: Text(c, style: TextStyle(fontSize: context.labelLarge)),
-            selectedColor: const Color(0xFF003B95).withOpacity(0.15),
-            checkmarkColor: const Color(0xFF003B95),
-            selected: _selected.contains(c),
-            onSelected: (v) =>
-                setState(() => v ? _selected.add(c) : _selected.remove(c)),
-          ))
-              .toList(),
+    final display = widget.selected.isEmpty
+        ? 'Select Countries'
+        : (widget.selected.length == 1
+            ? widget.selected[0]
+            : '${widget.selected[0]}  +${widget.selected.length - 1} more');
+
+    return CompositedTransformTarget(
+      link: _link,
+      child: OverlayPortal(
+        controller: _overlayController,
+        overlayChildBuilder: (overlayCtx) {
+          final fieldWidth =
+              (_fieldKey.currentContext?.findRenderObject() as RenderBox?)
+                      ?.size
+                      .width ??
+                  context.w(150);
+
+          return Stack(
+            children: [
+              Positioned.fill(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.translucent,
+                  onTap: _overlayController.hide,
+                ),
+              ),
+              CompositedTransformFollower(
+                link: _link,
+                showWhenUnlinked: false,
+                targetAnchor: Alignment.bottomLeft,
+                followerAnchor: Alignment.topLeft,
+                offset: Offset(0, context.h(4)),
+                child: Align(
+                  alignment: Alignment.topLeft,
+                  child: Material(
+                    elevation: 8,
+                    borderRadius: BorderRadius.circular(context.r(12)),
+                    child: StatefulBuilder(
+                      builder: (ctx, setOverlayState) {
+                        final query = _search.text.trim().toLowerCase();
+                        final filtered = query.isEmpty
+                            ? widget.options
+                            : widget.options
+                                .where((c) => c.toLowerCase().contains(query))
+                                .toList();
+                        return Container(
+                          width: fieldWidth,
+                          constraints: BoxConstraints(maxHeight: context.h(320)),
+                          padding: EdgeInsets.all(context.w(10)),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(context.r(12)),
+                            border: Border.all(color: Colors.grey.shade200),
+                          ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              TextField(
+                                controller: _search,
+                                onChanged: (_) => setOverlayState(() {}),
+                                style: TextStyle(fontSize: context.labelLarge),
+                                decoration: InputDecoration(
+                                  isDense: true,
+                                  hintText: 'Search country',
+                                  hintStyle: TextStyle(fontSize: context.labelLarge),
+                                  prefixIcon:
+                                      Icon(Icons.search, size: context.iconSmall),
+                                  contentPadding: EdgeInsets.symmetric(
+                                      horizontal: context.w(10), vertical: context.h(8)),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(context.r(10)),
+                                    borderSide: BorderSide(color: Colors.grey.shade300),
+                                  ),
+                                ),
+                              ),
+                              SizedBox(height: context.h(6)),
+                              Flexible(
+                                child: ListView(
+                                  shrinkWrap: true,
+                                  children: filtered
+                                      .map((c) => CheckboxListTile(
+                                            dense: true,
+                                            visualDensity: VisualDensity.compact,
+                                            contentPadding: EdgeInsets.zero,
+                                            controlAffinity: ListTileControlAffinity.leading,
+                                            activeColor: _brandBlue,
+                                            value: _draft.contains(c),
+                                            title: Text(c,
+                                                style:
+                                                    TextStyle(fontSize: context.labelLarge)),
+                                            onChanged: (v) => setOverlayState(() {
+                                              v == true ? _draft.add(c) : _draft.remove(c);
+                                            }),
+                                          ))
+                                      .toList(),
+                                ),
+                              ),
+                              SizedBox(height: context.h(6)),
+                              SizedBox(
+                                width: double.infinity,
+                                child: ElevatedButton(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: _brandBlue,
+                                    shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(context.r(10))),
+                                  ),
+                                  onPressed: _apply,
+                                  child: const Text('DONE',
+                                      style: TextStyle(color: Colors.white)),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+        child: GestureDetector(
+          key: _fieldKey,
+          onTap: _open,
+          child: Container(
+            padding: EdgeInsets.symmetric(horizontal: context.w(10), vertical: context.h(8)),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF6F8FB),
+              borderRadius: BorderRadius.circular(context.r(12)),
+              border: Border.all(color: Colors.grey.shade200),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(widget.label,
+                    style: TextStyle(
+                        fontSize: context.overline,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.grey.shade500,
+                        letterSpacing: context.letterSpacingWider)),
+                SizedBox(height: context.h(4)),
+                Row(children: [
+                  Icon(Icons.public, size: context.iconSmall, color: _brandBlue),
+                  SizedBox(width: context.w(6)),
+                  Expanded(
+                    child: Text(
+                      display,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: context.bodyLarge,
+                        fontWeight: FontWeight.w800,
+                        color: widget.selected.isEmpty
+                            ? Colors.grey.shade400
+                            : Colors.black87,
+                      ),
+                    ),
+                  ),
+                  Icon(Icons.arrow_drop_down_rounded,
+                      size: context.iconMedium, color: Colors.grey.shade600),
+                ]),
+              ],
+            ),
+          ),
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(_selected.toList()),
-          child: Text('DONE',
-              style: TextStyle(
-                  color: const Color(0xFF003B95), fontWeight: FontWeight.w800)),
-        ),
-      ],
     );
   }
 }
-
-// Country pool shared with the dialog (kept top-level for access).
-const List<String> _InsuranceSearchCardCountries = [
-  'India', 'Thailand', 'Singapore', 'Dubai', 'Malaysia', 'Japan',
-  'Vietnam', 'USA', 'UK', 'Australia', 'Germany', 'France', 'Indonesia',
-];
 
 // ── Travellers popup (stepper + DOB per traveller, like the web popup) ───
 class _TravellersDialog extends StatefulWidget {

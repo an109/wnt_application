@@ -317,6 +317,35 @@ class AkInsurancePlanModel extends AkInsurancePlanEntity {
   });
 
   factory AkInsurancePlanModel.fromJson(Map<String, dynamic> json) {
+    // QuotesListing nests premium/coverage as their own objects (e.g.
+    // `premium: {base, tax, total, currency, netTotal, ...}` and
+    // `coverage: {amount, currency}`) rather than flat fields — dive into
+    // them first, falling back to flat keys for providers shaped that way.
+    final premiumNode = _pick(json, ['premium', 'Premium']);
+    final premiumMap = premiumNode is Map ? premiumNode.cast<String, dynamic>() : null;
+    final coverageNode = _pick(json, ['coverage', 'Coverage']);
+    final coverageMap = coverageNode is Map ? coverageNode.cast<String, dynamic>() : null;
+
+    final premium = premiumMap != null
+        ? _num(premiumMap, ['total', 'Total', 'netTotal', 'base', 'amount'])
+        : _num(json, [
+            'premium',
+            'Premium',
+            'totalPremium',
+            'grossPremium',
+            'amount',
+            'netAmount',
+            'price',
+          ]);
+
+    final sumInsured = coverageMap != null
+        ? _num(coverageMap, ['amount', 'Amount', 'value'])
+        : _num(json, ['sumInsured', 'SumInsured', 'coverAmount', 'sumAssured', 'coverage']);
+
+    final currency = premiumMap != null
+        ? _str(premiumMap, ['currency', 'Currency'], fallback: 'INR')
+        : _str(json, ['currency', 'Currency'], fallback: 'INR');
+
     return AkInsurancePlanModel(
       planId: _str(json, ['planId', 'PlanId', 'planID', 'id', 'planCode']),
       planName: _str(
@@ -324,24 +353,10 @@ class AkInsurancePlanModel extends AkInsurancePlanEntity {
         ['planName', 'PlanName', 'name', 'productName', 'title'],
         fallback: 'Travel Insurance',
       ),
-      provider: _str(json, ['provider', 'Provider', 'insurer', 'companyName']),
-      premium: _num(json, [
-        'premium',
-        'Premium',
-        'totalPremium',
-        'grossPremium',
-        'amount',
-        'netAmount',
-        'price',
-      ]),
-      sumInsured: _num(json, [
-        'sumInsured',
-        'SumInsured',
-        'coverAmount',
-        'sumAssured',
-        'coverage',
-      ]),
-      currency: _str(json, ['currency', 'Currency'], fallback: 'INR'),
+      provider: _str(json, ['providerName', 'provider', 'Provider', 'insurer', 'companyName']),
+      premium: premium,
+      sumInsured: sumInsured,
+      currency: currency,
       highlights: _stringList(
         _pick(json, ['highlights', 'Highlights', 'features', 'benefits', 'usp']),
       ),
@@ -359,7 +374,31 @@ class AkInsuranceQuotesModel extends AkInsuranceQuotesEntity {
   });
 
   factory AkInsuranceQuotesModel.fromJson(Map<String, dynamic> json) {
-    final plans = _objectList(json, ['quotes', 'Quotes', 'plans', 'Plans', 'data', 'result'])
+    // `quotes` is an object keyed per policy type — `individualQuotes`,
+    // `familyQuotes`, `friendsQuotes`, `studentQuotes`, ... — rather than a
+    // flat list, so take whichever list is actually present under it instead
+    // of hardcoding every policy-type spelling. This has to run before the
+    // generic _objectList fallback below: the response also carries
+    // `providerSummary`/`coverageSummary` (themselves lists of maps) ahead of
+    // `quotes` in the payload, and _objectList's untargeted scan would grab
+    // one of those instead of the real plan rows.
+    final quotesNode = _pick(json, ['quotes', 'Quotes']);
+    List<Map<String, dynamic>> rawPlans = const [];
+    if (quotesNode is Map) {
+      for (final value in quotesNode.values) {
+        if (value is List && value.isNotEmpty && value.first is Map) {
+          rawPlans = value.whereType<Map>().map((e) => e.cast<String, dynamic>()).toList();
+          break;
+        }
+      }
+    } else if (quotesNode is List) {
+      rawPlans = quotesNode.whereType<Map>().map((e) => e.cast<String, dynamic>()).toList();
+    }
+    if (rawPlans.isEmpty) {
+      rawPlans = _objectList(json, ['plans', 'Plans', 'data', 'result']);
+    }
+
+    final plans = rawPlans
         .map(AkInsurancePlanModel.fromJson)
         // Rows with neither an id nor a premium are not purchasable — dropping
         // them keeps unusable cards out of the picker.

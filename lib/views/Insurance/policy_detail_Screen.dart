@@ -1,21 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../../UI_helper/responsive_layout.dart';
+import '../../core/error/data_state.dart';
+import '../../injection_container.dart' as di;
+import '../AKInsurance/domain/entity/AKInsurance_entity.dart';
+import '../AKInsurance/domain/usecase/AKInsurance_usecase.dart';
 import 'insurance_quotesScreen.dart';
-
 
 /// Bottom → top sliding "Policy Details" sheet (mirrors the web panel):
 /// summary card, Premium Distributions table, Benefits table, Notes,
 /// and a sticky CONTINUE CTA at the bottom (instead of Close).
-class PolicyDetailsSheet extends StatelessWidget {
+///
+/// Benefits/deductibles/terms are fetched live from PlanDetails (step 4/7)
+/// when the sheet opens — [tui] is the tui the QuotesListing response that
+/// produced [policy] carried, and must be echoed back on this call.
+class PolicyDetailsSheet extends StatefulWidget {
   final InsurancePolicy policy;
   final InsuranceQuoteRequest request;
+  final String tui;
   final VoidCallback? onContinue;
 
   const PolicyDetailsSheet({
     super.key,
     required this.policy,
     required this.request,
+    required this.tui,
     this.onContinue,
   });
 
@@ -26,11 +35,12 @@ class PolicyDetailsSheet extends StatelessWidget {
 
   /// Slides the sheet in from the bottom.
   static Future<void> show(
-      BuildContext context, {
-        required InsurancePolicy policy,
-        required InsuranceQuoteRequest request,
-        VoidCallback? onContinue,
-      }) {
+    BuildContext context, {
+    required InsurancePolicy policy,
+    required InsuranceQuoteRequest request,
+    required String tui,
+    VoidCallback? onContinue,
+  }) {
     return showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -40,9 +50,62 @@ class PolicyDetailsSheet extends StatelessWidget {
       builder: (_) => PolicyDetailsSheet(
         policy: policy,
         request: request,
+        tui: tui,
         onContinue: onContinue,
       ),
     );
+  }
+
+  @override
+  State<PolicyDetailsSheet> createState() => _PolicyDetailsSheetState();
+}
+
+enum _DetailsStatus { loading, loaded, failed }
+
+class _PolicyDetailsSheetState extends State<PolicyDetailsSheet> {
+  _DetailsStatus _status = _DetailsStatus.loading;
+  AkInsurancePlanDetailsEntity? _details;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() => _status = _DetailsStatus.loading);
+
+    final isoFmt = DateFormat('yyyy-MM-dd');
+    final travellers = [
+      for (int i = 0; i < widget.request.travellerDobs.length; i++)
+        AkInsuranceTravellerEntity(
+          id: i,
+          birthdate: isoFmt.format(widget.request.travellerDobs[i]!),
+          relation: i == 0 ? 'SELF' : 'OTHER',
+        ),
+    ];
+
+    final result = await di.sl<AkInsurancePlanDetailsUseCase>().call(
+          AkInsurancePlanDetailsRequestEntity(
+            planId: widget.policy.planId,
+            countryNames: widget.request.travellingCountries,
+            policyType: widget.request.insuranceType.toUpperCase(),
+            startDate: isoFmt.format(widget.request.startDate),
+            endDate: isoFmt.format(widget.request.endDate),
+            travellers: travellers,
+            tui: widget.tui,
+          ),
+        );
+
+    if (!mounted) return;
+    if (result is DataSuccess<AkInsurancePlanDetailsEntity>) {
+      setState(() {
+        _details = result.data;
+        _status = _DetailsStatus.loaded;
+      });
+    } else {
+      setState(() => _status = _DetailsStatus.failed);
+    }
   }
 
   @override
@@ -133,10 +196,7 @@ class PolicyDetailsSheet extends StatelessWidget {
                 SizedBox(height: context.h(10)),
                 _premiumTable(context, fmt),
                 SizedBox(height: context.h(18)),
-                _sectionTitle(context, 'Benefits'),
-                SizedBox(height: context.h(10)),
-                _table(context, ['Name', 'Sum Insured', 'Deductible'],
-                    _benefits(fmt)),
+                ..._benefitsSection(context),
                 SizedBox(height: context.h(18)),
                 _sectionTitle(context, 'Notes'),
                 SizedBox(height: context.h(10)),
@@ -153,18 +213,18 @@ class PolicyDetailsSheet extends StatelessWidget {
           child: GestureDetector(
             onTap: () {
               Navigator.pop(context); // dismiss sheet first
-              onContinue?.call();
+              widget.onContinue?.call();
             },
             child: Container(
               width: double.infinity,
               padding: EdgeInsets.symmetric(vertical: context.h(14)),
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
-                    colors: [_brandTeal, Color(0xFF044A56)]),
+                    colors: [PolicyDetailsSheet._brandTeal, Color(0xFF044A56)]),
                 borderRadius: BorderRadius.circular(context.r(12)),
                 boxShadow: [
                   BoxShadow(
-                      color: _brandTeal.withOpacity(0.35),
+                      color: PolicyDetailsSheet._brandTeal.withOpacity(0.35),
                       blurRadius: context.w(12),
                       offset: Offset(0, context.h(4))),
                 ],
@@ -189,6 +249,132 @@ class PolicyDetailsSheet extends StatelessWidget {
     );
   }
 
+  // ── Benefits / Deductibles — live from PlanDetails (step 4/7) ──────────
+  List<Widget> _benefitsSection(BuildContext context) {
+    if (_status == _DetailsStatus.loading) {
+      return [
+        _sectionTitle(context, 'Benefits'),
+        SizedBox(height: context.h(10)),
+        Center(
+          child: Padding(
+            padding: EdgeInsets.symmetric(vertical: context.h(24)),
+            child: const CircularProgressIndicator(
+                color: PolicyDetailsSheet._brandBlue),
+          ),
+        ),
+      ];
+    }
+
+    if (_status == _DetailsStatus.failed || _details == null) {
+      return [
+        _sectionTitle(context, 'Benefits'),
+        SizedBox(height: context.h(10)),
+        Container(
+          width: double.infinity,
+          padding: EdgeInsets.all(context.w(12)),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF6F8FB),
+            borderRadius: BorderRadius.circular(context.r(10)),
+            border: Border.all(color: Colors.grey.shade200),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Could not load full benefit details right now.',
+                  style: TextStyle(
+                      fontSize: context.labelLarge,
+                      color: Colors.grey.shade700)),
+              SizedBox(height: context.h(8)),
+              GestureDetector(
+                onTap: _load,
+                child: Text('Retry',
+                    style: TextStyle(
+                        fontSize: context.labelLarge,
+                        fontWeight: FontWeight.w700,
+                        color: PolicyDetailsSheet._brandBlue,
+                        decoration: TextDecoration.underline)),
+              ),
+            ],
+          ),
+        ),
+      ];
+    }
+
+    final details = _details!;
+    final widgets = <Widget>[
+      _sectionTitle(context, 'Benefits'),
+      SizedBox(height: context.h(10)),
+      details.benefits.isEmpty
+          ? _emptyNote(context, 'No benefit breakdown provided for this plan.')
+          : _table(
+              context,
+              ['Benefit', 'Cover'],
+              details.benefits.map((b) => [b.title, b.value]).toList(),
+              flexes: const [3, 2],
+            ),
+    ];
+
+    if (details.deductibles.isNotEmpty) {
+      widgets.addAll([
+        SizedBox(height: context.h(18)),
+        _sectionTitle(context, 'Deductibles'),
+        SizedBox(height: context.h(10)),
+        _table(
+          context,
+          ['Item', 'Deductible'],
+          details.deductibles.map((d) => [d.title, d.value]).toList(),
+          flexes: const [3, 2],
+        ),
+      ]);
+    }
+
+    if (details.healthQuestions.isNotEmpty) {
+      widgets.addAll([
+        SizedBox(height: context.h(18)),
+        _sectionTitle(context, 'Health Questions'),
+        SizedBox(height: context.h(10)),
+        Container(
+          width: double.infinity,
+          padding: EdgeInsets.all(context.w(12)),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF6F8FB),
+            borderRadius: BorderRadius.circular(context.r(10)),
+            border: Border.all(color: Colors.grey.shade200),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (final q in details.healthQuestions)
+                Padding(
+                  padding: EdgeInsets.only(bottom: context.h(6)),
+                  child: Text('•  $q',
+                      style: TextStyle(
+                          fontSize: context.labelLarge,
+                          height: 1.5,
+                          color: Colors.grey.shade700)),
+                ),
+            ],
+          ),
+        ),
+      ]);
+    }
+
+    return widgets;
+  }
+
+  Widget _emptyNote(BuildContext context, String text) => Container(
+        width: double.infinity,
+        padding: EdgeInsets.all(context.w(12)),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF6F8FB),
+          borderRadius: BorderRadius.circular(context.r(10)),
+          border: Border.all(color: Colors.grey.shade200),
+        ),
+        child: Text(text,
+            style: TextStyle(
+                fontSize: context.labelLarge, color: Colors.grey.shade700)),
+      );
+
   // ── Summary card (logo + name + Plan Type / Coverage / Premium) ────────
   Widget _summaryCard(BuildContext context, NumberFormat fmt) {
     return Container(
@@ -200,10 +386,10 @@ class PolicyDetailsSheet extends StatelessWidget {
       ),
       child: Column(children: [
         Row(children: [
-          _logoBox(context, policy.supplier),
+          _logoBox(context, widget.policy.supplier),
           SizedBox(width: context.w(10)),
           Expanded(
-            child: Text(policy.planName,
+            child: Text(widget.policy.planName,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
@@ -216,12 +402,12 @@ class PolicyDetailsSheet extends StatelessWidget {
         Divider(height: 1, color: Colors.grey.shade200),
         SizedBox(height: context.h(8)),
         Row(children: [
-          _stat(context, 'Plan Type', request.insuranceType),
+          _stat(context, 'Plan Type', widget.request.insuranceType),
           _vDivider(context),
-          _stat(context, 'Coverage', 'USD${fmt.format(policy.coverageUsd)}'),
+          _stat(context, 'Coverage', 'USD${fmt.format(widget.policy.coverageUsd)}'),
           _vDivider(context),
-          _stat(context, 'Premium', '₹${fmt.format(policy.premiumInr)}',
-              color: _accentOrange),
+          _stat(context, 'Premium', '₹${fmt.format(widget.policy.premiumInr)}',
+              color: PolicyDetailsSheet._accentOrange),
         ]),
       ]),
     );
@@ -261,15 +447,15 @@ class PolicyDetailsSheet extends StatelessWidget {
 
   // ── Premium Distributions (SELF / per-traveller + grand total) ─────────
   Widget _premiumTable(BuildContext context, NumberFormat fmt) {
-    final total = policy.premiumInr * request.travellers;
+    final total = widget.policy.premiumInr * widget.request.travellers;
     return _tableBox(context, [
       _tableRow(context, ['Relation', 'Total Premium'],
           flexes: const [3, 2], header: true),
-      for (int i = 0; i < request.travellers; i++) ...[
+      for (int i = 0; i < widget.request.travellers; i++) ...[
         Divider(height: 1, color: Colors.grey.shade200),
         _tableRow(context, [
-          request.travellers == 1 ? 'SELF' : 'Traveller ${i + 1}',
-          '₹${fmt.format(policy.premiumInr)}'
+          widget.request.travellers == 1 ? 'SELF' : 'Traveller ${i + 1}',
+          '₹${fmt.format(widget.policy.premiumInr)}'
         ], flexes: const [3, 2]),
       ],
       Divider(height: 1, color: Colors.grey.shade200),
@@ -278,28 +464,8 @@ class PolicyDetailsSheet extends StatelessWidget {
     ]);
   }
 
-  // ── Benefits rows (same content as the web panel) ──────────────────────
-  List<List<String>> _benefits(NumberFormat fmt) {
-    final cov = 'USD ${fmt.format(policy.coverageUsd)}';
-    return [
-      ['Medical Expenses – Injury and/or Illness', 'Unlimited Sum Insured with $cov per incident/loss arising out of the same illness/injury. Maximum liability – PED upto USD 2,500 (life threatening condition)', 'Nil'],
-      ['Emergency Medical Evacuation', 'Upto Section 1 Sum Insured', 'USD 100'],
-      ['Repatriation of Mortal Remains', '25% of Section 1 Sum Insured (over and above)', 'Nil'],
-      ['Accidental Death & Disablement (Overseas)', 'AD: USD 10,000; Disablement: USD 10,000; Total – USD 10,000', 'Nil'],
-      ['Emergency Medical Dental Expenses', 'USD 300', 'USD 50'],
-      ['Personal Liability', 'USD 100,000', 'USD 200'],
-      ['Trip Curtailment', 'USD 500', 'USD 50'],
-      ['Trip Cancellation', 'USD 500', 'USD 50'],
-      ['Missed Flight/Connection', 'USD 250', 'Nil'],
-      ['Bounced Hotel / Airline Booking', 'USD 500', 'USD 50'],
-      ['Fraudulent Charges', 'Per Occurrence Limit: USD 250; Aggregate Limit: USD 500', 'Nil'],
-      ['Emergency Extension of the Policy', '7 days', 'Nil'],
-      ['Home Content Burglary (In INR)', 'INR 50,000', 'INR 5,000'],
-      ['Accommodation Extension', 'USD 100 per day, max upto 10 days', 'Nil'],
-    ];
-  }
-
   Widget _notesCard(BuildContext context) {
+    final terms = _details?.termsAndConditions ?? '';
     return Container(
       width: double.infinity,
       padding: EdgeInsets.all(context.w(12)),
@@ -311,6 +477,14 @@ class PolicyDetailsSheet extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (terms.isNotEmpty) ...[
+            Text(terms,
+                style: TextStyle(
+                    fontSize: context.labelLarge,
+                    height: 1.5,
+                    color: Colors.grey.shade700)),
+            SizedBox(height: context.h(8)),
+          ],
           Text(
               'We understand that this policy does not cover any pre-existing medical condition/injury/illness/deformity and complications arising from them that are declared or undeclared.',
               style: TextStyle(
@@ -364,7 +538,7 @@ class PolicyDetailsSheet extends StatelessWidget {
         bool bold = false,
         bool shaded = false}) {
     return Container(
-      color: header || shaded ? _tableHead : Colors.white,
+      color: header || shaded ? PolicyDetailsSheet._tableHead : Colors.white,
       padding: EdgeInsets.symmetric(
           horizontal: context.w(12), vertical: context.h(10)),
       child: Row(
@@ -403,7 +577,7 @@ class PolicyDetailsSheet extends StatelessWidget {
         gradient: const LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [Color(0xFF1A4FA0), _brandBlue]),
+            colors: [Color(0xFF1A4FA0), PolicyDetailsSheet._brandBlue]),
         borderRadius: BorderRadius.circular(context.r(10)),
       ),
       child: Center(

@@ -128,6 +128,8 @@ class _Item extends StatelessWidget {
           Text(
             title,
             textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
             style: TextStyle(
               fontSize: context.labelLarge,
               fontWeight: FontWeight.bold,
@@ -137,13 +139,17 @@ class _Item extends StatelessWidget {
 
           SizedBox(height: context.gapMedium),
 
-          Text(
-            desc,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: context.bodySmall,
-              color: Colors.grey[600],
-              height: context.isMobile ? 1.4 : (context.isTablet ? 1.5 : 1.6),
+          Flexible(
+            child: Text(
+              desc,
+              textAlign: TextAlign.center,
+              maxLines: context.isMobile ? 3 : 4,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: context.bodySmall,
+                color: Colors.grey[600],
+                height: context.isMobile ? 1.4 : (context.isTablet ? 1.5 : 1.6),
+              ),
             ),
           ),
         ],

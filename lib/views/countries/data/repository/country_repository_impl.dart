@@ -16,25 +16,20 @@ class CountryRepositoryImpl implements CountryRepository {
       final response = await countryApiService.getCountryList();
 
       if (response.statusCode == 200) {
-        final responseData = response.data;
+        final responseData = response.data as Map<String, dynamic>;
+        final countryListJson = responseData['CountryList'] as List?;
 
-        // Check if Status code is 200 in response body
-        final status = responseData['Status'];
-        if (status != null && status['Code'] == 200) {
-          final countryListJson = responseData['CountryList'] as List;
+        if (countryListJson != null) {
           final List<CountryModel> countryModels = countryListJson
-              .map((json) => CountryModel.fromJson(json))
+              .map((json) => CountryModel.fromJson(json as Map<String, dynamic>))
               .toList();
-
-          print('Successfully fetched ${countryModels.length} countries');
 
           return DataSuccess(countryModels);
         } else {
-          print('API returned error status: $status');
-          return  DataFailed(
+          return DataFailed(
             DioException(
               requestOptions: RequestOptions(path: ''),
-              error: 'API returned error status',
+              error: 'API returned no CountryList',
               type: DioExceptionType.badResponse,
               response: Response(
                 statusCode: 400,
@@ -44,8 +39,7 @@ class CountryRepositoryImpl implements CountryRepository {
           );
         }
       } else {
-        print('Unexpected status code: ${response.statusCode}');
-        return  DataFailed(
+        return DataFailed(
           DioException(
             requestOptions: RequestOptions(path: ''),
             error: 'Unexpected status code',
@@ -58,10 +52,8 @@ class CountryRepositoryImpl implements CountryRepository {
         );
       }
     } on DioException catch (e) {
-      print('DioException in CountryRepository: ${e.message}');
       return DataFailed(e);
     } catch (e) {
-      print('Unknown error in CountryRepository: $e');
       return DataFailed(
         DioException(
           requestOptions: RequestOptions(path: ''),

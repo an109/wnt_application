@@ -378,14 +378,6 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
     }).toList();
   }
 
-  /// The same physical flight (airline + flight number + departure time) is
-  /// sold across several fare classes (Saver, Flexi, Upfront, SME, ...) at
-  /// different prices — GetExpSearch returns each as its own Journey entry
-  /// (different Index/NetFare). Keep only the cheapest fare per flight as
-  /// the card shown in the list (so each flight is one card, not one per
-  /// fare class), but preserve the sibling Index/amount pairs on it via
-  /// [FlightEntity.fareFamilyOptions] so the detail screen can still offer
-  /// a real "Choose Your Fare" picker instead of losing the other fares.
   List<FlightEntity> _cheapestPerFlight(
     List<FlightEntity> flights,
     Map<String, Map<String, FareFamilyIndexEntity>> siblingsByKey,

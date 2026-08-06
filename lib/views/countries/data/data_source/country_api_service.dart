@@ -13,22 +13,13 @@ class CountryApiServiceImpl implements CountryApiService {
   @override
   Future<Response> getCountryList() async {
     try {
-      final String url = '${Urls.baseUrl}flights/countrylist';
-
-      print('CALLING COUNTRY LIST API: $url');
-
-      final response = await dio.get(url);
-
-      print('COUNTRY LIST API Response Status: ${response.statusCode}');
-
+      final response = await dio.get(Urls.hotelCachedCountries);
       return response;
-    } on DioException catch (e) {
-      print('Country List API Error: ${e.message}');
+    } on DioException {
       rethrow;
     } catch (e) {
-      print('Unknown Error in Country List: $e');
       throw DioException(
-        requestOptions: RequestOptions(path: '${Urls.baseUrl}flights/countrylist'),
+        requestOptions: RequestOptions(path: Urls.hotelCachedCountries),
         error: e.toString(),
         type: DioExceptionType.unknown,
       );
