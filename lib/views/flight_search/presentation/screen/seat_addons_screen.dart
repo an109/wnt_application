@@ -232,6 +232,7 @@ class _SeatAddonsScreenState extends State<SeatAddonsScreen> {
           price: widget.price,
           travellerCount: widget.travellerCount,
           isLoggedIn: false,
+          addOnsTotal: _addOnsTotal,
         ),
       ),
     );

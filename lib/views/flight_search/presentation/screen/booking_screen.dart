@@ -253,6 +253,16 @@ class FlightBookingScreen extends StatefulWidget {
   /// Number of travellers — used to cap seat selection on the SSR screen.
   final int travellerCount;
 
+  /// Combined cost of any seats/baggage/meals picked on [SeatAddonsScreen]
+  /// (always in INR, per that screen's SelectSeats/SelectSSR amounts).
+  /// Those selections are saved server-side against the session, so
+  /// CreateItinerary's netAmount already includes them — this is purely so
+  /// the Fare Breakdown card below reflects the same total instead of
+  /// showing the pre-add-ons GetSPricer fare. Defaults to 0 for call sites
+  /// that never went through the add-ons screen, which keeps the existing
+  /// breakdown byte-identical when there are no add-ons.
+  final double addOnsTotal;
+
   const FlightBookingScreen({
     super.key,
     required this.routes,
@@ -262,6 +272,7 @@ class FlightBookingScreen extends StatefulWidget {
     this.traceId,
     required this.price,
     this.travellerCount = 1,
+    this.addOnsTotal = 0.0,
   });
 
   @override
@@ -491,8 +502,18 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
 
     final route = _updatedRouteWithFareQuote ?? widget.routes.first;
     final fare = route.fareQuoteData;
-    double baseTotal = fare?.total ?? double.tryParse(widget.totalPrice) ?? 0;
     String originalCurrency = fare?.currency ?? 'INR';
+    // Add-ons are always quoted in INR (see [FlightBookingScreen.addOnsTotal]);
+    // convert into whatever currency the fare itself is in before folding it
+    // into the base the promo discount is computed against.
+    final addOnsInFareCurrency = originalCurrency.toUpperCase() == 'INR'
+        ? widget.addOnsTotal
+        : CurrencyConverter.convert(
+            amount: widget.addOnsTotal,
+            fromCurrency: 'INR',
+            toCurrency: originalCurrency,
+          );
+    double baseTotal = (fare?.total ?? double.tryParse(widget.totalPrice) ?? 0) + addOnsInFareCurrency;
 
     if (matchedPromo.discountType == 'percent') {
       double discountOriginal = (baseTotal * discountValue) / 100;
@@ -539,6 +560,19 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
     _showCelebrationDialog(discount, matchedPromo.code);
   }
 
+  /// [widget.addOnsTotal] (seats/baggage/meals picked on the add-ons screen,
+  /// always INR) converted into the caller's preferred display currency.
+  double _addOnsInDisplayCurrency(String targetCurrency) {
+    if (widget.addOnsTotal <= 0) return 0;
+    return targetCurrency.toUpperCase() == 'INR'
+        ? widget.addOnsTotal
+        : CurrencyConverter.convert(
+            amount: widget.addOnsTotal,
+            fromCurrency: 'INR',
+            toCurrency: targetCurrency,
+          );
+  }
+
   String _getFinalTotalDisplay(FareQuoteData fare) {
     final totalInOriginal = fare.total;
     final originalCurrency = fare.currency;
@@ -559,8 +593,11 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
       // Deliberately excludes the Trip Secure premium: the flight total shown
       // here has to match what the payment screen charges (CreateItinerary's
       // netAmount for this session), and the insurance premium is not part of
-      // that charge — see [_insurancePremiumInDisplayCurrency].
-      final finalTotal = convertedTotal - _promoDiscountAmount;
+      // that charge — see [_insurancePremiumInDisplayCurrency]. Seat/baggage/
+      // meal add-ons ARE part of that netAmount (SelectSeats/SelectSSR save
+      // them to the session before CreateItinerary runs), so they're added
+      // in here.
+      final finalTotal = convertedTotal + _addOnsInDisplayCurrency(targetCurrency) - _promoDiscountAmount;
       return CurrencyConverter.format(finalTotal > 0 ? finalTotal : 0, targetCurrency);
     } catch (e) {
       return _convertFareAmount(totalInOriginal, originalCurrency);
@@ -1414,6 +1451,15 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
                 context,
                 'Service Fee',
                 _convertFareAmount(fare.serviceFee, fare.currency),
+              ),
+            ],
+            if (widget.addOnsTotal > 0) ...[
+              SizedBox(height: context.gapSmall),
+              _fareRow(
+                context,
+                'Seat, Baggage & Meals',
+                // widget.addOnsTotal is always INR (see field doc).
+                _convertFareAmount(widget.addOnsTotal, 'INR'),
               ),
             ],
             if (_promoDiscountAmount > 0) ...[

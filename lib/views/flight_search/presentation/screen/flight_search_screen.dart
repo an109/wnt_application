@@ -859,6 +859,14 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
         ? flight.airlineCode!.toUpperCase()
         : 'FL';
     final stopsLabel = _formatStops(flight.stops);
+    // Each leg (Onward/Return) is mapped from its own trip in
+    // `_rawFlightsForTrip`, so origin/destination already point the right
+    // way for that leg — no isRoundTrip/return* fields needed here, just
+    // the same name-with-code-fallback pattern the one-way card uses.
+    final originLabel =
+        flight.originName ?? _locationName(flight.origin ?? '');
+    final destLabel =
+        flight.destinationName ?? _locationName(flight.destination ?? '');
 
     return Material(
       color: Colors.transparent,
@@ -907,23 +915,63 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
                   ),
                   SizedBox(height: context.h(6)),
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        departure,
-                        style: TextStyle(
-                          fontSize: context.fs(13),
-                          fontWeight: FontWeight.w800,
-                          color: const Color(0xff07163B),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              departure,
+                              style: TextStyle(
+                                fontSize: context.fs(13),
+                                fontWeight: FontWeight.w800,
+                                color: const Color(0xff07163B),
+                              ),
+                            ),
+                            SizedBox(height: context.h(2)),
+                            Text(
+                              originLabel,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: context.fs(9),
+                                fontWeight: FontWeight.w600,
+                                color: const Color(0xffA0A6C2),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      Icon(Icons.arrow_forward, size: context.w(11), color: const Color(0xffB6BEDB)),
-                      Text(
-                        arrival,
-                        style: TextStyle(
-                          fontSize: context.fs(13),
-                          fontWeight: FontWeight.w800,
-                          color: const Color(0xff07163B),
+                      Padding(
+                        padding: EdgeInsets.symmetric(horizontal: context.w(4)),
+                        child: Icon(Icons.arrow_forward, size: context.w(11), color: const Color(0xffB6BEDB)),
+                      ),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              arrival,
+                              style: TextStyle(
+                                fontSize: context.fs(13),
+                                fontWeight: FontWeight.w800,
+                                color: const Color(0xff07163B),
+                              ),
+                            ),
+                            SizedBox(height: context.h(2)),
+                            Text(
+                              destLabel,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              textAlign: TextAlign.end,
+                              style: TextStyle(
+                                fontSize: context.fs(9),
+                                fontWeight: FontWeight.w600,
+                                color: const Color(0xffA0A6C2),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],

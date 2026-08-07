@@ -2516,10 +2516,6 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup> with SingleTick
                         SizedBox(height: context.h(12)),
                         _header(context),
                         SizedBox(height: context.h(16)),
-                        if (widget.additionalLegs.isNotEmpty) ...[
-                          _additionalLegsSummary(context),
-                          SizedBox(height: context.h(12)),
-                        ],
                         if (_fareOptions.length > 1) ...[
                           _fareSelector(context),
                           SizedBox(height: context.h(14)),
@@ -3208,11 +3204,32 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup> with SingleTick
     final isFullyRefundable = segments.every((s) => s.flight.refundable.toUpperCase() == 'Y');
     final fareChanged = pricerData?.fareChanged ?? false;
 
+    // One resolved journey per leg (Onward, Return, or each multi-city leg) —
+    // matches what `_bookNow`'s additionalLegRoutes already reads from
+    // data.trips.skip(1). Falls back to just the primary journey when a
+    // later trip hasn't resolved yet (or genuinely is a plain one-way),
+    // so the round-trip/multi-city case only ever adds cards, never removes
+    // the one-way rendering below.
+    final legJourneys = <AkFlightInfoJourneyEntity>[
+      journey,
+      for (final trip in data.trips.skip(1))
+        if (trip.journey.isNotEmpty && trip.journey.first.segments.isNotEmpty) trip.journey.first,
+    ];
+
     return Column(
       children: [
         if (fareChanged) _fareChangedBanner(context),
         if (fareChanged) SizedBox(height: context.h(10)),
-        _flightRouteCard(context, data),
+        if (legJourneys.length > 1) ...[
+          // Round trip / multi-city — a labelled mini-ticket per leg (MMT/
+          // Paytm style) so the return/connecting legs' own airline, route,
+          // and timings are visible here instead of only the first leg's.
+          for (var i = 0; i < legJourneys.length; i++) ...[
+            _legRouteCard(context, index: i, totalLegs: legJourneys.length, journey: legJourneys[i]),
+            if (i != legJourneys.length - 1) SizedBox(height: context.h(10)),
+          ],
+        ] else
+          _flightRouteCard(context, data),
         SizedBox(height: context.h(12)),
         _amenitiesSection(context, isFullyRefundable, journey, data, pricerData),
         SizedBox(height: context.h(12)),
@@ -3220,6 +3237,125 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup> with SingleTick
         SizedBox(height: context.h(16)),
         _bookButton(context, data, journey, isFullyRefundable, fareChanged),
       ],
+    );
+  }
+
+  /// Per-leg route card for round trip / multi-city — same time/route/
+  /// duration/stops layout as [_flightRouteCard], plus a leg label
+  /// ("Onward"/"Return"/"Flight N") and that leg's own airline row, since a
+  /// return or connecting leg can be a different airline/flight number than
+  /// whatever the user originally tapped (which is all [_header] shows).
+  Widget _legRouteCard(
+    BuildContext context, {
+    required int index,
+    required int totalLegs,
+    required AkFlightInfoJourneyEntity journey,
+  }) {
+    final segments = journey.segments;
+    if (segments.isEmpty) return const SizedBox.shrink();
+
+    final firstFlight = segments.first.flight;
+    final lastFlight = segments.last.flight;
+    final airlineCode = _airlineCodeOf(firstFlight);
+    final airlineName = _marketingSegment(firstFlight.airline, fallback: airlineCode);
+    final label = totalLegs == 2 ? (index == 0 ? 'Onward' : 'Return') : 'Flight ${index + 1}';
+    final icon = index == 0 ? Icons.flight_takeoff : Icons.flight_land;
+
+    return Container(
+      padding: EdgeInsets.all(context.w(16)),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(context.r(16)),
+        border: Border.all(color: const Color(0xffE2E8F0), width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xff0F172A).withValues(alpha: 0.04),
+            blurRadius: context.w(12),
+            offset: Offset(0, context.h(2)),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: context.w(14), color: const Color(0xff3B82F6)),
+              SizedBox(width: context.w(6)),
+              Text(
+                label.toUpperCase(),
+                style: TextStyle(
+                  fontSize: context.fs(11),
+                  fontWeight: FontWeight.w800,
+                  color: const Color(0xff3B82F6),
+                  letterSpacing: 0.6,
+                ),
+              ),
+              SizedBox(width: context.w(8)),
+              Expanded(child: Container(height: 1, color: const Color(0xffEDF0F7))),
+            ],
+          ),
+          SizedBox(height: context.h(10)),
+          Row(
+            children: [
+              _airlineLogo(context, airlineCode, airlineName, size: context.w(26)),
+              SizedBox(width: context.w(8)),
+              Expanded(
+                child: Text(
+                  '$airlineName · $airlineCode${firstFlight.flightNo}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: const Color(0xff1E293B),
+                    fontSize: context.fs(12),
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: context.h(12)),
+          Row(
+            children: [
+              Expanded(
+                child: _timeLocation(
+                  context,
+                  time: _formatTime(firstFlight.departureTime),
+                  code: firstFlight.departureCode,
+                  name: _shortCityName(firstFlight.depAirportName),
+                ),
+              ),
+              Expanded(
+                flex: 2,
+                child: _flightPathWithStops(
+                  context,
+                  segments,
+                  duration: _cleanDuration(journey.duration),
+                ),
+              ),
+              Expanded(
+                child: _timeLocation(
+                  context,
+                  time: _formatTime(lastFlight.arrivalTime),
+                  code: lastFlight.arrivalCode,
+                  name: _shortCityName(lastFlight.arrAirportName),
+                  alignRight: true,
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: context.h(12)),
+          Row(
+            children: [
+              _infoChip(context, Icons.calendar_today, _formatDate(firstFlight.departureTime), size: context.w(12)),
+              SizedBox(width: context.w(8)),
+              _infoChip(context, Icons.flight_takeoff, '${segments.length - 1} stop${segments.length > 2 ? 's' : ''}', size: context.w(12)),
+              SizedBox(width: context.w(8)),
+              _infoChip(context, Icons.schedule, _cleanDuration(journey.duration), size: context.w(12)),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
@@ -3689,48 +3825,6 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup> with SingleTick
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _additionalLegsSummary(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: context.w(12), vertical: context.h(8)),
-      decoration: BoxDecoration(
-        color: const Color(0xffF8FAFC),
-        borderRadius: BorderRadius.circular(context.r(12)),
-        border: Border.all(color: const Color(0xffE2E8F0)),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.swap_horiz, size: context.w(16), color: const Color(0xff64748B)),
-          SizedBox(width: context.w(8)),
-          Expanded(
-            child: Text(
-              '${widget.additionalLegs.length} more leg${widget.additionalLegs.length > 1 ? 's' : ''}',
-              style: TextStyle(
-                color: const Color(0xff475569),
-                fontSize: context.fs(12),
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          Container(
-            padding: EdgeInsets.symmetric(horizontal: context.w(8), vertical: context.h(2)),
-            decoration: BoxDecoration(
-              color: const Color(0xffEFF6FF),
-              borderRadius: BorderRadius.circular(context.r(10)),
-            ),
-            child: Text(
-              'View',
-              style: TextStyle(
-                color: const Color(0xff3B82F6),
-                fontSize: context.fs(10),
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
