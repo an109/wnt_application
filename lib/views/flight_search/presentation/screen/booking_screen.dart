@@ -398,7 +398,7 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
                 Text(
                   '🎉 Promo Applied!',
                   style: TextStyle(
-                    fontSize: 20,
+                    fontSize: context.titleLarge,
                     fontWeight: FontWeight.w700,
                     color: _navy,
                   ),
@@ -407,7 +407,7 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
                 Text(
                   'You saved ${_getPreferredCurrencySymbol()}${discountAmount.toStringAsFixed(2)}',
                   style: TextStyle(
-                    fontSize: 16,
+                    fontSize: context.bodyLarge,
                     fontWeight: FontWeight.w600,
                     color: Colors.green.shade700,
                   ),
@@ -416,7 +416,7 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
                 Text(
                   'Code: $promoCode',
                   style: TextStyle(
-                    fontSize: 14,
+                    fontSize: context.bodyMedium,
                     color: Colors.grey.shade600,
                   ),
                 ),
@@ -435,10 +435,10 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    child: const Text(
+                    child: Text(
                       'Great!',
                       style: TextStyle(
-                        fontSize: 16,
+                        fontSize: context.bodyLarge,
                         fontWeight: FontWeight.w700,
                       ),
                     ),

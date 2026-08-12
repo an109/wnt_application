@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
 import 'dart:async';
+import 'package:wander_nova/UI_helper/responsive_layout.dart';
 
 
 class ProfessionalLoadingScreen extends StatefulWidget {
@@ -128,7 +129,7 @@ class _ProfessionalLoadingScreenState extends State<ProfessionalLoadingScreen> {
                       _currentMessage,
                       key: ValueKey(_currentMessage),
                       style: TextStyle(
-                        fontSize: 16,
+                        fontSize: context.bodyLarge,
                         fontWeight: FontWeight.w500,
                         color: Colors.grey.shade700,
                       ),

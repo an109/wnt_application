@@ -262,10 +262,10 @@ class _UploadDocumentsSectionState extends State<UploadDocumentsSection>
                     ),
                   ),
                   SizedBox(width: context.w(8)),
-                  const Expanded(
+                  Expanded(
                     child: Text(
                       'Upload Documents',
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                      style: TextStyle(fontSize: context.bodySmall, fontWeight: FontWeight.w600),
                     ),
                   ),
                   AnimatedRotation(
@@ -369,9 +369,9 @@ class _UploadDocumentsSectionState extends State<UploadDocumentsSection>
                       valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                     ),
                   )
-                      : const Text('CONTINUE TO PAYMENT',
+                      : Text('CONTINUE TO PAYMENT',
                       style: TextStyle(
-                          fontSize: 11,
+                          fontSize: context.labelSmall,
                           fontWeight: FontWeight.w700,
                           color: Colors.white)),
                 ),

@@ -87,6 +87,11 @@ class TpollSearchRepositoryImpl implements TpollSearchRepository {
             );
           }).toList() ?? [];
 
+          // 4. Real provider rating / vehicle make-model / travel time, straight
+          // from the API's main step — null when the API didn't send them,
+          // never a fabricated placeholder.
+          final provider = mainStep?.details.provider;
+
           return SearchResultEntity(
             resultId: result.resultId,
             vehicleId: result.vehicleId,
@@ -100,6 +105,11 @@ class TpollSearchRepositoryImpl implements TpollSearchRepository {
             maxPassengers: vehicle.maxPassengers,
             maxBags: vehicle.maxBags,
             amenities: amenities,
+            rating: provider?.rating,
+            ratingCount: provider?.ratingCount,
+            vehicleMake: vehicle.make.isNotEmpty ? vehicle.make : null,
+            vehicleModel: vehicle.model.isNotEmpty ? vehicle.model : null,
+            travelTimeMinutes: mainStep?.details.time,
           );
         }).toList(),
         startLocation: LocationInfoEntity(

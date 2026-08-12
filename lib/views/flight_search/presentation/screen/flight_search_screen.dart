@@ -315,16 +315,28 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
     final siblingsByKey = <String, Map<String, FareFamilyIndexEntity>>{};
 
     for (final flight in trip.journey) {
-      // Provider is an internal fare-source label (can be "SB", "S6E", ...)
-      // and isn't reliably a real IATA code — MAC (marketing airline code)
-      // is, and is what the airline logo lookup needs.
-      final realAirlineCode = flight.marketingAirlineCode.isNotEmpty
-          ? flight.marketingAirlineCode
-          : flight.provider;
+      // Every code field the API sends for a flight — Provider (an internal
+      // fare-source label like "SB"/"S6E"), MAC (meant to be the clean IATA
+      // code but has been seen as "CSG"/"ESG" instead of plain "SG"), even
+      // FlightNo itself (e.g. "ESG 476") — has turned out unreliable for at
+      // least some results, and any of those feeding the wrong value into
+      // the Kiwi logo CDN lookup 404s, silently falling back to the
+      // initials tile. The airline *name* the API sends is comparatively
+      // stable, so look it up in a small table of known carriers first —
+      // any flight named "SpiceJet" always gets SpiceJet's real code "SG",
+      // regardless of what Provider/MAC/FlightNo happen to say — and only
+      // fall back to parsing a code out of those fields for carriers not in
+      // the table.
+      final marketingName = _marketingSegment(flight.airlineName, fallback: '');
+      final realAirlineCode = _knownAirlineCode(marketingName) ??
+          _carrierCodeFromFlightNo(flight.flightNo) ??
+          (flight.marketingAirlineCode.isNotEmpty
+              ? flight.marketingAirlineCode
+              : flight.provider);
       flights.add(FlightEntity(
         resultIndex: flight.index,
         airlineCode: realAirlineCode,
-        airlineName: _marketingSegment(flight.airlineName, fallback: realAirlineCode),
+        airlineName: marketingName.isNotEmpty ? marketingName : realAirlineCode,
         flightNumber: flight.flightNo,
         origin: flight.origin,
         originName: _lastSegment(flight.originName),
@@ -415,6 +427,92 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
     return firstNonEmpty.isNotEmpty ? firstNonEmpty : fallback;
   }
 
+  /// Recovers the operating/marketing carrier's real 2-char IATA code from a
+  /// raw flight number, e.g. "6E-2134", "6E 2134", "6E2134" -> "6E". Only a
+  /// secondary fallback now (see [_rawFlightsForTrip] — [_knownAirlineCode]
+  /// is tried first), for carriers not in that table. Requires at least one
+  /// letter in the 2-char prefix so a plain numeric flight number (no
+  /// prefix) is correctly rejected instead of matching garbage.
+  String? _carrierCodeFromFlightNo(String flightNo) {
+    final match = RegExp(r'^([A-Za-z][A-Za-z0-9]|[0-9][A-Za-z])[\s-]?\d')
+        .firstMatch(flightNo.trim());
+    return match?.group(1)?.toUpperCase();
+  }
+
+  /// Airline name -> real IATA code for the carriers this app sees most —
+  /// checked before any code field the API itself sends, since those have
+  /// proven unreliable (see [_rawFlightsForTrip]) while the name is stable.
+  /// Matched case-insensitively; unrecognised names return null and fall
+  /// through to the flight-number/MAC/provider chain as before.
+  static const Map<String, String> _knownAirlineCodesByName = {
+    'spicejet': 'SG',
+    'indigo': '6E',
+    'air india': 'AI',
+    'air india express': 'IX',
+    'vistara': 'UK',
+    'akasa air': 'QP',
+    'akasa': 'QP',
+    'airasia india': 'I5',
+    'go first': 'G8',
+    'goair': 'G8',
+    'alliance air': '9I',
+    'star air': 'S5',
+    'trujet': '2T',
+    'jet airways': '9W',
+    'emirates': 'EK',
+    'qatar airways': 'QR',
+    'etihad airways': 'EY',
+    'etihad': 'EY',
+    'oman air': 'WY',
+    'srilankan airlines': 'UL',
+    'srilankan': 'UL',
+    'flydubai': 'FZ',
+    'air arabia': 'G9',
+    'thai airways': 'TG',
+    'singapore airlines': 'SQ',
+    'malaysia airlines': 'MH',
+    'cathay pacific': 'CX',
+    'british airways': 'BA',
+    'lufthansa': 'LH',
+    'air france': 'AF',
+    'klm': 'KL',
+    'klm royal dutch airlines': 'KL',
+    'turkish airlines': 'TK',
+    'saudia': 'SV',
+    'gulf air': 'GF',
+    'kuwait airways': 'KU',
+    'nepal airlines': 'RA',
+    'bhutan airlines': 'B3',
+    'druk air': 'KB',
+  };
+
+  String? _knownAirlineCode(String name) {
+    return _knownAirlineCodesByName[name.trim().toLowerCase()];
+  }
+
+  /// Strips a (possibly wrong — see [_rawFlightsForTrip]) airline-code
+  /// prefix baked into the raw FlightNo, keeping just the trailing digits
+  /// (with an optional trailing letter suffix, e.g. "101A"). Falls back to
+  /// the untouched raw string if no trailing number is found.
+  String _bareFlightNo(String? flightNo) {
+    final raw = (flightNo ?? '').trim();
+    if (raw.isEmpty) return '';
+    final match = RegExp(r'(\d+[A-Za-z]?)\s*$').firstMatch(raw);
+    return match?.group(1) ?? raw;
+  }
+
+  /// Flight number as it should be displayed: the verified airline code
+  /// (defaults to [FlightEntity.airlineCode], which [_rawFlightsForTrip]
+  /// already resolves correctly) plus the bare digits from the raw FlightNo,
+  /// so a mismatched prefix baked into the raw value (e.g. "ESG 476" for a
+  /// flight whose real code is "SG") never reaches the UI stacked on top of
+  /// the already-correct code.
+  String _displayFlightNo(FlightEntity flight, {String? codeOverride}) {
+    final code = (codeOverride ?? flight.airlineCode ?? '').trim().toUpperCase();
+    final number = _bareFlightNo(flight.flightNumber);
+    return [code, number].where((s) => s.isNotEmpty).join(' ');
+  }
+
   /// "Indira Gandhi International |New Delhi" -> "New Delhi"
   String _lastSegment(String value) {
     final parts = value.split('|');
@@ -448,6 +546,20 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
       final name = f.airlineName ?? 'Unknown';
       final price = (f.totalFare ?? 0).toDouble();
       if (!map.containsKey(name) || price < map[name]!) map[name] = price;
+    }
+    return map;
+  }
+
+  /// Airline name -> IATA code, so the filter drawer's "Airlines" section can
+  /// show the same real logo as the results list instead of a plain
+  /// initials circle. Keyed by name (like the maps above) since that's what
+  /// the drawer groups by; first flight to claim a name wins its code.
+  Map<String, String> _buildAirlineCodes(List<FlightEntity> flights) {
+    final map = <String, String>{};
+    for (final f in flights) {
+      final name = f.airlineName ?? 'Unknown';
+      final code = f.airlineCode ?? '';
+      if (code.isNotEmpty && !map.containsKey(name)) map[name] = code;
     }
     return map;
   }
@@ -724,6 +836,7 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
       currentNonRefundable: _filterNonRefundable,
       airlineCounts: _buildAirlineCounts(_allFlights),
       airlineMinPrices: _buildAirlineMinPrices(_allFlights),
+      airlineCodes: _buildAirlineCodes(_allFlights),
       onApply: _onFilterApply,
       apiCurrency: apiCurrency,
     );
@@ -901,7 +1014,7 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
                       SizedBox(width: context.w(6)),
                       Expanded(
                         child: Text(
-                          '$airlineCode ${flight.flightNumber ?? ''}'.trim(),
+                          _displayFlightNo(flight, codeOverride: airlineCode),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
@@ -1658,7 +1771,7 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
                           ),
                           SizedBox(height: context.h(1)),
                           Text(
-                            '$airlineCode ${flight.flightNumber ?? ''}'.trim(),
+                            _displayFlightNo(flight, codeOverride: airlineCode),
                             style: TextStyle(
                               color: const Color(0xffA0A6C2),
                               fontSize: context.fs(10),
@@ -1789,85 +1902,138 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
     );
   }
 
-  /// Compact card for extra flights in an expanded group
+  /// Card for an extra ("N more flights at this price") entry in an expanded
+  /// group. Mirrors [_buildFlightCardInner]'s content — airline + corrected
+  /// flight number, departure/arrival with airport labels, stops, duration
+  /// and price — just without the offer strip/"more flights" badge, so an
+  /// expanded group doesn't drop information the primary card shows.
   Widget _buildExtraCard(FlightEntity flight) {
-    final accentColor =
-        flight.isRoundTrip ? const Color(0xff3B82F6) : const Color(0xff5F86FF);
-    final dep = _formatTime(flight.departureTime);
-    final arr = _formatTime(flight.arrivalTime);
-    final dur = _formatDuration(
+    final bool isRoundTrip = flight.isRoundTrip;
+    final Color accentColor =
+        isRoundTrip ? const Color(0xff3B82F6) : const Color(0xff5F86FF);
+    final departure = _formatTime(flight.departureTime);
+    final arrival = _formatTime(flight.arrivalTime);
+    final duration = _formatDuration(
         flight.duration != null ? int.tryParse(flight.duration!) : null);
-    final code = (flight.airlineCode?.isNotEmpty ?? false)
+    final airlineCode = (flight.airlineCode?.isNotEmpty ?? false)
         ? flight.airlineCode!.toUpperCase()
-        : 'FL';
+        : (flight.airlineName?.isNotEmpty ?? false)
+            ? flight.airlineName!.substring(0, 1).toUpperCase()
+            : 'FL';
 
     return Material(
       color: Colors.white,
-      borderRadius: BorderRadius.circular(context.r(12)),
+      borderRadius: BorderRadius.circular(context.r(8)),
       child: InkWell(
         onTap: () => _showFlightDetails(flight),
-        borderRadius: BorderRadius.circular(context.r(12)),
+        borderRadius: BorderRadius.circular(context.r(8)),
         child: Container(
-          padding: EdgeInsets.symmetric(
-            horizontal: context.w(16),
-            vertical: context.h(12),
-          ),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(context.r(12)),
+            borderRadius: BorderRadius.circular(context.r(8)),
             border: Border.all(color: const Color(0xffE6ECFF)),
           ),
-          child: Row(
+          padding: EdgeInsets.all(context.w(12)),
+          child: Column(
             children: [
-              _airlineLogo(flight, context.w(24)),
-              SizedBox(width: context.w(8)),
-              Text(
-                '$code${flight.flightNumber ?? ''}',
-                style: TextStyle(
-                  fontSize: context.fs(12),
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xff3D3F4A),
-                ),
-              ),
-              SizedBox(width: context.w(12)),
-              Text(
-                dep,
-                style: TextStyle(
-                  fontSize: context.fs(13),
-                  fontWeight: FontWeight.w700,
-                  color: const Color(0xff3D3F4A),
-                ),
-              ),
-              Padding(
-                padding: EdgeInsets.symmetric(horizontal: context.w(8)),
-                child: Icon(Icons.flight, size: context.w(14), color: accentColor),
-              ),
-              Text(
-                arr,
-                style: TextStyle(
-                  fontSize: context.fs(13),
-                  fontWeight: FontWeight.w700,
-                  color: const Color(0xff3D3F4A),
-                ),
-              ),
-              const Spacer(),
-              Container(
-                padding: EdgeInsets.symmetric(
-                  horizontal: context.w(8),
-                  vertical: context.h(3),
-                ),
-                decoration: BoxDecoration(
-                  color: const Color(0xffF3F6FF),
-                  borderRadius: BorderRadius.circular(context.r(8)),
-                ),
-                child: Text(
-                  dur,
-                  style: TextStyle(
-                    fontSize: context.fs(11),
-                    fontWeight: FontWeight.w500,
-                    color: const Color(0xff5F86FF),
+              // Header row: logo + airline name/flight no + price
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  _airlineLogo(flight, context.w(28)),
+                  SizedBox(width: context.w(8)),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          flight.airlineName ?? 'Airline',
+                          style: TextStyle(
+                            color: const Color(0xff3D3F4A),
+                            fontSize: context.fs(12),
+                            fontWeight: FontWeight.w700,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        SizedBox(height: context.h(1)),
+                        Text(
+                          _displayFlightNo(flight, codeOverride: airlineCode),
+                          style: TextStyle(
+                            color: const Color(0xffA0A6C2),
+                            fontSize: context.fs(10),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
+                  SizedBox(width: context.w(8)),
+                  Text(
+                    _convertFlightPrice(
+                      (flight.totalFare ?? 0).toDouble(),
+                      flight.currency,
+                    ),
+                    style: TextStyle(
+                      color: const Color(0xff1663F7),
+                      fontSize: context.fs(15),
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
               ),
+              SizedBox(height: context.h(10)),
+              if (!isRoundTrip)
+                // Compact one-way route row (matches the primary card)
+                Row(
+                  children: [
+                    _timeAirportBlock(
+                      time: departure,
+                      code: flight.originName ??
+                          _locationName(flight.origin ?? widget.fromCode),
+                      alignRight: false,
+                    ),
+                    SizedBox(width: context.w(8)),
+                    Expanded(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            duration,
+                            style: TextStyle(
+                              color: const Color(0xff9AA2BF),
+                              fontSize: context.fs(9),
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          SizedBox(height: context.h(3)),
+                          _ticketFlightPath(accentColor),
+                          if (_formatStops(flight.stops).isNotEmpty) ...[
+                            SizedBox(height: context.h(3)),
+                            Text(
+                              _formatStops(flight.stops),
+                              style: TextStyle(
+                                color: const Color(0xff9AA2BF),
+                                fontSize: context.fs(9),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    SizedBox(width: context.w(8)),
+                    _timeAirportBlock(
+                      time: arrival,
+                      code: flight.destinationName ??
+                          _locationName(flight.destination ?? widget.toCode),
+                      alignRight: true,
+                    ),
+                  ],
+                )
+              else
+                // Round-trip — two labelled legs (Depart + Return)
+                _roundTripBody(flight, accentColor),
             ],
           ),
         ),
@@ -2139,7 +2305,7 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
       amount: (flight.totalFare ?? 0).toDouble(),
       airlineName: flight.airlineName ?? "Unknown",
       airlineCode: flight.airlineCode ?? "--",
-      flightNumber: flight.flightNumber ?? "--",
+      flightNumber: _displayFlightNo(flight),
       fromCode: flight.origin ?? "--",
       toCode: flight.destination ?? "--",
       departureTime: _formatTime(flight.departureTime),
@@ -2171,7 +2337,7 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
       amount: first.amount,
       airlineName: first.flight.airlineName ?? "Unknown",
       airlineCode: first.flight.airlineCode ?? "--",
-      flightNumber: first.flight.flightNumber ?? "--",
+      flightNumber: _displayFlightNo(first.flight),
       fromCode: first.flight.origin ?? "--",
       toCode: first.flight.destination ?? "--",
       departureTime: _formatTime(first.flight.departureTime),

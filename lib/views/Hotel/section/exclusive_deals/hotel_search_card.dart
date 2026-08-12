@@ -792,7 +792,7 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
 
   TextStyle _labelStyle(BuildContext context) {
     return TextStyle(
-      fontSize: 12,
+      fontSize: context.bodySmall,
       color: AppColors.muted,
       fontWeight: FontWeight.w800,
       letterSpacing: 0,
@@ -854,7 +854,7 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: 16,
+                    fontSize: context.bodyLarge,
                     fontWeight: FontWeight.w800,
                     color: date == 'Select Date'
                         ? const Color(0xFFB8BEC9)
@@ -865,7 +865,7 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
                   Text(
                     day,
                     style:  TextStyle(
-                      fontSize: 13,
+                      fontSize: context.fs(13),
                       color: AppColors.muted,
                       fontWeight: FontWeight.w600,
                     ),

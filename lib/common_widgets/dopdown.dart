@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:wander_nova/UI_helper/responsive_layout.dart';
 
 class CustomAutocompleteGeneric<T extends Object> extends StatefulWidget {
   final List<T> options;
@@ -233,10 +234,10 @@ class _CustomAutocompleteGenericState<T extends Object>
                   fillColor: Colors.white,
                   isDense: true,
                   hintText: widget.label,
-                  hintStyle: const TextStyle(
-                    fontSize: 14,
+                  hintStyle: TextStyle(
+                    fontSize: context.bodyMedium,
                     fontWeight: FontWeight.w500,
-                    color: Color(0xffBCC1CA),
+                    color: const Color(0xffBCC1CA),
                   ),
                   contentPadding:
                   const EdgeInsets.symmetric(horizontal: 16, vertical: 14),

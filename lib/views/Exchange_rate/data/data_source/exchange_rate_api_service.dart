@@ -15,7 +15,7 @@ class ExchangeRateApiServiceImpl implements ExchangeRateApiService {
     try {
       final endpoint = apiUrl ?? Urls.exchangeRatePrimary;
 
-      print('CALLING EXCHANGE RATE API: $endpoint');
+      // print('CALLING EXCHANGE RATE API: $endpoint');
 
       final response = await dio.get(endpoint);
 

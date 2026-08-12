@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
 import '../../../../UI_helper/navigation_queue.dart';
+import '../../../../UI_helper/responsive_layout.dart';
 
 class LoginSuccessScreen extends StatefulWidget {
   const LoginSuccessScreen({super.key});
@@ -57,17 +58,17 @@ class _LoginSuccessScreenState extends State<LoginSuccessScreen> {
               ),
             ),
             const SizedBox(height: 24),
-            const Text(
+            Text(
               "Login Successful!",
               style: TextStyle(
-                fontSize: 24,
+                fontSize: context.headlineSmall,
                 fontWeight: FontWeight.bold,
               ),
             ),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               "Welcome back to Wander Nova",
-              style: TextStyle(fontSize: 14),
+              style: TextStyle(fontSize: context.bodyMedium),
             ),
           ],
         ),

@@ -232,16 +232,15 @@ class TpollVehicleCard extends StatelessWidget {
   }
 
   Widget _buildProviderRow(BuildContext context) {
-    // Get rating from result or stepDetails
-    final rating = stepDetails?['provider']?['rating']?.toDouble() ?? 5.0;
-    final ratingCount = stepDetails?['provider']?['rating_count'] ?? 0;
+    // Real rating from the API response — null when the provider didn't
+    // send one, never a fabricated placeholder.
+    final rating = result.rating?.toDouble();
+    final ratingCount = result.ratingCount ?? 0;
 
-    // Get vehicle make and model
-    final vehicleMake = stepDetails?['vehicle']?['make'] ?? '';
-    final vehicleModel = stepDetails?['vehicle']?['model'] ?? '';
+    // Get vehicle make and model — real values from the API response.
     final vehicleFullName = [
-      vehicleMake,
-      vehicleModel,
+      result.vehicleMake ?? '',
+      result.vehicleModel ?? '',
     ].where((s) => s.isNotEmpty).join(' ');
 
     return Column(
@@ -262,40 +261,42 @@ class TpollVehicleCard extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            // Rating badge - FROM API
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: Colors.amber.shade50,
-                borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: Colors.amber.shade200),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.star, size: 11, color: Colors.amber.shade600),
-                  const SizedBox(width: 2),
-                  Text(
-                    rating.toStringAsFixed(1), // Dynamic rating
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.amber.shade700,
-                    ),
-                  ),
-                  if (ratingCount > 0) ...[
+            // Rating badge - only rendered when the API actually returned a
+            // rating. No fabricated placeholder when it didn't.
+            if (rating != null)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.amber.shade50,
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: Colors.amber.shade200),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.star, size: 11, color: Colors.amber.shade600),
                     const SizedBox(width: 2),
                     Text(
-                      '($ratingCount)',
+                      rating.toStringAsFixed(1), // Dynamic rating
                       style: TextStyle(
-                        fontSize: 9,
-                        color: Colors.grey.shade600,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.amber.shade700,
                       ),
                     ),
+                    if (ratingCount > 0) ...[
+                      const SizedBox(width: 2),
+                      Text(
+                        '($ratingCount)',
+                        style: TextStyle(
+                          fontSize: 9,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
-            ),
           ],
         ),
         SizedBox(height: context.hp(0.3)),
@@ -335,11 +336,11 @@ class TpollVehicleCard extends StatelessWidget {
   }
 
   Widget _buildTravelTimeRow(BuildContext context) {
-    final time = stepDetails?['time'] ?? 25;
-    final waitTimeData = stepDetails?['wait_time'];
-    final minutesIncluded = waitTimeData?['minutes_included'] ?? 60;
-    final waitingPrice = waitTimeData?['waiting_minute_price']?['value'];
-    final flightInfoRequired = stepDetails?['flight_info_required'] ?? false;
+    // Real travel time from the API's main step. The API has no wait-time /
+    // flight-info fields wired up on this endpoint, so those badges are not
+    // shown rather than being filled with made-up numbers.
+    final time = result.travelTimeMinutes;
+    if (time == null || time <= 0) return const SizedBox.shrink();
 
     return Wrap(
       spacing: context.wp(3),
@@ -351,26 +352,6 @@ class TpollVehicleCard extends StatelessWidget {
           label: '$time min',
           color: Colors.grey.shade500,
         ),
-        // Show wait time info like website
-        if (minutesIncluded > 0)
-          _iconLabel(
-            context,
-            icon: Icons.hourglass_bottom_outlined,
-            label: waitingPrice != null
-                ? formattedWaitingPrice != null
-                ? '$minutesIncluded min included, then $formattedWaitingPrice/min'
-                : '$minutesIncluded min included, then $currencySymbol$waitingPrice/min'
-                : '$minutesIncluded min included',
-            color: Colors.grey.shade500,
-          ),
-        // Flight info badge
-        if (flightInfoRequired)
-          _iconLabel(
-            context,
-            icon: Icons.flight_land_outlined,
-            label: 'Flight info needed',
-            color: Colors.grey.shade500,
-          ),
       ],
     );
   }

@@ -721,7 +721,7 @@ class _CustomerSupportSectionState extends State<CustomerSupportSection> {
                     child: Center(
                       child: Text(
                         '🇮🇳',
-                        style: TextStyle(fontSize: 12),
+                        style: TextStyle(fontSize: context.fs(12)),
                       ),
                     ),
                   ),

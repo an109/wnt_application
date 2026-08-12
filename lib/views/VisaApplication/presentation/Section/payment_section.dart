@@ -158,10 +158,10 @@ class _PaymentSectionState extends State<PaymentSection>
                     ),
                   ),
                   SizedBox(width: context.w(8)),
-                  const Expanded(
+                  Expanded(
                     child: Text(
                       'Make Payment',
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                      style: TextStyle(fontSize: context.bodySmall, fontWeight: FontWeight.w600),
                     ),
                   ),
                   AnimatedRotation(

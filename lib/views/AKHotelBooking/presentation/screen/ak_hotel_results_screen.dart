@@ -130,7 +130,10 @@ class _AkHotelResultsScreenState extends State<AkHotelResultsScreen> {
       if (_error != null) return;
       if (_contentTotal > 0 && _contentById.length >= _contentTotal) return;
       if (_rateCompleted) return;
-      await Future.delayed(const Duration(milliseconds: 400));
+      // Pure throttle between page requests — no documented backend
+      // rate-limit requires it, so keep it short rather than adding dead
+      // time on top of each round trip while nothing has merged yet.
+      await Future.delayed(const Duration(milliseconds: 150));
     }
   }
 
@@ -196,7 +199,16 @@ class _AkHotelResultsScreenState extends State<AkHotelResultsScreen> {
       }
 
       if (!_rateCompleted) {
-        await Future.delayed(const Duration(seconds: 3));
+        // Rate is a cumulative poll (each response already contains every
+        // price resolved so far), so polling faster only surfaces prices
+        // sooner — it can't skip or duplicate data. Most suppliers price
+        // within the first few seconds, so poll tightly at first to get the
+        // first hotel cards on screen fast, then back off so a slow search
+        // doesn't hammer the API while it finishes in the background.
+        final delay = _ratePollCount <= 6
+            ? const Duration(milliseconds: 1200)
+            : const Duration(seconds: 3);
+        await Future.delayed(delay);
       }
     }
 

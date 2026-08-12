@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:curved_navigation_bar/curved_navigation_bar.dart';
 import 'package:wander_nova/core/resources/app_colours.dart';
+import 'package:wander_nova/UI_helper/responsive_layout.dart';
 
 import '../views/Holidays/presentation/screen/holidays_screen.dart';
 import '../views/Hotel/screen/hotel_screen.dart';
@@ -18,7 +19,8 @@ class CustomBottomNav extends StatelessWidget {
   });
 
   // Helper method to build custom items with text labels
-  Widget _buildNavItem({
+  Widget _buildNavItem(
+    BuildContext context, {
     required IconData icon,
     required String label,
     required int index,
@@ -39,8 +41,8 @@ class CustomBottomNav extends StatelessWidget {
           const SizedBox(height: 2),
           Text(
             label,
-            style: const TextStyle(
-              fontSize: 11,
+            style: TextStyle(
+              fontSize: context.labelSmall,
               color: Colors.grey,
               fontWeight: FontWeight.w500,
             ),
@@ -61,11 +63,11 @@ class CustomBottomNav extends StatelessWidget {
       animationDuration: const Duration(milliseconds: 300),
 
       items: [
-        _buildNavItem(icon: Icons.flight, label: 'Flights', index: 0),
-        _buildNavItem(icon: Icons.hotel, label: 'Hotels', index: 1),
-        _buildNavItem(icon: Icons.assignment, label: 'Visa', index: 2),
-        _buildNavItem(icon: Icons.card_travel, label: 'Holidays', index: 3),
-        _buildNavItem(icon: Icons.directions_car, label: 'Transport', index: 4),
+        _buildNavItem(context, icon: Icons.flight, label: 'Flights', index: 0),
+        _buildNavItem(context, icon: Icons.hotel, label: 'Hotels', index: 1),
+        _buildNavItem(context, icon: Icons.assignment, label: 'Visa', index: 2),
+        _buildNavItem(context, icon: Icons.card_travel, label: 'Holidays', index: 3),
+        _buildNavItem(context, icon: Icons.directions_car, label: 'Transport', index: 4),
       ],
 
       onTap: (index) {

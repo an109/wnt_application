@@ -16,7 +16,7 @@ class GeneralSettingsApiServiceImpl implements GeneralSettingsApiService {
       final url = Urls.popularDestinations;
       final queryParams = {'domain': domain};
 
-      print('CALLING POPULAR DESTINATIONS API: $url');
+      // print('CALLING POPULAR DESTINATIONS API: $url');
       print('Query params: $queryParams');
 
       final response = await dio.get(

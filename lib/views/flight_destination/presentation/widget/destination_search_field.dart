@@ -325,19 +325,19 @@ class _DestinationSearchFieldState extends State<DestinationSearchField> {
               focusNode: _focusNode,
               decoration: InputDecoration(
                 hintText: widget.hint,
-                hintStyle: const TextStyle(
-                  fontSize: 16,
+                hintStyle: TextStyle(
+                  fontSize: context.bodyLarge,
                   fontWeight: FontWeight.w600,
-                  color: Color(0xFFB8BEC9),
+                  color: const Color(0xFFB8BEC9),
                 ),
                 border: InputBorder.none,
                 isDense: true,
                 contentPadding: EdgeInsets.symmetric(vertical: context.h(4)),
               ),
-              style: const TextStyle(
-                fontSize: 16,
+              style: TextStyle(
+                fontSize: context.bodyLarge,
                 fontWeight: FontWeight.w800,
-                color: Color(0xFF071638),
+                color: const Color(0xFF071638),
               ),
               onChanged: _onSearchChanged,
             ),

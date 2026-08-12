@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart'; // Import package
+import 'package:wander_nova/UI_helper/responsive_layout.dart';
 
 /// A custom widget that replicates the Wander Nova logo style with a shiny glow effect using flutter_animate.
 class WanderNovaLogo extends StatelessWidget {
@@ -37,7 +38,7 @@ class WanderNovaLogo extends StatelessWidget {
                     text: "WANDER ",
                     style: TextStyle(
                       color: _kBlueColor,
-                      fontSize: 29 * scaleFactor,
+                      fontSize: context.fs(29) * scaleFactor,
                       fontFamily: 'Serif',
                       fontWeight: FontWeight.bold,
                       shadows: _kTextShadow,
@@ -47,7 +48,7 @@ class WanderNovaLogo extends StatelessWidget {
                     text: "NOVA",
                     style: TextStyle(
                       color: _kOrangeColor,
-                      fontSize: 29 * scaleFactor,
+                      fontSize: context.fs(29) * scaleFactor,
                       fontFamily: 'Serif',
                       fontWeight: FontWeight.bold,
                       shadows: _kTextShadow,
@@ -65,7 +66,7 @@ class WanderNovaLogo extends StatelessWidget {
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: _kTealColor,
-                fontSize: 12.8 * scaleFactor,
+                fontSize: context.fs(12.8) * scaleFactor,
                 letterSpacing: 3.5,
                 fontWeight: FontWeight.normal,
                 fontFamily: 'Roboto',

@@ -66,6 +66,13 @@ class SearchResultEntity extends Equatable {
   final int maxPassengers;
   final int maxBags;
   final List<AmenityEntity> amenities;
+  // Real values from the API's step details (may be absent for some
+  // providers) — null means "not provided", never a fabricated default.
+  final num? rating;
+  final int? ratingCount;
+  final String? vehicleMake;
+  final String? vehicleModel;
+  final int? travelTimeMinutes;
 
   const SearchResultEntity({
     required this.resultId,
@@ -80,6 +87,11 @@ class SearchResultEntity extends Equatable {
     required this.maxPassengers,
     required this.maxBags,
     required this.amenities,
+    this.rating,
+    this.ratingCount,
+    this.vehicleMake,
+    this.vehicleModel,
+    this.travelTimeMinutes,
   });
 
   @override
@@ -96,6 +108,11 @@ class SearchResultEntity extends Equatable {
     maxPassengers,
     maxBags,
     amenities,
+    rating,
+    ratingCount,
+    vehicleMake,
+    vehicleModel,
+    travelTimeMinutes,
   ];
 }
 

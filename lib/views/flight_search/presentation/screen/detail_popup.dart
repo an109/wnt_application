@@ -2940,6 +2940,11 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup> with SingleTick
   // ==================== MODERN FARE SELECTOR - FIXED ====================
   Widget _fareSelector(BuildContext context) {
     final sorted = [..._fareOptions]..sort((a, b) => a.amount.compareTo(b.amount));
+    // Only ever show up to 3 fare cards — Saver (cheapest) / Standard
+    // (middle) / Flexi (priciest) — instead of one card per raw fare
+    // option, which could be 5+ and left several cards all labelled
+    // "Standard" (see _getFareLabel).
+    final displayed = _capFareOptions(sorted);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2962,7 +2967,7 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup> with SingleTick
                 borderRadius: BorderRadius.circular(context.r(12)),
               ),
               child: Text(
-                '${sorted.length} options',
+                '${displayed.length} options',
                 style: TextStyle(
                   color: const Color(0xff3B82F6),
                   fontSize: context.fs(9),
@@ -2978,13 +2983,23 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup> with SingleTick
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             physics: const BouncingScrollPhysics(),
-            itemCount: sorted.length,
+            itemCount: displayed.length,
             separatorBuilder: (_, __) => SizedBox(width: context.w(10)),
-            itemBuilder: (_, i) => _fareCard(context, sorted[i], i, sorted.length),
+            itemBuilder: (_, i) => _fareCard(context, displayed[i], i, displayed.length),
           ),
         ),
       ],
     );
+  }
+
+  /// Reduces a price-sorted fare list down to at most 3 entries: the
+  /// cheapest, the priciest, and one representative in between — so
+  /// [_getFareLabel]'s Saver/Standard/Flexi labels each show at most once.
+  /// Lists of 3 or fewer are left untouched (still their real fares).
+  List<FareFamilyIndexEntity> _capFareOptions(List<FareFamilyIndexEntity> sorted) {
+    if (sorted.length <= 3) return sorted;
+    final middle = sorted[sorted.length ~/ 2];
+    return [sorted.first, middle, sorted.last];
   }
 
   Widget _fareCard(BuildContext context, FareFamilyIndexEntity option, int rank, int total) {

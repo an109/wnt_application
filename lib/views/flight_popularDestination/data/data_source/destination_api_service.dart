@@ -13,7 +13,7 @@ class PopularDestinationApiServiceImpl implements PopularDestinationApiService {
   @override
   Future<Response> getPopularDestinations() async {
     try {
-      print('CALLING POPULAR DESTINATIONS API: ${Urls.popularsDestinations}');
+      // print('CALLING POPULAR DESTINATIONS API: ${Urls.popularsDestinations}');
 
       final response = await dio.get(
         Urls.popularsDestinations,

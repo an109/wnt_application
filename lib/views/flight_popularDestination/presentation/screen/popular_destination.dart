@@ -573,7 +573,7 @@ class _DestinationDetailSheet extends StatelessWidget {
                                       ? 'Domestic'
                                       : 'International',
                                   style: TextStyle(
-                                    fontSize: 10,
+                                    fontSize: context.overline,
                                     fontWeight: FontWeight.w600,
                                     color:
                                         destination.type?.toLowerCase() ==
@@ -592,7 +592,7 @@ class _DestinationDetailSheet extends StatelessWidget {
                             ? destination.tagline
                             : destination.country,
                         style: TextStyle(
-                          fontSize: 14,
+                          fontSize: context.bodyMedium,
                           color: Colors.grey.shade600,
                         ),
                       ),
@@ -629,16 +629,16 @@ class _DestinationDetailSheet extends StatelessWidget {
                       const SizedBox(width: 4),
                       Text(
                         destination.country,
-                        style: const TextStyle(
-                          fontSize: 12,
+                        style: TextStyle(
+                          fontSize: context.bodySmall,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
                       if (destination.state?.isNotEmpty == true)
                         Text(
                           ', ${destination.state}',
-                          style: const TextStyle(
-                            fontSize: 12,
+                          style: TextStyle(
+                            fontSize: context.bodySmall,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
@@ -659,7 +659,7 @@ class _DestinationDetailSheet extends StatelessWidget {
                   ? destination.description
                   : destination.longDescription,
               style: TextStyle(
-                fontSize: 14,
+                fontSize: context.bodyMedium,
                 color: Colors.grey.shade700,
                 height: 1.5,
               ),
@@ -682,7 +682,7 @@ class _DestinationDetailSheet extends StatelessWidget {
                     Text(
                       'Starting from',
                       style: TextStyle(
-                        fontSize: 12,
+                        fontSize: context.bodySmall,
                         color: Colors.grey.shade600,
                       ),
                     ),
@@ -694,7 +694,7 @@ class _DestinationDetailSheet extends StatelessWidget {
                                 ? destination.price.split('/')[0].trim()
                                 : 'Contact for price',
                             style: TextStyle(
-                              fontSize: 28,
+                              fontSize: context.fs(28),
                               fontWeight: FontWeight.bold,
                               color: const Color(0xff005B7F),
                             ),
@@ -703,7 +703,7 @@ class _DestinationDetailSheet extends StatelessWidget {
                             TextSpan(
                               text: '\n${destination.price.split('/')[1].trim()}',
                               style: TextStyle(
-                                fontSize: 12,
+                                fontSize: context.bodySmall,
                                 fontWeight: FontWeight.normal,
                                 color: Colors.grey.shade600,
                               ),
@@ -742,10 +742,10 @@ class _DestinationDetailSheet extends StatelessWidget {
                     onTap: () {
                       Navigator.push(context, MaterialPageRoute(builder: (_) => HolidaysScreen()));
                     },
-                    child: const Text(
+                    child: Text(
                       'Book Now',
                       style: TextStyle(
-                        fontSize: 16,
+                        fontSize: context.bodyLarge,
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
                       ),

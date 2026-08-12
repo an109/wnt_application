@@ -571,17 +571,26 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
             crossAxisAlignment: CrossAxisAlignment.end,
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Total payable', style: TextStyle(fontSize: context.fs(12), color: _muted, fontWeight: FontWeight.w600)),
-                  SizedBox(height: context.h(4)),
-                  _pricePill(context),
-                ],
+              Flexible(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('Total payable', style: TextStyle(fontSize: context.fs(12), color: _muted, fontWeight: FontWeight.w600)),
+                    SizedBox(height: context.h(4)),
+                    _pricePill(context),
+                  ],
+                ),
               ),
-              Text(
-                _totalPayable.toStringAsFixed(2),
-                style: TextStyle(fontSize: context.fs(21), fontWeight: FontWeight.w900, color: _navy),
+              SizedBox(width: context.w(8)),
+              Flexible(
+                child: Text(
+                  _totalPayable.toStringAsFixed(2),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.end,
+                  style: TextStyle(fontSize: context.fs(21), fontWeight: FontWeight.w900, color: _navy),
+                ),
               ),
             ],
           ),
@@ -642,7 +651,14 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
             children: [
               Icon(Icons.event_busy_outlined, size: context.w(16), color: _navy),
               SizedBox(width: context.w(8)),
-              Text('Cancellation Schedule', style: TextStyle(fontSize: context.fs(13), fontWeight: FontWeight.w800, color: _navy)),
+              Flexible(
+                child: Text(
+                  'Cancellation Schedule',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: context.fs(13), fontWeight: FontWeight.w800, color: _navy),
+                ),
+              ),
             ],
           ),
           SizedBox(height: context.h(10)),
@@ -917,17 +933,21 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
           ],
           Row(
             children: [
-              Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Total', style: TextStyle(fontSize: context.fs(11), color: _muted, fontWeight: FontWeight.w700)),
-                  SizedBox(height: context.h(2)),
-                  Text(
-                    _priced == null ? '—' : _totalPayable.toStringAsFixed(2),
-                    style: TextStyle(fontSize: context.fs(20), fontWeight: FontWeight.w900, color: _navy),
-                  ),
-                ],
+              Flexible(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Total', style: TextStyle(fontSize: context.fs(11), color: _muted, fontWeight: FontWeight.w700)),
+                    SizedBox(height: context.h(2)),
+                    Text(
+                      _priced == null ? '—' : _totalPayable.toStringAsFixed(2),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: context.fs(20), fontWeight: FontWeight.w900, color: _navy),
+                    ),
+                  ],
+                ),
               ),
               SizedBox(width: context.w(14)),
               Expanded(

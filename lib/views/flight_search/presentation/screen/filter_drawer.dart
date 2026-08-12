@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:wander_nova/UI_helper/currency_converter.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
+import 'package:wander_nova/common_widgets/airline_logo.dart';
 
 class FlightFilterResult {
   final RangeValues priceRange;
@@ -31,6 +32,10 @@ class FlightFilterDrawer extends StatefulWidget {
   final bool currentNonRefundable;
   final Map<String, int> airlineCounts;
   final Map<String, double> airlineMinPrices;
+  /// Airline name -> IATA code, used to render the same real logo the
+  /// results list shows. Optional/defaults to empty so any other existing
+  /// caller that doesn't pass it still gets the old initials-circle look.
+  final Map<String, String> airlineCodes;
   final void Function(FlightFilterResult) onApply;
   /// The currency that raw price values (minPrice, maxPrice, airlineMinPrices)
   /// are stored in — same currency the API returned for totalFare.
@@ -48,6 +53,7 @@ class FlightFilterDrawer extends StatefulWidget {
     required this.currentNonRefundable,
     required this.airlineCounts,
     required this.airlineMinPrices,
+    this.airlineCodes = const {},
     required this.onApply,
     this.apiCurrency = 'INR',
   });
@@ -348,22 +354,11 @@ class _FlightFilterDrawerState extends State<FlightFilterDrawer> {
           final minPrice = widget.airlineMinPrices[name];
           return Row(
             children: [
-              Container(
-                width: context.w(26),
-                height: context.w(26),
-                decoration: BoxDecoration(
-                  color: _airlineColor(name),
-                  shape: BoxShape.circle,
-                ),
-                alignment: Alignment.center,
-                child: Text(
-                  name.isNotEmpty ? name[0].toUpperCase() : 'A',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: context.fs(11),
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
+              AirlineLogo(
+                code: widget.airlineCodes[name] ?? '',
+                name: name,
+                size: context.w(26),
+                borderRadius: BorderRadius.circular(context.w(13)),
               ),
               SizedBox(width: context.w(8)),
               Expanded(
@@ -579,15 +574,4 @@ class _FlightFilterDrawerState extends State<FlightFilterDrawer> {
     );
   }
 
-  Color _airlineColor(String name) {
-    const colors = [
-      Color(0xffC29200),
-      Color(0xff25358D),
-      Color(0xff7A003C),
-      Color(0xff0F766E),
-      Color(0xffB42318),
-    ];
-    final hash = name.codeUnits.fold<int>(0, (s, u) => s + u);
-    return colors[hash % colors.length];
-  }
 }

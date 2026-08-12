@@ -55,6 +55,9 @@ class AkHotelRoomGroupEntity extends Equatable {
   final int availability;
   final String roomId;
   final String roomName;
+  /// The room's own description, straight from the API's `room.description`
+  /// (independent of [boardBasisDescription], which is the meal plan).
+  final String description;
   final List<AkHotelOccupancyEntity> occupancies;
   final int roomCount;
   final double baseRate;
@@ -71,6 +74,7 @@ class AkHotelRoomGroupEntity extends Equatable {
     required this.availability,
     required this.roomId,
     required this.roomName,
+    required this.description,
     required this.occupancies,
     required this.roomCount,
     required this.baseRate,
@@ -83,7 +87,7 @@ class AkHotelRoomGroupEntity extends Equatable {
 
   @override
   List<Object?> get props => [
-        id, providerName, needsPriceCheck, availability, roomId, roomName, occupancies, roomCount,
+        id, providerName, needsPriceCheck, availability, roomId, roomName, description, occupancies, roomCount,
         baseRate, totalRate, taxes, refundable, boardBasisDescription, cancellationPolicyTexts,
       ];
 }

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
+import 'package:wander_nova/UI_helper/responsive_layout.dart';
 
 class HotelLoadingIndicator extends StatefulWidget {
   const HotelLoadingIndicator({super.key});
@@ -65,7 +66,7 @@ class _HotelLoadingIndicatorState extends State<HotelLoadingIndicator> {
               _messages[_messageIndex],
               key: ValueKey(_messageIndex),
               style: TextStyle(
-                fontSize: 15,
+                fontSize: context.fs(15),
                 fontWeight: FontWeight.w500,
                 color: Colors.grey.shade700,
               ),

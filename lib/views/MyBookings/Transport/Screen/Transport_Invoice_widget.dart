@@ -110,22 +110,27 @@ class BookingInvoiceWidget extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _billingRow(
+                      context,
                       "Billed by:",
                       "${booking.firstName} ${booking.lastName}",
                     ),
                     _billingRow(
+                      context,
                       "Issued by:",
                       "WANDER NOVA",
                     ),
                     _billingRow(
+                      context,
                       "Billing Cycle:",
                       "Immediate",
                     ),
                     _billingRow(
+                      context,
                       "Payment Basis:",
                       "Invoice Date",
                     ),
                     _billingRow(
+                      context,
                       "Invoice Status:",
                       booking.status.toUpperCase(),
                     ),
@@ -376,14 +381,14 @@ class BookingInvoiceWidget extends StatelessWidget {
     );
   }
 
-  Widget _billingRow(String title, String value) {
+  Widget _billingRow(BuildContext context, String title, String value) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: EdgeInsets.only(bottom: context.h(10)),
       child: RichText(
         text: TextSpan(
-          style: const TextStyle(
+          style: TextStyle(
             color: Colors.black,
-            fontSize: 10,
+            fontSize: context.fs(10),
           ),
           children: [
             TextSpan(

@@ -61,11 +61,11 @@ class _MakePaymentScreenState extends State<MakePaymentScreen> {
                       minimumSize: const Size(0, 0),
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
-                    child: const Text(
+                    child: Text(
                       'Home',
                       style: TextStyle(
                         color: Colors.grey,
-                        fontSize: 14,
+                        fontSize: context.bodyMedium,
                       ),
                     ),
                   ),
@@ -74,11 +74,11 @@ class _MakePaymentScreenState extends State<MakePaymentScreen> {
                     size: 16,
                     color: Colors.grey,
                   ),
-                  const Text(
+                  Text(
                     'Make Payment',
                     style: TextStyle(
                       color: Colors.blue,
-                      fontSize: 14,
+                      fontSize: context.bodyMedium,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -142,10 +142,10 @@ class _MakePaymentScreenState extends State<MakePaymentScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Travel Utility',
             style: TextStyle(
-              fontSize: 22,
+              fontSize: context.fs(22),
               fontWeight: FontWeight.w600,
               color: Colors.black87,
             ),
@@ -154,7 +154,7 @@ class _MakePaymentScreenState extends State<MakePaymentScreen> {
           Text(
             'Travel Utility is an online payment option available for the convenience of customer to pay additional amount for the service opted. Payment can be made through your Credit / Debit card, Net Banking or Cash Card. We accept Credit / Debit cards of MasterCard and VISA.',
             style: TextStyle(
-              fontSize: 14,
+              fontSize: context.bodyMedium,
               color: Colors.grey[700],
               height: 1.5,
             ),
@@ -185,10 +185,10 @@ class _MakePaymentScreenState extends State<MakePaymentScreen> {
             children: [
               Icon(Icons.payment, color: Colors.blue[700], size: 20),
               const SizedBox(width: 8),
-              const Text(
+              Text(
                 'Payment Details',
                 style: TextStyle(
-                  fontSize: 16,
+                  fontSize: context.bodyLarge,
                   fontWeight: FontWeight.w600,
                   color: Colors.black87,
                 ),
@@ -205,7 +205,7 @@ class _MakePaymentScreenState extends State<MakePaymentScreen> {
                   decoration: InputDecoration(
                     labelText: 'Service *',
                     labelStyle: TextStyle(
-                      fontSize: 14,
+                      fontSize: context.bodyMedium,
                       color: Colors.grey[700],
                     ),
                     filled: true,
@@ -256,7 +256,7 @@ class _MakePaymentScreenState extends State<MakePaymentScreen> {
                         decoration: InputDecoration(
                           labelText: 'Reference No',
                           labelStyle: TextStyle(
-                            fontSize: 14,
+                            fontSize: context.bodyMedium,
                             color: Colors.grey[700],
                           ),
                           hintText: 'Reference No',
@@ -289,7 +289,7 @@ class _MakePaymentScreenState extends State<MakePaymentScreen> {
                         decoration: InputDecoration(
                           labelText: 'Net Fare',
                           labelStyle: TextStyle(
-                            fontSize: 14,
+                            fontSize: context.bodyMedium,
                             color: Colors.grey[700],
                           ),
                           hintText: '0',
@@ -341,10 +341,10 @@ class _MakePaymentScreenState extends State<MakePaymentScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Contact Information',
             style: TextStyle(
-              fontSize: 16,
+              fontSize: context.bodyLarge,
               fontWeight: FontWeight.w600,
               color: Colors.black87,
             ),
@@ -364,7 +364,7 @@ class _MakePaymentScreenState extends State<MakePaymentScreen> {
                   child: Text(
                     'Your payment and booking information will be sent here.',
                     style: TextStyle(
-                      fontSize: 14,
+                      fontSize: context.bodyMedium,
                       color: Colors.grey[700],
                     ),
                   ),
@@ -402,10 +402,10 @@ class _MakePaymentScreenState extends State<MakePaymentScreen> {
                       },
                     ),
                     const SizedBox(width: 8),
-                    const Text(
+                    Text(
                       '+91',
                       style: TextStyle(
-                        fontSize: 14,
+                        fontSize: context.bodyMedium,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -499,10 +499,10 @@ class _MakePaymentScreenState extends State<MakePaymentScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Make payment',
             style: TextStyle(
-              fontSize: 18,
+              fontSize: context.titleMedium,
               fontWeight: FontWeight.w600,
               color: Colors.black87,
             ),
@@ -561,17 +561,17 @@ class _MakePaymentScreenState extends State<MakePaymentScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
+                            Text(
                               'CCAvenue Secure Checkout',
                               style: TextStyle(
-                                fontSize: 14,
+                                fontSize: context.bodyMedium,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
                             Text(
                               'You will be redirected to CCAvenue (INR - Cards, Net Banking, Wallet, UPI)',
                               style: TextStyle(
-                                fontSize: 12,
+                                fontSize: context.bodySmall,
                                 color: Colors.grey[700],
                               ),
                             ),
@@ -581,10 +581,10 @@ class _MakePaymentScreenState extends State<MakePaymentScreen> {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  const Text(
+                  Text(
                     'Accepted payment methods',
                     style: TextStyle(
-                      fontSize: 12,
+                      fontSize: context.bodySmall,
                       color: Colors.grey,
                     ),
                   ),
@@ -614,7 +614,7 @@ class _MakePaymentScreenState extends State<MakePaymentScreen> {
                         Text(
                           '256-bit SSL encrypted • PCI DSS compliant',
                           style: TextStyle(
-                            fontSize: 12,
+                            fontSize: context.bodySmall,
                             color: Colors.green[700],
                           ),
                         ),
@@ -648,7 +648,7 @@ class _MakePaymentScreenState extends State<MakePaymentScreen> {
                   child: Text(
                     'I understand and agree with the rules and restrictions of this fare, the Payment Terms, Cancellation Policy and the Terms & Conditions',
                     style: TextStyle(
-                      fontSize: 12,
+                      fontSize: context.bodySmall,
                       color: Colors.grey[700],
                       height: 1.4,
                     ),
@@ -708,7 +708,7 @@ class _MakePaymentScreenState extends State<MakePaymentScreen> {
                   Text(
                     title,
                     style: TextStyle(
-                      fontSize: 14,
+                      fontSize: context.bodyMedium,
                       fontWeight: FontWeight.w600,
                       color: isSelected
                           ? (isCCAvenue ? Colors.green[700] : Colors.blue[700])
@@ -718,7 +718,7 @@ class _MakePaymentScreenState extends State<MakePaymentScreen> {
                   Text(
                     subtitle,
                     style: TextStyle(
-                      fontSize: 12,
+                      fontSize: context.bodySmall,
                       color: isSelected
                           ? (isCCAvenue ? Colors.green[600] : Colors.blue[600])
                           : Colors.grey[600],
@@ -753,8 +753,8 @@ class _MakePaymentScreenState extends State<MakePaymentScreen> {
       ),
       child: Text(
         label,
-        style: const TextStyle(
-          fontSize: 11,
+        style: TextStyle(
+          fontSize: context.labelSmall,
           color: Colors.black87,
         ),
       ),
@@ -783,7 +783,7 @@ class _MakePaymentScreenState extends State<MakePaymentScreen> {
               Text(
                 'Total payable amount',
                 style: TextStyle(
-                  fontSize: 14,
+                  fontSize: context.bodyMedium,
                   color: Colors.grey[700],
                 ),
               ),
@@ -809,10 +809,10 @@ class _MakePaymentScreenState extends State<MakePaymentScreen> {
                   borderRadius: BorderRadius.circular(8),
                 ),
               ),
-              child: const Text(
+              child: Text(
                 'PAY WITH CCAVENUE',
                 style: TextStyle(
-                  fontSize: 16,
+                  fontSize: context.bodyLarge,
                   fontWeight: FontWeight.w600,
                   color: Colors.white,
                   letterSpacing: 1.2,
@@ -879,8 +879,8 @@ class _MakePaymentScreenState extends State<MakePaymentScreen> {
             children: [
               Text(
                 title,
-                style: const TextStyle(
-                  fontSize: 14,
+                style: TextStyle(
+                  fontSize: context.bodyMedium,
                   fontWeight: FontWeight.w600,
                   color: Colors.black87,
                 ),
@@ -889,7 +889,7 @@ class _MakePaymentScreenState extends State<MakePaymentScreen> {
               Text(
                 description,
                 style: TextStyle(
-                  fontSize: 12,
+                  fontSize: context.bodySmall,
                   color: Colors.grey[700],
                   height: 1.4,
                 ),

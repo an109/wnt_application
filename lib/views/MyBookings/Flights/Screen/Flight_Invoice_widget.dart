@@ -111,27 +111,33 @@ class FlightInvoiceWidget extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _billingRow(
+                      context,
                       "Billed by:",
                       _getPrimaryPassengerName(),
                     ),
                     _billingRow(
+                      context,
                       "Issued by:",
                       "WANDER NOVA",
                     ),
                     _billingRow(
+                      context,
                       "Billing Cycle:",
                       "Immediate",
                     ),
                     _billingRow(
+                      context,
                       "Payment Basis:",
                       "Invoice Date",
                     ),
                     _billingRow(
+                      context,
                       "Invoice Status:",
                       isConfirmed ? "CONFIRMED" : "PROCESSING",
                     ),
                     if (booking.paidVia != null && booking.paidVia!.isNotEmpty)
                       _billingRow(
+                        context,
                         "Payment Method:",
                         booking.paidVia!,
                       ),
@@ -378,14 +384,14 @@ class FlightInvoiceWidget extends StatelessWidget {
     );
   }
 
-  Widget _billingRow(String title, String value) {
+  Widget _billingRow(BuildContext context, String title, String value) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: EdgeInsets.only(bottom: context.h(10)),
       child: RichText(
         text: TextSpan(
-          style: const TextStyle(
+          style: TextStyle(
             color: Colors.black,
-            fontSize: 11,
+            fontSize: context.fs(11),
           ),
           children: [
             TextSpan(

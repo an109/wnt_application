@@ -271,7 +271,7 @@ class _DashboardScreenState extends State<DashboardScreen>
               Text(
                 'View your recent orders and manage\nyour bookings',
                 style: TextStyle(
-                  fontSize: 14,
+                  fontSize: context.bodyMedium,
                   color: Colors.white.withOpacity(.85),
                 ),
               ),
@@ -509,8 +509,8 @@ class _DashboardScreenState extends State<DashboardScreen>
 
               Text(
                 title,
-                style: const TextStyle(
-                  fontSize: 12,
+                style: TextStyle(
+                  fontSize: context.bodySmall,
                   fontWeight: FontWeight.w600,
                   color: Colors.white,
                 ),
@@ -542,10 +542,10 @@ class _DashboardScreenState extends State<DashboardScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Quick Search',
             style: TextStyle(
-              fontSize: 15,
+              fontSize: context.fs(15),
               fontWeight: FontWeight.w600,
               color: Colors.black87,
             ),
@@ -582,7 +582,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                         child: Text(
                           'AT - Enter reference number',
                           style: TextStyle(
-                            fontSize: 13,
+                            fontSize: context.fs(13),
                             color: Colors.grey.shade500,
                           ),
                         ),
@@ -603,11 +603,11 @@ class _DashboardScreenState extends State<DashboardScreen>
                   color: Colors.red,
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Text(
+                child: Text(
                   'Get Itinerary',
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: 12,
+                    fontSize: context.bodySmall,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -714,10 +714,10 @@ class _DashboardScreenState extends State<DashboardScreen>
 
           const SizedBox(height: 12),
 
-          const Text(
+          Text(
             'No Upcoming Trips',
             style: TextStyle(
-              fontSize: 16,
+              fontSize: context.bodyLarge,
               fontWeight: FontWeight.w600,
               color: Colors.black87,
             ),
@@ -728,7 +728,7 @@ class _DashboardScreenState extends State<DashboardScreen>
           Text(
             'When you book a trip, you will see your itinerary here.',
             style: TextStyle(
-              fontSize: 13,
+              fontSize: context.fs(13),
               color: Colors.grey.shade600,
             ),
             textAlign: TextAlign.center,
@@ -750,16 +750,16 @@ class _DashboardScreenState extends State<DashboardScreen>
             borderRadius: BorderRadius.circular(12),
           ),
           title: Row(
-            children: const [
-              Icon(
+            children: [
+              const Icon(
                 Icons.construction,
                 color: Colors.blue,
                 size: 24,
               ),
-              SizedBox(width: 8),
+              const SizedBox(width: 8),
               Text(
                 'Coming Soon',
-                style: TextStyle(fontSize: 18),
+                style: TextStyle(fontSize: ctx.titleMedium),
               ),
             ],
           ),

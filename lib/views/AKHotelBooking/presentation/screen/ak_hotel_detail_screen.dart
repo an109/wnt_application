@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:shimmer/shimmer.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import 'package:wander_nova/injection_container.dart';
-import '../../../../common_widgets/hotel_loading_indicator.dart';
 import '../../../../common_widgets/logo.dart';
 import '../../../../core/error/data_state.dart';
 import '../../../AKHotelDetailContent/domain/entity/AKHotelDetailContent_entity.dart';
@@ -70,7 +70,6 @@ class _AkHotelDetailScreenState extends State<AkHotelDetailScreen> {
 
   AkHotelDetailContentEntity? _content;
   AkHotelRoomsResultEntity? _rooms;
-  bool _contentLoading = true;
   bool _roomsLoading = true;
   String? _roomsError;
 
@@ -92,7 +91,6 @@ class _AkHotelDetailScreenState extends State<AkHotelDetailScreen> {
     if (!mounted) return;
     setState(() {
       if (result is DataSuccess<AkHotelDetailContentEntity>) _content = result.data;
-      _contentLoading = false;
     });
   }
 
@@ -170,28 +168,33 @@ class _AkHotelDetailScreenState extends State<AkHotelDetailScreen> {
           ),
         ],
       ),
-      body: _contentLoading
-          ? const HotelLoadingIndicator()
-          : SingleChildScrollView(
-              physics: context.scrollPhysics,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  PhotoGallerySection(
-                    images: _images,
-                    hotelName: widget.hotelName,
-                    rating: (_content?.starRating ?? 0).round(),
-                    enableFullScreen: false,
-                  ),
-                  _buildInfo(),
-                  _buildBookingBar(),
-                  SizedBox(height: context.gapMedium),
-                  _buildTabs(),
-                  _buildTabContent(),
-                  SizedBox(height: context.h(30)),
-                ],
-              ),
+      // Content (photos/description/policies) and Rooms are independent,
+      // parallel calls — the page no longer waits for Content to finish
+      // before showing the tabs, so Rooms (already fetching since
+      // initState) renders and displays results as soon as it's ready
+      // instead of being hidden behind Content's own loading time.
+      // PhotoGallerySection/_buildInfo already degrade gracefully to
+      // placeholders/widget-supplied data while _content is still null.
+      body: SingleChildScrollView(
+        physics: context.scrollPhysics,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            PhotoGallerySection(
+              images: _images,
+              hotelName: widget.hotelName,
+              rating: (_content?.starRating ?? 0).round(),
+              enableFullScreen: false,
             ),
+            _buildInfo(),
+            _buildBookingBar(),
+            SizedBox(height: context.gapMedium),
+            _buildTabs(),
+            _buildTabContent(),
+            SizedBox(height: context.h(30)),
+          ],
+        ),
+      ),
     );
   }
 
@@ -235,10 +238,10 @@ class _AkHotelDetailScreenState extends State<AkHotelDetailScreen> {
               ],
             ),
           ],
-          if (c != null && c.descriptions.isNotEmpty) ...[
+          if (c != null && c.descriptions.isNotEmpty && _stripHtmlTags(c.descriptions.first).isNotEmpty) ...[
             SizedBox(height: context.h(12)),
             Text(
-              c.descriptions.first,
+              _stripHtmlTags(c.descriptions.first),
               maxLines: 5,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(fontSize: context.fs(13), color: _muted, height: 1.4),
@@ -366,14 +369,135 @@ class _AkHotelDetailScreenState extends State<AkHotelDetailScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (_roomsLoading)
-            const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator(color: _blue)))
+            _buildRoomsSkeleton()
           else if (_roomsError != null)
             Text(_roomsError!, style: TextStyle(color: Colors.red.shade400))
           else if ((_rooms?.recommendations ?? []).isEmpty)
             Text('No rooms available for these dates.', style: TextStyle(color: _muted))
           else
-            for (final rec in _rooms!.recommendations)
-              for (final rg in rec.roomGroups) _roomCard(rec, rg),
+            ..._buildGroupedRoomSections(),
+        ],
+      ),
+    );
+  }
+
+  /// Skeleton placeholder cards (same shape as [_roomCard]) shown while
+  /// Rooms is loading, instead of a bare spinner.
+  Widget _buildRoomsSkeleton() {
+    Widget bar(double width, double height) => Container(
+          width: width,
+          height: height,
+          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(context.r(4))),
+        );
+
+    Widget skeletonCard() => Container(
+          margin: EdgeInsets.only(bottom: context.gapMedium),
+          padding: EdgeInsets.all(context.w(14)),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(context.r(12)),
+            border: Border.all(color: _border),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              bar(context.w(140), context.h(14)),
+              SizedBox(height: context.h(8)),
+              bar(context.w(90), context.h(11)),
+              SizedBox(height: context.h(10)),
+              bar(double.infinity, context.h(11)),
+              SizedBox(height: context.h(6)),
+              bar(context.w(180), context.h(11)),
+              SizedBox(height: context.h(14)),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Expanded(child: bar(context.w(70), context.h(18))),
+                  bar(context.w(90), context.h(36)),
+                ],
+              ),
+            ],
+          ),
+        );
+
+    return Shimmer.fromColors(
+      baseColor: Colors.grey.shade200,
+      highlightColor: Colors.grey.shade100,
+      child: Column(children: List.generate(3, (_) => skeletonCard())),
+    );
+  }
+
+  /// Groups every (recommendation, roomGroup) pair by room title — options
+  /// that share a title (e.g. several "Premium Room" rate plans/providers)
+  /// are shown together under one section heading instead of as
+  /// indistinguishable repeated cards.
+  List<Widget> _buildGroupedRoomSections() {
+    final entries = <MapEntry<AkHotelRecommendationEntity, AkHotelRoomGroupEntity>>[
+      for (final rec in _rooms!.recommendations)
+        for (final rg in rec.roomGroups) MapEntry(rec, rg),
+    ];
+
+    final grouped = <String, List<MapEntry<AkHotelRecommendationEntity, AkHotelRoomGroupEntity>>>{};
+    for (final e in entries) {
+      final title = e.value.roomName.isEmpty ? 'Room' : e.value.roomName;
+      grouped.putIfAbsent(title, () => []).add(e);
+    }
+
+    final widgets = <Widget>[];
+    for (final group in grouped.entries) {
+      if (group.value.length > 1) {
+        widgets.add(_roomTypeSection(group.key, group.value));
+      } else {
+        final e = group.value.first;
+        widgets.add(_roomCard(e.key, e.value));
+      }
+    }
+    return widgets;
+  }
+
+  Widget _roomTypeSection(
+    String title,
+    List<MapEntry<AkHotelRecommendationEntity, AkHotelRoomGroupEntity>> options,
+  ) {
+    return Container(
+      margin: EdgeInsets.only(bottom: context.gapSmall),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: EdgeInsets.only(bottom: context.h(8), left: context.w(2)),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: EdgeInsets.only(top: context.h(2)),
+                  child: Icon(Icons.meeting_room_outlined, size: context.w(16), color: _blue),
+                ),
+                SizedBox(width: context.w(6)),
+                // Full title, wraps to as many lines as it needs — never
+                // truncated — instead of squeezing it onto one line.
+                Expanded(
+                  child: Text(
+                    title,
+                    style: TextStyle(fontSize: context.fs(15), fontWeight: FontWeight.w800, color: _navy, height: 1.25),
+                  ),
+                ),
+                SizedBox(width: context.w(8)),
+                Container(
+                  padding: EdgeInsets.symmetric(horizontal: context.w(8), vertical: context.h(3)),
+                  decoration: BoxDecoration(
+                    color: _blue.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(context.r(20)),
+                  ),
+                  child: Text(
+                    '${options.length} options',
+                    style: TextStyle(fontSize: context.fs(10), fontWeight: FontWeight.w700, color: _blue),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          for (final e in options) _roomCard(e.key, e.value),
         ],
       ),
     );
@@ -391,18 +515,29 @@ class _AkHotelDetailScreenState extends State<AkHotelDetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Full room title — wraps to as many lines as it needs
+          // (responsive font via context.fs), never truncated.
           Text(
             rg.roomName.isEmpty ? 'Room' : rg.roomName,
-            style: TextStyle(fontSize: context.fs(14), fontWeight: FontWeight.w800, color: _navy),
+            style: TextStyle(fontSize: context.fs(14), fontWeight: FontWeight.w800, color: _navy, height: 1.25),
           ),
           SizedBox(height: context.h(4)),
           Text(
             rg.providerName,
             style: TextStyle(fontSize: context.fs(11), color: _muted, fontWeight: FontWeight.w600),
           ),
-          if (rg.boardBasisDescription.isNotEmpty) ...[
+          if (_stripHtmlTags(rg.description).isNotEmpty) ...[
             SizedBox(height: context.h(6)),
-            Text(rg.boardBasisDescription, style: TextStyle(fontSize: context.fs(12), color: _muted)),
+            Text(
+              _stripHtmlTags(rg.description),
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: context.fs(12), color: _muted, height: 1.35),
+            ),
+          ],
+          if (_stripHtmlTags(rg.boardBasisDescription).isNotEmpty) ...[
+            SizedBox(height: context.h(6)),
+            Text(_stripHtmlTags(rg.boardBasisDescription), style: TextStyle(fontSize: context.fs(12), color: _muted)),
           ],
           SizedBox(height: context.h(10)),
           Wrap(
@@ -412,6 +547,9 @@ class _AkHotelDetailScreenState extends State<AkHotelDetailScreen> {
               if (rg.refundable) _badge('Refundable', Colors.green),
               if (!rg.refundable) _badge('Non-refundable', Colors.red),
               if (rg.needsPriceCheck) _badge('Price check required', Colors.orange),
+              // Real availability from the API — only shown when the vendor
+              // actually reported a count, never a guessed number.
+              if (rg.availability > 0) _badge('${rg.availability} room${rg.availability > 1 ? 's' : ''} left', Colors.orange),
             ],
           ),
           SizedBox(height: context.h(12)),
@@ -421,6 +559,8 @@ class _AkHotelDetailScreenState extends State<AkHotelDetailScreen> {
               Expanded(
                 child: Text(
                   rg.totalRate.toStringAsFixed(0),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(fontSize: context.fs(18), fontWeight: FontWeight.w900, color: _navy),
                 ),
               ),
@@ -437,6 +577,23 @@ class _AkHotelDetailScreenState extends State<AkHotelDetailScreen> {
         ],
       ),
     );
+  }
+
+  /// Vendor description/board-basis text sometimes arrives as raw HTML
+  /// (e.g. "<p>Free WiFi</b>") — strip tags and decode the handful of
+  /// entities that commonly survive that, so only plain text is shown.
+  String _stripHtmlTags(String html) {
+    if (html.isEmpty) return html;
+    var text = html.replaceAll(RegExp(r'<[^>]*>'), ' ');
+    text = text
+        .replaceAll('&nbsp;', ' ')
+        .replaceAll('&amp;', '&')
+        .replaceAll('&lt;', '<')
+        .replaceAll('&gt;', '>')
+        .replaceAll('&quot;', '"')
+        .replaceAll('&#39;', "'")
+        .replaceAll('&apos;', "'");
+    return text.replaceAll(RegExp(r'\s+'), ' ').trim();
   }
 
   Widget _badge(String text, MaterialColor color) {

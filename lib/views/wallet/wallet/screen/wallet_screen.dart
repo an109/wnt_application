@@ -386,7 +386,7 @@ class _WalletScreenState extends State<WalletScreen> {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Row(children: [Icon(Icons.card_giftcard, size: 22), SizedBox(width: 8), Text("Refer & Earn", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600))]),
+                Row(children: [const Icon(Icons.card_giftcard, size: 22), const SizedBox(width: 8), Text("Refer & Earn", style: TextStyle(fontSize: context.bodyLarge, fontWeight: FontWeight.w600))]),
                 const SizedBox(height: 12),
                 const Center(child: Padding(padding: EdgeInsets.all(16.0), child: CircularProgressIndicator())),
               ],

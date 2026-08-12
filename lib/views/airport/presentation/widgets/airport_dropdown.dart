@@ -92,16 +92,52 @@ class _AirportSearchDropdownState extends State<AirportSearchDropdown> {
     }
   }
 
+  // void _onSearchChanged(String query) {
+  //   print(
+  //     'AirportSearchDropdown: _onSearchChanged called with query: "$query"',
+  //   );
+  //
+  //   if (_debounce?.isActive ?? false) _debounce?.cancel();
+  //
+  //   if (query.trim().isEmpty) {
+  //     print('Query empty, closing overlay');
+  //     _closeOverlay();
+  //     return;
+  //   }
+  //
+  //   _suppressNextOverlay = false;
+  //
+  //   if (_focusNode.hasFocus) {
+  //     _openOverlay();
+  //   }
+  //
+  //   _debounce = Timer(const Duration(milliseconds: 500), () {
+  //     final trimmedQuery = query.trim();
+  //
+  //     // Call different API based on query length
+  //     if (trimmedQuery.length >= 2) {
+  //       // Search API for 2+ characters
+  //       print('Dispatching LoadAirports with searchQuery: "$trimmedQuery"');
+  //       _bloc.add(LoadAirports(searchQuery: trimmedQuery));
+  //     } else {
+  //       // Normal airports API for less than 2 characters
+  //       print(
+  //         'Query too short (${trimmedQuery.length}), loading default airports',
+  //       );
+  //       _bloc.add(LoadAirports()); // This calls /flights/airports
+  //     }
+  //   });
+  // }
   void _onSearchChanged(String query) {
-    print(
-      'AirportSearchDropdown: _onSearchChanged called with query: "$query"',
-    );
+    print('AirportSearchDropdown: _onSearchChanged called with query: "$query"');
 
     if (_debounce?.isActive ?? false) _debounce?.cancel();
 
     if (query.trim().isEmpty) {
       print('Query empty, closing overlay');
       _closeOverlay();
+      // 🔥 NEW: When query is empty, also clear the selection if it was cleared
+      // But don't clear selection programmatically - user might just be deleting
       return;
     }
 
@@ -120,11 +156,8 @@ class _AirportSearchDropdownState extends State<AirportSearchDropdown> {
         print('Dispatching LoadAirports with searchQuery: "$trimmedQuery"');
         _bloc.add(LoadAirports(searchQuery: trimmedQuery));
       } else {
-        // Normal airports API for less than 2 characters
-        print(
-          'Query too short (${trimmedQuery.length}), loading default airports',
-        );
-        _bloc.add(LoadAirports()); // This calls /flights/airports
+        print('Query too short (${trimmedQuery.length}), loading default airports');
+        _bloc.add(LoadAirports());
       }
     });
   }
@@ -454,9 +487,71 @@ class _AirportSearchDropdownState extends State<AirportSearchDropdown> {
                     ),
                   ),
                   SizedBox(height: context.h(1)),
+                  // Focus(
+                  //   onFocusChange: (focused) {
+                  //     if (focused && !_suppressNextOverlay) _openOverlay();
+                  //   },
+                  //   child: SizedBox(
+                  //     height: context.h(20),
+                  //     child: TextField(
+                  //       controller: _controller,
+                  //       focusNode: _focusNode,
+                  //       decoration: InputDecoration(
+                  //         hintText: widget.hint,
+                  //         hintStyle: TextStyle(
+                  //           fontSize: context.fs(14),
+                  //           fontWeight: FontWeight.w700,
+                  //           color: const Color(0xff7D849B),
+                  //         ),
+                  //         border: InputBorder.none,
+                  //         isDense: true,
+                  //         contentPadding: EdgeInsets.zero,
+                  //         suffixIcon: null,
+                  //         // suffixIcon: widget.selectedAirport != null
+                  //         //     ? IconButton(
+                  //         //         padding: EdgeInsets.zero,
+                  //         //         constraints: const BoxConstraints(),
+                  //         //         icon: Icon(
+                  //         //           Icons.clear,
+                  //         //           size: context.iconSmall,
+                  //         //         ),
+                  //         //         onPressed: _clearSelection,
+                  //         //       )
+                  //         //     : null,
+                  //       ),
+                  //       style: TextStyle(
+                  //         fontSize: context.fs(14),
+                  //         fontWeight: FontWeight.w800,
+                  //         color: const Color(0xff07163B),
+                  //       ),
+                  //       onChanged: _onSearchChanged,
+                  //     ),
+                  //   ),
+                  // ),
                   Focus(
                     onFocusChange: (focused) {
-                      if (focused && !_suppressNextOverlay) _openOverlay();
+                      if (focused) {
+                        if (_suppressNextOverlay) return;
+
+                        // 🔥 NEW: Clear selection when user taps on already selected airport
+                        if (widget.selectedAirport != null && _controller.text.isNotEmpty) {
+                          // Clear without triggering overlay
+                          _suppressNextOverlay = true;
+                          setState(() {
+                            _controller.clear();
+                          });
+                          widget.onAirportSelected(null);
+                          _bloc.add(LoadAirports());
+
+                          // Reset suppress flag after a moment
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            if (mounted) _suppressNextOverlay = false;
+                          });
+                          return;
+                        }
+
+                        if (!_suppressNextOverlay) _openOverlay();
+                      }
                     },
                     child: SizedBox(
                       height: context.h(20),
@@ -473,18 +568,6 @@ class _AirportSearchDropdownState extends State<AirportSearchDropdown> {
                           border: InputBorder.none,
                           isDense: true,
                           contentPadding: EdgeInsets.zero,
-                          suffixIcon: null,
-                          // suffixIcon: widget.selectedAirport != null
-                          //     ? IconButton(
-                          //         padding: EdgeInsets.zero,
-                          //         constraints: const BoxConstraints(),
-                          //         icon: Icon(
-                          //           Icons.clear,
-                          //           size: context.iconSmall,
-                          //         ),
-                          //         onPressed: _clearSelection,
-                          //       )
-                          //     : null,
                         ),
                         style: TextStyle(
                           fontSize: context.fs(14),
@@ -495,6 +578,7 @@ class _AirportSearchDropdownState extends State<AirportSearchDropdown> {
                       ),
                     ),
                   ),
+
                   SizedBox(height: context.h(1)),
                   Text(
                     widget.selectedAirport?.airportName ??

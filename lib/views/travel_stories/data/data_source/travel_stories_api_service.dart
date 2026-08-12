@@ -37,7 +37,7 @@ class TravelStoriesApiServiceImpl implements TravelStoriesApiService {
         queryParams['limit'] = limit.toString();
       }
 
-      print('CALLING TRAVEL STORIES API: ${Urls.travelStories}');
+      print('CALLING /TRAVEL STORIES API: ${Urls.travelStories}');
       print('Query params: $queryParams');
 
       final response = await dio.get(

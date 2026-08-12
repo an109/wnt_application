@@ -401,6 +401,8 @@ class _VisaApplicationScreenState extends State<VisaApplicationScreen> with Tick
               isCompleted: _currentStep > 3,
               isActive: _currentStep == 3,
               applicationId: _formData['applicationId'],
+              userEmail: _formData['email']?.toString() ??
+                  _formData['contactEmail']?.toString(),
               onBack: () => _updateStep(2),
               onSubmit: () {
                 _updateStep(4);
