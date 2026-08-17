@@ -81,7 +81,7 @@ class _PolicyDetailsSheetState extends State<PolicyDetailsSheet> {
         AkInsuranceTravellerEntity(
           id: i,
           birthdate: isoFmt.format(widget.request.travellerDobs[i]!),
-          relation: i == 0 ? 'SELF' : 'OTHER',
+          relation: widget.request.relationFor(i),
         ),
     ];
 

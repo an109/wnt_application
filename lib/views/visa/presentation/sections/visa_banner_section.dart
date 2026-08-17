@@ -84,8 +84,8 @@ class _VisaBannerSectionState extends State<VisaBannerSection> {
                         style: TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.w800,
-                          fontSize: context.sp(28),
-                          height: 1.2,
+                          fontSize: context.sp(25),
+                          height: 1,
                         ),
                       ),
 
@@ -94,7 +94,7 @@ class _VisaBannerSectionState extends State<VisaBannerSection> {
                       Text(
                         "We'll Handle the Visa",
                         style: TextStyle(
-                          color: Colors.white.withOpacity(0.95),
+                          color: Colors.white.withOpacity(0.9),
                           fontSize: context.bodyLarge,
                           fontWeight: FontWeight.w500,
                         ),

@@ -92,26 +92,30 @@ class RouteCard extends StatelessWidget {
                   // Route
                   Row(
                     children: [
-                      Text(
-                        route['from'] ?? '',
-                        style: TextStyle(
-                          fontSize: context.bodySmall,
-                          fontWeight: FontWeight.w600,
+                      Flexible(
+                        child: Text(
+                          route['from'] ?? '',
+                          style: TextStyle(
+                            fontSize: context.bodySmall,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
                       ),
                       SizedBox(width: context.wp(1)),
                       Icon(Icons.flight, size: context.iconSmall, color: Colors.blue),
                       SizedBox(width: context.wp(1)),
-                      Text(
-                        route['to'] ?? '',
-                        style: TextStyle(
-                          fontSize: context.bodySmall,
-                          fontWeight: FontWeight.w600,
+                      Flexible(
+                        child: Text(
+                          route['to'] ?? '',
+                          style: TextStyle(
+                            fontSize: context.bodySmall,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
                       ),
                     ],
                   ),

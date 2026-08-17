@@ -165,8 +165,8 @@ class PopularVisaDestinations extends StatelessWidget {
           Text(
             "Popular Destinations",
             style: TextStyle(
-              fontSize: context.fs(24),
-              fontWeight: FontWeight.w800,
+              fontSize: context.fs(20),
+              fontWeight: FontWeight.w700,
               color: _textDark,
             ),
           ),
@@ -196,8 +196,8 @@ class PopularVisaDestinations extends StatelessWidget {
           Text(
             "Popular Destinations",
             style: TextStyle(
-              fontSize: context.fs(24),
-              fontWeight: FontWeight.w800,
+              fontSize: context.fs(20),
+              fontWeight: FontWeight.w700,
               color: _textDark,
             ),
           ),
@@ -267,7 +267,7 @@ class PopularVisaDestinations extends StatelessWidget {
           Text(
             "Popular Destinations",
             style: TextStyle(
-              fontSize: context.fs(24),
+              fontSize: context.fs(22),
               fontWeight: FontWeight.w800,
               color: _textDark,
             ),

@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import 'dart:io';
+import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:wander_nova/core/resources/app_colours.dart';
+import 'package:wander_nova/injection_container.dart';
+import 'package:wander_nova/views/Dashboard/Section/data/support_api_service.dart';
 
 class CustomerSupportSection extends StatefulWidget {
   const CustomerSupportSection({super.key});
@@ -24,6 +28,7 @@ class _CustomerSupportSectionState extends State<CustomerSupportSection> {
 
   PlatformFile? _selectedFile;
   bool _isPickingFile = false;
+  bool _isSubmitting = false;
 
   Future<void> _pickFile() async {
     try {
@@ -506,7 +511,7 @@ class _CustomerSupportSectionState extends State<CustomerSupportSection> {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: _submitSupportForm,
+              onPressed: _isSubmitting ? null : _submitSupportForm,
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.red[700],
                 padding: EdgeInsets.symmetric(
@@ -516,14 +521,23 @@ class _CustomerSupportSectionState extends State<CustomerSupportSection> {
                   borderRadius: BorderRadius.circular(context.borderRadiusSmall),
                 ),
               ),
-              child: Text(
-                'SEND',
-                style: TextStyle(
-                  fontSize: context.responsiveFontSize(16, 15, 14),
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
-                ),
-              ),
+              child: _isSubmitting
+                  ? SizedBox(
+                      height: context.isMobile ? 18 : 20,
+                      width: context.isMobile ? 18 : 20,
+                      child: const CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : Text(
+                      'SEND',
+                      style: TextStyle(
+                        fontSize: context.responsiveFontSize(16, 15, 14),
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
             ),
           ),
         ],
@@ -899,25 +913,173 @@ class _CustomerSupportSectionState extends State<CustomerSupportSection> {
     );
   }
 
-  void _submitSupportForm() {
-    if (_formKey.currentState!.validate()) {
-      if (_selectedQueryType == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please select a query type'),
-            backgroundColor: Colors.orange,
-          ),
-        );
-        return;
-      }
+  Future<void> _submitSupportForm() async {
+    if (!_formKey.currentState!.validate()) return;
 
-      // Handle form submission
+    if (_selectedQueryType == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Your support request has been submitted successfully!'),
-          backgroundColor: Colors.green,
+          content: Text('Please select a query type'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+
+    try {
+      final response = await sl<SupportApiService>().submitSupportQuery(
+        bookingReference: _bookingRefController.text.trim(),
+        email: _emailController.text.trim(),
+        phoneCode: '+91',
+        phone: _phoneController.text.trim(),
+        queryType: _selectedQueryType!,
+        flightType: _travelType,
+        message: _messageController.text.trim(),
+        attachment: _selectedFile,
+      );
+
+      final data = response.data;
+      final queryId = data is Map ? data['query_id'] : null;
+      final message = data is Map && data['message'] != null
+          ? data['message'].toString()
+          : 'Support query submitted successfully';
+
+      if (!mounted) return;
+      setState(() => _isSubmitting = false);
+      _resetSupportForm();
+      _showSupportSuccessDialog(message: message, queryId: queryId);
+    } on DioException catch (e) {
+      if (!mounted) return;
+      setState(() => _isSubmitting = false);
+      final responseData = e.response?.data;
+      final errorMessage = responseData is Map
+          ? (responseData['message'] ??
+              responseData['error'] ??
+              'Failed to submit support query')
+          : 'Failed to submit support query';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(errorMessage.toString()),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isSubmitting = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Failed to submit support query'),
+          backgroundColor: Colors.red,
         ),
       );
     }
+  }
+
+  void _resetSupportForm() {
+    _bookingRefController.clear();
+    _emailController.clear();
+    _phoneController.clear();
+    _messageController.clear();
+    _formKey.currentState?.reset();
+    setState(() {
+      _selectedQueryType = null;
+      _travelType = 'Domestic';
+      _selectedFile = null;
+    });
+  }
+
+  void _showSupportSuccessDialog({required String message, dynamic queryId}) {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (dialogContext) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(context.borderRadiusMedium),
+          ),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: context.isMobile ? double.infinity : 420,
+            ),
+            child: Padding(
+              padding: EdgeInsets.all(context.gapLarge),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: EdgeInsets.all(context.gapMedium),
+                    decoration: BoxDecoration(
+                      color: Colors.green[50],
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.check_circle,
+                      color: Colors.green[700],
+                      size: context.isMobile ? 40 : 48,
+                    ),
+                  ),
+                  SizedBox(height: context.gapMedium),
+                  Text(
+                    'Query Submitted',
+                    style: TextStyle(
+                      fontSize: context.responsiveFontSize(18, 17, 16),
+                      fontWeight: FontWeight.w700,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  SizedBox(height: context.gapSmall),
+                  Text(
+                    message,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: context.responsiveFontSize(14, 13, 12),
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                  if (queryId != null) ...[
+                    SizedBox(height: context.gapXSmall),
+                    Text(
+                      'Reference ID: $queryId',
+                      style: TextStyle(
+                        fontSize: context.responsiveFontSize(13, 12, 11),
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.accent,
+                      ),
+                    ),
+                  ],
+                  SizedBox(height: context.gapLarge),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.of(dialogContext).pop(),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red[700],
+                        padding: EdgeInsets.symmetric(
+                          vertical: context.gapMedium,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius:
+                              BorderRadius.circular(context.borderRadiusSmall),
+                        ),
+                      ),
+                      child: Text(
+                        'OK',
+                        style: TextStyle(
+                          fontSize: context.responsiveFontSize(15, 14, 13),
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
   }
 }

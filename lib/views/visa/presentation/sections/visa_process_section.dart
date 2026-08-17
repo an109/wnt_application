@@ -47,7 +47,7 @@ class VisaProcessSection extends StatelessWidget {
             textAlign: TextAlign.center,
 
             style: TextStyle(
-              fontSize: context.isMobile ? context.fs(22) : context.fs(26),
+              fontSize: context.isMobile ? context.fs(20) : context.fs(24),
               fontWeight: FontWeight.w800,
               color: textDark,
               height: 1.18,

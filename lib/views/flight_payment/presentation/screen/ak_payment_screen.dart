@@ -501,7 +501,7 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
       ],
       // Raw INR premium — see _insurancePremiumInInr; never the display-
       // converted figure shown in the UI.
-      amount: _insurancePremiumInInr,
+      amount: _insurancePremiumInInr.toInt(),
       onlinePayment: false,
       depositPayment: true,
       channelId: insurance.quotesRequest.channelId,

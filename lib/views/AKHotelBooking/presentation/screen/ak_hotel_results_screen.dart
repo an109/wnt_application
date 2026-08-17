@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wander_nova/UI_helper/currency_converter.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import 'package:wander_nova/injection_container.dart';
 import '../../../../common_widgets/custom_bottom_nav.dart';
@@ -289,9 +290,9 @@ class _AkHotelResultsScreenState extends State<AkHotelResultsScreen> {
       image: image,
       hotelName: c.name,
       address: c.address,
-      price: '$_currency ${r.total.toStringAsFixed(0)}',
+      price: '${CurrencyConverter.getSymbol(_currency)}${r.total.toStringAsFixed(0)}',
       numericPrice: r.total,
-      taxes: '$_currency ${r.taxes.toStringAsFixed(0)}',
+      taxes: '${CurrencyConverter.getSymbol(_currency)}${r.taxes.toStringAsFixed(0)}',
       rating: c.starRating.round().clamp(0, 5),
       roomInfo: '',
       description: '',

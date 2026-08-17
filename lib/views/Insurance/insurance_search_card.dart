@@ -489,6 +489,10 @@ class _InsuranceSearchCardState extends State<InsuranceSearchCard> {
   DateTime? _startDate = DateTime.now();
   DateTime? _endDate;
   List<DateTime?> _travellerDobs = <DateTime?>[null];
+  // Index-aligned with _travellerDobs; index 0 (the lead traveller) is
+  // always SELF and has no picker. QuotesListing/PlanDetails' documented
+  // relation enum for the rest is SPOUSE/CHILD/PARENT/SIBLING/FRIEND.
+  List<String> _travellerRelations = <String>['SELF'];
 
   // Fallback options shown while the live ProviderChecklist/cached-countries
   // calls are in flight or if they fail — keeps the form usable either way.
@@ -614,8 +618,17 @@ class _InsuranceSearchCardState extends State<InsuranceSearchCard> {
                 context,
                 label: 'NO OF PERSONS',
                 onTap: () async {
-                  final v = await _TravellersDialog.show(context, _travellerDobs);
-                  if (v != null) setState(() => _travellerDobs = v);
+                  final v = await _TravellersDialog.show(
+                    context,
+                    _travellerDobs,
+                    _travellerRelations,
+                  );
+                  if (v != null) {
+                    setState(() {
+                      _travellerDobs = v.dobs;
+                      _travellerRelations = v.relations;
+                    });
+                  }
                 },
                 child: Row(children: [
                   Icon(Icons.person_outline_rounded,
@@ -958,7 +971,9 @@ class _InsuranceSearchCardState extends State<InsuranceSearchCard> {
             AkInsuranceTravellerEntity(
               id: i,
               birthdate: isoFmt.format(_travellerDobs[i]!),
-              relation: i == 0 ? 'SELF' : 'OTHER',
+              relation: i == 0
+                  ? 'SELF'
+                  : (i < _travellerRelations.length ? _travellerRelations[i] : 'SPOUSE'),
             ),
         ],
       ),
@@ -978,6 +993,7 @@ class _InsuranceSearchCardState extends State<InsuranceSearchCard> {
               endDate: _endDate!,
               noOfDays: _noOfDays!,
               travellerDobs: List<DateTime?>.from(_travellerDobs),
+              travellerRelations: List<String>.from(_travellerRelations),
             ),
           ),
         ),
@@ -1219,16 +1235,22 @@ class _CountryDropdownFieldState extends State<_CountryDropdownField> {
   }
 }
 
+typedef _TravellersResult = ({List<DateTime?> dobs, List<String> relations});
+
 // ── Travellers popup (stepper + DOB per traveller, like the web popup) ───
 class _TravellersDialog extends StatefulWidget {
   final List<DateTime?> initialDobs;
-  const _TravellersDialog({required this.initialDobs});
+  final List<String> initialRelations;
+  const _TravellersDialog({required this.initialDobs, required this.initialRelations});
 
-  static Future<List<DateTime?>?> show(
-      BuildContext context, List<DateTime?> initialDobs) =>
-      showDialog<List<DateTime?>>(
+  static Future<_TravellersResult?> show(
+      BuildContext context, List<DateTime?> initialDobs, List<String> initialRelations) =>
+      showDialog<_TravellersResult>(
         context: context,
-        builder: (_) => _TravellersDialog(initialDobs: initialDobs),
+        builder: (_) => _TravellersDialog(
+          initialDobs: initialDobs,
+          initialRelations: initialRelations,
+        ),
       );
 
   @override
@@ -1236,7 +1258,10 @@ class _TravellersDialog extends StatefulWidget {
 }
 
 class _TravellersDialogState extends State<_TravellersDialog> {
+  static const _relationOptions = ['SPOUSE', 'CHILD', 'PARENT', 'SIBLING', 'FRIEND'];
+
   late List<DateTime?> _dobs = List<DateTime?>.from(widget.initialDobs);
+  late List<String> _relations = List<String>.from(widget.initialRelations);
 
   @override
   Widget build(BuildContext context) {
@@ -1254,7 +1279,12 @@ class _TravellersDialogState extends State<_TravellersDialog> {
                       fontSize: context.titleSmall, fontWeight: FontWeight.w800)),
               const Spacer(),
               _step(Icons.remove_rounded, () {
-                if (_dobs.length > 1) setState(() => _dobs.removeLast());
+                if (_dobs.length > 1) {
+                  setState(() {
+                    _dobs.removeLast();
+                    if (_relations.length > _dobs.length) _relations.removeLast();
+                  });
+                }
               }),
               Padding(
                 padding: EdgeInsets.symmetric(horizontal: context.w(10)),
@@ -1263,7 +1293,12 @@ class _TravellersDialogState extends State<_TravellersDialog> {
                         fontSize: context.titleMedium, fontWeight: FontWeight.w800)),
               ),
               _step(Icons.add_rounded, () {
-                if (_dobs.length < 9) setState(() => _dobs.add(null));
+                if (_dobs.length < 9) {
+                  setState(() {
+                    _dobs.add(null);
+                    _relations.add(_relationOptions.first);
+                  });
+                }
               }),
             ]),
             SizedBox(height: context.h(12)),
@@ -1286,7 +1321,8 @@ class _TravellersDialogState extends State<_TravellersDialog> {
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(context.r(12))),
                 ),
-                onPressed: () => Navigator.of(context).pop(_dobs),
+                onPressed: () => Navigator.of(context)
+                    .pop((dobs: _dobs, relations: _relations)),
                 child: const Text('DONE'),
               ),
             ),
@@ -1310,6 +1346,9 @@ class _TravellersDialogState extends State<_TravellersDialog> {
       ),
     );
   }
+
+  String _relationAt(int i) =>
+      i < _relations.length ? _relations[i] : _relationOptions.first;
 
   Widget _dobRow(BuildContext context, int i) {
     return Padding(
@@ -1361,6 +1400,36 @@ class _TravellersDialogState extends State<_TravellersDialog> {
             ),
           ),
         ),
+        if (i > 0) ...[
+          SizedBox(width: context.w(8)),
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: context.w(8)),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(context.r(10)),
+              border: Border.all(color: Colors.grey.shade300),
+            ),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                value: _relationAt(i),
+                isDense: true,
+                style: TextStyle(fontSize: context.labelLarge, color: Colors.black87),
+                items: _relationOptions
+                    .map((r) => DropdownMenuItem(value: r, child: Text(r)))
+                    .toList(),
+                onChanged: (v) {
+                  if (v == null) return;
+                  setState(() {
+                    while (_relations.length <= i) {
+                      _relations.add(_relationOptions.first);
+                    }
+                    _relations[i] = v;
+                  });
+                },
+              ),
+            ),
+          ),
+        ],
       ]),
     );
   }

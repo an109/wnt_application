@@ -43,9 +43,9 @@ class TpollSearchRepositoryImpl implements TpollSearchRepository {
         flightDatetime: model.search.flightDatetime,
         searchId: model.search.searchId,
         results: model.search.results.map((result) {
-          print("Results count: ${model.search.results.length}");
+          // print("Results count: ${model.search.results.length}");
           for (int i = 0; i < model.search.results.length; i++) {
-            print("Result $i -> steps count: ${model.search.results[i].steps.length}");
+            // print("Result $i -> steps count: ${model.search.results[i].steps.length}");
           }
 
           // 1. Safely find the main step. If the list is empty, mainStep will be null.

@@ -130,6 +130,7 @@ import 'package:wander_nova/views/DeleteAccount/domain/repository/delete_account
 import 'package:wander_nova/views/DeleteAccount/domain/usecase/delete_account_usecase.dart';
 import 'package:wander_nova/views/DeleteAccount/presentation/bloc/delete_account_bloc.dart';
 import 'package:wander_nova/views/Dashboard/Section/data/traveller_api_service.dart';
+import 'package:wander_nova/views/Dashboard/Section/data/support_api_service.dart';
 import 'package:wander_nova/views/Document/domain/usecase/upload_document_usecase.dart';
 import 'package:wander_nova/views/Exchange_rate/data/data_source/exchange_rate_api_service.dart';
 import 'package:wander_nova/views/Exchange_rate/data/repository/exchange_rate_repository_impl.dart';
@@ -462,6 +463,7 @@ Future<void> initializeDependencies() async {
   sl.registerFactory<FlightBookApiService>(() => FlightBookApiServiceImpl(sl<DioClient>().instance),);
   sl.registerFactory<DocumentVisaApiService>(() => DocumentVisaApiServiceImpl(sl<DioClient>().instance));
   sl.registerFactory<TravellerApiService>(() => TravellerApiServiceImpl(sl<DioClient>().instance));
+  sl.registerFactory<SupportApiService>(() => SupportApiServiceImpl(sl<DioClient>().instance));
   sl.registerFactory<AkFlightSearchApiService>(() => AkFlightSearchApiServiceImpl(sl<DioClient>().instance));
   sl.registerFactory<AkflightsApiService>(() => AkflightsApiServiceImpl(sl<DioClient>().instance));
   sl.registerFactory<AkFlightInfoApiService>(() => AkFlightInfoApiServiceImpl(sl<DioClient>().instance));

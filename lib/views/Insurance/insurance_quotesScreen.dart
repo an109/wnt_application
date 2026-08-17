@@ -3,64 +3,14 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 
-import '../AKInsurance/domain/entity/AKInsurance_entity.dart';
 import '../AKInsurance/presentation/bloc/AKInsurance_bloc.dart';
 import '../AKInsurance/presentation/bloc/AKInsurance_event.dart';
 import '../AKInsurance/presentation/bloc/AKInsurance_state.dart';
+import 'insurance_models.dart';
 import 'new_booking_Screen.dart';
 import 'policy_detail_Screen.dart';
 
-/// Payload handed over by InsuranceSearchCard → GET QUOTES.
-class InsuranceQuoteRequest {
-  final String insuranceType;
-  final String fromCountry;
-  final List<String> travellingCountries;
-  final DateTime startDate;
-  final DateTime endDate;
-  final int noOfDays;
-  final List<DateTime?> travellerDobs;
-
-  const InsuranceQuoteRequest({
-    required this.insuranceType,
-    required this.fromCountry,
-    required this.travellingCountries,
-    required this.startDate,
-    required this.endDate,
-    required this.noOfDays,
-    required this.travellerDobs,
-  });
-
-  int get travellers => travellerDobs.length;
-  String get destination =>
-      travellingCountries.isEmpty ? '—' : travellingCountries.join(', ');
-}
-
-/// Display model for one plan — built from the live [AkInsurancePlanEntity]
-/// the QuotesListing call returns.
-class InsurancePolicy {
-  final String planId;
-  final String supplier;
-  final String planName;
-  final int coverageUsd;
-  final int premiumInr;
-  const InsurancePolicy({
-    required this.planId,
-    required this.supplier,
-    required this.planName,
-    required this.coverageUsd,
-    required this.premiumInr,
-  });
-
-  factory InsurancePolicy.fromPlan(AkInsurancePlanEntity plan) {
-    return InsurancePolicy(
-      planId: plan.planId,
-      supplier: plan.provider.isNotEmpty ? plan.provider : plan.planName,
-      planName: plan.planName,
-      coverageUsd: plan.sumInsured.round(),
-      premiumInr: plan.premium.round(),
-    );
-  }
-}
+export 'insurance_models.dart';
 
 class _Bucket {
   final String label;

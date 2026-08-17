@@ -564,6 +564,9 @@ class AkInsuranceContactInfoModel extends AkInsuranceContactInfoEntity {
     required super.number,
     required super.code,
     required super.emailAddress,
+    required super.contactType,
+    required super.emailAddressType,
+    required super.fax,
   });
 
   factory AkInsuranceContactInfoModel.fromEntity(AkInsuranceContactInfoEntity entity) =>
@@ -571,12 +574,18 @@ class AkInsuranceContactInfoModel extends AkInsuranceContactInfoEntity {
         number: entity.number,
         code: entity.code,
         emailAddress: entity.emailAddress,
+        contactType: entity.contactType,
+        emailAddressType: entity.emailAddressType,
+        fax: entity.fax,
       );
 
   Map<String, dynamic> toJson() => {
         'Number': number,
         'Code': code,
+        'ContactType': contactType,
         'EmailAddress': emailAddress,
+        'EmailAddressType': emailAddressType,
+        'Fax': fax,
       };
 }
 
@@ -584,74 +593,276 @@ class AkInsuranceAddressModel extends AkInsuranceAddressEntity {
   const AkInsuranceAddressModel({
     required super.addressType,
     required super.line1,
+    required super.line2,
     required super.pinCode,
+    required super.areaCode,
+    required super.cityCode,
+    required super.cityName,
+    required super.stateCode,
+    required super.stateName,
+    required super.countryCode,
+    required super.countryName,
   });
 
   factory AkInsuranceAddressModel.fromEntity(AkInsuranceAddressEntity entity) =>
       AkInsuranceAddressModel(
         addressType: entity.addressType,
         line1: entity.line1,
+        line2: entity.line2,
         pinCode: entity.pinCode,
+        areaCode: entity.areaCode,
+        cityCode: entity.cityCode,
+        cityName: entity.cityName,
+        stateCode: entity.stateCode,
+        stateName: entity.stateName,
+        countryCode: entity.countryCode,
+        countryName: entity.countryName,
       );
 
   Map<String, dynamic> toJson() => {
         'AddressType': addressType,
         'Line1': line1,
+        'Line2': line2,
         'PinCode': pinCode,
+        'AreaCode': areaCode,
+        'City': {'Code': cityCode, 'Name': cityName},
+        'State': {'Code': stateCode, 'Name': stateName},
+        'Country': {'Code': countryCode, 'Name': countryName},
       };
 }
 
 class AkInsuranceCustomerModel extends AkInsuranceCustomerEntity {
   const AkInsuranceCustomerModel({
+    required super.nationality,
     required super.title,
     required super.firstName,
+    required super.middleName,
     required super.lastName,
     required super.birthDate,
     required super.contactInfo,
     required super.addresses,
+    required super.gstin,
+    required super.passportNumber,
+    required super.gender,
+    required super.employeId,
+    required super.gstMobile,
+    required super.gstEmail,
+    required super.gstHolderName,
   });
 
   factory AkInsuranceCustomerModel.fromEntity(AkInsuranceCustomerEntity entity) =>
       AkInsuranceCustomerModel(
+        nationality: entity.nationality,
         title: entity.title,
         firstName: entity.firstName,
+        middleName: entity.middleName,
         lastName: entity.lastName,
         birthDate: entity.birthDate,
         contactInfo: entity.contactInfo,
         addresses: entity.addresses,
+        gstin: entity.gstin,
+        passportNumber: entity.passportNumber,
+        gender: entity.gender,
+        employeId: entity.employeId,
+        gstMobile: entity.gstMobile,
+        gstEmail: entity.gstEmail,
+        gstHolderName: entity.gstHolderName,
       );
 
   Map<String, dynamic> toJson() => {
+        'Nationality': nationality,
         'Title': title,
         'FirstName': firstName,
+        'MiddleName': middleName,
         'LastName': lastName,
         'BirthDate': birthDate,
         'ContactInfo': AkInsuranceContactInfoModel.fromEntity(contactInfo).toJson(),
         'Addresses': addresses.map((a) => AkInsuranceAddressModel.fromEntity(a).toJson()).toList(),
+        'GSTIN': gstin,
+        'PassportNumber': passportNumber,
+        'Gender': gender,
+        'EmployeID': employeId,
+        'GstMobile': gstMobile,
+        'GSTEmail': gstEmail,
+        'GSTHolderName': gstHolderName,
+      };
+}
+
+class AkInsuranceNomineeModel extends AkInsuranceNomineeEntity {
+  const AkInsuranceNomineeModel({
+    required super.firstName,
+    required super.middleName,
+    required super.lastName,
+    required super.relation,
+    required super.birthDate,
+  });
+
+  factory AkInsuranceNomineeModel.fromEntity(AkInsuranceNomineeEntity entity) =>
+      AkInsuranceNomineeModel(
+        firstName: entity.firstName,
+        middleName: entity.middleName,
+        lastName: entity.lastName,
+        relation: entity.relation,
+        birthDate: entity.birthDate,
+      );
+
+  Map<String, dynamic> toJson() => {
+        'FirstName': firstName,
+        'MiddleName': middleName,
+        'LastName': lastName,
+        'Relation': relation,
+        'BirthDate': birthDate,
+      };
+}
+
+class AkInsuranceStudentDetailsModel extends AkInsuranceStudentDetailsEntity {
+  const AkInsuranceStudentDetailsModel({
+    required super.universityDetails,
+    required super.sponsor,
+    required super.guardian,
+  });
+
+  factory AkInsuranceStudentDetailsModel.fromEntity(AkInsuranceStudentDetailsEntity entity) =>
+      AkInsuranceStudentDetailsModel(
+        universityDetails: entity.universityDetails,
+        sponsor: entity.sponsor,
+        guardian: entity.guardian,
+      );
+
+  Map<String, dynamic> toJson() => {
+        'UniversityDetails': universityDetails,
+        'Sponsor': sponsor,
+        'Guardian': guardian,
+      };
+}
+
+class AkInsuranceQuestionModel extends AkInsuranceQuestionEntity {
+  const AkInsuranceQuestionModel({
+    required super.title,
+    required super.questionCode,
+  });
+
+  factory AkInsuranceQuestionModel.fromEntity(AkInsuranceQuestionEntity entity) =>
+      AkInsuranceQuestionModel(title: entity.title, questionCode: entity.questionCode);
+
+  Map<String, dynamic> toJson() => {
+        'Title': title,
+        'QuestionCode': questionCode,
+      };
+}
+
+class AkInsuranceAnswerModel extends AkInsuranceAnswerEntity {
+  const AkInsuranceAnswerModel({
+    required super.yesNo,
+    required super.description,
+  });
+
+  factory AkInsuranceAnswerModel.fromEntity(AkInsuranceAnswerEntity entity) =>
+      AkInsuranceAnswerModel(yesNo: entity.yesNo, description: entity.description);
+
+  Map<String, dynamic> toJson() => {
+        'YesNo': yesNo,
+        'Description': description,
+      };
+}
+
+class AkInsuranceQuestionAnswerModel extends AkInsuranceQuestionAnswerEntity {
+  const AkInsuranceQuestionAnswerModel({
+    required super.question,
+    required super.answer,
+    required super.preExisting,
+    required super.preExistingDisease,
+    required super.preExistingDesc,
+    required super.sufferingSince,
+  });
+
+  factory AkInsuranceQuestionAnswerModel.fromEntity(AkInsuranceQuestionAnswerEntity entity) =>
+      AkInsuranceQuestionAnswerModel(
+        question: entity.question,
+        answer: entity.answer,
+        preExisting: entity.preExisting,
+        preExistingDisease: entity.preExistingDisease,
+        preExistingDesc: entity.preExistingDesc,
+        sufferingSince: entity.sufferingSince,
+      );
+
+  Map<String, dynamic> toJson() => {
+        'Question': AkInsuranceQuestionModel.fromEntity(question).toJson(),
+        'Answer': AkInsuranceAnswerModel.fromEntity(answer).toJson(),
+        'pre_existing': preExisting,
+        'pre_existing_disease': preExistingDisease,
+        'pre_existing_desc': preExistingDesc,
+        'suffering_since': sufferingSince,
       };
 }
 
 class AkInsuranceBookingTravellerModel extends AkInsuranceBookingTravellerEntity {
   const AkInsuranceBookingTravellerModel({
     required super.id,
+    required super.title,
     required super.firstName,
+    required super.lastName,
+    required super.birthDate,
+    required super.passportNumber,
+    required super.visaType,
+    required super.pnrNumber,
+    required super.maritalStatus,
+    required super.gender,
     required super.relationship,
     required super.isProposer,
+    required super.nominee,
+    required super.questionsAnswers,
+    required super.addresses,
+    required super.contactInfo,
+    required super.studentDetails,
+    required super.employeId,
   });
 
   factory AkInsuranceBookingTravellerModel.fromEntity(AkInsuranceBookingTravellerEntity entity) =>
       AkInsuranceBookingTravellerModel(
         id: entity.id,
+        title: entity.title,
         firstName: entity.firstName,
+        lastName: entity.lastName,
+        birthDate: entity.birthDate,
+        passportNumber: entity.passportNumber,
+        visaType: entity.visaType,
+        pnrNumber: entity.pnrNumber,
+        maritalStatus: entity.maritalStatus,
+        gender: entity.gender,
         relationship: entity.relationship,
         isProposer: entity.isProposer,
+        nominee: entity.nominee,
+        questionsAnswers: entity.questionsAnswers,
+        addresses: entity.addresses,
+        contactInfo: entity.contactInfo,
+        studentDetails: entity.studentDetails,
+        employeId: entity.employeId,
       );
 
   Map<String, dynamic> toJson() => {
         'Id': id,
+        'Title': title,
         'FirstName': firstName,
+        'LastName': lastName,
+        'BirthDate': birthDate,
+        'PassportNumber': passportNumber,
+        'VisaType': visaType,
+        'PNRNumber': pnrNumber,
+        'MaritalStatus': maritalStatus,
+        'Gender': gender,
         'Relationship': relationship,
         'IsProposer': isProposer,
+        'Nominee': AkInsuranceNomineeModel.fromEntity(nominee).toJson(),
+        'QuestionsAnswers': questionsAnswers
+            .map((qa) => AkInsuranceQuestionAnswerModel.fromEntity(qa).toJson())
+            .toList(),
+        'Addresses': addresses.map((a) => AkInsuranceAddressModel.fromEntity(a).toJson()).toList(),
+        'ContactInfo': contactInfo == null
+            ? null
+            : AkInsuranceContactInfoModel.fromEntity(contactInfo!).toJson(),
+        'StudentDetails': AkInsuranceStudentDetailsModel.fromEntity(studentDetails).toJson(),
+        'EmployeID': employeId,
       };
 }
 
@@ -678,20 +889,160 @@ class AkInsurancePlanBookingModel extends AkInsurancePlanBookingEntity {
       };
 }
 
+class AkInsuranceCardModel extends AkInsuranceCardEntity {
+  const AkInsuranceCardModel({
+    required super.number,
+    required super.expiry,
+    required super.cvv,
+    required super.chName,
+    required super.fName,
+    required super.lName,
+    required super.address,
+    required super.city,
+    required super.state,
+    required super.country,
+    required super.pin,
+    required super.international,
+    required super.saveCard,
+    required super.emiMonths,
+    required super.token,
+    required super.numberAlias,
+    required super.issuer,
+  });
+
+  factory AkInsuranceCardModel.fromEntity(AkInsuranceCardEntity entity) => AkInsuranceCardModel(
+        number: entity.number,
+        expiry: entity.expiry,
+        cvv: entity.cvv,
+        chName: entity.chName,
+        fName: entity.fName,
+        lName: entity.lName,
+        address: entity.address,
+        city: entity.city,
+        state: entity.state,
+        country: entity.country,
+        pin: entity.pin,
+        international: entity.international,
+        saveCard: entity.saveCard,
+        emiMonths: entity.emiMonths,
+        token: entity.token,
+        numberAlias: entity.numberAlias,
+        issuer: entity.issuer,
+      );
+
+  Map<String, dynamic> toJson() => {
+        'Number': number,
+        'Expiry': expiry,
+        'CVV': cvv,
+        'CHName': chName,
+        'FName': fName,
+        'LName': lName,
+        'Address': address,
+        'City': city,
+        'State': state,
+        'Country': country,
+        'PIN': pin,
+        'International': international,
+        'SaveCard': saveCard,
+        'EMIMonths': emiMonths,
+        'Token': token,
+        'NumberAlias': numberAlias,
+        'Issuer': issuer,
+      };
+}
+
+class AkInsuranceThirdPartyInfoModel extends AkInsuranceThirdPartyInfoEntity {
+  const AkInsuranceThirdPartyInfoModel({
+    required super.code,
+    required super.campaign,
+    required super.provider,
+    required super.medium,
+    required super.url,
+    required super.utmId,
+  });
+
+  factory AkInsuranceThirdPartyInfoModel.fromEntity(AkInsuranceThirdPartyInfoEntity entity) =>
+      AkInsuranceThirdPartyInfoModel(
+        code: entity.code,
+        campaign: entity.campaign,
+        provider: entity.provider,
+        medium: entity.medium,
+        url: entity.url,
+        utmId: entity.utmId,
+      );
+
+  Map<String, dynamic> toJson() => {
+        'Code': code,
+        'Campaign': campaign,
+        'Provider': provider,
+        'Medium': medium,
+        'Url': url,
+        'UTMID': utmId,
+      };
+}
+
 class AkInsuranceStartPayRequestModel extends AkInsuranceStartPayRequestEntity {
   const AkInsuranceStartPayRequestModel({
     required super.paymentReference,
+    required super.gateway,
+    required super.ckyc,
     required super.panNo,
+    required super.isDocumentUpload,
+    required super.isForm60,
+    required super.passportFileNo,
     required super.countryCodes,
     required super.countryNames,
+    required super.originAirport,
+    required super.destinationAirport,
+    required super.isTravelingFromIndia,
+    required super.tenureInMonths,
     required super.startDate,
     required super.endDate,
     required super.policyType,
     required super.customer,
     required super.plans,
+    required super.tripType,
+    required super.returnArrivalDate,
+    required super.returnDepartureDate,
     required super.amount,
+    required super.paymentId,
+    required super.billingCompanyId,
+    required super.costCenter,
+    required super.project,
+    required super.hrmsTourRequestNumber,
+    required super.billingType,
+    required super.bookingTimeRemarks,
+    required super.tripPurposeDescription,
+    required super.ibossDetailsForCorporate,
+    required super.userCompanyId,
+    required super.tripId,
+    required super.tripName,
+    required super.addonBenefit,
     required super.onlinePayment,
+    required super.paymentType,
+    required super.bankCode,
+    required super.gateWayCode,
+    required super.merchantId,
+    required super.paymentAmount,
+    required super.paymentCharge,
+    required super.vpa,
+    required super.cardAlias,
+    required super.rmsSignature,
+    required super.serviceType,
+    required super.targetCurrency,
+    required super.targetAmount,
+    required super.hold,
     required super.depositPayment,
+    required super.releaseDate,
+    required super.browserKey,
+    required super.netAmount,
+    required super.promo,
+    required super.card,
+    required super.quickPay,
+    required super.recharge,
+    required super.thirdPartyInfo,
+    required super.dRefNo,
+    required super.agentAti,
     required super.channelId,
     required super.tui,
   });
@@ -701,34 +1052,130 @@ class AkInsuranceStartPayRequestModel extends AkInsuranceStartPayRequestEntity {
   ) =>
       AkInsuranceStartPayRequestModel(
         paymentReference: entity.paymentReference,
+        gateway: entity.gateway,
+        ckyc: entity.ckyc,
         panNo: entity.panNo,
+        isDocumentUpload: entity.isDocumentUpload,
+        isForm60: entity.isForm60,
+        passportFileNo: entity.passportFileNo,
         countryCodes: entity.countryCodes,
         countryNames: entity.countryNames,
+        originAirport: entity.originAirport,
+        destinationAirport: entity.destinationAirport,
+        isTravelingFromIndia: entity.isTravelingFromIndia,
+        tenureInMonths: entity.tenureInMonths,
         startDate: entity.startDate,
         endDate: entity.endDate,
         policyType: entity.policyType,
         customer: entity.customer,
         plans: entity.plans,
+        tripType: entity.tripType,
+        returnArrivalDate: entity.returnArrivalDate,
+        returnDepartureDate: entity.returnDepartureDate,
         amount: entity.amount,
+        paymentId: entity.paymentId,
+        billingCompanyId: entity.billingCompanyId,
+        costCenter: entity.costCenter,
+        project: entity.project,
+        hrmsTourRequestNumber: entity.hrmsTourRequestNumber,
+        billingType: entity.billingType,
+        bookingTimeRemarks: entity.bookingTimeRemarks,
+        tripPurposeDescription: entity.tripPurposeDescription,
+        ibossDetailsForCorporate: entity.ibossDetailsForCorporate,
+        userCompanyId: entity.userCompanyId,
+        tripId: entity.tripId,
+        tripName: entity.tripName,
+        addonBenefit: entity.addonBenefit,
         onlinePayment: entity.onlinePayment,
+        paymentType: entity.paymentType,
+        bankCode: entity.bankCode,
+        gateWayCode: entity.gateWayCode,
+        merchantId: entity.merchantId,
+        paymentAmount: entity.paymentAmount,
+        paymentCharge: entity.paymentCharge,
+        vpa: entity.vpa,
+        cardAlias: entity.cardAlias,
+        rmsSignature: entity.rmsSignature,
+        serviceType: entity.serviceType,
+        targetCurrency: entity.targetCurrency,
+        targetAmount: entity.targetAmount,
+        hold: entity.hold,
         depositPayment: entity.depositPayment,
+        releaseDate: entity.releaseDate,
+        browserKey: entity.browserKey,
+        netAmount: entity.netAmount,
+        promo: entity.promo,
+        card: entity.card,
+        quickPay: entity.quickPay,
+        recharge: entity.recharge,
+        thirdPartyInfo: entity.thirdPartyInfo,
+        dRefNo: entity.dRefNo,
+        agentAti: entity.agentAti,
         channelId: entity.channelId,
         tui: entity.tui,
       );
 
   Map<String, dynamic> toJson() => {
         'payment_reference': paymentReference,
+        'gateway': gateway,
+        'CKYC': ckyc,
         'PanNo': panNo,
+        'IsDocumentUpload': isDocumentUpload,
+        'IsForm60': isForm60,
+        'Passport_File_No': passportFileNo,
         'CountryCodes': countryCodes,
         'CountryNames': countryNames,
+        'OriginAirport': originAirport,
+        'DestinationAirport': destinationAirport,
+        'IsTravelingFromIndia': isTravelingFromIndia,
+        'TenureInMonths': tenureInMonths,
         'StartDate': startDate,
         'EndDate': endDate,
         'PolicyType': policyType,
         'Customer': AkInsuranceCustomerModel.fromEntity(customer).toJson(),
         'Plans': plans.map((p) => AkInsurancePlanBookingModel.fromEntity(p).toJson()).toList(),
+        'TripType': tripType,
+        'ReturnArrivalDate': returnArrivalDate,
+        'ReturnDepartureDate': returnDepartureDate,
         'Amount': amount,
+        'PaymentId': paymentId,
+        'BillingCompanyId': billingCompanyId,
+        'CostCenter': costCenter,
+        'Project': project,
+        'HRMSTourRequestNumber': hrmsTourRequestNumber,
+        'BillingType': billingType,
+        'BookingTimeRemarks': bookingTimeRemarks,
+        'TripPurposeDescription': tripPurposeDescription,
+        'IbossDetailsForCorporate': ibossDetailsForCorporate,
+        'UserCompanyId': userCompanyId,
+        'TripId': tripId,
+        'TripName': tripName,
+        'AddonBenefit': addonBenefit,
         'OnlinePayment': onlinePayment,
+        'PaymentType': paymentType,
+        'BankCode': bankCode,
+        'GateWayCode': gateWayCode,
+        'MerchantID': merchantId,
+        'PaymentAmount': paymentAmount,
+        'PaymentCharge': paymentCharge,
+        'VPA': vpa,
+        'CardAlias': cardAlias,
+        'RMSSignature': rmsSignature,
+        'ServiceType': serviceType,
+        'TargetCurrency': targetCurrency,
+        'TargetAmount': targetAmount,
+        'Hold': hold,
         'DepositPayment': depositPayment,
+        'ReleaseDate': releaseDate,
+        'BrowserKey': browserKey,
+        'NetAmount': netAmount,
+        'Promo': promo,
+        'Card': AkInsuranceCardModel.fromEntity(card).toJson(),
+        'QuickPay': quickPay,
+        'Recharge': recharge,
+        'ThirdPartyInfo': AkInsuranceThirdPartyInfoModel.fromEntity(thirdPartyInfo).toJson(),
+        'DRefNo': dRefNo,
+        'AgentATI': agentAti,
         'ChannelId': channelId,
         'TUI': tui,
       };

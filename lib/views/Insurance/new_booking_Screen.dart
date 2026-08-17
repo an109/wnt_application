@@ -1,20 +1,12 @@
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
-import 'package:razorpay_flutter/razorpay_flutter.dart';
 import 'policy_detail_Screen.dart';
 import '../../../../UI_helper/responsive_layout.dart';
-import '../../core/constants/urls.dart';
 import '../../core/error/data_state.dart';
-import '../../core/network/dio_client.dart';
-import '../../core/utils/storage/shared_preference.dart';
 import '../../injection_container.dart' as di;
 import '../AKInsurance/domain/entity/AKInsurance_entity.dart';
 import '../AKInsurance/domain/usecase/AKInsurance_usecase.dart';
-import '../countries/domain/entities/country_entity.dart';
-import '../countries/presentation/bloc/country_bloc.dart';
-import '../countries/presentation/bloc/country_state.dart';
+import 'insurance_payment_screen.dart';
 import 'insurance_quotesScreen.dart';
 
 /// "Review your policy" booking form — redesigned for mobile
@@ -84,12 +76,12 @@ class _InsuranceBookingScreenState extends State<InsuranceBookingScreen> {
   final List<_TravellerData> _travellers = [];
   final _nomineeFirst = TextEditingController();
   final _nomineeLast = TextEditingController();
+  // Must be exactly one of these per StartPay's Nominee.Relation enum —
+  // any other value makes Benzy silently drop the whole booking.
+  String _nomineeRelation = 'Spouse';
   bool _termsAccepted = false;
 
-  late final Razorpay _razorpay;
   bool _isProcessing = false;
-  String _reference = '';
-  String? _transactionId;
 
   static const _states = [
     'Andhra Pradesh', 'Assam', 'Bihar', 'Chhattisgarh', 'Delhi', 'Goa',
@@ -100,6 +92,9 @@ class _InsuranceBookingScreenState extends State<InsuranceBookingScreen> {
   static const _titles = ['Mr', 'Mrs', 'Ms'];
   static const _genders = ['Male', 'Female'];
   static const _relations = ['Self', 'Spouse', 'Son', 'Daughter', 'Father', 'Mother', 'Other'];
+  static const _nomineeRelations = [
+    'Spouse', 'Son', 'Daughter', 'Father', 'Mother', 'Brother', 'Sister',
+  ];
   static const _kycDocTypes = [
     'PAN', 'Aadhaar', 'Passport', 'Voter ID', 'Driving Licence', 'CKYC',
   ];
@@ -122,11 +117,6 @@ class _InsuranceBookingScreenState extends State<InsuranceBookingScreen> {
       }
       _travellers.add(t);
     }
-
-    _razorpay = Razorpay();
-    _razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, _handleRazorpaySuccess);
-    _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _handleRazorpayError);
-    _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleRazorpayExternalWallet);
   }
 
   @override
@@ -138,7 +128,6 @@ class _InsuranceBookingScreenState extends State<InsuranceBookingScreen> {
     ]) {
       c.dispose();
     }
-    _razorpay.clear();
     super.dispose();
   }
 
@@ -713,6 +702,15 @@ class _InsuranceBookingScreenState extends State<InsuranceBookingScreen> {
             required: true,
             validator: (v) => (v == null || v.isEmpty) ? 'Required' : null,
           ),
+          SizedBox(height: context.h(12)),
+          _buildDropdownField(
+            context,
+            label: 'Nominee Relationship',
+            value: _nomineeRelation,
+            options: _nomineeRelations,
+            onChanged: (v) => setState(() => _nomineeRelation = v),
+            required: true,
+          ),
         ],
       ),
     );
@@ -1230,27 +1228,65 @@ class _InsuranceBookingScreenState extends State<InsuranceBookingScreen> {
     // separately and can be stale-true with no token behind it (observed on
     // a real device: isLoggedIn()==true, getToken()==null, provider 401s
     // with "Authentication credentials were not provided").
-    if (di.sl<PreferencesManager>().getToken() == null) {
-      _snack('Please log in to purchase travel insurance.');
-      return;
-    }
+    // if (di.sl<PreferencesManager>().getToken() == null) {
+    //   _snack('Please log in to purchase travel insurance.');
+    //   return;
+    // }
+
+    // ValidateKYC (step 5/7) is intentionally NOT called from this screen
+    // anymore. The next screen (InsurancePaymentScreen) reads the details
+    // gathered below straight into StartPay once a payment clears.
+    // if (_kycNumber.text.trim().isNotEmpty) {
+    //   final passed = await _runKyc();
+    //   if (!passed) return;
+    // }
 
     setState(() => _isProcessing = true);
 
-    // KYC (step 5/7) only applies to providers that require an ID document —
-    // skipped when no document number was entered. Run before the charge so
-    // a failed KYC never leaves the customer paid with no policy.
-    if (_kycNumber.text.trim().isNotEmpty) {
-      final passed = await _runKyc();
-      if (!passed) {
-        if (mounted) setState(() => _isProcessing = false);
-        return;
-      }
-    }
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => InsurancePaymentScreen(
+          request: widget.request,
+          policy: widget.policy,
+          tui: widget.tui,
+          proposer: InsuranceProposerInfo(
+            mobile: _mobile.text.trim(),
+            email: _email.text.trim(),
+            addr1: _addr1.text.trim(),
+            addr2: _addr2.text.trim(),
+            state: _state,
+            city: _city.text.trim(),
+            district: _district.text.trim(),
+            pincode: _pincode.text.trim(),
+            gst: _gst.text.trim(),
+            pan: _pan.text.trim(),
+          ),
+          travellers: [
+            for (final t in _travellers)
+              InsuranceTravellerInfo(
+                title: t.title,
+                gender: t.gender,
+                firstName: t.first.text.trim(),
+                lastName: t.last.text.trim(),
+                dob: t.dob,
+                passport: t.passport.text.trim(),
+                relationship: t.relationship,
+                nationality: t.nationality,
+              ),
+          ],
+          nomineeFirst: _nomineeFirst.text.trim(),
+          nomineeLast: _nomineeLast.text.trim(),
+          nomineeRelation: _nomineeRelation,
+          totalAmount: _total,
+        ),
+      ),
+    );
 
-    await _createRazorpayOrder();
+    if (mounted) setState(() => _isProcessing = false);
   }
 
+  // Kept for reference, not called — see the comment in _onProceed above.
   Future<bool> _runKyc() async {
     final lead = _travellers.first;
     final gender = lead.gender == 'Female' ? 'F' : 'M';
@@ -1282,238 +1318,6 @@ class _InsuranceBookingScreenState extends State<InsuranceBookingScreen> {
     }
     return ok;
   }
-
-  Future<void> _createRazorpayOrder() async {
-    try {
-      final dio = di.sl<DioClient>().instance;
-      final reference = 'INS${DateTime.now().millisecondsSinceEpoch}';
-      final response = await dio.post(
-        Urls.razorpayCreateOrder,
-        data: {
-          'amount': _total,
-          'currency': 'INR',
-          'reference_id': reference,
-        },
-      );
-
-      final orderId = response.data['order_id'] as String?;
-      final keyId = response.data['key_id'] as String?;
-
-      if (!mounted) return;
-      setState(() {
-        _isProcessing = false;
-        _reference = reference;
-      });
-
-      _razorpay.open({
-        'key': keyId ?? '',
-        'amount': _total * 100,
-        'currency': 'INR',
-        'name': 'WanderNova',
-        'description': '${widget.policy.planName} — Travel Insurance',
-        'order_id': orderId ?? '',
-        'prefill': {
-          'contact': _mobile.text.trim(),
-          'email': _email.text.trim(),
-        },
-        'theme': {'color': '#E23A1E'},
-      });
-    } on DioException catch (_) {
-      if (!mounted) return;
-      setState(() => _isProcessing = false);
-      _snack('Could not create payment order. Please try again.');
-    } catch (_) {
-      if (!mounted) return;
-      setState(() => _isProcessing = false);
-      _snack('Could not start payment. Please try again.');
-    }
-  }
-
-  Future<void> _handleRazorpaySuccess(PaymentSuccessResponse response) async {
-    if (!mounted) return;
-    setState(() {
-      _isProcessing = true;
-      _transactionId = response.paymentId;
-    });
-
-    try {
-      final dio = di.sl<DioClient>().instance;
-      final verify = await dio.post(
-        Urls.razorpayVerify,
-        data: {
-          'razorpay_order_id': response.orderId,
-          'razorpay_payment_id': response.paymentId,
-          'razorpay_signature': response.signature,
-          'reference_id': _reference,
-        },
-      );
-      if (verify.data['success'] != true) {
-        if (!mounted) return;
-        setState(() => _isProcessing = false);
-        _snack('Payment could not be verified. If money was deducted, contact '
-            'support with reference: ${response.paymentId ?? _reference}');
-        return;
-      }
-    } catch (_) {
-      if (!mounted) return;
-      setState(() => _isProcessing = false);
-      _snack('Payment could not be verified. If money was deducted, contact '
-          'support with reference: ${response.paymentId ?? _reference}');
-      return;
-    }
-
-    final issued = await _issueInsurancePolicy();
-
-    if (!mounted) return;
-    setState(() => _isProcessing = false);
-
-    if (issued != null) {
-      _showSuccessDialog(issued);
-    } else {
-      _snack('Payment received, but the policy could not be issued yet. '
-          'Please contact support with reference: ${response.paymentId ?? _reference}');
-    }
-  }
-
-  /// Runs StartPay (step 6/7, retried while the provider reports
-  /// `bookingInProgress`) then GetItinerary (step 7/7). Returns the issued
-  /// transaction id, or null if issuance failed — the caller decides how to
-  /// message that against an already-collected payment.
-  Future<String?> _issueInsurancePolicy() async {
-    final lead = _travellers.first;
-    final countryState = context.read<CountryBloc>().state;
-    final countries = countryState is CountryLoaded
-        ? countryState.countries
-        : const <CountryEntity>[];
-    final countryCodes = widget.request.travellingCountries.map((name) {
-      final matches = countries.where((c) => c.name == name);
-      return matches.isNotEmpty ? matches.first.code : '';
-    }).toList();
-    final isoFmt = DateFormat('yyyy-MM-dd');
-
-    final request = AkInsuranceStartPayRequestEntity(
-      paymentReference: _transactionId ?? _reference,
-      panNo: _pan.text.trim(),
-      countryCodes: countryCodes,
-      countryNames: widget.request.travellingCountries,
-      startDate: isoFmt.format(widget.request.startDate),
-      endDate: isoFmt.format(widget.request.endDate),
-      policyType: widget.request.insuranceType.toUpperCase(),
-      customer: AkInsuranceCustomerEntity(
-        title: lead.title,
-        firstName: lead.first.text.trim(),
-        lastName: lead.last.text.trim(),
-        birthDate: lead.dob != null ? isoFmt.format(lead.dob!) : '',
-        contactInfo: AkInsuranceContactInfoEntity(
-          number: _mobile.text.trim(),
-          code: '+91',
-          emailAddress: _email.text.trim(),
-        ),
-        // The form doesn't split address fields beyond line 1 — same "NA"
-        // placeholder fallback flight CreateItinerary uses for this gap.
-        addresses: [
-          AkInsuranceAddressEntity(
-            line1: _addr1.text.trim().isEmpty ? 'NA' : _addr1.text.trim(),
-            pinCode: _pincode.text.trim().isEmpty ? '000000' : _pincode.text.trim(),
-          ),
-        ],
-      ),
-      plans: [
-        AkInsurancePlanBookingEntity(
-          id: widget.policy.planId,
-          type: widget.request.insuranceType,
-          travellers: [
-            for (int i = 0; i < _travellers.length; i++)
-              AkInsuranceBookingTravellerEntity(
-                id: i,
-                firstName:
-                    '${_travellers[i].first.text} ${_travellers[i].last.text}'.trim(),
-                relationship: _travellers[i].relationship.toUpperCase(),
-                isProposer: i == 0,
-              ),
-          ],
-        ),
-      ],
-      amount: _total.toDouble(),
-      onlinePayment: false,
-      depositPayment: true,
-      tui: widget.tui,
-    );
-
-    const maxAttempts = 3;
-    const retryDelay = Duration(seconds: 4);
-    var attempt = 0;
-
-    while (attempt < maxAttempts) {
-      final result = await di.sl<AkInsuranceStartPayUseCase>().call(request);
-      if (result is! DataSuccess<AkInsuranceStartPayEntity>) return null;
-
-      final data = result.data!;
-      if (data.isBooked) {
-        // Best-effort confirmation fetch — the policy is already issued
-        // either way, so a failure here doesn't flip the outcome to null.
-        await di.sl<AkInsuranceGetItineraryUseCase>().call(
-          AkInsuranceItineraryRequestEntity(
-              tui: widget.tui, transactionId: data.transactionId),
-        );
-        return data.transactionId;
-      }
-      if (data.bookingInProgress) {
-        attempt++;
-        await Future.delayed(retryDelay);
-        continue;
-      }
-      return null;
-    }
-    return null;
-  }
-
-  void _showSuccessDialog(String transactionId) {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogCtx) => AlertDialog(
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(context.r(16))),
-        icon: Icon(Icons.check_circle_rounded,
-            color: Colors.green.shade600, size: context.w(48)),
-        title: Text('Policy Issued',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-                fontWeight: FontWeight.w800, fontSize: context.fs(18))),
-        content: Text(
-          'Your travel insurance policy has been booked.\nReference: $transactionId',
-          textAlign: TextAlign.center,
-          style: TextStyle(fontSize: context.fs(13), color: Colors.grey.shade700),
-        ),
-        actions: [
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _brandBlue,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(context.r(10))),
-              ),
-              onPressed: () {
-                Navigator.of(dialogCtx).pop();
-                Navigator.of(context).popUntil((route) => route.isFirst);
-              },
-              child: const Text('DONE', style: TextStyle(color: Colors.white)),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _handleRazorpayError(PaymentFailureResponse response) {
-    if (!mounted) return;
-    setState(() => _isProcessing = false);
-    _snack('Payment failed: ${response.message ?? 'Please try again.'}');
-  }
-
-  void _handleRazorpayExternalWallet(ExternalWalletResponse response) {}
 
   void _snack(String message) {
     if (!mounted) return;

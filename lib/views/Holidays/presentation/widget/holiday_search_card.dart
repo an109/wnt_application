@@ -1,7 +1,11 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
+import 'package:wander_nova/core/utils/storage/shared_preference.dart';
 
 import '../../../../injection_container.dart';
 import '../../../Holiday_destination/domain/entities/holiday_destination_entity.dart';
@@ -9,22 +13,6 @@ import '../../../Holiday_destination/presentation/bloc/holiday_destination_bloc.
 import '../../../Holiday_destination/presentation/bloc/holiday_destination_event.dart';
 import '../../../Holiday_destination/presentation/bloc/holiday_destination_state.dart';
 import 'Holdays_Search_Result.dart';
-
-const List<String> _departureCities = [
-  'Bangalore',
-  'Chennai',
-  'Cochin',
-  'Hyderabad',
-  'Kolkata',
-  'Mumbai',
-  'New Delhi',
-  'Pune',
-  'Agartala',
-  'Agatti',
-  'Ahmedabad',
-  'Jaipur',
-  'Goa',
-];
 
 class HolidaysSearchCard extends StatefulWidget {
   const HolidaysSearchCard({super.key});
@@ -34,7 +22,12 @@ class HolidaysSearchCard extends StatefulWidget {
 }
 
 class _HolidaysSearchCardState extends State<HolidaysSearchCard> {
-  String? _fromCity;
+  // Mirrors HotelSearchCard's own prefs key for the same purpose — kept
+  // separate from PreferencesManager's single shared `saveLastSearch`/
+  // `getLastSearch` pair (used by the flight search card) so a holiday
+  // search never clobbers/gets clobbered by the last flight search.
+  static const String _lastHolidaySearchKey = 'last_holiday_search_data';
+
   HolidayDestinationEntity? _selectedDestination;
 
   DateTime? _departureDate;
@@ -42,6 +35,14 @@ class _HolidaysSearchCardState extends State<HolidaysSearchCard> {
   int _Infants = 1;
   int _adults = 2;
   int _children = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    // Prefill from the user's last holiday search (details are stored in
+    // prefs) — same pattern as the flight and hotel search cards.
+    _loadLastSearch();
+  }
 
   Future<void> _selectDate(BuildContext context) async {
     final DateTime? picked = await showDatePicker(
@@ -274,9 +275,164 @@ class _HolidaysSearchCardState extends State<HolidaysSearchCard> {
 
 
   bool _isSearchEnabled() {
-    return _fromCity != null &&
-        _selectedDestination != null &&
-        _departureDate != null;
+    return _selectedDestination != null && _departureDate != null;
+  }
+
+  // ---------------------------------------------------------------------
+  // Last search prefill + Recent Searches (home screen) — same pattern as
+  // AirportSearchCard / HotelSearchCard.
+  // ---------------------------------------------------------------------
+
+  Future<void> _saveLastSearch() async {
+    try {
+      final prefsManager =
+          await PreferencesManager.create(await SharedPreferences.getInstance());
+      final searchData = {
+        'destination': _selectedDestination != null
+            ? _destinationToJson(_selectedDestination!)
+            : null,
+        'departureDate': _departureDate?.toIso8601String(),
+        'adults': _adults,
+        'children': _children,
+        'infants': _Infants,
+      };
+      await prefsManager.setString(
+          _lastHolidaySearchKey, jsonEncode(searchData));
+    } catch (e) {
+      debugPrint('Error saving last holiday search: $e');
+    }
+  }
+
+  Future<void> _addToSearchHistory() async {
+    final destination = _selectedDestination;
+    if (destination == null) return;
+    try {
+      final prefsManager =
+          await PreferencesManager.create(await SharedPreferences.getInstance());
+      final searchData = {
+        'type': 'holiday',
+        'destination': {
+          'id': destination.id,
+          'name': destination.name,
+          'city': destination.city,
+          'country': destination.country,
+        },
+        'departureDate': _departureDate?.toIso8601String(),
+        'adults': _adults,
+        'children': _children,
+        'infants': _Infants,
+        'timestamp': DateTime.now().toIso8601String(),
+      };
+      await prefsManager.addToSearchHistory(searchData);
+    } catch (e) {
+      debugPrint('Error adding holiday search to history: $e');
+    }
+  }
+
+  Future<void> _loadLastSearch() async {
+    try {
+      final prefsManager =
+          await PreferencesManager.create(await SharedPreferences.getInstance());
+      final raw = prefsManager.getString(_lastHolidaySearchKey);
+      if (raw == null || !mounted) return;
+
+      final lastSearch = jsonDecode(raw) as Map<String, dynamic>;
+      final savedDestination = _destinationFromJson(lastSearch['destination']);
+      final today = DateUtils.dateOnly(DateTime.now());
+
+      setState(() {
+        if (savedDestination != null) _selectedDestination = savedDestination;
+
+        // Restore the date, but never prefill one that's already in the past.
+        if (lastSearch['departureDate'] != null) {
+          final dep =
+              DateUtils.dateOnly(DateTime.parse(lastSearch['departureDate']));
+          _departureDate = dep.isBefore(today) ? today : dep;
+        }
+
+        _adults = lastSearch['adults'] ?? _adults;
+        _children = lastSearch['children'] ?? _children;
+        _Infants = lastSearch['infants'] ?? _Infants;
+      });
+    } catch (e) {
+      debugPrint('Error loading last holiday search: $e');
+    }
+  }
+
+  /// Full round-trip of [HolidayDestinationEntity] (mirrors
+  /// HolidayDestinationModel's API-facing toJson/fromJson, kept local to
+  /// this widget so it stays presentation-layer only) — needed so the
+  /// prefilled destination carries its packages too, letting
+  /// HolidayResultsScreen render immediately without a re-fetch.
+  Map<String, dynamic> _destinationToJson(HolidayDestinationEntity d) {
+    return {
+      'id': d.id,
+      'reseller': d.reseller,
+      'name': d.name,
+      'price': d.price,
+      'priceCurrency': d.priceCurrency,
+      'imageUrl': d.imageUrl,
+      'country': d.country,
+      'state': d.state,
+      'city': d.city,
+      'type': d.type,
+      'isFeatured': d.isFeatured,
+      'showInHolidaysTrending': d.showInHolidaysTrending,
+      'domesticRegion': d.domesticRegion,
+      'originalPrice': d.originalPrice,
+      'originalPriceCurrency': d.originalPriceCurrency,
+      'whereToGoMonths': d.whereToGoMonths,
+      'tagline': d.tagline,
+      'description': d.description,
+      'longDescription': d.longDescription,
+      'packages': d.packages,
+      'order': d.order,
+      'isActive': d.isActive,
+      'created': d.created,
+      'updated': d.updated,
+      'img': d.img,
+    };
+  }
+
+  HolidayDestinationEntity? _destinationFromJson(dynamic json) {
+    if (json == null || json is! Map || json['id'] == null) return null;
+    try {
+      return HolidayDestinationEntity(
+        id: json['id'] ?? 0,
+        reseller: json['reseller'] ?? 0,
+        name: json['name'] ?? '',
+        price: json['price'] ?? '',
+        priceCurrency: json['priceCurrency'] ?? '',
+        imageUrl: json['imageUrl'] ?? '',
+        country: json['country'] ?? '',
+        state: json['state'] ?? '',
+        city: json['city'] ?? '',
+        type: json['type'] ?? '',
+        isFeatured: json['isFeatured'] ?? false,
+        showInHolidaysTrending: json['showInHolidaysTrending'] ?? false,
+        domesticRegion: json['domesticRegion'] ?? '',
+        originalPrice: json['originalPrice'] ?? '',
+        originalPriceCurrency: json['originalPriceCurrency'] ?? '',
+        whereToGoMonths: json['whereToGoMonths'] != null
+            ? List<String>.from(json['whereToGoMonths'])
+            : [],
+        tagline: json['tagline'] ?? '',
+        description: json['description'] ?? '',
+        longDescription: json['longDescription'] ?? '',
+        packages: json['packages'] != null
+            ? List<Map<String, dynamic>>.from(
+                (json['packages'] as List).map((p) => Map<String, dynamic>.from(p)))
+            : [],
+        order: json['order'] ?? 0,
+        isActive: json['isActive'] ?? false,
+        created: json['created'] ?? '',
+        updated: json['updated'] ?? '',
+        img: json['img'] ?? '',
+      );
+    } catch (e) {
+      debugPrint('Error parsing saved holiday destination: $e');
+      return null;
+    }
   }
 
   @override
@@ -304,35 +460,19 @@ class _HolidaysSearchCardState extends State<HolidaysSearchCard> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            /// FROM & TO SECTION
+            /// TO SECTION (destination only — FROM CITY removed)
             Container(
               clipBehavior: Clip.antiAlias,
               decoration: BoxDecoration(
                 color: Colors.grey.shade50,
                 borderRadius: BorderRadius.circular(context.r(12)),
               ),
-              child: Column(
-                children: [
-                  _CitySearchField(
-                    label: "FROM CITY",
-                    hint: "Select departure city",
-                    selectedValue: _fromCity,
-                    onSelected: (city) => setState(() => _fromCity = city),
-                  ),
-                  Divider(
-                    height: 1,
-                    thickness: 1,
-                    color: Colors.grey.shade300,
-                    indent: context.w(41),
-                  ),
-                  _DestinationSearchField(
-                    label: "TO CITY / COUNTRY / CATEGORY",
-                    hint: "Select destination",
-                    selectedDestination: _selectedDestination,
-                    onSelected: (destination) =>
-                        setState(() => _selectedDestination = destination),
-                  ),
-                ],
+              child: _DestinationSearchField(
+                label: "TO CITY / COUNTRY / CATEGORY",
+                hint: "Select destination",
+                selectedDestination: _selectedDestination,
+                onSelected: (destination) =>
+                    setState(() => _selectedDestination = destination),
               ),
             ),
 
@@ -494,11 +634,14 @@ class _HolidaysSearchCardState extends State<HolidaysSearchCard> {
                   ),
                 ),
                 onPressed: _isSearchEnabled() ? () {
+                  // Persist this search so the form is prefilled next time
+                  // and it shows up in the home screen's Recent Searches.
+                  _saveLastSearch();
+                  _addToSearchHistory();
                   Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder: (_) => HolidayResultsScreen(
-                        fromCity: _fromCity,
                         destination: _selectedDestination,
                         departureDate: _departureDate,
                         adults: _adults,
@@ -532,253 +675,6 @@ class _HolidaysSearchCardState extends State<HolidaysSearchCard> {
     );
   }
 
-}
-
-/// Inline typeahead field for the FROM CITY, styled and behaving like
-/// [AirportSearchDropdown] in the flight SearchCard: a text field embedded in
-/// the card whose options overlay appears directly below it.
-class _CitySearchField extends StatefulWidget {
-  final String label;
-  final String hint;
-  final String? selectedValue;
-  final ValueChanged<String?> onSelected;
-
-  const _CitySearchField({
-    required this.label,
-    required this.hint,
-    required this.selectedValue,
-    required this.onSelected,
-  });
-
-  @override
-  State<_CitySearchField> createState() => _CitySearchFieldState();
-}
-
-class _CitySearchFieldState extends State<_CitySearchField> {
-  final TextEditingController _controller = TextEditingController();
-  final FocusNode _focusNode = FocusNode();
-  final LayerLink _layerLink = LayerLink();
-  OverlayEntry? _overlayEntry;
-  bool _suppressNextOverlay = false;
-
-  @override
-  void initState() {
-    super.initState();
-    if (widget.selectedValue != null) {
-      _controller.text = widget.selectedValue!;
-    }
-    _focusNode.addListener(_onFocusChange);
-  }
-
-  @override
-  void didUpdateWidget(covariant _CitySearchField oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.selectedValue != oldWidget.selectedValue) {
-      _controller.text = widget.selectedValue ?? '';
-    }
-  }
-
-  @override
-  void dispose() {
-    _focusNode.removeListener(_onFocusChange);
-    _closeOverlay();
-    _focusNode.dispose();
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void _onFocusChange() {
-    if (_focusNode.hasFocus) {
-      if (_suppressNextOverlay) return;
-      _openOverlay();
-    } else {
-      _closeOverlay();
-    }
-  }
-
-  void _onSearchChanged(String value) {
-    if (_overlayEntry != null) {
-      _overlayEntry!.markNeedsBuild();
-    } else if (_focusNode.hasFocus) {
-      _openOverlay();
-    }
-  }
-
-  void _select(String city) {
-    _suppressNextOverlay = true;
-    _closeOverlay();
-    setState(() => _controller.text = city);
-    _focusNode.unfocus();
-    widget.onSelected(city);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _suppressNextOverlay = false;
-    });
-  }
-
-  void _openOverlay() {
-    if (_overlayEntry != null) {
-      _overlayEntry?.markNeedsBuild();
-      return;
-    }
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !_focusNode.hasFocus || _suppressNextOverlay) return;
-
-      try {
-        if (_overlayEntry != null) return;
-
-        final overlay = Overlay.of(context);
-        final renderBox = context.findRenderObject() as RenderBox;
-
-        _overlayEntry = OverlayEntry(
-          builder: (context) => Stack(
-            children: [
-              Positioned.fill(
-                child: GestureDetector(
-                  behavior: HitTestBehavior.translucent,
-                  onTap: () {
-                    _focusNode.unfocus();
-                    _closeOverlay();
-                  },
-                ),
-              ),
-              Positioned(
-                width: renderBox.size.width,
-                child: CompositedTransformFollower(
-                  link: _layerLink,
-                  showWhenUnlinked: false,
-                  offset: Offset(0, renderBox.size.height + 8),
-                  child: Material(
-                    elevation: 8,
-                    borderRadius: BorderRadius.circular(context.borderRadius),
-                    child: Container(
-                      constraints: BoxConstraints(maxHeight: context.hp(25)),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(context.borderRadius),
-                        border: Border.all(color: Colors.grey.shade300),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.08),
-                            blurRadius: 15,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: _buildContent(),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-
-        overlay.insert(_overlayEntry!);
-      } catch (e) {
-        debugPrint('Error opening city dropdown overlay: $e');
-      }
-    });
-  }
-
-  void _closeOverlay() {
-    _overlayEntry?.remove();
-    _overlayEntry = null;
-  }
-
-  Widget _buildContent() {
-    final query = _controller.text.trim().toLowerCase();
-    final filtered = query.isEmpty
-        ? _departureCities
-        : _departureCities.where((c) => c.toLowerCase().contains(query)).toList();
-
-    if (filtered.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Text('No cities found', style: TextStyle(color: Colors.grey.shade600)),
-        ),
-      );
-    }
-
-    return ListView.builder(
-      padding: EdgeInsets.zero,
-      shrinkWrap: true,
-      itemCount: filtered.length,
-      itemBuilder: (context, index) {
-        final city = filtered[index];
-        return ListTile(
-          dense: true,
-          // leading: const Icon(Icons.flight_takeoff, color: Color(0xffFF3B3B)),
-          title: Text(city, style: const TextStyle(fontWeight: FontWeight.w600)),
-          onTap: () => _select(city),
-        );
-      },
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return CompositedTransformTarget(
-      link: _layerLink,
-      child: Container(
-        constraints: BoxConstraints(minHeight: context.h(54)),
-        padding: EdgeInsets.symmetric(
-          horizontal: context.w(12),
-          vertical: context.h(8),
-        ),
-        child: Row(
-          children: [
-            // Icon(
-            //   Icons.flight_takeoff,
-            //   size: context.w(18),
-            //   color: const Color(0xffFF3B3B),
-            // ),
-            // SizedBox(width: context.w(11)),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    widget.label,
-                    style: TextStyle(
-                      fontSize: context.fs(10),
-                      fontWeight: FontWeight.w700,
-                      color: Colors.grey.shade600,
-                      letterSpacing: context.letterSpacingWider,
-                    ),
-                  ),
-                  SizedBox(height: context.h(2)),
-                  TextField(
-                    controller: _controller,
-                    focusNode: _focusNode,
-                    decoration: InputDecoration(
-                      hintText: widget.hint,
-                      hintStyle: TextStyle(
-                        fontSize: context.fs(14),
-                        fontWeight: FontWeight.w700,
-                        color: Colors.grey.shade500,
-                      ),
-                      border: InputBorder.none,
-                      isDense: true,
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                    style: TextStyle(
-                      fontSize: context.fs(14),
-                      fontWeight: FontWeight.w700,
-                      color: Colors.black87,
-                    ),
-                    onChanged: _onSearchChanged,
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
 /// Inline typeahead field for TO CITY / COUNTRY / CATEGORY, backed by
@@ -965,9 +861,15 @@ class _DestinationSearchFieldState extends State<_DestinationSearchField> {
 
         if (state is HolidaySuccessState) {
           final query = _controller.text.trim().toLowerCase();
+          // Only offer destinations that actually have a package to book —
+          // same data HolidayResultsScreen renders, so nothing here is
+          // hardcoded and nothing picked here ever lands on an empty
+          // results screen.
+          final withPackages =
+              state.destinations.where((d) => d.packages.isNotEmpty);
           final filtered = query.isEmpty
-              ? state.destinations
-              : state.destinations.where((d) {
+              ? withPackages.toList()
+              : withPackages.where((d) {
                   return d.name.toLowerCase().contains(query) ||
                       d.city.toLowerCase().contains(query) ||
                       d.country.toLowerCase().contains(query);

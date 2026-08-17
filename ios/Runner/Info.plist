@@ -14,6 +14,14 @@
             <array>
                 <string>com.googleusercontent.apps.99880015098-iibd2cbsqlkmbu2clrm6tt4tb10td6l6</string>
             </array>
+             <array>
+                    <string>linkedin</string>
+                    <string>linkedin-sdk2</string>
+                    <string>instagram</string>
+                    <string>fb</string>
+                    <string>facebook</string>
+                    <string>youtube</string>
+             </array>
         </dict>
     </array>
 	<key>CFBundleDevelopmentRegion</key>

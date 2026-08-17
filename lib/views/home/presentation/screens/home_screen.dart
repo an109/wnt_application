@@ -72,6 +72,10 @@ class _HomeScreenState extends State<HomeScreen> {
           final destId = (item['destination']?['id'] ?? '').toString();
           if (destId.isEmpty) continue;
           key = 'hotel-$destId';
+        } else if (type == 'holiday') {
+          final destId = (item['destination']?['id'] ?? '').toString();
+          if (destId.isEmpty) continue;
+          key = 'holiday-$destId';
         } else if (type == 'transport') {
           final pickupId = (item['pickup']?['id'] ?? '').toString();
           final dropoffId = (item['dropoff']?['id'] ?? '').toString();
@@ -437,12 +441,20 @@ class _HomeScreenState extends State<HomeScreen> {
                         size: context.iconMedium,
                       ),
                       SizedBox(height: context.h(4)),
-                      Text(
-                        serviceTabs[index].title,
-                        style: TextStyle(
-                          color: selected ? const Color(0xFF003B95) : Colors.white,
-                          fontWeight: FontWeight.w600,
-                          fontSize: context.fs(11), // 11px on design
+                      Padding(
+                        padding: EdgeInsets.symmetric(horizontal: context.w(4)),
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            serviceTabs[index].title,
+                            maxLines: 1,
+                            softWrap: false,
+                            style: TextStyle(
+                              color: selected ? const Color(0xFF003B95) : Colors.white,
+                              fontWeight: FontWeight.w600,
+                              fontSize: context.fs(9), // reduced so all tab titles render at one consistent small size
+                            ),
+                          ),
                         ),
                       ),
                     ],
@@ -745,6 +757,14 @@ class _HomeScreenState extends State<HomeScreen> {
       final checkOut = _formatSearchDate(search['checkOutDate']);
       secondaryLine = checkIn.isNotEmpty ? '$checkIn → $checkOut' : '';
       date = checkIn;
+    } else if (type == 'holiday') {
+      typeLabel = 'Holiday';
+      final dest = search['destination'];
+      primaryLine = (dest?['name'] ?? '').toString();
+      final city = (dest?['city'] ?? '').toString();
+      final country = (dest?['country'] ?? '').toString();
+      secondaryLine = [city, country].where((s) => s.isNotEmpty).join(', ');
+      date = _formatSearchDate(search['departureDate']);
     } else if (type == 'transport') {
       typeLabel = 'Cab';
       final pickup = search['pickup'];

@@ -441,7 +441,7 @@ class _HolidayPackageDetailsScreenState extends State<HolidayPackageDetailsScree
 
     return _sectionCard(
       title: "Where You'll Stay",
-      icon: Icons.hotel_outlined,
+      // icon: Icons.bed_outlined,
       child: tiers.isEmpty
           ? Text('Stay details will be confirmed at booking.', style: TextStyle(fontSize: context.fs(13), color: Colors.grey.shade600))
           : Column(children: tiers.map((t) => _hotelTile(t as Map)).toList()),
@@ -465,19 +465,60 @@ class _HolidayPackageDetailsScreenState extends State<HolidayPackageDetailsScree
             borderRadius: BorderRadius.circular(context.r(8)),
             child: imageUrl.isNotEmpty
                 ? CachedNetworkImage(
-                    imageUrl: imageUrl,
-                    width: context.w(60),
-                    height: context.w(60),
-                    fit: BoxFit.cover,
-                    memCacheWidth: 200,
-                    errorWidget: (context, url, error) => Container(
-                      width: context.w(60),
-                      height: context.w(60),
-                      color: Colors.grey.shade300,
-                      child: const Icon(Icons.hotel),
+              imageUrl: imageUrl,
+              width: context.w(60),
+              height: context.w(60),
+              fit: BoxFit.cover,
+              memCacheWidth: 200,
+              errorWidget: (context, url, error) => Container(
+                width: context.w(60),
+                height: context.w(60),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      _kAccent.withValues(alpha: 0.2),
+                      _kAccent.withValues(alpha: 0.05),
+                    ],
+                  ),
+                ),
+                child: Center(
+                  child: Text(
+                    name.isNotEmpty ? name[0].toUpperCase() : '🏨',
+                    style: TextStyle(
+                      fontSize: context.fs(24),
+                      fontWeight: FontWeight.bold,
+                      color: _kAccent,
                     ),
-                  )
-                : Container(width: context.w(60), height: context.w(60), color: Colors.grey.shade300, child: const Icon(Icons.hotel)),
+                  ),
+                ),
+              ),
+            )
+                : Container(
+              width: context.w(50),
+              height: context.w(50),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    _kAccent.withValues(alpha: 0.2),
+                    _kAccent.withValues(alpha: 0.05),
+                  ],
+                ),
+              ),
+              child: Center(
+                child: Text(
+                  name.isNotEmpty ? name[0].toUpperCase() : '🏨',
+                  style: TextStyle(
+                    fontSize: context.fs(24),
+                    fontWeight: FontWeight.bold,
+                    color: _kAccent,
+                  ),
+                ),
+              ),
+            ),
           ),
           SizedBox(width: context.w(12)),
           Expanded(

@@ -1,8 +1,8 @@
 class Urls {
-  // static const String baseUrl = 'http://167.71.233.208:8032/api/';
-  static const String baseUrl = 'https://thewandernova.com/api/';
-  // static const String basesUrl = 'http://167.71.233.208:8032/api';
-  static const String basesUrl = 'https://thewandernova.com/api';
+  static const String baseUrl = 'http://167.71.233.208:8032/api/';
+  // static const String baseUrl = 'https://thewandernova.com/api/';
+  static const String basesUrl = 'http://167.71.233.208:8032/api';
+  // static const String basesUrl = 'https://thewandernova.com/api';
 
   static const String airports = '$basesUrl/flights/airports';
   static const String flightSearch = '$basesUrl/akbar/ExpressSearch/';
@@ -202,4 +202,7 @@ class Urls {
   static const String travellers = '$basesUrl/travellers/';
   static String travellersByEmail(String email) =>
       '$travellers?user_email=$email';
+
+  // Customer Support (Dashboard > Customer Support)
+  static const String supportQuerySubmit = '$basesUrl/support-query/submit/';
 }
