@@ -1,9 +1,12 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:shimmer/shimmer.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import 'package:wander_nova/core/resources/app_colours.dart';
 
 import '../../../../common_widgets/custom_bottom_nav.dart';
+import '../../../../common_widgets/fast_network_image_cache_manager.dart';
 import '../../../../common_widgets/hotel_loading_indicator.dart';
 import '../../../../common_widgets/logo.dart';
 import '../../../../core/services/hotel_session_service.dart';
@@ -510,32 +513,7 @@ class HotelCard extends StatelessWidget {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  Image.network(
-                    hotel.image,
-                    fit: BoxFit.cover,
-                    loadingBuilder: (context, child, loadingProgress) {
-                      if (loadingProgress == null) return child;
-                      return Center(
-                        child: CircularProgressIndicator(
-                          value: loadingProgress.expectedTotalBytes != null
-                              ? loadingProgress.cumulativeBytesLoaded /
-                                    loadingProgress.expectedTotalBytes!
-                              : null,
-                          strokeWidth: 2,
-                        ),
-                      );
-                    },
-                    errorBuilder: (context, error, stackTrace) {
-                      return Container(
-                        color: Colors.grey.shade200,
-                        child: Icon(
-                          Icons.hotel,
-                          size: context.iconLarge,
-                          color: Colors.grey.shade400,
-                        ),
-                      );
-                    },
-                  ),
+                  _HotelCardImage(imageUrl: hotel.image),
                   if (!hotel.isRefundable)
                     Positioned(
                       top: context.gapMedium,
@@ -594,7 +572,7 @@ class HotelCard extends StatelessWidget {
 
                 _InfoRow(
                   icon: Icons.location_on_outlined,
-                  text: '${hotel.cityName}, ${hotel.countryName}',
+                  text: '${hotel.address}, ${hotel.countryName}',
                 ),
 
                 if (hotel.roomInfo.trim().isNotEmpty) ...[
@@ -660,6 +638,54 @@ class HotelCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Hotel card's hero image. Plain [Image.network] re-fetches from scratch
+/// every time the card rebuilds (every scroll, every time this list
+/// re-sorts itself around a search match, every Rate poll) and decodes at
+/// the source's full resolution — that combination was the actual cause of
+/// slow/never-loading images, not a one-off glitch. CachedNetworkImage
+/// caches to disk+memory so a hotel already seen loads instantly,
+/// memCacheWidth caps the decoded bitmap size so large photos don't spend
+/// time/memory decoding pixels the card can't even show, and
+/// [FastNetworkImageCacheManager] bounds every fetch with a timeout so one
+/// slow/hung host degrades to the fallback icon instead of wedging the
+/// shared fetch queue for every other image on screen (see its doc comment
+/// for why that queue-wedging was the actual "nothing loads" symptom this
+/// app hit with the default cache manager).
+class _HotelCardImage extends StatelessWidget {
+  final String imageUrl;
+
+  const _HotelCardImage({required this.imageUrl});
+
+  Widget _fallback(BuildContext context) {
+    return Container(
+      color: Colors.grey.shade200,
+      child: Icon(Icons.hotel, size: context.iconLarge, color: Colors.grey.shade400),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (imageUrl.isEmpty) return _fallback(context);
+
+    return CachedNetworkImage(
+      imageUrl: imageUrl,
+      cacheManager: FastNetworkImageCacheManager.instance,
+      fit: BoxFit.cover,
+      // Card images never render wider than the screen, and are almost
+      // always well under it — 800px covers every device this app targets
+      // without decoding multi-thousand-pixel source photos for nothing.
+      memCacheWidth: 800,
+      fadeInDuration: const Duration(milliseconds: 150),
+      placeholder: (context, url) => Shimmer.fromColors(
+        baseColor: Colors.grey.shade200,
+        highlightColor: Colors.grey.shade100,
+        child: Container(color: Colors.white),
+      ),
+      errorWidget: (context, url, error) => _fallback(context),
     );
   }
 }

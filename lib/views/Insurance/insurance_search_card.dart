@@ -488,11 +488,33 @@ class _InsuranceSearchCardState extends State<InsuranceSearchCard> {
   List<String> _travelCountries = <String>[];
   DateTime? _startDate = DateTime.now();
   DateTime? _endDate;
+  // STUDENT only — per Benzy's support team, a student policy is priced off
+  // Start Date + tenure, not a free-picked date range; _endDate is derived
+  // from this rather than user-picked whenever _isStudent is true (see
+  // _recomputeStudentEndDate). Null for every other policy type.
+  int? _tenureMonths;
   List<DateTime?> _travellerDobs = <DateTime?>[null];
   // Index-aligned with _travellerDobs; index 0 (the lead traveller) is
   // always SELF and has no picker. QuotesListing/PlanDetails' documented
-  // relation enum for the rest is SPOUSE/CHILD/PARENT/SIBLING/FRIEND.
+  // relation enum for the rest is SPOUSE/CHILD/PARENT/SIBLING/FRIEND — except
+  // a FRIENDS policy, where Benzy's support team says every non-lead
+  // traveller's relation must be sent as MEMBER instead (see
+  // _relationOptionsFor in _TravellersDialogState).
   List<String> _travellerRelations = <String>['SELF'];
+
+  bool get _isStudent => _insuranceType.toUpperCase() == 'STUDENT';
+  // Benzy's support team: for a FRIENDS policy every non-lead traveller's
+  // relation must be sent as MEMBER in QuotesListing, not the general
+  // SPOUSE/CHILD/PARENT/SIBLING/FRIEND enum used by other policy types.
+  bool get _isFriends => _insuranceType.toUpperCase() == 'FRIENDS';
+
+  void _recomputeStudentEndDate() {
+    if (!_isStudent || _startDate == null || _tenureMonths == null) return;
+    final s = _startDate!;
+    // DateTime's month rolls over correctly past December on its own
+    // (e.g. month 13 becomes next-year January) — no manual wraparound needed.
+    _endDate = DateTime(s.year, s.month + _tenureMonths!, s.day);
+  }
 
   // Fallback options shown while the live ProviderChecklist/cached-countries
   // calls are in flight or if they fail — keeps the form usable either way.
@@ -587,7 +609,13 @@ class _InsuranceSearchCardState extends State<InsuranceSearchCard> {
                 label: 'INSURANCE TYPE',
                 value: _insuranceType,
                 options: policyTypes,
-                onChanged: (v) => setState(() => _insuranceType = v),
+                onChanged: (v) => setState(() {
+                  _insuranceType = v;
+                  if (_isStudent) {
+                    _tenureMonths ??= 3;
+                    _recomputeStudentEndDate();
+                  }
+                }),
               ),
             ),
             SizedBox(width: context.w(8)),
@@ -622,6 +650,7 @@ class _InsuranceSearchCardState extends State<InsuranceSearchCard> {
                     context,
                     _travellerDobs,
                     _travellerRelations,
+                    isFriends: _isFriends,
                   );
                   if (v != null) {
                     setState(() {
@@ -665,14 +694,28 @@ class _InsuranceSearchCardState extends State<InsuranceSearchCard> {
             ),
             SizedBox(width: context.w(8)),
             Expanded(
-              child: _fieldShell(
-                context,
-                label: 'END DATE',
-                onTap: () => _pickDate(context, false),
-                child: _endDate == null
-                    ? _placeholder(context, 'Select Date')
-                    : _dateValue(context, _endDate!),
-              ),
+              // STUDENT policies are priced off Start Date + tenure, not a
+              // free-picked date range (Benzy's support team was explicit
+              // about this) — End Date is derived automatically instead.
+              child: _isStudent
+                  ? _dropdownField(
+                      context,
+                      label: 'TENURE (MONTHS)',
+                      value: (_tenureMonths ?? 3).toString(),
+                      options: List.generate(24, (i) => '${i + 1}'),
+                      onChanged: (v) => setState(() {
+                        _tenureMonths = int.parse(v);
+                        _recomputeStudentEndDate();
+                      }),
+                    )
+                  : _fieldShell(
+                      context,
+                      label: 'END DATE',
+                      onTap: () => _pickDate(context, false),
+                      child: _endDate == null
+                          ? _placeholder(context, 'Select Date')
+                          : _dateValue(context, _endDate!),
+                    ),
             ),
           ]),
           SizedBox(height: context.h(8)),
@@ -928,7 +971,11 @@ class _InsuranceSearchCardState extends State<InsuranceSearchCard> {
     setState(() {
       if (isStart) {
         _startDate = picked;
-        if (_endDate != null && _endDate!.isBefore(picked)) _endDate = null;
+        if (_isStudent) {
+          _recomputeStudentEndDate();
+        } else if (_endDate != null && _endDate!.isBefore(picked)) {
+          _endDate = null;
+        }
       } else {
         _endDate = picked;
       }
@@ -959,6 +1006,8 @@ class _InsuranceSearchCardState extends State<InsuranceSearchCard> {
     }).toList();
     final isoFmt = DateFormat('yyyy-MM-dd');
 
+    final effectiveTenure = _isStudent ? (_tenureMonths ?? 3) : 3;
+
     _bloc.add(LoadAkInsuranceQuotesEvent(
       AkInsuranceQuotesRequestEntity(
         policyType: _insuranceType.toUpperCase(),
@@ -966,6 +1015,7 @@ class _InsuranceSearchCardState extends State<InsuranceSearchCard> {
         countryNames: List<String>.from(_travelCountries),
         startDate: isoFmt.format(_startDate!),
         endDate: isoFmt.format(_endDate!),
+        tenureInMonths: effectiveTenure,
         travellers: [
           for (int i = 0; i < _travellerDobs.length; i++)
             AkInsuranceTravellerEntity(
@@ -973,7 +1023,9 @@ class _InsuranceSearchCardState extends State<InsuranceSearchCard> {
               birthdate: isoFmt.format(_travellerDobs[i]!),
               relation: i == 0
                   ? 'SELF'
-                  : (i < _travellerRelations.length ? _travellerRelations[i] : 'SPOUSE'),
+                  : (i < _travellerRelations.length
+                      ? _travellerRelations[i]
+                      : (_isFriends ? 'MEMBER' : 'SPOUSE')),
             ),
         ],
       ),
@@ -994,6 +1046,7 @@ class _InsuranceSearchCardState extends State<InsuranceSearchCard> {
               noOfDays: _noOfDays!,
               travellerDobs: List<DateTime?>.from(_travellerDobs),
               travellerRelations: List<String>.from(_travellerRelations),
+              tenureInMonths: _isStudent ? effectiveTenure : null,
             ),
           ),
         ),
@@ -1241,15 +1294,25 @@ typedef _TravellersResult = ({List<DateTime?> dobs, List<String> relations});
 class _TravellersDialog extends StatefulWidget {
   final List<DateTime?> initialDobs;
   final List<String> initialRelations;
-  const _TravellersDialog({required this.initialDobs, required this.initialRelations});
+  // Benzy's support team: every non-lead traveller on a FRIENDS policy must
+  // carry relation MEMBER, not the general SPOUSE/CHILD/PARENT/SIBLING/
+  // FRIEND enum — see _relationOptions below.
+  final bool isFriends;
+  const _TravellersDialog({
+    required this.initialDobs,
+    required this.initialRelations,
+    required this.isFriends,
+  });
 
   static Future<_TravellersResult?> show(
-      BuildContext context, List<DateTime?> initialDobs, List<String> initialRelations) =>
+      BuildContext context, List<DateTime?> initialDobs, List<String> initialRelations,
+      {required bool isFriends}) =>
       showDialog<_TravellersResult>(
         context: context,
         builder: (_) => _TravellersDialog(
           initialDobs: initialDobs,
           initialRelations: initialRelations,
+          isFriends: isFriends,
         ),
       );
 
@@ -1258,10 +1321,24 @@ class _TravellersDialog extends StatefulWidget {
 }
 
 class _TravellersDialogState extends State<_TravellersDialog> {
-  static const _relationOptions = ['SPOUSE', 'CHILD', 'PARENT', 'SIBLING', 'FRIEND'];
+  static const _friendsRelationOptions = ['MEMBER'];
+  static const _generalRelationOptions = ['SPOUSE', 'CHILD', 'PARENT', 'SIBLING', 'FRIEND'];
+
+  List<String> get _relationOptions =>
+      widget.isFriends ? _friendsRelationOptions : _generalRelationOptions;
 
   late List<DateTime?> _dobs = List<DateTime?>.from(widget.initialDobs);
-  late List<String> _relations = List<String>.from(widget.initialRelations);
+  // Coerce anything left over from before the policy type became FRIENDS
+  // (or vice versa) into a value that's actually still a valid option —
+  // DropdownButton throws if its current value isn't in its own items.
+  // Index 0 (the lead traveller) is always SELF and is never shown in a
+  // dropdown at all, so it's deliberately left untouched here.
+  late List<String> _relations = [
+    for (int i = 0; i < widget.initialRelations.length; i++)
+      i == 0 || _relationOptions.contains(widget.initialRelations[i])
+          ? widget.initialRelations[i]
+          : _relationOptions.first,
+  ];
 
   @override
   Widget build(BuildContext context) {

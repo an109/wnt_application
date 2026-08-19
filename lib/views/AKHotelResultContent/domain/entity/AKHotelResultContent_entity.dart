@@ -77,13 +77,25 @@ class AkHotelResultContentEntity extends Equatable {
   final int total;
   final List<AkHotelContentItemEntity> hotels;
 
+  /// A separate, much larger, lower-detail sibling list Content returns
+  /// alongside [hotels] (no images/facilities/geoCode/rating-as-double —
+  /// just id/name/starRating/address). For a property-type search (the user
+  /// searched a specific hotel by name, e.g. "Velvet Revive Munnar"), the
+  /// matched hotel itself often only exists here — it never appears in
+  /// [hotels] at any page offset — so callers that want that hotel to be
+  /// reachable at all need to consult this list too. Kept separate from
+  /// [hotels]/[total] on purpose so existing pagination math (which counts
+  /// strictly against [total]) is untouched by it.
+  final List<AkHotelContentItemEntity> curatedHotels;
+
   const AkHotelResultContentEntity({
     required this.searchId,
     required this.locationName,
     required this.total,
     required this.hotels,
+    this.curatedHotels = const [],
   });
 
   @override
-  List<Object?> get props => [searchId, locationName, total, hotels];
+  List<Object?> get props => [searchId, locationName, total, hotels, curatedHotels];
 }

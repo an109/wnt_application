@@ -14,8 +14,8 @@ class AkHotelSearchInitApiServiceImpl implements AkHotelSearchInitApiService {
   @override
   Future<Response> searchInit(AkHotelSearchInitRequestModel request) async {
     try {
-      print('CALLING AKBAR HOTEL SEARCH INIT API: ${Urls.akHotelSearchInit}');
-      print('Request Body: ${request.toJson()}');
+      // print('CALLING AKBAR HOTEL SEARCH INIT API: ${Urls.akHotelSearchInit}');
+      // print('Request Body: ${request.toJson()}');
 
       final response = await dio.post(
         Urls.akHotelSearchInit,

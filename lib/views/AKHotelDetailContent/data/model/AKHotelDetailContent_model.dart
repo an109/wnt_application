@@ -1,5 +1,18 @@
 import '../../domain/entity/AKHotelDetailContent_entity.dart';
 
+/// This backend doesn't consistently type its numbers — the same field
+/// (`starRating` is the one that's bitten this app before; see the
+/// near-identical comment in AKHotelResultContent_model.dart) can come back
+/// as either a JSON number or a numeric *string* depending on which
+/// provider/hotel answered. A bare `json['x'] as num?` throws the moment it
+/// hits a string, which is exactly what crashed the hotel detail screen.
+/// Parsing through `.toString()` first accepts either shape.
+double? _toDouble(dynamic raw) {
+  if (raw == null) return null;
+  if (raw is num) return raw.toDouble();
+  return double.tryParse(raw.toString());
+}
+
 List<String> _parseImages(dynamic raw) {
   if (raw is! List) return const [];
   return raw
@@ -29,7 +42,7 @@ List<AkHotelAttractionEntity> _parseAttractions(dynamic raw) {
       .whereType<Map>()
       .map((a) => AkHotelAttractionEntity(
             name: (a['name'] ?? '').toString(),
-            distance: (a['distance'] as num?)?.toDouble() ?? 0.0,
+            distance: _toDouble(a['distance']) ?? 0.0,
             unit: (a['unit'] ?? '').toString(),
           ))
       .where((a) => a.name.isNotEmpty)
@@ -70,7 +83,7 @@ class AkHotelDetailContentModel extends AkHotelDetailContentEntity {
     return AkHotelDetailContentModel(
       id: hotel['id']?.toString() ?? '',
       name: hotel['name']?.toString() ?? '',
-      starRating: (hotel['starRating'] as num?)?.toDouble() ?? 0.0,
+      starRating: _toDouble(hotel['starRating']) ?? 0.0,
       addressLine1: (address['line1'] ?? '').toString(),
       city: (address['city'] ?? '').toString(),
       state: (address['state'] ?? '').toString(),
@@ -84,8 +97,8 @@ class AkHotelDetailContentModel extends AkHotelDetailContentEntity {
       checkoutTime: checkoutInfo['time']?.toString() ?? '',
       checkinSpecialInstructions: rawSpecialInstructions.map((s) => s.toString()).toList(),
       policies: _parsePolicies(hotel['policies']),
-      lat: (geoCode?['lat'] as num?)?.toDouble(),
-      long: (geoCode?['long'] as num?)?.toDouble(),
+      lat: _toDouble(geoCode?['lat']),
+      long: _toDouble(geoCode?['long']),
     );
   }
 }

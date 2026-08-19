@@ -55,6 +55,12 @@ class InsuranceTravellerInfo {
   final String passport;
   final String relationship;
   final String nationality;
+  // STUDENT policies only — blank for every other policy type, since the
+  // booking form only shows these fields for Student. See _issueInsurancePolicy
+  // for how these become StartPay's Traveller.StudentDetails/VisaType.
+  final String university;
+  final String sponsor;
+  final String guardian;
 
   const InsuranceTravellerInfo({
     required this.title,
@@ -65,6 +71,9 @@ class InsuranceTravellerInfo {
     required this.passport,
     required this.relationship,
     required this.nationality,
+    this.university = '',
+    this.sponsor = '',
+    this.guardian = '',
   });
 }
 
@@ -540,6 +549,31 @@ class _InsurancePaymentScreenState extends State<InsurancePaymentScreen> {
       stateName: widget.proposer.state,
     );
 
+    // Akbar prices/issues an ANNUAL MULTITRIP policy off TenureInMonths, not
+    // Start/EndDate (those stay a short user-picked window here, same as any
+    // other policy type) — leaving it null is what made StartPay come back
+    // 502 "CompletedWithFailure" for annual trips while single-trip types
+    // (which don't need a tenure) went through fine. 12 months is the
+    // standard annual tenure; other policy types are untouched.
+    final isAnnualPolicy = widget.request.insuranceType.toUpperCase().contains('ANNUAL');
+    // STUDENT is tenure-based too (Benzy's support team confirmed the same
+    // "Start Date + tenure, not a free date range" contract as Annual) —
+    // widget.request.tenureInMonths carries whatever the search form's
+    // TENURE (MONTHS) field was set to; fall back to the 3-month default
+    // QuotesListing itself defaults to if it's somehow missing.
+    final isStudentPolicy = widget.request.insuranceType.toUpperCase().contains('STUDENT');
+    // Plans[].Type is a different, narrower enum than the top-level
+    // PolicyType field below — confirmed by StartPay's own 502 for every
+    // non-Individual, non-Annual policy: "Invalid value provided for
+    // plan.Type, valid values are Individual, Senior Citizen, Multi Trip".
+    // PolicyType carries the real semantic category (STUDENT/FAMILY/
+    // FRIENDS/etc — and *does* accept those) while Plans[].Type is a
+    // coarser billing/rating class that only distinguishes annual
+    // multi-trip from everything else; Family/Friends/Student/Individual
+    // all bill as "Individual" here. This app has no policy type that maps
+    // to "Senior Citizen", so that value is never produced.
+    final planType = isAnnualPolicy ? 'Multi Trip' : 'Individual';
+
     final request = AkInsuranceStartPayRequestEntity(
       paymentReference: paymentReference,
       gateway: gateway,
@@ -548,8 +582,12 @@ class _InsurancePaymentScreenState extends State<InsurancePaymentScreen> {
       countryNames: widget.request.travellingCountries,
       startDate: dateOnly(widget.request.startDate),
       endDate: dateOnly(widget.request.endDate),
-      // Title case ("Individual"), matching the doc's own example and
-      // Plans[].Type below — was uppercased ("INDIVIDUAL") inconsistently.
+      tenureInMonths: isAnnualPolicy
+          ? 12
+          : (isStudentPolicy ? (widget.request.tenureInMonths ?? 3) : null),
+      // The real policy type (STUDENT/FAMILY/FRIENDS/INDIVIDUAL/ANNUAL
+      // MULTITRIP) — deliberately NOT the same value as planType above,
+      // see its comment for why those two fields diverge.
       policyType: widget.request.insuranceType,
       customer: AkInsuranceCustomerEntity(
         title: lead.title,
@@ -563,7 +601,7 @@ class _InsurancePaymentScreenState extends State<InsurancePaymentScreen> {
       plans: [
         AkInsurancePlanBookingEntity(
           id: widget.policy.planId,
-          type: widget.request.insuranceType,
+          type: planType,
           travellers: [
             for (int i = 0; i < widget.travellers.length; i++)
               AkInsuranceBookingTravellerEntity(
@@ -578,6 +616,13 @@ class _InsurancePaymentScreenState extends State<InsurancePaymentScreen> {
                 gender: widget.travellers[i].gender,
                 relationship: widget.travellers[i].relationship.toUpperCase(),
                 isProposer: i == 0,
+                // Was always the entity default ('TOURIST') for every
+                // policy type, including Student — a student travelling on
+                // a "TOURIST" visa contradicts PolicyType: STUDENT on the
+                // same request, which is plausibly why StartPay rejected
+                // every Student booking with a generic, field-less
+                // "Failure" even after plan.Type was fixed.
+                visaType: isStudentPolicy ? 'STUDENT' : 'TOURIST',
                 // Same nominee applies to every traveller — the booking form
                 // only collects one. Required by Benzy's schema; omitting it
                 // (along with QuestionsAnswers below) is what was crashing
@@ -590,6 +635,15 @@ class _InsurancePaymentScreenState extends State<InsurancePaymentScreen> {
                 questionsAnswers: const [AkInsuranceQuestionAnswerEntity.defaultPed],
                 addresses: [proposerAddress],
                 contactInfo: proposerContact,
+                // Only the booking form's Student-only fields ever populate
+                // this — blank for every other policy type, same as before.
+                studentDetails: AkInsuranceStudentDetailsEntity(
+                  universityDetails: widget.travellers[i].university.isEmpty
+                      ? null
+                      : widget.travellers[i].university,
+                  sponsor: widget.travellers[i].sponsor.isEmpty ? null : widget.travellers[i].sponsor,
+                  guardian: widget.travellers[i].guardian.isEmpty ? null : widget.travellers[i].guardian,
+                ),
               ),
           ],
         ),

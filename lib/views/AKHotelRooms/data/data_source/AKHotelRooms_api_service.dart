@@ -14,7 +14,7 @@ class AkHotelRoomsApiServiceImpl implements AkHotelRoomsApiService {
   Future<Response> getRooms(String searchId, String hotelId, String searchTracingKey) async {
     final url = Urls.akHotelRooms(searchId, hotelId);
     try {
-      print('CALLING AKBAR HOTEL ROOMS API: $url');
+      // print('CALLING AKBAR HOTEL ROOMS API: $url');
 
       final response = await dio.get(
         url,

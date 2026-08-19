@@ -14,7 +14,7 @@ class AkHotelFilterDataApiServiceImpl implements AkHotelFilterDataApiService {
   Future<Response> getFilterData(String searchId, String searchTracingKey) async {
     final url = Urls.akHotelFilterData(searchId);
     try {
-      print('CALLING AKBAR HOTEL FILTER DATA API: $url');
+      // print('CALLING AKBAR HOTEL FILTER DATA API: $url');
 
       final response = await dio.get(
         url,

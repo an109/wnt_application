@@ -14,7 +14,7 @@ class AkHotelDetailContentApiServiceImpl implements AkHotelDetailContentApiServi
   Future<Response> getHotelContent(String searchId, String hotelId, String priceProvider) async {
     final url = Urls.akHotelContent(searchId, hotelId);
     try {
-      print('CALLING AKBAR HOTEL DETAIL CONTENT API: $url (priceProvider=$priceProvider)');
+      print('CALLING AKBAR HOTEL DETAIL CONTENT API, (priceProvider=$priceProvider)');
 
       final response = await dio.get(
         url,

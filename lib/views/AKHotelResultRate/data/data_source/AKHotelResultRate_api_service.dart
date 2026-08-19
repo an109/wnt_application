@@ -14,7 +14,7 @@ class AkHotelResultRateApiServiceImpl implements AkHotelResultRateApiService {
   Future<Response> getResultRate(String searchId, String searchTracingKey) async {
     final url = Urls.akHotelResultRate(searchId);
     try {
-      print('CALLING AKBAR HOTEL RESULT RATE API: $url');
+      print('CALLING AKBAR HOTEL RESULT RATE API:');
 
       final response = await dio.get(
         url,

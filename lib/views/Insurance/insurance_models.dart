@@ -14,11 +14,19 @@ class InsuranceQuoteRequest {
   final DateTime endDate;
   final int noOfDays;
   final List<DateTime?> travellerDobs;
-  // One of SELF/SPOUSE/CHILD/PARENT/SIBLING/FRIEND per traveller, index-
-  // aligned with travellerDobs — QuotesListing/PlanDetails' documented enum
-  // for travellers[].relation. Defaulted so old call sites that don't pass
-  // it keep compiling; use relationFor(i) rather than indexing directly.
+  // One of SELF/SPOUSE/CHILD/PARENT/SIBLING/FRIEND per traveller (or MEMBER
+  // for a FRIENDS policy — Benzy's own correction, see _relationOptionsFor
+  // in insurance_search_card.dart), index-aligned with travellerDobs.
+  // Defaulted so old call sites that don't pass it keep compiling; use
+  // relationFor(i) rather than indexing directly.
   final List<String> travellerRelations;
+  // Only meaningful for a STUDENT policy — Benzy prices/issues that type off
+  // tenure rather than a free-picked date range (per their support team:
+  // "users only need to provide the Start Date and tenureInMonths; End Date
+  // is auto-calculated"). Null for every other policy type; StartPay leaves
+  // its own TenureInMonths null for those, unchanged from before this field
+  // existed.
+  final int? tenureInMonths;
 
   const InsuranceQuoteRequest({
     required this.insuranceType,
@@ -29,6 +37,7 @@ class InsuranceQuoteRequest {
     required this.noOfDays,
     required this.travellerDobs,
     this.travellerRelations = const [],
+    this.tenureInMonths,
   });
 
   int get travellers => travellerDobs.length;

@@ -13,7 +13,7 @@ class AkHotelStartPayApiServiceImpl implements AkHotelStartPayApiService {
   @override
   Future<Response> startPay(Map<String, dynamic> body) async {
     try {
-      print('CALLING AKBAR HOTEL START PAY API: ${Urls.akHotelStartPay}');
+      // print('CALLING AKBAR HOTEL START PAY API: ${Urls.akHotelStartPay}');
       print('Request Body: $body');
 
       final response = await dio.post(

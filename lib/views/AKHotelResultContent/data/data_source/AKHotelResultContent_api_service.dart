@@ -14,7 +14,7 @@ class AkHotelResultContentApiServiceImpl implements AkHotelResultContentApiServi
   Future<Response> getResultContent(String searchId, String searchTracingKey, int limit, int offset) async {
     final url = Urls.akHotelResultContent(searchId);
     try {
-      print('CALLING AKBAR HOTEL RESULT CONTENT API: $url (limit=$limit offset=$offset)');
+      print('CALLING AKBAR HOTEL RESULT CONTENT API, (limit=$limit offset=$offset)');
 
       final response = await dio.get(
         url,

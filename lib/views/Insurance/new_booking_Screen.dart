@@ -39,11 +39,21 @@ class _TravellerData {
   final TextEditingController last = TextEditingController();
   final TextEditingController passport = TextEditingController();
   final TextEditingController dobCtrl = TextEditingController();
+  // STUDENT policies only — StartPay's Traveller carries a StudentDetails
+  // block (University/Sponsor/Guardian) the app previously always left
+  // empty for every policy type, including Student. Optional here since
+  // it's unconfirmed whether Benzy actually requires them filled in.
+  final TextEditingController university = TextEditingController();
+  final TextEditingController sponsor = TextEditingController();
+  final TextEditingController guardian = TextEditingController();
   void dispose() {
     first.dispose();
     last.dispose();
     passport.dispose();
     dobCtrl.dispose();
+    university.dispose();
+    sponsor.dispose();
+    guardian.dispose();
   }
 }
 
@@ -102,6 +112,7 @@ class _InsuranceBookingScreenState extends State<InsuranceBookingScreen> {
   int get _baseFare => widget.policy.premiumInr * widget.request.travellers;
   int get _taxes => 0;
   int get _total => _baseFare + _taxes;
+  bool get _isStudentPolicy => widget.request.insuranceType.toUpperCase().contains('STUDENT');
 
   @override
   void initState() {
@@ -675,6 +686,26 @@ class _InsuranceBookingScreenState extends State<InsuranceBookingScreen> {
             onChanged: (v) => t.nationality = v,
             required: true,
           ),
+          if (_isStudentPolicy) ...[
+            SizedBox(height: context.h(12)),
+            _buildFormField(
+              context,
+              label: 'University / Institution',
+              controller: t.university,
+            ),
+            SizedBox(height: context.h(12)),
+            _buildFormField(
+              context,
+              label: 'Sponsor Name',
+              controller: t.sponsor,
+            ),
+            SizedBox(height: context.h(12)),
+            _buildFormField(
+              context,
+              label: 'Guardian Name',
+              controller: t.guardian,
+            ),
+          ],
         ],
       ),
     );
@@ -1273,6 +1304,9 @@ class _InsuranceBookingScreenState extends State<InsuranceBookingScreen> {
                 passport: t.passport.text.trim(),
                 relationship: t.relationship,
                 nationality: t.nationality,
+                university: t.university.text.trim(),
+                sponsor: t.sponsor.text.trim(),
+                guardian: t.guardian.text.trim(),
               ),
           ],
           nomineeFirst: _nomineeFirst.text.trim(),
