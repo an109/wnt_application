@@ -18,10 +18,10 @@ class TransportExclusiveDealsSection extends StatefulWidget {
 
 class _TransportExclusiveDealsSectionState
     extends State<TransportExclusiveDealsSection> {
-  int selectedTab = 1;
+  int selectedTab = 0; // Changed to 0 for HOT DEAL as default
   int currentIndex = 0;
   final CarouselSliderController _carouselController =
-      CarouselSliderController();
+  CarouselSliderController();
 
   String? _getDomainFilter(int tabIndex) {
     switch (tabIndex) {
@@ -39,17 +39,17 @@ class _TransportExclusiveDealsSectionState
   }
 
   List<ExclusiveDealEntity> _filterDealsByCategory(
-    List<ExclusiveDealEntity> deals,
-    int tabIndex,
-  ) {
+      List<ExclusiveDealEntity> deals,
+      int tabIndex,
+      ) {
     if (tabIndex == 0) {
       return deals.where((deal) => deal.isHotDeal).toList();
     }
 
     final filterMap = {
       1: ['flight'],
-      2: ['hotel'], // Will match if category OR owner_tab contains "hotel"
-      3: ['holidays', 'holiday'], // Handle plural/singular
+      2: ['hotel'],
+      3: ['holidays', 'holiday'],
     };
 
     final filters = filterMap[tabIndex];
@@ -59,8 +59,8 @@ class _TransportExclusiveDealsSectionState
         final ownerTab = deal.ownerTab.toLowerCase();
 
         return filters.any(
-          (f) =>
-              category.contains(f.toLowerCase()) ||
+              (f) =>
+          category.contains(f.toLowerCase()) ||
               ownerTab.contains(f.toLowerCase()),
         );
       }).toList();
@@ -72,7 +72,6 @@ class _TransportExclusiveDealsSectionState
   @override
   void initState() {
     super.initState();
-    // Load deals when widget initializes
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         context.read<ExclusiveDealsBloc>().add(
@@ -91,28 +90,31 @@ class _TransportExclusiveDealsSectionState
         children: [
           /// TITLE
           Text(
-            "Offers for you",
+            "Offers",
             style: TextStyle(
-              fontSize: context.titleLarge,
-              fontWeight: FontWeight.w700,
+              fontSize: context.fs(24),
+              fontWeight: FontWeight.w600,
               color: Colors.black87,
             ),
           ),
 
-          // Text(
-          //   "Exclusive Deals",
-          //   style: GoogleFonts.playfairDisplay(
-          //     fontSize: context.titleLarge,
-          //     fontWeight: FontWeight.w700, // Thick stroke profiles look gorgeous in serif
-          //     color: const Color(0xFF1A1A1A),
-          //     letterSpacing: 0.5,
-          //   ),
-          // ),
+          SizedBox(height: context.gapXSmall),
+
+          /// SUBTITLE
+          Text(
+            "Unmissable deals for unforgettable journeys",
+            style: TextStyle(
+              fontSize: context.bodySmall,
+              fontWeight: FontWeight.w400,
+              color: Colors.grey.shade600,
+            ),
+          ),
+
           SizedBox(height: context.gapMedium),
 
-          /// TABS
+          /// TABS - Pill-shaped buttons
           SizedBox(
-            height: context.h(32),
+            height: context.h(36),
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
               itemCount: 4,
@@ -125,47 +127,50 @@ class _TransportExclusiveDealsSectionState
                     setState(() {
                       selectedTab = index;
                     });
-                    // Reload deals with new filter
                     context.read<ExclusiveDealsBloc>().add(
                       LoadExclusiveDeals(domain: _getDomainFilter(index)),
                     );
                   },
                   child: Container(
-                    margin: EdgeInsets.only(right: context.gapLarge),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          tabs[index],
-                          style: TextStyle(
-                            fontSize: context.bodySmall,
-                            fontWeight: FontWeight.w600,
-                            color: isSelected
-                                ? const Color(0xff005B7F)
-                                : Colors.black54,
-                          ),
+                    margin: EdgeInsets.only(right: context.gapMedium),
+                    padding: EdgeInsets.fromLTRB(
+                      context.w(8),
+                      context.h(4),
+                      context.w(8),
+                      context.h(4),
+                    ),
+                    decoration: BoxDecoration(
+                      border: Border.all(
+                        color: isSelected
+                            ? const Color(0xff005B7F)
+                            : Colors.grey.shade300,
+                        width: 0.5,
+                      ),
+                      borderRadius: BorderRadius.circular(context.r(6)),
+                      color: isSelected
+                          ? const Color(0xff005B7F).withOpacity(0.05)
+                          : Colors.transparent,
+                    ),
+                    child: Center(
+                      child: Text(
+                        tabs[index],
+                        style: TextStyle(
+                          fontSize: context.fs(12),
+                          letterSpacing: 0.8,
+                          fontWeight: isSelected
+                              ? FontWeight.w600
+                              : FontWeight.w500,
+                          color: isSelected
+                              ? const Color(0xff005B7F)
+                              : Colors.grey.shade700,
                         ),
-                        SizedBox(height: context.gapXSmall),
-                        AnimatedContainer(
-                          duration: const Duration(milliseconds: 250),
-                          height: context.dividerMedium,
-                          width: context.w(64),
-                          decoration: BoxDecoration(
-                            color: isSelected
-                                ? const Color(0xff005B7F)
-                                : Colors.transparent,
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
                   ),
                 );
               },
             ),
           ),
-
-          Divider(color: Colors.grey.shade300, thickness: context.dividerThin),
 
           SizedBox(height: context.gapMedium),
 
@@ -188,14 +193,13 @@ class _TransportExclusiveDealsSectionState
               } else if (state is ExclusiveDealsError) {
                 return _buildErrorState(context, state.message);
               }
-              // return _buildLoadingCarousel(context);
               return const SizedBox.shrink();
             },
           ),
 
-          SizedBox(height: context.gapMedium),
+          SizedBox(height: context.gapSmall),
 
-          /// DOTS INDICATOR (only show when deals are loaded)
+          /// DOTS INDICATOR
           BlocBuilder<ExclusiveDealsBloc, ExclusiveDealsState>(
             builder: (context, state) {
               if (state is ExclusiveDealsLoaded) {
@@ -209,19 +213,17 @@ class _TransportExclusiveDealsSectionState
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: List.generate(
                     filteredDeals.length > 5 ? 5 : filteredDeals.length,
-                    (index) => AnimatedContainer(
+                        (index) => AnimatedContainer(
                       duration: const Duration(milliseconds: 300),
                       margin: EdgeInsets.symmetric(
-                        horizontal: context.gapXXSmall, // Use consistent gap
+                        horizontal: context.gapXXSmall,
                       ),
                       width: currentIndex == index
                           ? context.w(20)
-                          : context.w(8), // Responsive (22px or 8px on 400px)
-                      height: context.h(8), // 8px on 800px
+                          : context.w(8),
+                      height: context.h(8),
                       decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(
-                          context.borderRadiusLarge,
-                        ),
+                        borderRadius: BorderRadius.circular(4),
                         color: currentIndex == index
                             ? const Color(0xff005B7F)
                             : Colors.grey.shade300,
@@ -240,7 +242,6 @@ class _TransportExclusiveDealsSectionState
     );
   }
 
-  /// Loading state carousel placeholder
   Widget _buildLoadingCarousel(BuildContext context) {
     return CarouselSlider.builder(
       itemCount: 3,
@@ -265,7 +266,7 @@ class _TransportExclusiveDealsSectionState
               width: context.hp(5),
               child: CircularProgressIndicator(
                 color: const Color(0xff005B7F),
-                strokeWidth: context.h(1.5), // Responsive stroke
+                strokeWidth: context.h(1.5),
               ),
             ),
           ),
@@ -282,7 +283,6 @@ class _TransportExclusiveDealsSectionState
     );
   }
 
-  /// Error state with retry button
   Widget _buildErrorState(BuildContext context, String message) {
     return Container(
       width: double.infinity,
@@ -343,12 +343,10 @@ class _TransportExclusiveDealsSectionState
     );
   }
 
-  /// Main carousel with API data
   Widget _buildDealsCarousel(
-    BuildContext context,
-    List<ExclusiveDealEntity> deals,
-  ) {
-    // Limit to 5 items for carousel display
+      BuildContext context,
+      List<ExclusiveDealEntity> deals,
+      ) {
     final displayDeals = deals.length > 5 ? deals.sublist(0, 5) : deals;
 
     return CarouselSlider.builder(
@@ -361,11 +359,9 @@ class _TransportExclusiveDealsSectionState
         height: context.isMobile
             ? context.h(190)
             : (context.isTablet ? context.h(230) : context.h(270)),
-        viewportFraction: context.isMobile
-            ? 1
-            : (context.isTablet ? 0.9 : 0.8), // Better on larger screens
+        viewportFraction: 1, // Changed to 1 to match design (full width)
         autoPlay: true,
-        enlargeCenterPage: context.isTablet ? true : false, // Enlarge on tablet
+        enlargeCenterPage: false,
         onPageChanged: (index, reason) {
           setState(() {
             currentIndex = index;
@@ -376,9 +372,9 @@ class _TransportExclusiveDealsSectionState
   }
 
   Widget _buildDealBannerCard(
-    BuildContext context, {
-    required ExclusiveDealEntity deal,
-  }) {
+      BuildContext context, {
+        required ExclusiveDealEntity deal,
+      }) {
     return GestureDetector(
       onTap: () {
         Navigator.push(
@@ -391,9 +387,10 @@ class _TransportExclusiveDealsSectionState
       },
       child: Container(
         width: double.infinity,
-        // margin: EdgeInsets.symmetric(horizontal: context.gapSmall),
+        // margin: EdgeInsets.symmetric(horizontal: 8),
+        margin: EdgeInsets.zero,
         decoration: BoxDecoration(
-          // borderRadius: BorderRadius.circular(context.borderRadius),
+          borderRadius: BorderRadius.circular(context.borderRadius),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.08),
@@ -405,10 +402,9 @@ class _TransportExclusiveDealsSectionState
             image: deal.imageUrl.isNotEmpty
                 ? NetworkImage(deal.imageUrl)
                 : const AssetImage('assets/images/placeholder_deal.png')
-                      as ImageProvider,
+            as ImageProvider,
             fit: BoxFit.cover,
             onError: (exception, stackTrace) {
-              // Fallback to placeholder on image load error
               return;
             },
           ),
@@ -435,7 +431,6 @@ class _TransportExclusiveDealsSectionState
 
   @override
   void dispose() {
-    // _carouselController.dispose();
     super.dispose();
   }
 }

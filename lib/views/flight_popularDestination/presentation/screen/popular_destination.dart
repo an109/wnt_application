@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
-import 'package:wander_nova/views/flight_popularDestination/presentation/widget/destination_card.dart';
-import 'package:wander_nova/views/home/flight/flight_screen.dart';
-
 import '../../../Holidays/presentation/screen/holidays_screen.dart';
 import '../../domain/entities/Popular_destination_entity.dart';
 import '../bloc/destination_bloc.dart';
@@ -19,20 +16,13 @@ class PopularDestinations extends StatefulWidget {
 
 class _PopularDestinationsState extends State<PopularDestinations> {
   int _selectedFilterIndex = 0;
-  int _currentPage = 0;
-  PageController? _pageController;
   final List<String> _filterOptions = ['All', 'Domestic', 'International'];
 
   @override
   void initState() {
     super.initState();
-    print('PopularDestinations: initState called');
-    _pageController = PageController(viewportFraction: 0.93);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        print(
-          'PopularDestinations: Dispatching FetchPopularDestinations event',
-        );
         context.read<PopularDestinationBloc>().add(
           const FetchPopularDestinations(),
         );
@@ -40,73 +30,21 @@ class _PopularDestinationsState extends State<PopularDestinations> {
     });
   }
 
-  @override
-  void dispose() {
-    print('PopularDestinations: dispose called');
-    _pageController?.dispose();
-    super.dispose();
-  }
-
-  String _getFilterType(int index) {
-    switch (index) {
-      case 1:
-        return 'domestic';
-      case 2:
-        return 'international';
-      default:
-        return 'all';
-    }
-  }
-
-  Color _getFilterColor(int index) {
-    switch (index) {
-      case 1:
-        return const Color(0xff4CAF50);
-      case 2:
-        return const Color(0xff9C27B0);
-      default:
-        return const Color(0xff005B7F);
-    }
-  }
-
   List<DestinationEntity> _getFilteredDestinations(
-    List<DestinationEntity> allDestinations,
-  ) {
-    print(
-      'PopularDestinations: Filtering - selectedFilter: $_selectedFilterIndex, total: ${allDestinations.length}',
-    );
-
+      List<DestinationEntity> allDestinations,
+      ) {
     if (_selectedFilterIndex == 0) {
-      print('PopularDestinations: All filter applied');
       return allDestinations;
     } else if (_selectedFilterIndex == 1) {
-      final filtered = allDestinations
+      return allDestinations
           .where((dest) => dest.type?.toLowerCase() == 'domestic')
           .toList();
-      print(
-        'PopularDestinations: Domestic filter - ${filtered.length} results',
-      );
-      return filtered;
     } else if (_selectedFilterIndex == 2) {
-      final filtered = allDestinations
+      return allDestinations
           .where((dest) => dest.type?.toLowerCase() == 'international')
           .toList();
-      print(
-        'PopularDestinations: International filter - ${filtered.length} results',
-      );
-      return filtered;
     }
     return allDestinations;
-  }
-
-  void _safeAnimateToPage(int page) {
-    if (_pageController != null && _pageController!.hasClients) {
-      _pageController!.animateToPage(
-        page,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-      );
-    }
   }
 
   @override
@@ -115,41 +53,100 @@ class _PopularDestinationsState extends State<PopularDestinations> {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Header
+        // Header Section
         Padding(
-          padding: EdgeInsets.symmetric(
-            horizontal: context.wp(4),
-            vertical: context.hp(1),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          padding: EdgeInsets.symmetric(horizontal: context.wp(4)),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                   Text(
-                    'Popular Destinations',
-                    style: TextStyle(
-                      fontSize: context.titleLarge,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.black87,
-                    ),
-                  ),
-                  SizedBox(height: context.gapSmall / 2),
-                  Text(
-                    'Handpicked destinations just for you',
-                    style: TextStyle(
-                      fontSize: context.bodySmall,
-                      color: Colors.grey,
-                    ),
-                  ),
-                ],
+              Text(
+                'Popular Destination',
+                style: TextStyle(
+                  fontSize: context.fs(24),
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black87,
+                ),
               ),
-              TextButton(
-                onPressed: () {
-                  print(
-                    'PopularDestinations: View All tapped, navigating to HolidaysScreen',
-                  );
+              SizedBox(height: context.h(4)),
+              Text(
+                'Travel to the Most Loved Destinations',
+                style: TextStyle(
+                  fontSize: context.fs(12),
+                  color: Colors.grey.shade600,
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        SizedBox(height: context.h(16)),
+
+        // Filter Tabs and View All - Row Layout
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: context.wp(4)),
+          child: Row(
+            children: [
+              // Filter Pills
+              Expanded(
+                child: SizedBox(
+                  height: context.h(30),
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: _filterOptions.length,
+                    separatorBuilder: (context, index) =>
+                        SizedBox(width: context.w(12)),
+                    itemBuilder: (context, index) {
+                      final isSelected = _selectedFilterIndex == index;
+                      return GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _selectedFilterIndex = index;
+                          });
+                        },
+                        child: Container(
+                          padding: EdgeInsets.fromLTRB(
+                            context.w(8),
+                            context.h(4),
+                            context.w(8),
+                            context.h(4),
+                          ),
+                          decoration: BoxDecoration(
+                            border: Border.all(
+                              color: isSelected
+                                  ? const Color(0xff005B7F)
+                                  : Colors.grey.shade300,
+                              width: 0.5,
+                            ),
+                            borderRadius: BorderRadius.circular(context.r(6)),
+                            color: isSelected
+                                ? const Color(0xff005B7F).withOpacity(0.05)
+                                : Colors.transparent,
+                          ),
+                          child: Center(
+                            child: Text(
+                              _filterOptions[index].toUpperCase(),
+                              style: TextStyle(
+                                fontSize: context.fs(12),
+                                fontWeight: isSelected
+                                    ? FontWeight.w600
+                                    : FontWeight.w500,
+                                color: isSelected
+                                    ? const Color(0xff005B7F)
+                                    : Colors.grey.shade700,
+                                letterSpacing: 0.8
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+              // View All Link
+              SizedBox(width: context.w(16)),
+              GestureDetector(
+                onTap: () {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
@@ -157,20 +154,22 @@ class _PopularDestinationsState extends State<PopularDestinations> {
                     ),
                   );
                 },
-                style: TextButton.styleFrom(
-                  foregroundColor: const Color(0xff005B7F),
-                ),
                 child: Row(
                   children: [
                     Text(
-                      'View All',
+                      'View all',
                       style: TextStyle(
-                        fontSize: context.bodySmall,
+                        fontSize: context.fs(14),
                         fontWeight: FontWeight.w600,
+                        color: const Color(0xff005B7F),
                       ),
                     ),
-                    SizedBox(width: context.gapSmall / 2),
-                    Icon(Icons.arrow_forward, size: context.iconSmall),
+                    SizedBox(width: context.w(4)),
+                    Icon(
+                      Icons.arrow_forward,
+                      size: context.iconSmall,
+                      color: const Color(0xff005B7F),
+                    ),
                   ],
                 ),
               ),
@@ -178,173 +177,53 @@ class _PopularDestinationsState extends State<PopularDestinations> {
           ),
         ),
 
-        // Filter Tabs - Redesigned like reference screen
-        SizedBox(
-          height: context.hp(6),
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            padding: EdgeInsets.symmetric(horizontal: context.wp(3)),
-            itemCount: _filterOptions.length,
-            itemBuilder: (context, index) {
-              final isSelected = _selectedFilterIndex == index;
-              return GestureDetector(
-                onTap: () {
-                  print(
-                    'PopularDestinations: Filter tapped - ${_filterOptions[index]}',
-                  );
-                  setState(() {
-                    _selectedFilterIndex = index;
-                    _currentPage = 0;
-                    // _safeAnimateToPage(0);
-                  });
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (mounted &&
-                        _pageController != null &&
-                        _pageController!.hasClients) {
-                      _safeAnimateToPage(0);
-                    }
-                  });
-                },
-                child: Container(
-                  margin: EdgeInsets.only(right: context.gapLarge),
-                  child: Column(
-                    children: [
-                      Text(
-                        _filterOptions[index],
-                        style: TextStyle(
-                          fontSize: context.bodyLarge,
-                          fontWeight: FontWeight.w600,
-                          color: isSelected
-                              ? _getFilterColor(index)
-                              : Colors.black54,
-                        ),
-                      ),
-                      SizedBox(height: context.gapSmall),
-                      AnimatedContainer(
-                        duration: const Duration(milliseconds: 250),
-                        height: context.dividerMedium,
-                        width: context.wp(17),
-                        decoration: BoxDecoration(
-                          color: isSelected
-                              ? _getFilterColor(index)
-                              : Colors.transparent,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
+        SizedBox(height: context.h(20)),
 
-        Divider(color: Colors.grey.shade300, thickness: context.dividerThin),
-        SizedBox(height: context.gapMedium),
-
-        // BLOC BUILDER
+        // Destinations Carousel
         BlocBuilder<PopularDestinationBloc, PopularDestinationState>(
           builder: (context, state) {
-            print('PopularDestinations: Bloc state - ${state.runtimeType}');
-
             if (state is PopularDestinationLoading) {
-              print('PopularDestinations: Loading state');
               return _buildLoadingCarousel(context);
             } else if (state is PopularDestinationLoaded) {
               final filteredDestinations = _getFilteredDestinations(
                 state.destinations,
               );
 
-              // KEY: If empty, hide section completely - no whitespace
               if (filteredDestinations.isEmpty) {
-                print(
-                  'PopularDestinations: No destinations after filtering, hiding section',
-                );
                 return const SizedBox.shrink();
               }
 
               return _buildDestinationsContent(context, filteredDestinations);
             } else if (state is PopularDestinationError) {
-              print('PopularDestinations: Error state - ${state.message}');
               return _buildErrorState(context, state.message);
             }
             return const SizedBox.shrink();
           },
         ),
 
-        // Page Indicator - Only show when loaded with data
-        BlocBuilder<PopularDestinationBloc, PopularDestinationState>(
-          builder: (context, state) {
-            if (state is PopularDestinationLoaded) {
-              final filteredDestinations = _getFilteredDestinations(
-                state.destinations,
-              );
-              if (filteredDestinations.isEmpty) return const SizedBox.shrink();
-
-              return Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(
-                  filteredDestinations.length > 5
-                      ? 5
-                      : filteredDestinations.length,
-                  (index) => AnimatedContainer(
-                    duration: const Duration(milliseconds: 300),
-                    margin: EdgeInsets.symmetric(
-                      horizontal: context.gapSmall / 2,
-                    ),
-                    width: _currentPage == index ? context.wp(5.5) : context.wp(2),
-                    height: context.hp(1), // 8px on 800px
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(context.borderRadiusLarge),
-                      color: _currentPage == index
-                          ? const Color(0xff005B7F)
-                          : Colors.grey.shade300,
-                    ),
-                  ),
-                ),
-              );
-            }
-            return const SizedBox.shrink();
-          },
-        ),
-        SizedBox(height: context.gapLarge),
+        SizedBox(height: context.h(32)),
       ],
     );
   }
 
   Widget _buildLoadingCarousel(BuildContext context) {
-    print('PopularDestinations: Building loading carousel');
     return SizedBox(
-      height: context.cardHeight,
-      child: ListView.builder(
+      height: context.h(304),
+      child: ListView.separated(
         scrollDirection: Axis.horizontal,
-        padding: EdgeInsets.symmetric(horizontal: context.wp(2)),
+        padding: EdgeInsets.symmetric(horizontal: context.wp(4)),
         itemCount: 3,
+        separatorBuilder: (context, index) => SizedBox(width: context.w(16)),
         itemBuilder: (context, index) {
-          return Padding(
-            padding: EdgeInsets.symmetric(horizontal: context.wp(2)),
-            child: Container(
-              width: context.wp(85),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(context.borderRadius),
-                color: Colors.grey.shade200,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.08),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Center(
-                child: SizedBox(
-                  height: context.hp(5), // 40px on 800px
-                  width: context.hp(5),
-                  child: CircularProgressIndicator(
-                    color: const Color(0xff005B7F),
-                    strokeWidth: context.dividerMedium,
-                  ),
-                ),
+          return Container(
+            width: context.w(260),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(context.r(16)),
+              color: Colors.grey.shade200,
+            ),
+            child: Center(
+              child: CircularProgressIndicator(
+                color: const Color(0xff005B7F),
               ),
             ),
           );
@@ -354,12 +233,11 @@ class _PopularDestinationsState extends State<PopularDestinations> {
   }
 
   Widget _buildErrorState(BuildContext context, String message) {
-    print('PopularDestinations: Building error state - $message');
     return Container(
-      height: context.hp(35),
-      margin: EdgeInsets.all(context.wp(4)),
+      height: context.h(200),
+      margin: EdgeInsets.symmetric(horizontal: context.wp(4)),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(context.borderRadiusMedium),
+        borderRadius: BorderRadius.circular(context.r(16)),
         color: Colors.red.shade50,
         border: Border.all(color: Colors.red.shade200),
       ),
@@ -369,40 +247,16 @@ class _PopularDestinationsState extends State<PopularDestinations> {
           children: [
             Icon(
               Icons.error_outline,
-              size: context.iconLarge,
+              size: context.w(48),
               color: Colors.red.shade700,
             ),
-            SizedBox(height: context.gapSmall),
+            SizedBox(height: context.h(12)),
             Text(
               message,
               textAlign: TextAlign.center,
               style: TextStyle(
-                fontSize: context.bodyMedium,
+                fontSize: context.fs(14),
                 color: Colors.red.shade700,
-              ),
-            ),
-            SizedBox(height: context.gapMedium),
-            ElevatedButton(
-              onPressed: () {
-                print('PopularDestinations: Retry button tapped');
-                context.read<PopularDestinationBloc>().add(
-                  const FetchPopularDestinations(),
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xff005B7F),
-                foregroundColor: Colors.white,
-                padding: EdgeInsets.symmetric(
-                  horizontal: context.gapLarge,
-                  vertical: context.gapSmall,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(context.borderRadiusSmall),
-                ),
-              ),
-              child: Text(
-                'Retry',
-                style: TextStyle(fontSize: context.bodyMedium),
               ),
             ),
           ],
@@ -412,49 +266,194 @@ class _PopularDestinationsState extends State<PopularDestinations> {
   }
 
   Widget _buildDestinationsContent(
-    BuildContext context,
-    List<DestinationEntity> destinations,
-  ) {
-    print(
-      'PopularDestinations: Building carousel with ${destinations.length} items',
+      BuildContext context,
+      List<DestinationEntity> destinations,
+      ) {
+    return SizedBox(
+      height: context.h(280),
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: EdgeInsets.symmetric(horizontal: context.wp(4)),
+        itemCount: destinations.length,
+        separatorBuilder: (context, index) => SizedBox(width: context.w(16)),
+        itemBuilder: (context, index) {
+          final destination = destinations[index];
+          return _buildDestinationCard(context, destination);
+        },
+      ),
     );
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        SizedBox(
-          height: context.cardHeight,
-          child: PageView.builder(
-            controller: _pageController,
-            onPageChanged: (index) {
-              if (mounted) setState(() => _currentPage = index);
-            },
-            itemCount: destinations.length,
-            itemBuilder: (context, index) {
-              final destination = destinations[index];
-              print(
-                'PopularDestinations: Building card for ${destination.name}',
-              );
-              return Padding(
-                padding: EdgeInsets.symmetric(horizontal: context.wp(1.4)),
-                child: DestinationCard(
-                  destination: destination,
-                  onViewDetail: () {
-                    print(
-                      'PopularDestinations: Card tapped for ${destination.name}',
-                    );
-                    _showDestinationDetail(destination);
-                  },
-                ),
-              );
-            },
-          ),
+  }
+
+  Widget _buildDestinationCard(
+      BuildContext context,
+      DestinationEntity destination,
+      ) {
+    return GestureDetector(
+      onTap: () {
+        _showDestinationDetail(destination);
+      },
+      child: Container(
+        width: context.w(210),
+        height: context.h(220),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(context.r(16)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.08),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
-      ],
+        child: Stack(
+          children: [
+            // Full Image
+            ClipRRect(
+              borderRadius: BorderRadius.circular(context.r(12)),
+              child: SizedBox(
+                height: context.h(304),
+                width: double.infinity,
+                child: destination.imageUrl.isNotEmpty
+                    ? Image.network(
+                  destination.imageUrl,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      color: Colors.grey.shade300,
+                      child: Icon(
+                        Icons.location_city,
+                        size: context.w(48),
+                        color: Colors.grey.shade600,
+                      ),
+                    );
+                  },
+                )
+                    : Container(
+                  color: Colors.grey.shade300,
+                  child: Icon(
+                    Icons.location_city,
+                    size: context.w(48),
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+              ),
+            ),
+            // Gradient Overlay
+            Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(context.r(12)),
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.transparent,
+                    Colors.transparent,
+                    Colors.black.withOpacity(0.7),
+                  ],
+                  stops: const [0.0, 0.5, 1.0],
+                ),
+              ),
+            ),
+            // Heart Icon
+            Positioned(
+              top: context.h(15),
+              right: context.w(15),
+              child: Container(
+                width: context.w(25),
+                height: context.h(25),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Image.asset(
+                  'assets/NewIcons/heart.png',
+                  width: context.w(18),
+                  height: context.h(18),
+                ),
+              ),
+            ),
+            // Content Overlay at Bottom
+            Positioned(
+              left: context.w(16),
+              right: context.w(16),
+              bottom: context.h(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Destination Name
+                  Text(
+                    destination.name,
+                    style: TextStyle(
+                      fontSize: context.fs(18),
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  SizedBox(height: context.h(4)),
+                  // Description
+                  Text(
+                    destination.description.isNotEmpty
+                        ? destination.description
+                        : 'Experience luxury, adventure, and iconic landmarks',
+                    style: TextStyle(
+                      fontSize: context.fs(12),
+                      color: Colors.white.withOpacity(0.9),
+                      height: 1.4,
+                    ),
+                    maxLines: 4,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  SizedBox(height: context.h(12)),
+                  // Price and View All
+                  Text(
+                    destination.price.isNotEmpty
+                        ? destination.price
+                        : '',
+                    style: TextStyle(
+                      fontSize: context.fs(16),
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                    ),
+                  ),
+                  SizedBox(height: context.h(12)),
+                  Row(
+                    children: [
+                      Text(
+                        'View all',
+                        style: TextStyle(
+                          fontSize: context.fs(14),
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xffFF6600),
+                        ),
+                      ),
+                      SizedBox(width: context.w(4)),
+                      Icon(
+                        Icons.arrow_forward,
+                        size: context.w(14),
+                        color: const Color(0xffFF6B00),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
   void _showDestinationDetail(DestinationEntity destination) {
-    print('PopularDestinations: Showing detail for ${destination.name}');
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -472,303 +471,119 @@ class _DestinationDetailSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    print('DestinationDetailSheet: Building for ${destination.name}');
-
     return Container(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(24),
-          topRight: Radius.circular(24),
+          topLeft: Radius.circular(context.r(24)),
+          topRight: Radius.circular(context.r(24)),
         ),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           ClipRRect(
-            // borderRadius: BorderRadius.circular(16),
             child: destination.imageUrl.isNotEmpty
                 ? Image.network(
-                    destination.imageUrl,
-                    height: 200,
-                    width: double.infinity,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) {
-                      print(
-                        'DestinationDetailSheet: Image load error for ${destination.imageUrl}',
-                      );
-                      return _buildPlaceholderImage(context);
-                    },
-                    loadingBuilder: (context, child, loadingProgress) {
-                      if (loadingProgress == null) return child;
-                      return Container(
-                        height: 200,
-                        color: Colors.grey.shade200,
-                        child: Center(
-                          child: CircularProgressIndicator(
-                            color: const Color(0xff005B7F),
-                            value: loadingProgress.expectedTotalBytes != null
-                                ? loadingProgress.cumulativeBytesLoaded /
-                                      loadingProgress.expectedTotalBytes!
-                                : null,
-                          ),
-                        ),
-                      );
-                    },
-                  )
-                : _buildPlaceholderImage(context),
+              destination.imageUrl,
+              height: context.h(200),
+              width: double.infinity,
+              fit: BoxFit.cover,
+            )
+                : Container(
+              height: context.h(200),
+              color: Colors.grey.shade300,
+              child: Icon(Icons.location_city, size: context.w(80)),
+            ),
           ),
-
-          const SizedBox(height: 16),
-
-          // Title and Type Badge
+          SizedBox(height: context.h(16)),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            padding: EdgeInsets.symmetric(horizontal: context.w(20)),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Text(
-                            destination.name,
-                            style:  TextStyle(
-                              fontSize: context.fs(24),
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color:
-                                  destination.type?.toLowerCase() == 'domestic'
-                                  ? Colors.green.withOpacity(0.1)
-                                  : Colors.purple.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  destination.type?.toLowerCase() == 'domestic'
-                                      ? Icons.home
-                                      : Icons.flight,
-                                  size: 12,
-                                  color:
-                                      destination.type?.toLowerCase() ==
-                                          'domestic'
-                                      ? Colors.green
-                                      : Colors.purple,
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  destination.type?.toLowerCase() == 'domestic'
-                                      ? 'Domestic'
-                                      : 'International',
-                                  style: TextStyle(
-                                    fontSize: context.overline,
-                                    fontWeight: FontWeight.w600,
-                                    color:
-                                        destination.type?.toLowerCase() ==
-                                            'domestic'
-                                        ? Colors.green
-                                        : Colors.purple,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                      Text(
-                        destination.tagline.isNotEmpty
-                            ? destination.tagline
-                            : destination.country,
-                        style: TextStyle(
-                          fontSize: context.bodyMedium,
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
-                    ],
+                Text(
+                  destination.name,
+                  style: TextStyle(
+                    fontSize: context.fs(24),
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 12),
-
-          // Location Info
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.blue.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.location_on,
-                        size: 16,
-                        color: Colors.blue,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        destination.country,
-                        style: TextStyle(
-                          fontSize: context.bodySmall,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      if (destination.state?.isNotEmpty == true)
-                        Text(
-                          ', ${destination.state}',
-                          style: TextStyle(
-                            fontSize: context.bodySmall,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                    ],
+                SizedBox(height: context.h(8)),
+                Text(
+                  destination.country,
+                  style: TextStyle(
+                    fontSize: context.fs(14),
+                    color: Colors.grey.shade600,
                   ),
                 ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 16),
-
-          // Description
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Text(
-              destination.description.isNotEmpty
-                  ? destination.description
-                  : destination.longDescription,
-              style: TextStyle(
-                fontSize: context.bodyMedium,
-                color: Colors.grey.shade700,
-                height: 1.5,
-              ),
-              maxLines: 3,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-
-          const SizedBox(height: 20),
-
-          // Price and Book Button
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                SizedBox(height: context.h(16)),
+                Text(
+                  destination.description.isNotEmpty
+                      ? destination.description
+                      : destination.longDescription,
+                  style: TextStyle(
+                    fontSize: context.fs(14),
+                    color: Colors.grey.shade700,
+                    height: 1.5,
+                  ),
+                ),
+                SizedBox(height: context.h(20)),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      'Starting from',
-                      style: TextStyle(
-                        fontSize: context.bodySmall,
-                        color: Colors.grey.shade600,
-                      ),
-                    ),
-                    RichText(
-                      text: TextSpan(
-                        children: [
-                          TextSpan(
-                            text: destination.price.isNotEmpty
-                                ? destination.price.split('/')[0].trim()
-                                : 'Contact for price',
-                            style: TextStyle(
-                              fontSize: context.fs(28),
-                              fontWeight: FontWeight.bold,
-                              color: const Color(0xff005B7F),
-                            ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Starting from',
+                          style: TextStyle(
+                            fontSize: context.fs(12),
+                            color: Colors.grey.shade600,
                           ),
-                          if (destination.price.contains('/'))
-                            TextSpan(
-                              text: '\n${destination.price.split('/')[1].trim()}',
-                              style: TextStyle(
-                                fontSize: context.bodySmall,
-                                fontWeight: FontWeight.normal,
-                                color: Colors.grey.shade600,
-                              ),
-                            ),
-                        ],
+                        ),
+                        Text(
+                          destination.price.isNotEmpty
+                              ? destination.price.split('/')[0].trim()
+                              : 'Contact for price',
+                          style: TextStyle(
+                            fontSize: context.fs(28),
+                            fontWeight: FontWeight.bold,
+                            color: const Color(0xff005B7F),
+                          ),
+                        ),
+                      ],
+                    ),
+                    ElevatedButton(
+                      onPressed: () {
+                        Navigator.pop(context);
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xff005B7F),
+                        padding: EdgeInsets.symmetric(
+                          horizontal: context.w(32),
+                          vertical: context.h(16),
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(context.r(30)),
+                        ),
+                      ),
+                      child: Text(
+                        'Book Now',
+                        style: TextStyle(
+                          fontSize: context.fs(16),
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ],
                 ),
-                ElevatedButton(
-                  onPressed: () {
-                    print(
-                      'DestinationDetailSheet: Book Now tapped for ${destination.name}',
-                    );
-                    Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Booking ${destination.name} trip!'),
-                        backgroundColor: Colors.green,
-                        duration: const Duration(seconds: 2),
-                        behavior: SnackBarBehavior.floating,
-                      ),
-                    );
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xff005B7F),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 32,
-                      vertical: 16,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                  ),
-                  child: GestureDetector(
-                    onTap: () {
-                      Navigator.push(context, MaterialPageRoute(builder: (_) => HolidaysScreen()));
-                    },
-                    child: Text(
-                      'Book Now',
-                      style: TextStyle(
-                        fontSize: context.bodyLarge,
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
               ],
             ),
           ),
-          const SizedBox(height: 20),
+          SizedBox(height: context.h(20)),
         ],
-      ),
-    );
-  }
-
-  Widget _buildPlaceholderImage(BuildContext context) {
-    return Container(
-      height: 200,
-      color: const Color(0xff005B7F).withOpacity(0.2),
-      child: Icon(
-        Icons.location_city,
-        size: 80,
-        color: const Color(0xff005B7F),
       ),
     );
   }

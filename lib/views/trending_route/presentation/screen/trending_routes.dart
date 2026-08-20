@@ -12,7 +12,6 @@ import '../../domain/entities/trending_routes_entity.dart';
 import '../bloc/trending_routes_bloc.dart';
 import '../bloc/trending_routes_event.dart';
 import '../bloc/trending_routes_state.dart';
-import '../widget/package_card.dart';
 
 class TrendingPackages extends StatelessWidget {
   const TrendingPackages({super.key});
@@ -35,7 +34,6 @@ class TrendingPackagesView extends StatefulWidget {
 }
 
 class _TrendingPackagesViewState extends State<TrendingPackagesView> {
-
   @override
   void initState() {
     super.initState();
@@ -56,7 +54,6 @@ class _TrendingPackagesViewState extends State<TrendingPackagesView> {
     );
   }
 
-  // Navigate to FlightSearchScreen with route data
   void _navigateToFlightSearch(BuildContext context, TrendingRouteEntity route) async {
     print('Navigating to FlightSearchScreen');
     print('From: ${route.from} (${route.fromCode})');
@@ -64,11 +61,8 @@ class _TrendingPackagesViewState extends State<TrendingPackagesView> {
     print('Date: ${route.date}');
     print('Price: ${route.price} ${route.currency}');
 
-    // Parse date from API format "DD/MM/YYYY" to DateTime
     final parsedDate = DateTime.now();
 
-    // Kick off the Akbar ExpressSearch to get a search `tui` before opening
-    // FlightSearchScreen, which polls GetExpSearch using that tui.
     final request = FlightSearchRequestEntity(
       adults: 1,
       children: 0,
@@ -124,42 +118,6 @@ class _TrendingPackagesViewState extends State<TrendingPackagesView> {
   String _formatDateForSearch(DateTime date) =>
       '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
 
-  // Helper: Parse date string "DD/MM/YYYY" to DateTime
-  DateTime? _parseDate(String dateString) {
-    try {
-      if (dateString.isEmpty) return null;
-
-      // Expected format: "18/04/2026"
-      final parts = dateString.split('/');
-      if (parts.length != 3) return null;
-
-      final day = int.tryParse(parts[0]);
-      final month = int.tryParse(parts[1]);
-      final year = int.tryParse(parts[2]);
-
-      if (day == null || month == null || year == null) return null;
-
-      return DateTime(year, month, day);
-    } catch (e) {
-      print('Error parsing date: $dateString, error: $e');
-      return null;
-    }
-  }
-
-  // String _formatPrice(num price, String currency) {
-  //   final priceStr = price.toStringAsFixed(0);
-  //   final buffer = StringBuffer();
-  //   final len = priceStr.length;
-  //
-  //   for (var i = 0; i < len; i++) {
-  //     if (i > 0 && (len - i) % 3 == 0) {
-  //       buffer.write(',');
-  //     }
-  //     buffer.write(priceStr[i]);
-  //   }
-  //
-  //   return '$currency $buffer';
-  // }
   String _formatPrice(num price, String currency, {String? targetCurrency}) {
     double finalPrice = price.toDouble();
     if (targetCurrency != null) {
@@ -194,38 +152,6 @@ class _TrendingPackagesViewState extends State<TrendingPackagesView> {
         '${now.year}';
   }
 
-  Map<String, dynamic> _mapToRouteCard(TrendingRouteEntity entity) {
-    final prefs = sl<PreferencesManager>();
-    final targetCurrency = prefs.getPreferredCurrency() ?? 'INR';
-
-    return {
-      'from': entity.from,
-      'to': entity.to,
-      'fromCode': entity.fromCode,
-      'toCode': entity.toCode,
-      'date': getCurrentDate(),
-      'price': _formatPrice(entity.price, entity.currency, targetCurrency: targetCurrency),
-      'image': entity.imageUrl,
-      'bgColor': Colors.blue.shade50,
-      'color': Colors.blue,
-      'type': 'Flights',
-      'icon': Icons.flight,
-      'time': '08:00 - 10:30',
-      'duration': '2h 30m',
-      'stops': 'Non-stop',
-      'airline': 'Air Arabia',
-      'rating': '4.5',
-      'originalPrice': _formatPrice(
-        (entity.price * 1.2).toInt(),
-        entity.currency,
-        targetCurrency: targetCurrency,
-      ),
-      'discount': '20% OFF',
-      'busType': '',
-      'train': '',
-      'entity': entity,
-    };
-  }
   @override
   Widget build(BuildContext context) {
     print('Building TrendingPackagesView');
@@ -234,144 +160,373 @@ class _TrendingPackagesViewState extends State<TrendingPackagesView> {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
+        // Header Section
         Padding(
-          padding: EdgeInsets.symmetric(
-              horizontal: context.wp(4),
-              vertical: context.hp(1.5)
-          ),
-          child: Text(
-            "Trending Routes With Best Prices",
-            style: TextStyle(
-              fontSize: context.titleLarge,
-              fontWeight: FontWeight.bold,
-            ),
+          padding: EdgeInsets.symmetric(horizontal: context.wp(4)),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Travel Routes',
+                    style: TextStyle(
+                      fontSize: context.fs(24),
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  SizedBox(height: context.h(4)),
+                  Text(
+                    'Discover routes that take you further',
+                    style: TextStyle(
+                      fontSize: context.fs(12),
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                ],
+              ),
+              GestureDetector(
+                onTap: () {
+                  print('View all tapped');
+                },
+                child: Row(
+                  children: [
+                    Text(
+                      'View all',
+                      style: TextStyle(
+                        fontSize: context.fs(14),
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xff005B7F),
+                      ),
+                    ),
+                    SizedBox(width: context.w(4)),
+                    Icon(
+                      Icons.arrow_forward,
+                      size: context.iconSmall,
+                      color: const Color(0xff005B7F),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
 
+        SizedBox(height: context.h(20)),
+
+        // Routes Carousel
         SizedBox(
-          height: context.isMobile ? context.hp(24) : (context.isTablet ? context.hp(28) : context.hp(32)),
+          height: context.h(230),
           child: ValueListenableBuilder<String>(
             valueListenable: CurrencyConverter.currencyListenable,
             builder: (context, _, __) => BlocBuilder<TrendingRoutesBloc, TrendingRoutesState>(
-            builder: (context, state) {
-              print('BLoC State: ${state.runtimeType}');
+              builder: (context, state) {
+                print('BLoC State: ${state.runtimeType}');
 
-              if (state is TrendingRoutesLoading) {
-                print('Showing loading indicator');
-                return Center(
-                  child: CircularProgressIndicator(
-                    strokeWidth: context.wp(0.8),
-                  ),
-                );
-              }
+                if (state is TrendingRoutesLoading) {
+                  print('Showing loading indicator');
+                  return Center(
+                    child: CircularProgressIndicator(
+                      color: const Color(0xff005B7F),
+                      strokeWidth: 2,
+                    ),
+                  );
+                }
 
-              if (state is TrendingRoutesError) {
-                print('Showing error state: ${state.message}');
-                return Center(
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(horizontal: context.wp(8)),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.error_outline,
-                          size: context.iconLarge,
-                          color: Colors.red.shade400,
-                        ),
-                        SizedBox(height: context.gapMedium),
-                        Text(
-                          state.message,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: context.bodySmall,
-                            color: Colors.grey[600],
+                if (state is TrendingRoutesError) {
+                  print('Showing error state: ${state.message}');
+                  return Center(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(horizontal: context.wp(8)),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.error_outline,
+                            size: context.w(48),
+                            color: Colors.red.shade400,
                           ),
-                        ),
-                        SizedBox(height: context.gapLarge),
-                        ElevatedButton.icon(
-                          onPressed: _onRetry,
-                          icon: Icon(Icons.refresh, size: context.iconSmall),
-                          label: Text('Retry', style: TextStyle(fontSize: context.bodySmall)),
-                          style: ElevatedButton.styleFrom(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: context.wp(6),
-                              vertical: context.hp(1.5),
+                          SizedBox(height: context.h(12)),
+                          Text(
+                            state.message,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: context.fs(14),
+                              color: Colors.grey.shade600,
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              }
-
-              if (state is TrendingRoutesLoaded) {
-                print('Showing ${state.routes.length} routes');
-
-                if (state.routes.isEmpty) {
-                  return Center(
-                    child: Text(
-                      'No trending routes found',
-                      style: TextStyle(
-                        fontSize: context.bodySmall,
-                        color: Colors.grey[600],
+                          SizedBox(height: context.h(16)),
+                          ElevatedButton(
+                            onPressed: _onRetry,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xff005B7F),
+                              padding: EdgeInsets.symmetric(
+                                horizontal: context.w(24),
+                                vertical: context.h(12),
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(context.r(20)),
+                              ),
+                            ),
+                            child: Text(
+                              'Retry',
+                              style: TextStyle(fontSize: context.fs(14)),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   );
                 }
 
-                final routeCards = state.routes.map(_mapToRouteCard).toList();
+                if (state is TrendingRoutesLoaded) {
+                  print('Showing ${state.routes.length} routes');
 
-                return RefreshIndicator(
-                  onRefresh: () async {
-                    _onRefresh();
-                    await Future.delayed(Duration(milliseconds: context.gapMedium.toInt() * 20));
-                  },
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    padding: EdgeInsets.symmetric(horizontal: context.wp(3)),
-                    physics: context.scrollPhysics,
-                    itemCount: (routeCards.length / 2).ceil(),
-                    itemBuilder: (context, index) {
-                      print('Building route card at index: $index');
+                  if (state.routes.isEmpty) {
+                    return Center(
+                      child: Text(
+                        'No trending routes found',
+                        style: TextStyle(
+                          fontSize: context.fs(14),
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                    );
+                  }
 
-                      return Column(
-                        children: [
-                          RouteCard(
-                            route: routeCards[index * 2],
-                            onTap: () {
-                              // Get the entity from the mapped data
-                              final entity = routeCards[index * 2]['entity'] as TrendingRouteEntity?;
-                              if (entity != null) {
-                                _navigateToFlightSearch(context, entity);
-                              }
-                            },
-                          ),
-                          SizedBox(height: context.gapMedium),
-                          if (index * 2 + 1 < routeCards.length)
-                            RouteCard(
-                              route: routeCards[index * 2 + 1],
-                              onTap: () {
-                                final entity = routeCards[index * 2 + 1]['entity'] as TrendingRouteEntity?;
-                                if (entity != null) {
-                                  _navigateToFlightSearch(context, entity);
-                                }
-                              },
-                            ),
-                        ],
-                      );
+                  return RefreshIndicator(
+                    onRefresh: () async {
+                      _onRefresh();
+                      await Future.delayed(Duration(milliseconds: 300));
                     },
-                  ),
-                );
-              }
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      padding: EdgeInsets.symmetric(horizontal: context.wp(4)),
+                      physics: AlwaysScrollableScrollPhysics(),
+                      itemCount: state.routes.length,
+                      separatorBuilder: (context, index) => SizedBox(width: context.w(16)),
+                      itemBuilder: (context, index) {
+                        final route = state.routes[index];
+                        print('Building route card at index: $index');
+                        return _buildRouteCard(context, route);
+                      },
+                    ),
+                  );
+                }
 
-              print('Showing initial/empty state');
-              return const SizedBox.shrink();
-            },
+                print('Showing initial/empty state');
+                return const SizedBox.shrink();
+              },
             ),
           ),
         ),
+
+        SizedBox(height: context.h(32)),
       ],
+    );
+  }
+
+  Widget _buildRouteCard(BuildContext context, TrendingRouteEntity route) {
+    final prefs = sl<PreferencesManager>();
+    final targetCurrency = prefs.getPreferredCurrency() ?? 'INR';
+    final formattedPrice = _formatPrice(route.price, route.currency, targetCurrency: targetCurrency);
+    final currentDate = getCurrentDate();
+
+    return GestureDetector(
+      onTap: () {
+        _navigateToFlightSearch(context, route);
+      },
+      child: Container(
+        width: context.w(180),
+        height: context.h(230),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(context.r(16)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.08),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Stack(
+          children: [
+            // Full Image
+            ClipRRect(
+              borderRadius: BorderRadius.circular(context.r(16)),
+              child: SizedBox(
+                height: context.h(230),
+                width: context.w(180),
+                child: route.imageUrl.isNotEmpty
+                    ? Image.network(
+                  route.imageUrl,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      color: Colors.grey.shade300,
+                      child: Icon(
+                        Icons.flight,
+                        size: context.w(48),
+                        color: Colors.grey.shade600,
+                      ),
+                    );
+                  },
+                )
+                    : Container(
+                  color: Colors.grey.shade300,
+                  child: Icon(
+                    Icons.flight,
+                    size: context.w(48),
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+              ),
+            ),
+            // Gradient Overlay
+            Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(context.r(12)),
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.transparent,
+                    Colors.transparent,
+                    Colors.black.withOpacity(0.7),
+                  ],
+                  stops: const [0.0, 0.5, 1.0],
+                ),
+              ),
+            ),
+            // Heart Icon
+            Positioned(
+              top: context.h(12),
+              right: context.w(12),
+              child: Container(
+                width: context.w(22),
+                height: context.h(22),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Image.asset(
+                  'assets/NewIcons/heart.png',
+                  width: context.w(18),
+                  height: context.h(18),
+                ),
+              ),
+            ),
+            // Content Overlay at Bottom
+            Positioned(
+              left: context.w(16),
+              right: context.w(16),
+              bottom: context.h(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Route: Mumbai → Bangalore
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          route.from,
+                          style: TextStyle(
+                            fontSize: context.fs(16),
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      Icon(
+                        Icons.flight_takeoff,
+                        size: context.w(16),
+                        color: const Color(0xffFF6B00),
+                      ),
+                      SizedBox(width: context.w(4)),
+                      Expanded(
+                        child: Text(
+                          route.to,
+                          style: TextStyle(
+                            fontSize: context.fs(16),
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: context.h(4)),
+                  // Airport Codes: BOM → BLR
+                  Row(
+                    children: [
+                      Text(
+                        route.fromCode,
+                        style: TextStyle(
+                          fontSize: context.fs(14),
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xffFF6B00),
+                        ),
+                      ),
+                      SizedBox(width: context.w(4)),
+                      Icon(
+                        Icons.chevron_right,
+                        size: context.w(16),
+                        color: const Color(0xffFF6B00),
+                      ),
+                      SizedBox(width: context.w(4)),
+                      Text(
+                        route.toCode,
+                        style: TextStyle(
+                          fontSize: context.fs(14),
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xffFF6B00),
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: context.h(12)),
+                  // Date and Price
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        currentDate,
+                        style: TextStyle(
+                          fontSize: context.fs(12),
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white.withOpacity(0.9),
+                        ),
+                      ),
+                      Text(
+                        formattedPrice,
+                        style: TextStyle(
+                          fontSize: context.fs(20),
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 

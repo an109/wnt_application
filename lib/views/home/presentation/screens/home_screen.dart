@@ -1,38 +1,33 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:wander_nova/UI_helper/currency_converter.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import 'package:wander_nova/common_widgets/custom_drawer.dart';
 import 'package:wander_nova/core/resources/app_colours.dart';
 import 'package:wander_nova/core/utils/storage/shared_preference.dart';
-import 'package:wander_nova/views/T_location/presentation/screen/booking_card.dart';
-import '../../../../common_widgets/logo.dart';
 import '../../../../injection_container.dart';
+import '../../../../newUIWidgets/Home_nav.dart';
 import '../../../ExclusiveDeals/presentation/bloc/exclusive_deals_bloc.dart';
 import '../../../ExclusiveDeals/presentation/bloc/exclusive_deals_event.dart';
 import '../../../ExclusiveDeals/presentation/screen/T_exclusiveDeals.dart';
-import '../../../Holidays/presentation/widget/holiday_search_card.dart';
+import '../../../Holidays/presentation/screen/holidays_screen.dart';
 import '../../../Hotel/screen/hotel_screen.dart';
-import '../../../Hotel/section/exclusive_deals/hotel_search_card.dart';
 import '../../../MainApi/domain/entities/general_setting_entity.dart';
 import '../../../MainApi/presentation/bloc/general_setting_bloc.dart';
 import '../../../MainApi/presentation/bloc/general_settings_event.dart';
 import '../../../MainApi/presentation/bloc/general_settings_state.dart';
+import '../../../NewSection/CompanyInfo.dart';
+import '../../../NewSection/NewSection.dart';
+import '../../../NewSection/foryourStay.dart';
 import '../../../Transport/screen/transport_screen.dart';
-import '../../../airport/presentation/screen/search_card.dart';
 import '../../../travel_stories/presentation/screen/travel_stories.dart';
 import '../../../visa/presentation/screen/visa_screen.dart';
-import '../../../visa/presentation/sections/visa_banner_section.dart';
-import '../screen_sections/about_company_section.dart';
-import '../screen_sections/contact_section.dart';
-import '../screen_sections/faq/FAQ_section.dart';
 import '../../../flight_popularDestination/presentation/screen/popular_destination.dart';
 import '../../../trending_route/presentation/screen/trending_routes.dart';
-import '../../../Insurance/insurance_search_card.dart';
-import '../screen_sections/service_info_section.dart';
-import '../screen_sections/why_choose_us/why_choose_us.dart';
 import '../../flight/flight_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -43,24 +38,58 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  int selectedServiceIndex = 0;
-  bool isOneWay = true;
-  DateTime selectedDate = DateTime.now();
-  TimeOfDay selectedTime = const TimeOfDay(hour: 9, minute: 0);
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
+  int selectedNavIndex = 0;
   List<Map<String, dynamic>> _recentSearches = [];
+
+  // ---------------------------------------------------------------------
+  // Scroll-based hide/show for the bottom nav: scrolling down slides it
+  // out of view, scrolling up (or being back near the top) brings it back.
+  // ---------------------------------------------------------------------
+  final ScrollController _scrollController = ScrollController();
+  bool _bottomNavVisible = true;
+  double _lastScrollOffset = 0;
 
   @override
   void initState() {
     super.initState();
-    _printInitialDimensions();
     _loadRecentSearches();
+    _scrollController.addListener(_onScroll);
   }
 
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    final offset = _scrollController.offset;
+    final delta = offset - _lastScrollOffset;
+    _lastScrollOffset = offset;
+
+    // Always reveal the nav bar once the user is back near the top.
+    if (offset <= 8 && !_bottomNavVisible) {
+      setState(() => _bottomNavVisible = true);
+      return;
+    }
+    if (delta > 6 && _bottomNavVisible) {
+      setState(() => _bottomNavVisible = false);
+    } else if (delta < -6 && !_bottomNavVisible) {
+      setState(() => _bottomNavVisible = true);
+    }
+  }
+
+  // ---------------------------------------------------------------------
+  // Recent searches — unchanged from the previous implementation.
+  // ---------------------------------------------------------------------
   Future<void> _loadRecentSearches() async {
     try {
-      final prefsManager =
-      await PreferencesManager.create(await SharedPreferences.getInstance());
+      final prefsManager = await PreferencesManager.create(
+        await SharedPreferences.getInstance(),
+      );
       final history = prefsManager.getSearchHistory();
 
       final seen = <String>{};
@@ -106,173 +135,146 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  void _printInitialDimensions() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final size = MediaQuery.of(context).size;
-      print('Initial Width: ${size.width}, Height: ${size.height}');
-    });
+  void _showComingSoon(String feature) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('$feature is coming soon'),
+        backgroundColor: const Color(0xff005B7F),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
-
-  final List<HomeServiceTab> serviceTabs = [
-    HomeServiceTab(
-      title: "Flights",
-      icon: Icons.flight_takeoff_rounded,
-    ),
-    HomeServiceTab(
-      title: "Hotels",
-      icon: Icons.hotel_rounded,
-    ),
-    HomeServiceTab(
-      title: "Holidays",
-      icon: Icons.beach_access_rounded,
-    ),
-    HomeServiceTab(
-      title: "Visa",
-      icon: Icons.article_outlined,
-    ),
-    HomeServiceTab(
-      title: "Transport",
-      icon: Icons.local_taxi_rounded,
-    ),
-    HomeServiceTab(
-      title: "Insurance",
-      icon: Icons.health_and_safety_rounded,
-    ),
-  ];
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
-    print(' Screen Updated - Width: ${size.width}, Height: ${size.height}');
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.light,
+      child: Scaffold(
+        key: _scaffoldKey,
+        extendBody: true,
+        drawer: const CustomDrawer(),
+        onDrawerChanged: (isOpened) {
+          // Drawer login/logout/delete-account actions can switch the active
+          // user; refresh once it closes so Recent Searches reflects whoever
+          // is signed in now instead of stale data from before.
+          if (!isOpened) _loadRecentSearches();
+        },
+        bottomNavigationBar: AnimatedSlide(
+          duration: const Duration(milliseconds: 260),
+          curve: Curves.easeInOut,
+          offset: _bottomNavVisible ? Offset.zero : const Offset(0, 1),
+          child: SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: CustomBottomNav(
+                currentIndex: selectedNavIndex,
+                onItemSelected: (index) {
+                  setState(() {
+                    selectedNavIndex = index;
+                  });
 
-    return Scaffold(
-      drawer: const CustomDrawer(),
-      onDrawerChanged: (isOpened) {
-        // Drawer login/logout/delete-account actions can switch the active
-        // user; refresh once it closes so Recent Searches reflects whoever
-        // is signed in now instead of stale data from before.
-        if (!isOpened) _loadRecentSearches();
-      },
-      appBar: AppBar(
-        title: WanderNovaLogo(
-          scaleFactor: context.isMobile ? 0.6 : (context.isTablet ? 0.8 : 1.0),
-        ),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        actions: [
-          Padding(
-            padding: EdgeInsets.all(context.w(8)),
-            child: Image.asset(
-              "assets/images/wander_logo.png",
-              height: context.h(36),
-              width: context.h(36),
-              fit: BoxFit.contain,
+                  // Navigation logic
+                  if (index == 0) {
+                    // Home
+                  } else if (index == 1) {
+                    // Trip
+                  } else if (index == 2) {
+                    // Booking
+                  } else if (index == 3) {
+                    // Offer
+                  }
+                },
+                onCenterTap: () {
+                  // Center GIF button action
+                  debugPrint("AI button clicked");
+                },
+              ),
             ),
           ),
-        ],
-      ),
-      body: RefreshIndicator(
-        onRefresh: () async {
-          final generalBloc = context.read<GeneralSettingsBloc>();
-          final dealsBloc = context.read<ExclusiveDealsBloc>();
+        ),
+        body: RefreshIndicator(
+          onRefresh: () async {
+            final generalBloc = context.read<GeneralSettingsBloc>();
+            final dealsBloc = context.read<ExclusiveDealsBloc>();
 
-          generalBloc.add(const LoadFaqList(domain: 'thewandernova.com'));
-          generalBloc.add(
-            const LoadGeneralSettings(domain: 'thewandernova.com'),
-          );
-          dealsBloc.add(const LoadExclusiveDeals());
-          _loadRecentSearches();
+            generalBloc.add(const LoadFaqList(domain: 'thewandernova.com'));
+            generalBloc.add(
+              const LoadGeneralSettings(domain: 'thewandernova.com'),
+            );
+            dealsBloc.add(const LoadExclusiveDeals());
+            _loadRecentSearches();
 
-          await Future.wait([
-            Future.delayed(const Duration(milliseconds: 500)),
-          ]);
-        },
-        color: const Color(0xff005B7F),
-        backgroundColor: Colors.white,
-        child: Container(
-          color: const Color(0xFFF8F9FA),
-          child: CustomScrollView(
-            physics: context.scrollPhysics,
-            slivers: [
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: context.w(10)),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildHeroCard(context).animate().fadeIn(duration: 500.ms).slideY(begin: -0.15),
-                      SizedBox(height: context.h(6)),
-                      // Text(
-                      //   'More Services',
-                      //   style: TextStyle(
-                      //     fontSize: context.titleLarge,
-                      //     fontWeight: FontWeight.w800,
-                      //     color: Colors.black87,
-                      //     letterSpacing: context.letterSpacingTight,
-                      //   ),
-                      // ),
-                      // SizedBox(height: context.h(16)),
-                      // _buildAdditionalServicesGrid(context),
-                      SizedBox(height: context.h(20)),
-                      _buildRecentSearchesSection(context),
-                    ],
+            await Future.wait([
+              Future.delayed(const Duration(milliseconds: 500)),
+            ]);
+          },
+          color: const Color(0xff005B7F),
+          backgroundColor: Colors.white,
+          child: Container(
+            color: const Color(0xFFF8F9FA),
+            child: CustomScrollView(
+              controller: _scrollController,
+              physics: context.scrollPhysics,
+              slivers: [
+                // Full-bleed hero — no side padding, matches the Figma reference.
+                SliverToBoxAdapter(
+                  child: _buildHeroCard(
+                    context,
+                  ).animate().fadeIn(duration: 500.ms).slideY(begin: -0.08),
+                ),
+                // SliverToBoxAdapter(
+                //   child: Padding(
+                //     padding: EdgeInsets.symmetric(horizontal: context.w(10)),
+                //     child: Column(
+                //       crossAxisAlignment: CrossAxisAlignment.start,
+                //       children: [
+                //         SizedBox(height: context.h(20)),
+                //         _buildRecentSearchesSection(context),
+                //       ],
+                //     ),
+                //   ),
+                // ),
+                const SliverToBoxAdapter(child: SizedBox(height: 20)),
+                SliverToBoxAdapter(
+                  child: BlocProvider<ExclusiveDealsBloc>(
+                    create: (context) => sl<ExclusiveDealsBloc>(),
+                    child: const TransportExclusiveDealsSection(),
                   ),
                 ),
-              ),
-              const SliverToBoxAdapter(child: SizedBox(height: 20)),
-              SliverToBoxAdapter(
-                child: BlocProvider<ExclusiveDealsBloc>(
-                  create: (context) => sl<ExclusiveDealsBloc>(),
-                  child: const TransportExclusiveDealsSection(),
-                ),
-              ),
-              const SliverToBoxAdapter(child: PopularDestinations()),
-              const SliverToBoxAdapter(child: TrendingPackages()),
-              const SliverToBoxAdapter(child: TravelStoriesSection()),
-              SliverToBoxAdapter(
-                child: BlocProvider(
-                  create: (_) =>
-                  sl<GeneralSettingsBloc>()
-                    ..add(const LoadFaqList(domain: 'thewandernova.com')),
-                  child: const FAQSection(),
-                ),
-              ),
-              const SliverToBoxAdapter(child: WhyChooseUs()),
-              SliverToBoxAdapter(
-                child: BlocProvider(
-                  create: (_) => sl<GeneralSettingsBloc>()
-                    ..add(
-                      const LoadGeneralSettings(domain: 'thewandernova.com'),
-                    ),
-                  child: const AboutCompanySection(),
-                ),
-              ),
-              SliverToBoxAdapter(
-                child: BlocProvider(
-                  create: (_) => sl<GeneralSettingsBloc>()
-                    ..add(
-                      const LoadGeneralSettings(domain: 'thewandernova.com'),
-                    ),
-                  child: const ServicesInfoSection(),
-                ),
-              ),
-              const SliverToBoxAdapter(child: ContactSection()),
-              SliverToBoxAdapter(child: SizedBox(height: context.h(40))), // 40px on design
-            ],
+                const SliverToBoxAdapter(child: SizedBox(height: 20)),
+                const SliverToBoxAdapter(child: PopularDestinations()),
+                const SliverToBoxAdapter(child: TrendingPackages()),
+                const SliverToBoxAdapter(child: SizedBox(height: 20)),
+
+                const SliverToBoxAdapter(child: ForYourStaySection()),
+                const SliverToBoxAdapter(child: SizedBox(height: 20)),
+
+                const SliverToBoxAdapter(child: TravelStoriesSection()),
+                const SliverToBoxAdapter(child: WhyWanderNovaSection()),
+                const SliverToBoxAdapter(child: SizedBox(height: 20)),
+                const SliverToBoxAdapter(child: CompanyInformationSection()),
+                // SliverToBoxAdapter(child: SizedBox(height: context.h(10))),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 
+  // =========================================================================
+  // HERO — redesigned to match the Figma reference:
+  // hamburger + search bar + currency chip + bell over a full-bleed photo,
+  // with a 3x2 grid of service icons (Flight/Hotels/Holiday/Visa/Transport/
+  // Insurance) below it. No search-card opens on tap anywhere in this section.
+  // =========================================================================
+
   Widget _buildHeroCard(BuildContext context) {
-    // Load the app/dashboard banner via its own GeneralSettingsBloc instance
-    // (mirrors the other sections that each own a bloc), then paint it behind
-    // the hero content. Falls back to the brand gradient while loading / on
-    // error so the UI never looks broken.
     return BlocProvider<GeneralSettingsBloc>(
-      create: (_) => sl<GeneralSettingsBloc>()
-        ..add(const LoadGeneralSettings(domain: 'thewandernova.com')),
+      create: (_) =>
+          sl<GeneralSettingsBloc>()
+            ..add(const LoadGeneralSettings(domain: 'thewandernova.com')),
       child: BlocBuilder<GeneralSettingsBloc, GeneralSettingsState>(
         buildWhen: (previous, current) =>
             current is GeneralSettingsLoaded ||
@@ -299,74 +301,39 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildHeroCardContent(BuildContext context, String? bannerUrl) {
-    final borderRadius = BorderRadius.circular(context.r(8));
+    final topInset = MediaQuery.of(context).padding.top;
+
     return Container(
-      decoration: BoxDecoration(
-        borderRadius: borderRadius,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.blue.withOpacity(.25),
-            blurRadius: context.w(20),
-            offset: Offset(0, context.h(8)),
+      height: context.h(370),
+      child: Stack(
+        children: [
+          Positioned.fill(child: _buildHeroBackground(context, bannerUrl)),
+          Padding(
+            padding: EdgeInsets.fromLTRB(
+              context.w(16),
+              topInset + context.h(16),
+              context.w(16),
+              context.h(16),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildTopBar(context),
+                SizedBox(height: context.h(95)),
+                Expanded(child: _buildServiceIconGrid(context)),
+              ],
+            ),
           ),
         ],
-      ),
-      child: ClipRRect(
-        borderRadius: borderRadius,
-        child: Stack(
-          children: [
-            // Background fills the area sized by the content column below.
-            Positioned.fill(child: _buildHeroBackground(context, bannerUrl)),
-            Padding(
-              padding: EdgeInsets.all(context.w(10)), // 12px on design
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SizedBox(height: context.h(8)), // 8px on design
-                  Text(
-                    "Discover Your Next\nJourney",
-                    // "Discover Your Next\nJourney ✈",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: context.titleLarge * 1.2,
-                      fontWeight: FontWeight.w800,
-                      height: 1.15,
-                    ),
-                  ),
-                  SizedBox(height: context.h(8)),
-                  Text(
-                    "Flights, Hotels and more — all in one place.",
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(.9),
-                      fontSize: context.bodyMedium,
-                    ),
-                  ),
-                  SizedBox(height: context.h(16)),
-                  _buildServiceTabs(context),
-                  SizedBox(height: context.h(8)),
-                  AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 200),
-                    child: _buildSelectedCard(),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
 
-  /// Brand-gradient background that, when a [bannerUrl] is available, shows the
-  /// remote image on top with a dark scrim for text legibility.
   Widget _buildHeroBackground(BuildContext context, String? bannerUrl) {
     const brandGradient = LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
-      colors: [
-        Color(0xFF003B95),
-        Color(0xFF005B7F),
-      ],
+      colors: [Color(0xFF003B95), Color(0xFF005B7F)],
     );
 
     if (bannerUrl == null) {
@@ -378,10 +345,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return Stack(
       fit: StackFit.expand,
       children: [
-        // Shown while the image loads or if it fails to load.
-        const DecoratedBox(
-          decoration: BoxDecoration(gradient: brandGradient),
-        ),
+        const DecoratedBox(decoration: BoxDecoration(gradient: brandGradient)),
         Image.network(
           bannerUrl,
           fit: BoxFit.cover,
@@ -389,16 +353,42 @@ class _HomeScreenState extends State<HomeScreen> {
           loadingBuilder: (ctx, child, progress) =>
               progress == null ? child : const SizedBox.shrink(),
         ),
-        // Dark scrim keeps the white headline and tabs readable on any image.
+        // White blurry gradient at bottom
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          child: Container(
+            height: context.h(120),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.bottomCenter,
+                end: Alignment.topCenter,
+                colors: [
+                  Colors.white.withOpacity(0.95),
+                  Colors.white.withOpacity(0.70),
+                  Colors.white.withOpacity(0.40),
+                  Colors.white.withOpacity(0.15),
+                  Colors.transparent,
+                ],
+                stops: const [0.0, 0.3, 0.6, 0.85, 1.0],
+              ),
+            ),
+          ),
+        ),
+        // Overall scrim for better text readability
         DecoratedBox(
           decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                Colors.black.withOpacity(0.45),
                 Colors.black.withOpacity(0.20),
+                Colors.black.withOpacity(0.10),
+                Colors.transparent,
+                Colors.transparent,
               ],
+              stops: const [0.0, 0.4, 0.7, 1.0],
             ),
           ),
         ),
@@ -406,342 +396,306 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildServiceTabs(BuildContext context) {
+  Widget _buildTopBar(BuildContext context) {
+    return Row(
+      children: [
+        // Drawer icon
+        GestureDetector(
+          onTap: () => _scaffoldKey.currentState?.openDrawer(),
+          child: Image.asset(
+            'assets/NewIcons/drawer.png',
+            width: context.w(24),
+            height: context.w(24),
+            color: Colors.white,
+          ),
+        ),
+        SizedBox(width: context.w(12)),
+        // Search bar
+        Expanded(child: _buildSearchBar(context)),
+        SizedBox(width: context.w(12)),
+        // Currency chip
+        _buildCurrencyChip(context),
+        SizedBox(width: context.w(12)),
+        // Notification icon
+        GestureDetector(
+          onTap: () {},
+          child: Image.asset(
+            'assets/NewIcons/notification.png', // or bell.png
+            width: context.w(24),
+            height: context.w(24),
+            color: Colors.white,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCircleIconButton(
+    BuildContext context, {
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.white.withOpacity(0.22),
+      shape: const CircleBorder(),
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: onTap,
+        child: Padding(
+          padding: EdgeInsets.all(context.w(9)),
+          child: Icon(icon, color: Colors.white, size: context.iconMedium),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSearchBar(BuildContext context) {
     return Container(
-      padding: EdgeInsets.all(context.w(6)), // 6px on design
+      height: context.h(37),
+      padding: EdgeInsets.symmetric(horizontal: context.w(16)),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(.15),
-        borderRadius: BorderRadius.circular(context.r(18)), // 18px on design
+        color: Colors.white.withOpacity(0.95),
+        borderRadius: BorderRadius.circular(context.r(24)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.10),
+            blurRadius: context.w(8),
+            offset: Offset(0, context.h(2)),
+          ),
+        ],
       ),
       child: Row(
-        children: List.generate(
-          serviceTabs.length,
-              (index) {
-            final selected = selectedServiceIndex == index;
-            return Expanded(
-              child: GestureDetector(
-                onTap: () {
-                  setState(() {
-                    selectedServiceIndex = index;
-                  });
-                },
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 250),
-                  padding: EdgeInsets.symmetric(vertical: context.h(8)), // 8px on design
-                  decoration: BoxDecoration(
-                    color: selected ? Colors.transparent : Colors.transparent,
-                    borderRadius: BorderRadius.circular(context.r(14)), // 14px on design
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        serviceTabs[index].icon,
-                        color: selected ?  const Color(0xFF003B95) : Colors.white,
-                        size: context.iconMedium,
-                      ),
-                      SizedBox(height: context.h(4)),
-                      Padding(
-                        padding: EdgeInsets.symmetric(horizontal: context.w(4)),
-                        child: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: Text(
-                            serviceTabs[index].title,
-                            maxLines: 1,
-                            softWrap: false,
-                            style: TextStyle(
-                              color: selected ? const Color(0xFF003B95) : Colors.white,
-                              fontWeight: FontWeight.w600,
-                              fontSize: context.fs(9), // reduced so all tab titles render at one consistent small size
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+        children: [
+          // Icon(
+          //   Icons.search_rounded,
+          //   color: Colors.grey.shade600,
+          //   size: context.iconMedium,
+          // ),
+          ClipOval(
+            child: Image.asset(
+              'assets/Newgif/search.gif',
+              width: 18,
+              height: 18,
+              fit: BoxFit.contain,
+            ),
+          ),
+          SizedBox(width: context.w(10)),
+          Expanded(
+            child: Text(
+              'Search places',
+              style: TextStyle(
+                color: Colors.grey.shade600,
+                fontSize: context.fs(12),
+                fontWeight: FontWeight.w500,
               ),
-            );
-          },
-        ),
+            ),
+          ),
+          SizedBox(width: context.w(8)),
+          Image.asset(
+            'assets/NewIcons/mic.png',
+            width: context.w(20),
+            height: context.w(20),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildSelectedCard() {
-    switch (selectedServiceIndex) {
-      case 0:
-        return const SearchCard(key: ValueKey("flight"));
-      case 1:
-        return const HotelSearchCard(key: ValueKey("hotel"));
-      case 2:
-        return const HolidaysSearchCard(key: ValueKey("holiday"));
-      case 3:
-        return const VisaBannerSection(key: ValueKey("visa"));
-      case 4:
-        return TransportBookingCard(
-          key: const ValueKey("cab"),
-          isOneWay: isOneWay,
-          selectedDate: selectedDate,
-          selectedTime: selectedTime,
-          onTripTypeChanged: (value) {
-            setState(() => isOneWay = value);
-          },
-          onDateChanged: (date) {
-            setState(() => selectedDate = date);
-          },
-          onTimeChanged: (time) {
-            setState(() => selectedTime = time);
-          },
-        );
-      case 5:
-        return const InsuranceSearchCard(key: ValueKey("insurance"));
-      default:
-        return const SearchCard(key: ValueKey("default"));
-    }
+  /// Static display of the saved preferred currency — not an interactive picker.
+  Widget _buildCurrencyChip(BuildContext context) {
+    final currency = CurrencyConverter.getPreferredCurrency();
+    final symbol = CurrencyConverter.getSymbol(currency);
+
+    return Container(
+      height: context.h(37),
+      padding: EdgeInsets.symmetric(horizontal: context.w(10)),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.8),
+        borderRadius: BorderRadius.circular(context.r(6)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text('🇮🇳', style: TextStyle(fontSize: context.fs(14))),
+          SizedBox(width: context.w(4)),
+          Text(
+            symbol,
+            style: TextStyle(
+              color: Colors.black87,
+              fontSize: context.bodySmall,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
-  Widget _buildAdditionalServicesGrid(BuildContext context) {
-    final services = [
-      ServiceItem(
-        icon: Icons.local_taxi_outlined,
-        label: 'Airport Cabs',
-        color: const Color(0xFF1E3C72),
-        onTap: () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const TransportBookingScreen()),
+  Widget _buildServiceIconGrid(BuildContext context) {
+    return Column(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(
+              child: _buildHeroServiceIcon(
+                context,
+                'Flight',
+                'assets/NewIcons/HFlight.png',
+              ),
+            ),
+            SizedBox(width: context.w(12)),
+            Expanded(
+              child: _buildHeroServiceIcon(
+                context,
+                'Hotels',
+                'assets/NewIcons/hotel.png',
+              ),
+            ),
+            SizedBox(width: context.w(12)),
+            Expanded(
+              child: _buildHeroServiceIcon(
+                context,
+                'Holiday',
+                'assets/NewIcons/holidays.png',
+              ),
+            ),
+          ],
         ),
-      ),
-      ServiceItem(
-        icon: Icons.home_work_outlined,
-        label: 'Villas & Homestays',
-        color: const Color(0xFF1E3C72),
-        onTap: () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const HotelBookingScreen()),
+        SizedBox(height: context.h(10)),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(
+              child: _buildHeroServiceIcon(
+                context,
+                'Visa',
+                'assets/NewIcons/visa.png',
+              ),
+            ),
+            SizedBox(width: context.w(12)),
+            Expanded(
+              child: _buildHeroServiceIcon(
+                context,
+                'Transport',
+                'assets/NewIcons/transport.png',
+              ),
+            ),
+            SizedBox(width: context.w(12)),
+            Expanded(
+              child: _buildHeroServiceIcon(
+                context,
+                'Insurance',
+                'assets/NewIcons/insurance.png',
+              ),
+            ),
+          ],
         ),
-      ),
-      ServiceItem(
-        icon: Icons.my_library_books_outlined,
-        label: 'Visa',
-        color: const Color(0xFF1E3C72),
-        badge: 'new',
-        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => VisaScreen())),
-      ),
-      ServiceItem(
-        icon: Icons.flight_outlined,
-        label: 'Flights',
-        color: const Color(0xFF1E3C72),
-        onTap: () => Navigator.push(
+      ],
+    );
+  }
+
+  Widget _buildHeroServiceIcon(
+    BuildContext context,
+    String label,
+    String assetPath,
+  ) {
+    VoidCallback? onTap;
+
+    switch (label) {
+      case 'Flight':
+        onTap = () => Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => const FlightScreen()),
+        );
+        break;
+      case 'Hotels':
+        onTap = () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const HotelBookingScreen()),
+        );
+        break;
+      case 'Holiday':
+        onTap = () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const HolidaysScreen()),
+        );
+        break;
+      case 'Visa':
+        onTap = () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => VisaScreen()),
+        );
+        break;
+      case 'Transport':
+        onTap = () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const TransportBookingScreen()),
+        );
+        break;
+      case 'Insurance':
+        onTap = () => _showComingSoon('Insurance');
+        break;
+    }
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: EdgeInsets.all(context.w(6)),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.8),
+          borderRadius: BorderRadius.circular(context.r(8)),
+          border: Border.all(color: Colors.white.withOpacity(0.50), width: 1),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.08),
+              blurRadius: context.w(6),
+              offset: Offset(0, context.h(2)),
+            ),
+          ],
         ),
-      ),
-    ];
-
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      padding: EdgeInsets.zero,
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 4,
-        childAspectRatio: context.isMobile ? 0.85 : (context.isTablet ? 0.9 : 1.0),
-        crossAxisSpacing: context.w(8),
-        mainAxisSpacing: context.h(16),
-      ),
-      itemCount: services.length,
-      itemBuilder: (context, index) => _buildServiceIcon(context, services[index]),
-    );
-  }
-
-  Widget _buildServiceIcon(BuildContext context, ServiceItem service) {
-    return StatefulBuilder(
-      builder: (context, setState) {
-        return TweenAnimationBuilder(
-          tween: Tween<double>(begin: 0, end: 1),
-          duration: const Duration(milliseconds: 300),
-          builder: (context, double value, child) {
-            return Transform.scale(
-              scale: 1 - (value * 0.02),
-              child: Transform.translate(
-                offset: Offset(0, -2 * value),
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    onTap: service.onTap,
-                    onTapDown: (_) => setState(() {}),
-                    onTapUp: (_) {
-                      Future.delayed(const Duration(milliseconds: 100), () => setState(() {}));
-                    },
-                    borderRadius: BorderRadius.circular(context.isMobile ? context.r(16) : context.r(18)),
-                    splashColor: service.color.withOpacity(0.15),
-                    highlightColor: service.color.withOpacity(0.08),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      curve: Curves.easeOutCubic,
-                      padding: EdgeInsets.all(context.w(8)),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(context.isMobile ? context.r(16) : context.r(18)),
-                        boxShadow: [
-                          // BoxShadow(
-                          //   color: Colors.black.withOpacity(0.1),
-                          //   blurRadius: context.w(12), // 12px on design
-                          //   offset: Offset(0, context.h(6)), // 6px on design
-                          // ),
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.04),
-                            blurRadius: context.w(4),
-                            offset: Offset(0, context.h(2)),
-                          ),
-                        ],
-                        border: Border.all(
-                          color: Colors.grey.withOpacity(0.12),
-                          width: 1.2,
-                        ),
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            Colors.white,
-                            Colors.grey.shade50.withOpacity(0.8),
-                          ],
-                        ),
-                      ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Stack(
-                            clipBehavior: Clip.none,
-                            children: [
-                              Positioned(
-                                left: context.w(3),
-                                top: context.h(4),
-                                child: Icon(
-                                  service.icon,
-                                  color: service.color.withOpacity(0.2),
-                                  size: context.iconLarge,
-                                ),
-                              ),
-                              Positioned(
-                                left: context.w(1),
-                                top: context.h(2),
-                                child: Icon(
-                                  service.icon,
-                                  color: service.color.withOpacity(0.15),
-                                  size: context.iconLarge,
-                                ),
-                              ),
-                              ShaderMask(
-                                shaderCallback: (bounds) => LinearGradient(
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                  colors: [service.color, service.color.withOpacity(0.7)],
-                                ).createShader(bounds),
-                                child: Icon(
-                                  service.icon,
-                                  color: Colors.white,
-                                  size: context.iconLarge,
-                                ),
-                              ),
-                              Positioned(
-                                left: -context.w(2),
-                                top: -context.h(2),
-                                child: Icon(
-                                  service.icon,
-                                  color: Colors.white.withOpacity(0.15),
-                                  size: context.iconXLarge - 2,
-                                ),
-                              ),
-                              if (service.badge != null)
-                                Positioned(
-                                  right: -context.w(33),
-                                  top: -context.h(26),
-                                  child: TweenAnimationBuilder(
-                                    tween: Tween<double>(begin: 0, end: 1),
-                                    duration: const Duration(milliseconds: 400),
-                                    curve: Curves.elasticOut,
-                                    builder: (context, double scale, child) {
-                                      return Transform.scale(
-                                        scale: scale,
-                                        child: Container(
-                                          padding: EdgeInsets.symmetric(
-                                            horizontal: context.w(5),
-                                            vertical: context.h(3),
-                                          ),
-                                          decoration: BoxDecoration(
-                                            gradient: const LinearGradient(
-                                              colors: [Color(0xFFE74C3C), Color(0xFFC0392B)],
-                                              begin: Alignment.topLeft,
-                                              end: Alignment.bottomRight,
-                                            ),
-                                            borderRadius: BorderRadius.circular(context.r(10)),
-                                            boxShadow: [
-                                              BoxShadow(
-                                                color: Colors.red.withOpacity(0.4),
-                                                blurRadius: context.w(6),
-                                                offset: Offset(0, context.h(2)),
-                                              ),
-                                            ],
-                                            border: Border.all(
-                                              color: Colors.white.withOpacity(0.5),
-                                              width: 1.5,
-                                            ),
-                                          ),
-                                          child: Text(
-                                            service.badge!,
-                                            style: TextStyle(
-                                              color: Colors.white,
-                                              fontSize: context.caption,
-                                              fontWeight: FontWeight.bold,
-                                              height: 1,
-                                            ),
-                                          ),
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                ),
-                            ],
-                          ),
-                          SizedBox(height: context.h(6)), // 6px on design
-                          Flexible(
-                            child: Text(
-                              service.label,
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: context.labelMedium,
-                                fontWeight: FontWeight.w800,
-                                color: Colors.black87,
-                                height: 1.3,
-                                letterSpacing: context.letterSpacingTight,
-                                shadows: [
-                                  Shadow(
-                                    color: Colors.black.withOpacity(0.05),
-                                    blurRadius: context.w(2),
-                                    offset: Offset(0, context.h(1)),
-                                  ),
-                                ],
-                              ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: double.infinity,
+              height: context.h(38),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(context.r(6)),
+              ),
+              child: Center(
+                child: Image.asset(
+                  assetPath,
+                  width: context.w(32),
+                  height: context.w(32),
+                  fit: BoxFit.contain,
                 ),
               ),
-            );
-          },
-        );
-      },
+            ),
+            SizedBox(height: context.h(6)),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.black87,
+                fontSize: context.fs(12),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
-  Widget _buildRecentSearchCard(BuildContext context, Map<String, dynamic> search) {
+  // =========================================================================
+  // Recent Searches — unchanged from the previous implementation.
+  // =========================================================================
+
+  Widget _buildRecentSearchCard(
+    BuildContext context,
+    Map<String, dynamic> search,
+  ) {
     final type = (search['type'] ?? 'flight').toString();
 
     String typeLabel;
@@ -769,8 +723,12 @@ class _HomeScreenState extends State<HomeScreen> {
       typeLabel = 'Cab';
       final pickup = search['pickup'];
       final dropoff = search['dropoff'];
-      final pickupName = (pickup?['city'] ?? pickup?['label'] ?? pickup?['name'] ?? '').toString();
-      final dropoffName = (dropoff?['city'] ?? dropoff?['label'] ?? dropoff?['name'] ?? '').toString();
+      final pickupName =
+          (pickup?['city'] ?? pickup?['label'] ?? pickup?['name'] ?? '')
+              .toString();
+      final dropoffName =
+          (dropoff?['city'] ?? dropoff?['label'] ?? dropoff?['name'] ?? '')
+              .toString();
       primaryLine = pickupName;
       secondaryLine = dropoffName;
       date = _formatSearchDate(search['pickupDate']);
@@ -780,7 +738,8 @@ class _HomeScreenState extends State<HomeScreen> {
       final to = search['toAirport'];
       final fromCity = (from?['city'] ?? '').toString();
       final toCity = (to?['city'] ?? '').toString();
-      primaryLine = '${(from?['code'] ?? '').toString()}  →  ${(to?['code'] ?? '').toString()}';
+      primaryLine =
+          '${(from?['code'] ?? '').toString()}  →  ${(to?['code'] ?? '').toString()}';
       secondaryLine = '$fromCity → $toCity';
       date = _formatSearchDate(search['departureDate']);
     }
@@ -879,36 +838,4 @@ class _HomeScreenState extends State<HomeScreen> {
       ],
     );
   }
-}
-
-class ServiceItem {
-  final IconData? icon;
-  final String? assetIcon;
-  final String label;
-  final Color color;
-  final Color? backgroundColor;
-  final String? badge;
-  final VoidCallback onTap;
-
-  Color get iconColor => color;
-
-  ServiceItem({
-    this.icon,
-    this.assetIcon,
-    required this.label,
-    required this.color,
-    this.backgroundColor,
-    this.badge,
-    required this.onTap,
-  });
-}
-
-class HomeServiceTab {
-  final String title;
-  final IconData icon;
-
-  HomeServiceTab({
-    required this.title,
-    required this.icon,
-  });
 }
