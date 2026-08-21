@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:wander_nova/core/resources/app_colours.dart';
 
 class CustomBottomNav extends StatelessWidget {
   final int currentIndex;
@@ -71,7 +72,7 @@ class CustomBottomNav extends StatelessWidget {
 
                       Expanded(
                         child: _NavItem(
-                          icon: 'assets/NewIcons/home.png',
+                          icon: 'assets/NewIcons/homeHD.png',
                           label: 'Home',
                           selected: currentIndex == 0,
                           onTap: () {
@@ -86,7 +87,7 @@ class CustomBottomNav extends StatelessWidget {
 
                       Expanded(
                         child: _NavItem(
-                          icon: 'assets/NewIcons/trip.png',
+                          icon: 'assets/NewIcons/tripHD.png',
                           label: 'Trip',
                           selected: currentIndex == 1,
                           onTap: () {
@@ -109,7 +110,7 @@ class CustomBottomNav extends StatelessWidget {
 
                       Expanded(
                         child: _NavItem(
-                          icon: 'assets/NewIcons/booking.png',
+                          icon: 'assets/NewIcons/bookingHD.png',
                           label: 'Booking',
                           selected: currentIndex == 2,
                           onTap: () {
@@ -124,7 +125,7 @@ class CustomBottomNav extends StatelessWidget {
 
                       Expanded(
                         child: _NavItem(
-                          icon: 'assets/NewIcons/offer.png',
+                          icon: 'assets/NewIcons/offerHD.png',
                           label: 'Offer',
                           selected: currentIndex == 3,
                           onTap: () {
@@ -144,7 +145,7 @@ class CustomBottomNav extends StatelessWidget {
           // ============================================================
 
           Positioned(
-            top: -10,
+            top: -9,
             child: GestureDetector(
               onTap: onCenterTap,
               child: Container(
@@ -217,7 +218,7 @@ class _NavItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final Color itemColor = selected
-        ? const Color(0xFF0878F9)
+        ? AppColors.AppBlue
         : const Color(0xFF6D6D6D);
 
     return GestureDetector(

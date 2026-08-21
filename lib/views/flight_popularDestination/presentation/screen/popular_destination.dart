@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
+import '../../../../core/resources/app_colours.dart';
 import '../../../Holidays/presentation/screen/holidays_screen.dart';
 import '../../domain/entities/Popular_destination_entity.dart';
 import '../bloc/destination_bloc.dart';
@@ -159,16 +160,16 @@ class _PopularDestinationsState extends State<PopularDestinations> {
                     Text(
                       'View all',
                       style: TextStyle(
-                        fontSize: context.fs(14),
-                        fontWeight: FontWeight.w600,
-                        color: const Color(0xff005B7F),
+                        fontSize: context.fs(12),
+                        fontWeight: FontWeight.w400,
+                        color: AppColors.AppBlue,
                       ),
                     ),
                     SizedBox(width: context.w(4)),
                     Icon(
                       Icons.arrow_forward,
                       size: context.iconSmall,
-                      color: const Color(0xff005B7F),
+                      color: AppColors.AppBlue,
                     ),
                   ],
                 ),
@@ -373,7 +374,7 @@ class _PopularDestinationsState extends State<PopularDestinations> {
                   ],
                 ),
                 child: Image.asset(
-                  'assets/NewIcons/heart.png',
+                  'assets/NewIcons/heartHD.png',
                   width: context.w(18),
                   height: context.h(18),
                 ),

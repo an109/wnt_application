@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import 'package:wander_nova/views/travel_stories/presentation/screen/travel_stories_detail_screen.dart';
+import '../../../../core/resources/app_colours.dart';
 import '../../domain/entities/travel_stories_entity.dart';
 import '../bloc/travel_stories_bloc.dart';
 import '../bloc/travel_stories_event.dart';
@@ -86,16 +87,16 @@ class _TravelStoriesSectionState extends State<TravelStoriesSection> {
                     Text(
                       'View all',
                       style: TextStyle(
-                        fontSize: context.fs(14),
-                        fontWeight: FontWeight.w600,
-                        color: const Color(0xff005B7F),
+                        fontSize: context.fs(12),
+                        fontWeight: FontWeight.w400,
+                        color: AppColors.AppBlue,
                       ),
                     ),
                     SizedBox(width: context.w(4)),
                     Icon(
                       Icons.arrow_forward,
                       size: context.iconSmall,
-                      color: const Color(0xff005B7F),
+                      color: AppColors.AppBlue,
                     ),
                   ],
                 ),

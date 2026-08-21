@@ -1,6 +1,7 @@
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:wander_nova/core/resources/app_colours.dart';
 import '../../domain/entities/exclusive_deal_entity.dart';
 import '../../../../../UI_helper/responsive_layout.dart';
 import '../bloc/exclusive_deals_bloc.dart';
@@ -225,7 +226,7 @@ class _TransportExclusiveDealsSectionState
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(4),
                         color: currentIndex == index
-                            ? const Color(0xff005B7F)
+                            ? AppColors.AppBlue
                             : Colors.grey.shade300,
                       ),
                     ),

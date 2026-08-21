@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import '../../../../UI_helper/currency_converter.dart';
 import '../../../../core/error/data_state.dart';
+import '../../../../core/resources/app_colours.dart';
 import '../../../../core/utils/storage/shared_preference.dart';
 import '../../../../injection_container.dart';
 import '../../../AKFlight_tui/domain/entity/akflight_search_entity.dart';
@@ -196,16 +197,16 @@ class _TrendingPackagesViewState extends State<TrendingPackagesView> {
                     Text(
                       'View all',
                       style: TextStyle(
-                        fontSize: context.fs(14),
-                        fontWeight: FontWeight.w600,
-                        color: const Color(0xff005B7F),
+                        fontSize: context.fs(12),
+                        fontWeight: FontWeight.w400,
+                        color: AppColors.AppBlue,
                       ),
                     ),
                     SizedBox(width: context.w(4)),
                     Icon(
                       Icons.arrow_forward,
                       size: context.iconSmall,
-                      color: const Color(0xff005B7F),
+                      color: AppColors.AppBlue,
                     ),
                   ],
                 ),
@@ -419,7 +420,7 @@ class _TrendingPackagesViewState extends State<TrendingPackagesView> {
                   ],
                 ),
                 child: Image.asset(
-                  'assets/NewIcons/heart.png',
+                  'assets/NewIcons/heartHD.png',
                   width: context.w(18),
                   height: context.h(18),
                 ),

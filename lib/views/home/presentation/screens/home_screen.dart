@@ -51,6 +51,15 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _bottomNavVisible = true;
   double _lastScrollOffset = 0;
 
+  // ---------------------------------------------------------------------
+  // Scroll-based expand/pin for the hero's search bar: once the hero's own
+  // top bar scrolls out of view, a full-width search bar fades/slides in
+  // pinned to the very top of the screen; scrolling back near the top
+  // reverts to the normal hero layout (drawer + search + currency + bell).
+  // Purely additive/visual — the hero's own top bar is never modified.
+  // ---------------------------------------------------------------------
+  bool _showFloatingSearchBar = false;
+
   @override
   void initState() {
     super.initState();
@@ -70,6 +79,8 @@ class _HomeScreenState extends State<HomeScreen> {
     final delta = offset - _lastScrollOffset;
     _lastScrollOffset = offset;
 
+    _updateFloatingSearchBar(offset);
+
     // Always reveal the nav bar once the user is back near the top.
     if (offset <= 8 && !_bottomNavVisible) {
       setState(() => _bottomNavVisible = true);
@@ -79,6 +90,19 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() => _bottomNavVisible = false);
     } else if (delta < -6 && !_bottomNavVisible) {
       setState(() => _bottomNavVisible = true);
+    }
+  }
+
+  // Hysteresis so the floating search bar doesn't flicker in/out right at
+  // the threshold — it appears once the hero's own top bar has scrolled
+  // out of view, and disappears again once we're back near the very top.
+  void _updateFloatingSearchBar(double offset) {
+    const showAt = 190.0;
+    const hideAt = 130.0;
+    if (offset > showAt && !_showFloatingSearchBar) {
+      setState(() => _showFloatingSearchBar = true);
+    } else if (offset <= hideAt && _showFloatingSearchBar) {
+      setState(() => _showFloatingSearchBar = false);
     }
   }
 
@@ -162,7 +186,7 @@ class _HomeScreenState extends State<HomeScreen> {
         bottomNavigationBar: AnimatedSlide(
           duration: const Duration(milliseconds: 260),
           curve: Curves.easeInOut,
-          offset: _bottomNavVisible ? Offset.zero : const Offset(0, 1),
+          offset: _bottomNavVisible ? Offset.zero : const Offset(0, 1.3),
           child: SafeArea(
             top: false,
             child: Padding(
@@ -193,69 +217,165 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
         ),
-        body: RefreshIndicator(
-          onRefresh: () async {
-            final generalBloc = context.read<GeneralSettingsBloc>();
-            final dealsBloc = context.read<ExclusiveDealsBloc>();
+        body: Stack(
+          children: [
+            RefreshIndicator(
+              onRefresh: () async {
+                final generalBloc = context.read<GeneralSettingsBloc>();
+                final dealsBloc = context.read<ExclusiveDealsBloc>();
 
-            generalBloc.add(const LoadFaqList(domain: 'thewandernova.com'));
-            generalBloc.add(
-              const LoadGeneralSettings(domain: 'thewandernova.com'),
-            );
-            dealsBloc.add(const LoadExclusiveDeals());
-            _loadRecentSearches();
+                generalBloc.add(
+                  const LoadFaqList(domain: 'thewandernova.com'),
+                );
+                generalBloc.add(
+                  const LoadGeneralSettings(domain: 'thewandernova.com'),
+                );
+                dealsBloc.add(const LoadExclusiveDeals());
+                _loadRecentSearches();
 
-            await Future.wait([
-              Future.delayed(const Duration(milliseconds: 500)),
-            ]);
-          },
-          color: const Color(0xff005B7F),
-          backgroundColor: Colors.white,
-          child: Container(
-            color: const Color(0xFFF8F9FA),
-            child: CustomScrollView(
-              controller: _scrollController,
-              physics: context.scrollPhysics,
-              slivers: [
-                // Full-bleed hero — no side padding, matches the Figma reference.
-                SliverToBoxAdapter(
-                  child: _buildHeroCard(
-                    context,
-                  ).animate().fadeIn(duration: 500.ms).slideY(begin: -0.08),
+                await Future.wait([
+                  Future.delayed(const Duration(milliseconds: 500)),
+                ]);
+              },
+              color: const Color(0xff005B7F),
+              backgroundColor: Colors.white,
+              child: Container(
+                color: const Color(0xFFF8F9FA),
+                child: CustomScrollView(
+                  controller: _scrollController,
+                  physics: context.scrollPhysics,
+                  slivers: [
+                    // Full-bleed hero — no side padding, matches the Figma reference.
+                    SliverToBoxAdapter(
+                      child: _buildHeroCard(context)
+                          .animate()
+                          .fadeIn(duration: 500.ms)
+                          .slideY(begin: -0.08),
+                    ),
+                    // SliverToBoxAdapter(
+                    //   child: Padding(
+                    //     padding: EdgeInsets.symmetric(horizontal: context.w(10)),
+                    //     child: Column(
+                    //       crossAxisAlignment: CrossAxisAlignment.start,
+                    //       children: [
+                    //         SizedBox(height: context.h(20)),
+                    //         _buildRecentSearchesSection(context),
+                    //       ],
+                    //     ),
+                    //   ),
+                    // ),
+                    const SliverToBoxAdapter(child: SizedBox(height: 20)),
+                    // Everything below the hero is built lazily (only as it
+                    // scrolls near the viewport) instead of all at once, so
+                    // the first frame doesn't have to build + kick off the
+                    // network calls of every section simultaneously. Each
+                    // section is kept alive once built so scrolling away and
+                    // back never re-triggers its fetch or loses its state —
+                    // identical behaviour to before, just spread out over
+                    // time instead of paid for up front.
+                    SliverList(
+                      delegate: SliverChildBuilderDelegate(
+                        (context, index) =>
+                            _KeepAliveWrapper(child: _buildSection(index)),
+                        childCount: _sectionCount,
+                      ),
+                    ),
+                  ],
                 ),
-                // SliverToBoxAdapter(
-                //   child: Padding(
-                //     padding: EdgeInsets.symmetric(horizontal: context.w(10)),
-                //     child: Column(
-                //       crossAxisAlignment: CrossAxisAlignment.start,
-                //       children: [
-                //         SizedBox(height: context.h(20)),
-                //         _buildRecentSearchesSection(context),
-                //       ],
-                //     ),
-                //   ),
+              ),
+            ),
+            _buildFloatingSearchBar(context),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // =========================================================================
+  // Lazily-built sections below the hero. Index order matches the previous
+  // fixed sliver list exactly, so visual layout/spacing is unchanged.
+  // =========================================================================
+  static const int _sectionCount = 11;
+
+  Widget _buildSection(int index) {
+    switch (index) {
+      case 0:
+        return BlocProvider<ExclusiveDealsBloc>(
+          create: (context) => sl<ExclusiveDealsBloc>(),
+          child: const TransportExclusiveDealsSection(),
+        );
+      case 1:
+        return const SizedBox(height: 20);
+      case 2:
+        return const PopularDestinations();
+      case 3:
+        return const TrendingPackages();
+      case 4:
+        return const SizedBox(height: 20);
+      case 5:
+        return const ForYourStaySection();
+      case 6:
+        return const SizedBox(height: 20);
+      case 7:
+        return const TravelStoriesSection();
+      case 8:
+        return const WhyWanderNovaSection();
+      case 9:
+        return const SizedBox(height: 20);
+      case 10:
+        return const CompanyInformationSection();
+      default:
+        return const SizedBox.shrink();
+    }
+  }
+
+  // =========================================================================
+  // Floating search bar — fades/slides in pinned to the top of the screen
+  // once the hero's own top bar has scrolled out of view, expanding to the
+  // full width (no drawer/currency/bell alongside it). Purely visual overlay
+  // on top of the unchanged CustomScrollView; ignores touches while hidden
+  // so it never blocks taps on the hero underneath.
+  // =========================================================================
+  Widget _buildFloatingSearchBar(BuildContext context) {
+    final topInset = MediaQuery.of(context).padding.top;
+
+    return Positioned(
+      top: 0,
+      left: 0,
+      right: 0,
+      child: IgnorePointer(
+        ignoring: !_showFloatingSearchBar,
+        child: AnimatedSlide(
+          duration: const Duration(milliseconds: 280),
+          curve: Curves.easeOutCubic,
+          offset: _showFloatingSearchBar ? Offset.zero : const Offset(0, -1),
+          child: AnimatedOpacity(
+            duration: const Duration(milliseconds: 280),
+            curve: Curves.easeOutCubic,
+            opacity: _showFloatingSearchBar ? 1 : 0,
+            child: Container(
+              padding: EdgeInsets.fromLTRB(
+                context.w(20),
+                topInset + context.h(16),
+                context.w(20),
+                context.h(16),
+              ),
+              decoration: BoxDecoration(
+                // gradient: const LinearGradient(
+                //   begin: Alignment.topLeft,
+                //   end: Alignment.bottomRight,
+                //   colors: [Color(0xFF003B95), Color(0xFF005B7F)],
                 // ),
-                const SliverToBoxAdapter(child: SizedBox(height: 20)),
-                SliverToBoxAdapter(
-                  child: BlocProvider<ExclusiveDealsBloc>(
-                    create: (context) => sl<ExclusiveDealsBloc>(),
-                    child: const TransportExclusiveDealsSection(),
+                color: Color(0xFF003B95),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.12),
+                    blurRadius: context.w(8),
+                    offset: Offset(0, context.h(2)),
                   ),
-                ),
-                const SliverToBoxAdapter(child: SizedBox(height: 20)),
-                const SliverToBoxAdapter(child: PopularDestinations()),
-                const SliverToBoxAdapter(child: TrendingPackages()),
-                const SliverToBoxAdapter(child: SizedBox(height: 20)),
-
-                const SliverToBoxAdapter(child: ForYourStaySection()),
-                const SliverToBoxAdapter(child: SizedBox(height: 20)),
-
-                const SliverToBoxAdapter(child: TravelStoriesSection()),
-                const SliverToBoxAdapter(child: WhyWanderNovaSection()),
-                const SliverToBoxAdapter(child: SizedBox(height: 20)),
-                const SliverToBoxAdapter(child: CompanyInformationSection()),
-                // SliverToBoxAdapter(child: SizedBox(height: context.h(10))),
-              ],
+                ],
+              ),
+              child: _buildSearchBar(context),
             ),
           ),
         ),
@@ -304,7 +424,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final topInset = MediaQuery.of(context).padding.top;
 
     return Container(
-      height: context.h(370),
+      height: context.h(380),
       child: Stack(
         children: [
           Positioned.fill(child: _buildHeroBackground(context, bannerUrl)),
@@ -318,8 +438,9 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                SizedBox(height: context.h(16)),
                 _buildTopBar(context),
-                SizedBox(height: context.h(95)),
+                SizedBox(height: context.h(74)),
                 Expanded(child: _buildServiceIconGrid(context)),
               ],
             ),
@@ -403,9 +524,9 @@ class _HomeScreenState extends State<HomeScreen> {
         GestureDetector(
           onTap: () => _scaffoldKey.currentState?.openDrawer(),
           child: Image.asset(
-            'assets/NewIcons/drawer.png',
-            width: context.w(24),
-            height: context.w(24),
+            'assets/NewIcons/drawerHD.png',
+            width: context.w(20),
+            height: context.w(20),
             color: Colors.white,
           ),
         ),
@@ -420,9 +541,9 @@ class _HomeScreenState extends State<HomeScreen> {
         GestureDetector(
           onTap: () {},
           child: Image.asset(
-            'assets/NewIcons/notification.png', // or bell.png
-            width: context.w(24),
-            height: context.w(24),
+            'assets/NewIcons/notificationHD.png', // or bell.png
+            width: context.w(20),
+            height: context.w(20),
             color: Colors.white,
           ),
         ),
@@ -492,9 +613,9 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           SizedBox(width: context.w(8)),
           Image.asset(
-            'assets/NewIcons/mic.png',
-            width: context.w(20),
-            height: context.w(20),
+            'assets/NewIcons/micHD.png',
+            width: context.w(14),
+            height: context.w(14),
           ),
         ],
       ),
@@ -659,15 +780,15 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             Container(
               width: double.infinity,
-              height: context.h(38),
+              height: context.h(37),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(context.r(6)),
               ),
               child: Center(
                 child: Image.asset(
                   assetPath,
-                  width: context.w(32),
-                  height: context.w(32),
+                  width: context.w(27),
+                  height: context.w(27),
                   fit: BoxFit.contain,
                 ),
               ),
@@ -837,5 +958,31 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ],
     );
+  }
+}
+
+/// Keeps a lazily-built sliver child alive once it has been built, so
+/// scrolling it out of the cache range and back never disposes its State
+/// (and therefore never re-triggers a network fetch it made in initState).
+/// Wrapping happens purely at the list level — the wrapped widgets are
+/// completely unmodified.
+class _KeepAliveWrapper extends StatefulWidget {
+  final Widget child;
+
+  const _KeepAliveWrapper({required this.child});
+
+  @override
+  State<_KeepAliveWrapper> createState() => _KeepAliveWrapperState();
+}
+
+class _KeepAliveWrapperState extends State<_KeepAliveWrapper>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return widget.child;
   }
 }

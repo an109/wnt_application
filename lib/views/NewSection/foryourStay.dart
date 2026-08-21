@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/svg.dart';
+import 'package:wander_nova/core/resources/app_colours.dart';
 import '../../../../../UI_helper/responsive_layout.dart';
 
 class ForYourStaySection extends StatelessWidget {
@@ -32,7 +34,7 @@ class ForYourStaySection extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w400,
-                      color: Colors.grey.shade600,
+                      color: const Color(0xFF6D6D6D),
                     ),
                   ),
                 ],
@@ -45,16 +47,16 @@ class ForYourStaySection extends StatelessWidget {
                     Text(
                       'View all',
                       style: TextStyle(
-                        fontSize: context.fs(14),
-                        fontWeight: FontWeight.w600,
-                        color: const Color(0xff005B7F),
+                        fontSize: context.fs(12),
+                        fontWeight: FontWeight.w400,
+                        color: AppColors.AppBlue,
                       ),
                     ),
                     SizedBox(width: context.w(4)),
                     Icon(
                       Icons.arrow_forward,
                       size: context.iconSmall,
-                      color: const Color(0xff005B7F),
+                      color: AppColors.AppBlue,
                     ),
                   ],
                 ),
@@ -67,8 +69,8 @@ class ForYourStaySection extends StatelessWidget {
           /// HOTEL CAROUSEL
           SizedBox(
             height: context.isMobile
-                ? context.h(310)
-                : (context.isTablet ? context.h(330) : context.h(350)),
+                ? context.h(330)
+                : (context.isTablet ? context.h(350) : context.h(370)),
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               itemCount: hotelData.length,
@@ -93,8 +95,8 @@ class ForYourStaySection extends StatelessWidget {
       ) {
     return Container(
       width: context.isMobile
-          ? context.w(230)
-          : (context.isTablet ? context.w(250) : context.w(270)),
+          ? context.w(240)
+          : (context.isTablet ? context.w(260) : context.w(280)),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(context.borderRadius),
@@ -118,16 +120,17 @@ class ForYourStaySection extends StatelessWidget {
                 ),
                 child: Image.network(
                   hotel['image'],
+                  width: double.infinity,
                   height: context.isMobile
-                      ? context.h(160)
-                      : (context.isTablet ? context.h(170) : context.h(180)),
-                  // width: double.infinity,
+                      ? context.h(180)
+                      : (context.isTablet ? context.h(195) : context.h(210)),
                   fit: BoxFit.cover,
                   errorBuilder: (context, error, stackTrace) {
                     return Container(
+                      width: double.infinity,
                       height: context.isMobile
-                          ? context.h(160)
-                          : (context.isTablet ? context.h(170) : context.h(180)),
+                          ? context.h(180)
+                          : (context.isTablet ? context.h(195) : context.h(210)),
                       color: Colors.grey.shade300,
                       child: Icon(
                         Icons.hotel,
@@ -157,7 +160,7 @@ class ForYourStaySection extends StatelessWidget {
                     ],
                   ),
                   child: Image.asset(
-                    'assets/NewIcons/heart.png',
+                    'assets/NewIcons/heartHD.png',
                     width: context.w(18),
                     height: context.h(18),
                   ),
@@ -188,10 +191,10 @@ class ForYourStaySection extends StatelessWidget {
                 /// LOCATION
                 Row(
                   children: [
-                    Icon(
-                      Icons.location_on_outlined,
-                      size: context.iconXSmall,
-                      color: Colors.grey.shade600,
+                    SvgPicture.asset(
+                      'assets/NewIcons/location.svg',
+                      width: context.iconXSmall,
+                      height: context.iconXSmall,
                     ),
                     SizedBox(width: context.gapXXSmall),
                     Expanded(
@@ -239,12 +242,15 @@ class ForYourStaySection extends StatelessWidget {
                     /// STAR RATING
                     Row(
                       children: List.generate(5, (index) {
-                        return Icon(
-                          index < hotel['rating']
-                              ? Icons.star
-                              : Icons.star_border,
-                          size: context.fs(14),
-                          color: Colors.amber,
+                        return Padding(
+                          padding: EdgeInsets.only(right: context.w(2)),
+                          child: Image.asset(
+                            index < hotel['rating']
+                                ? 'assets/NewIcons/fillRating.png'
+                                : 'assets/NewIcons/star.png',
+                            width: context.fs(10),
+                            height: context.fs(10),
+                          ),
                         );
                       }),
                     ),

@@ -143,7 +143,7 @@ class MyApp extends StatelessWidget {
             secondary: const Color(0xFFFF7200),
           ),
           scaffoldBackgroundColor: const Color(0xFFF8F9FA),
-          textTheme: GoogleFonts.poppinsTextTheme(Theme.of(context).textTheme),
+          textTheme: GoogleFonts.manropeTextTheme(Theme.of(context).textTheme),
         ),
         home: const SplashScreen(),
       ),

@@ -181,7 +181,7 @@ extension ResponsiveExtension on BuildContext {
 
   // Icon sizes (pixel-perfect)
   double get iconXSmall => w(12);
-  double get iconSmall => w(16);
+  double get iconSmall => w(14);
   double get iconMedium => w(20);
   double get iconLarge => w(24);
   double get iconXLarge => w(32);
