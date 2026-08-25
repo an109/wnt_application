@@ -68,9 +68,13 @@ class ForYourStaySection extends StatelessWidget {
 
           /// HOTEL CAROUSEL
           SizedBox(
+            // A few extra px of slack vs. the card's natural content height
+            // avoids a RenderFlex overflow on devices/text-scales where the
+            // details column is a couple of pixels taller than the design
+            // value below (was a hairline 1-2px overflow on some phones).
             height: context.isMobile
-                ? context.h(330)
-                : (context.isTablet ? context.h(350) : context.h(370)),
+                ? context.h(340)
+                : (context.isTablet ? context.h(360) : context.h(380)),
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               itemCount: hotelData.length,
@@ -109,6 +113,7 @@ class ForYourStaySection extends StatelessWidget {
         ],
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           /// HOTEL IMAGE

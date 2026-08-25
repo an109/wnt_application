@@ -55,7 +55,7 @@
 //         if (!didPop) _goHome(context);
 //       },
 //       child: Scaffold(
-//         backgroundColor: const Color(0xffF8F9FA),
+//         backgroundColor: const Color(0xFFFFFFFF),
 //         appBar: AppBar(
 //           automaticallyImplyLeading: false,
 //           title: const WanderNovaLogo(scaleFactor: 0.6),
@@ -524,7 +524,7 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen> {
           if (!didPop) _goHome(context);
         },
         child: Scaffold(
-          backgroundColor: const Color(0xffF8F9FA),
+          backgroundColor: const Color(0xFFFFFFFF),
           appBar: AppBar(
             automaticallyImplyLeading: false,
             title: const WanderNovaLogo(scaleFactor: 0.6),

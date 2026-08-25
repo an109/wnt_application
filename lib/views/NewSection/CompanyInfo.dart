@@ -8,8 +8,8 @@ class CompanyInformationSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 380,
-      height: 207,
+      width: context.w(380),
+      height: context.h(207),
       margin: EdgeInsets.symmetric(horizontal: context.wp(4)),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(8),
@@ -20,8 +20,8 @@ class CompanyInformationSection extends StatelessWidget {
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
             child: SizedBox(
-              height: 207,
-              width: 380,
+              height: context.h(207),
+              width: context.w(380),
               child: Image.asset(
                 'assets/NewIcons/company_info.png',
                 fit: BoxFit.cover,
@@ -33,13 +33,13 @@ class CompanyInformationSection extends StatelessWidget {
                       children: [
                         Icon(
                           Icons.business,
-                          size: 60,
+                          size: context.w(60),
                           color: Colors.blue.shade300,
                         ),
-                        SizedBox(height: 8),
+                        SizedBox(height: context.h(8)),
                         Icon(
                           Icons.luggage,
-                          size: 50,
+                          size: context.w(50),
                           color: const Color(0xff005B7F),
                         ),
                       ],
@@ -71,7 +71,7 @@ class CompanyInformationSection extends StatelessWidget {
             top: context.hp(4),
             bottom: context.hp(4),
             child: SizedBox(
-              width: 220, // Fixed width for left content
+              width: context.w(220), // Fixed width for left content
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -79,45 +79,45 @@ class CompanyInformationSection extends StatelessWidget {
                   Text(
                     'Company Information',
                     style: TextStyle(
-                      fontSize: context.isMobile ? 24 : 30,
+                      fontSize: context.isMobile ? context.fs(24) : context.fs(30),
                       fontWeight: FontWeight.w700,
                       color: Colors.black,
                     ),
                   ),
-                  SizedBox(height: 8),
+                  SizedBox(height: context.h(8)),
                   // Decorative line
                   Row(
                     mainAxisSize: MainAxisSize.max,
                     children: [
                       Expanded(
                         child: Container(
-                          height: 2,
+                          height: context.h(2),
                           color: const Color(0xff005B7F),
                         ),
                       ),
                       Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 12),
+                        padding: EdgeInsets.symmetric(horizontal: context.w(12)),
                         child: Image.asset(
                           'assets/NewIcons/flight.png',
-                          width: 14,
-                          height: 14,
+                          width: context.w(14),
+                          height: context.w(14),
                         ),
                       ),
                       Expanded(
                         child: Container(
-                          height: 2,
+                          height: context.h(2),
                           color: const Color(0xffFF6B00),
                         ),
                       ),
                     ],
                   ),
-                  SizedBox(height: 12),
+                  SizedBox(height: context.h(12)),
                   // Description Text
                   Expanded(
                     child: Text(
                       'WANDER NOVA is one of the country\'s leading travel booking platforms, offering a full range of travel services including flight bookings, hotel reservations, visa assistance, holiday packages, travel insurance, and corporate travel solutions. With a customer-first approach and a strong digital platform, WANDER NOVA delivers reliable, convenient, and affordable travel solutions for both individuals and businesses. Whether you\'re travelling domestically or internationally, WANDER NOVA keeps your journey simple and stress-free.',
                       style: TextStyle(
-                        fontSize: 9,
+                        fontSize: context.fs(9),
                         color: Colors.grey.shade800,
                         height: 1.3,
                       ),

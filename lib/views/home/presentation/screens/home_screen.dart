@@ -1,3 +1,6 @@
+import 'dart:ui';
+
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -7,8 +10,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:wander_nova/UI_helper/currency_converter.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import 'package:wander_nova/common_widgets/custom_drawer.dart';
+import 'package:wander_nova/common_widgets/fast_network_image_cache_manager.dart';
 import 'package:wander_nova/core/resources/app_colours.dart';
 import 'package:wander_nova/core/utils/storage/shared_preference.dart';
+import 'package:wander_nova/views/home/presentation/screens/searchSection.dart';
 import '../../../../injection_container.dart';
 import '../../../../newUIWidgets/Home_nav.dart';
 import '../../../ExclusiveDeals/presentation/bloc/exclusive_deals_bloc.dart';
@@ -30,6 +35,80 @@ import '../../../flight_popularDestination/presentation/screen/popular_destinati
 import '../../../trending_route/presentation/screen/trending_routes.dart';
 import '../../flight/flight_screen.dart';
 
+/// Remembers the hero banner URL the General Settings API last returned and
+/// keeps it warm in the image caches.
+///
+/// The hero photo is a remote image whose URL is only known *after* the
+/// General Settings call comes back, so a cold home screen used to sit on the
+/// plain gradient for API-latency + download time before the photo appeared.
+/// Persisting the last URL lets the screen start fetching the (already
+/// disk-cached) photo on its very first frame, in parallel with that API call
+/// rather than after it, and [warmUp] pushes the decode even earlier — onto
+/// the splash screen — so the photo is in the memory cache by the time the
+/// home screen builds. The API response still wins whenever it differs; this
+/// only removes the wait when it doesn't.
+class HomeHeroBanner {
+  const HomeHeroBanner._();
+
+  static const String _prefsKey = 'home_hero_banner_url';
+
+  /// The banner URL from the last successful General Settings load, if any.
+  static String? get lastKnownUrl {
+    try {
+      final url = sl<PreferencesManager>().getString(_prefsKey);
+      return (url != null && url.trim().isNotEmpty) ? url.trim() : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static void remember(String url) {
+    final trimmed = url.trim();
+    if (trimmed.isEmpty || trimmed == lastKnownUrl) return;
+    try {
+      sl<PreferencesManager>().setString(_prefsKey, trimmed);
+    } catch (_) {
+      // Persisting is a pure optimisation — never let it break the screen.
+    }
+  }
+
+  /// Decoded-bitmap width to request for the hero. The photo is full-bleed,
+  /// so the screen's physical pixel width is exactly what's needed — decoding
+  /// the source at its native (often multi-thousand pixel) width would cost
+  /// time and memory for pixels that can never be shown.
+  static int decodeWidthFor(BuildContext context) {
+    final logicalWidth = MediaQuery.sizeOf(context).width;
+    final dpr = MediaQuery.devicePixelRatioOf(context);
+    return (logicalWidth * dpr).round().clamp(320, 2160);
+  }
+
+  /// The exact provider the hero renders with, so a [warmUp] hit also lands
+  /// in Flutter's in-memory image cache and not just on disk.
+  static ImageProvider providerFor(BuildContext context, String url) {
+    return ResizeImage.resizeIfNeeded(
+      decodeWidthFor(context),
+      null,
+      CachedNetworkImageProvider(
+        url,
+        cacheManager: FastNetworkImageCacheManager.instance,
+      ),
+    );
+  }
+
+  /// Fire-and-forget pre-decode of the remembered banner. Safe to call from
+  /// anywhere with a context (the splash screen does); a miss, a failure or a
+  /// missing URL all no-op.
+  static void warmUp(BuildContext context) {
+    final url = lastKnownUrl;
+    if (url == null) return;
+    try {
+      precacheImage(providerFor(context, url), context, onError: (_, __) {});
+    } catch (_) {
+      // Warm-up is best effort only.
+    }
+  }
+}
+
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -50,6 +129,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final ScrollController _scrollController = ScrollController();
   bool _bottomNavVisible = true;
   double _lastScrollOffset = 0;
+  bool _showSlidingSearch = false;
 
   // ---------------------------------------------------------------------
   // Scroll-based expand/pin for the hero's search bar: once the hero's own
@@ -60,9 +140,15 @@ class _HomeScreenState extends State<HomeScreen> {
   // ---------------------------------------------------------------------
   bool _showFloatingSearchBar = false;
 
+  /// Banner URL remembered from the previous run, used to paint the hero
+  /// photo immediately while the General Settings call that supplies the
+  /// authoritative URL is still in flight. See [HomeHeroBanner].
+  String? _cachedHeroBannerUrl;
+
   @override
   void initState() {
     super.initState();
+    _cachedHeroBannerUrl = HomeHeroBanner.lastKnownUrl;
     _loadRecentSearches();
     _scrollController.addListener(_onScroll);
   }
@@ -224,9 +310,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 final generalBloc = context.read<GeneralSettingsBloc>();
                 final dealsBloc = context.read<ExclusiveDealsBloc>();
 
-                generalBloc.add(
-                  const LoadFaqList(domain: 'thewandernova.com'),
-                );
+                // generalBloc.add(
+                //   const LoadFaqList(domain: 'thewandernova.com'),
+                // );
                 generalBloc.add(
                   const LoadGeneralSettings(domain: 'thewandernova.com'),
                 );
@@ -240,7 +326,7 @@ class _HomeScreenState extends State<HomeScreen> {
               color: const Color(0xff005B7F),
               backgroundColor: Colors.white,
               child: Container(
-                color: const Color(0xFFF8F9FA),
+                color: const Color(0xFFFFFFFF),
                 child: CustomScrollView(
                   controller: _scrollController,
                   physics: context.scrollPhysics,
@@ -264,7 +350,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     //     ),
                     //   ),
                     // ),
-                    const SliverToBoxAdapter(child: SizedBox(height: 20)),
+                    const SliverToBoxAdapter(child: SizedBox(height: 12)),
                     // Everything below the hero is built lazily (only as it
                     // scrolls near the viewport) instead of all at once, so
                     // the first frame doesn't have to build + kick off the
@@ -284,6 +370,29 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
             ),
+            // if (_showSlidingSearch)
+            //   Positioned.fill(
+            //     child: GestureDetector(
+            //       behavior: HitTestBehavior.translucent,
+            //       onTap: () {
+            //         setState(() {
+            //           _showSlidingSearch = false;
+            //         });
+            //       },
+            //       child: Container(
+            //         color: Colors.black.withOpacity(0.3),
+            //       ),
+            //     ),
+            //   ),
+            // SlidingSearchSection(
+            //   isVisible: _showSlidingSearch,
+            //   onHide: () {
+            //     setState(() {
+            //       _showSlidingSearch = false;
+            //     });
+            //   },
+            // ),
+
             _buildFloatingSearchBar(context),
           ],
         ),
@@ -311,19 +420,19 @@ class _HomeScreenState extends State<HomeScreen> {
       case 3:
         return const TrendingPackages();
       case 4:
-        return const SizedBox(height: 20);
+        return const SizedBox(height: 8);
+      // case 5:
+      //   return const ForYourStaySection();
+      // case 6:
+      //   return const SizedBox(height: 20);
       case 5:
-        return const ForYourStaySection();
-      case 6:
-        return const SizedBox(height: 20);
-      case 7:
         return const TravelStoriesSection();
-      case 8:
-        return const WhyWanderNovaSection();
-      case 9:
-        return const SizedBox(height: 20);
-      case 10:
-        return const CompanyInformationSection();
+      // case 8:
+      //   return const WhyWanderNovaSection();
+      // case 9:
+      //   return const SizedBox(height: 20);
+      // case 10:
+      //   return const CompanyInformationSection();
       default:
         return const SizedBox.shrink();
     }
@@ -406,7 +515,18 @@ class _HomeScreenState extends State<HomeScreen> {
           } else if (state is PopularDestinationsDataLoaded) {
             bannerUrl = _heroBannerUrl(state.generalSettings);
           }
-          return _buildHeroCardContent(context, bannerUrl);
+          if (bannerUrl != null) {
+            // Next cold start can begin fetching this photo on frame one
+            // instead of waiting for the API to name it again.
+            HomeHeroBanner.remember(bannerUrl);
+            _cachedHeroBannerUrl = bannerUrl;
+          }
+          // Until the API answers, show the URL the previous run ended on —
+          // it's already in the disk cache, so it paints straight away.
+          return _buildHeroCardContent(
+            context,
+            bannerUrl ?? _cachedHeroBannerUrl,
+          );
         },
       ),
     );
@@ -424,7 +544,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final topInset = MediaQuery.of(context).padding.top;
 
     return Container(
-      height: context.h(380),
+      height: context.h(400), // Slightly taller for better gradient visibility
       child: Stack(
         children: [
           Positioned.fill(child: _buildHeroBackground(context, bannerUrl)),
@@ -466,38 +586,73 @@ class _HomeScreenState extends State<HomeScreen> {
     return Stack(
       fit: StackFit.expand,
       children: [
+        // Background gradient
         const DecoratedBox(decoration: BoxDecoration(gradient: brandGradient)),
-        Image.network(
-          bannerUrl,
+
+        // Hero Image — cached to disk so repeat launches paint it from
+        // local storage instead of re-downloading, and decoded no wider
+        // than the screen so a large source photo doesn't stall the first
+        // frames. While it loads the brand gradient below stays visible,
+        // exactly as before.
+        CachedNetworkImage(
+          imageUrl: bannerUrl,
+          cacheManager: FastNetworkImageCacheManager.instance,
           fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-          loadingBuilder: (ctx, child, progress) =>
-              progress == null ? child : const SizedBox.shrink(),
+          memCacheWidth: HomeHeroBanner.decodeWidthFor(context),
+          fadeInDuration: const Duration(milliseconds: 200),
+          placeholder: (_, __) => const SizedBox.shrink(),
+          errorWidget: (_, __, ___) => const SizedBox.shrink(),
         ),
-        // White blurry gradient at bottom
+
+        // ====== LAYER GRADIENT EFFECT (NO BLUR) ======
+        // Layer 1: Soft white gradient that creates the "cloudy" look
         Positioned(
           left: 0,
           right: 0,
           bottom: 0,
           child: Container(
-            height: context.h(120),
+            height: context.h(154),
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.bottomCenter,
                 end: Alignment.topCenter,
                 colors: [
-                  Colors.white.withOpacity(0.95),
-                  Colors.white.withOpacity(0.70),
-                  Colors.white.withOpacity(0.40),
-                  Colors.white.withOpacity(0.15),
+                  Colors.white,
+                  Colors.white.withOpacity(0.92),
+                  Colors.white.withOpacity(0.72),
+                  Colors.white.withOpacity(0.38),
+                  Colors.white.withOpacity(0.10),
                   Colors.transparent,
                 ],
-                stops: const [0.0, 0.3, 0.6, 0.85, 1.0],
+                stops: const [0.0, 0.20, 0.40, 0.60, 0.80, 1.0],
               ),
             ),
           ),
         ),
-        // Overall scrim for better text readability
+
+        // Layer 2: Additional subtle gradient overlay for depth
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          child: Container(
+            height: context.h(100),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.bottomCenter,
+                end: Alignment.topCenter,
+                colors: [
+                  Colors.white.withOpacity(0.3),
+                  Colors.white.withOpacity(0.10),
+                  Colors.transparent,
+                ],
+                stops: const [0.0, 0.5, 1.0],
+              ),
+            ),
+          ),
+        ),
+
+        // Top scrim for text readability
         DecoratedBox(
           decoration: BoxDecoration(
             gradient: LinearGradient(
@@ -570,85 +725,150 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  // Widget _buildSearchBar(BuildContext context) {
+  //   return Container(
+  //     height: context.h(37),
+  //     padding: EdgeInsets.symmetric(horizontal: context.w(16)),
+  //     decoration: BoxDecoration(
+  //       color: Colors.white.withOpacity(0.95),
+  //       borderRadius: BorderRadius.circular(context.r(24)),
+  //       boxShadow: [
+  //         BoxShadow(
+  //           color: Colors.black.withOpacity(0.10),
+  //           blurRadius: context.w(8),
+  //           offset: Offset(0, context.h(2)),
+  //         ),
+  //       ],
+  //     ),
+  //     child: Row(
+  //       children: [
+  //         // Icon(
+  //         //   Icons.search_rounded,
+  //         //   color: Colors.grey.shade600,
+  //         //   size: context.iconMedium,
+  //         // ),
+  //         ClipOval(
+  //           child: Image.asset(
+  //             'assets/Newgif/search.gif',
+  //             width: context.w(18),
+  //             height: context.h(18),
+  //             fit: BoxFit.contain,
+  //           ),
+  //         ),
+  //         SizedBox(width: context.w(10)),
+  //         Expanded(
+  //           child: Text(
+  //             'Search places',
+  //             style: TextStyle(
+  //               color: Colors.grey.shade600,
+  //               fontSize: context.fs(12),
+  //               fontWeight: FontWeight.w500,
+  //             ),
+  //           ),
+  //         ),
+  //         SizedBox(width: context.w(8)),
+  //         Image.asset(
+  //           'assets/NewIcons/micHD.png',
+  //           width: context.w(14),
+  //           height: context.w(14),
+  //           color: AppColors.AppBlue,
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
   Widget _buildSearchBar(BuildContext context) {
-    return Container(
-      height: context.h(37),
-      padding: EdgeInsets.symmetric(horizontal: context.w(16)),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.95),
-        borderRadius: BorderRadius.circular(context.r(24)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.10),
-            blurRadius: context.w(8),
-            offset: Offset(0, context.h(2)),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          // Icon(
-          //   Icons.search_rounded,
-          //   color: Colors.grey.shade600,
-          //   size: context.iconMedium,
-          // ),
-          ClipOval(
-            child: Image.asset(
-              'assets/Newgif/search.gif',
-              width: 18,
-              height: 18,
-              fit: BoxFit.contain,
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _showSlidingSearch = true;
+        });
+        // Hide keyboard if open
+        // SystemChannels.textInput.invokeMethod('TextInput.hide');
+      },
+      child: Container(
+        height: context.h(37),
+        padding: EdgeInsets.symmetric(horizontal: context.w(16)),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.95),
+          borderRadius: BorderRadius.circular(context.r(24)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.10),
+              blurRadius: context.w(8),
+              offset: Offset(0, context.h(2)),
             ),
-          ),
-          SizedBox(width: context.w(10)),
-          Expanded(
-            child: Text(
-              'Search places',
-              style: TextStyle(
-                color: Colors.grey.shade600,
-                fontSize: context.fs(12),
-                fontWeight: FontWeight.w500,
+          ],
+        ),
+        child: Row(
+          children: [
+            ClipOval(
+              child: Image.asset(
+                'assets/Newgif/search.gif',
+                width: 18,
+                height: 18,
+                fit: BoxFit.contain,
               ),
             ),
-          ),
-          SizedBox(width: context.w(8)),
-          Image.asset(
-            'assets/NewIcons/micHD.png',
-            width: context.w(14),
-            height: context.w(14),
-          ),
-        ],
+            SizedBox(width: context.w(10)),
+            Expanded(
+              child: Text(
+                'Search places',
+                style: TextStyle(
+                  color: Colors.grey.shade600,
+                  fontSize: context.fs(12),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            SizedBox(width: context.w(8)),
+            Image.asset(
+              'assets/NewIcons/micHD.png',
+              width: context.w(14),
+              height: context.w(14),
+              color: AppColors.AppBlue,
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  /// Static display of the saved preferred currency — not an interactive picker.
+  /// Static display of the saved preferred currency — not an interactive
+  /// picker. Rebuilds on `CurrencyConverter.currencyListenable` so both the
+  /// flag and the symbol follow whatever the user picks in the drawer's
+  /// currency setting, without waiting for a fresh navigation to the screen.
   Widget _buildCurrencyChip(BuildContext context) {
-    final currency = CurrencyConverter.getPreferredCurrency();
-    final symbol = CurrencyConverter.getSymbol(currency);
+    return ValueListenableBuilder<String>(
+      valueListenable: CurrencyConverter.currencyListenable,
+      builder: (context, currency, _) {
+        final symbol = CurrencyConverter.getSymbol(currency);
+        final flag = CurrencyConverter.getFlag(currency);
 
-    return Container(
-      height: context.h(37),
-      padding: EdgeInsets.symmetric(horizontal: context.w(10)),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.8),
-        borderRadius: BorderRadius.circular(context.r(6)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text('🇮🇳', style: TextStyle(fontSize: context.fs(14))),
-          SizedBox(width: context.w(4)),
-          Text(
-            symbol,
-            style: TextStyle(
-              color: Colors.black87,
-              fontSize: context.bodySmall,
-              fontWeight: FontWeight.w700,
-            ),
+        return Container(
+          height: context.h(37),
+          padding: EdgeInsets.symmetric(horizontal: context.w(10)),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.8),
+            borderRadius: BorderRadius.circular(context.r(6)),
           ),
-        ],
-      ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(flag, style: TextStyle(fontSize: context.fs(14))),
+              SizedBox(width: context.w(4)),
+              Text(
+                symbol,
+                style: TextStyle(
+                  color: Colors.black87,
+                  fontSize: context.bodySmall,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 

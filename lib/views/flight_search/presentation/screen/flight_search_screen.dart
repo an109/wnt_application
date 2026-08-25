@@ -1101,8 +1101,9 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
                     ),
                   ],
                   SizedBox(height: context.h(6)),
-                  Text(
-                    _convertFlightPrice((flight.totalFare ?? 0).toDouble(), flight.currency),
+                  _flightPriceText(
+                    (flight.totalFare ?? 0).toDouble(),
+                    flight.currency,
                     style: TextStyle(
                       fontSize: context.fs(14),
                       fontWeight: FontWeight.w800,
@@ -1782,11 +1783,9 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
                       ),
                     ),
                     SizedBox(width: context.w(8)),
-                    Text(
-                      _convertFlightPrice(
-                        (flight.totalFare ?? 0).toDouble(),
-                        flight.currency,
-                      ),
+                    _flightPriceText(
+                      (flight.totalFare ?? 0).toDouble(),
+                      flight.currency,
                       style: TextStyle(
                         color: const Color(0xff1663F7),
                         fontSize: context.fs(18),
@@ -1969,11 +1968,9 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
                     ),
                   ),
                   SizedBox(width: context.w(8)),
-                  Text(
-                    _convertFlightPrice(
-                      (flight.totalFare ?? 0).toDouble(),
-                      flight.currency,
-                    ),
+                  _flightPriceText(
+                    (flight.totalFare ?? 0).toDouble(),
+                    flight.currency,
                     style: TextStyle(
                       color: const Color(0xff1663F7),
                       fontSize: context.fs(15),
@@ -2516,6 +2513,35 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
       'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
     ];
     return '${date.day} ${months[date.month - 1]} ${date.year}';
+  }
+
+  /// A flight card's fare with a small "/adult" suffix, so the headline
+  /// number is unambiguous about who it covers. The amount, its formatting
+  /// and [style] are exactly what the plain `Text` used before — the suffix
+  /// is drawn smaller and lighter so it reads as a unit on the price rather
+  /// than a second price.
+  Widget _flightPriceText(
+    double amount,
+    String? apiCurrency, {
+    required TextStyle style,
+  }) {
+    final baseSize = style.fontSize ?? context.fs(14);
+    return Text.rich(
+      TextSpan(
+        text: _convertFlightPrice(amount, apiCurrency),
+        style: style,
+        children: [
+          TextSpan(
+            text: ' /adult',
+            style: style.copyWith(
+              fontSize: baseSize * 0.6,
+              color: Colors.black,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   String _convertFlightPrice(double amount, String? apiCurrency) {

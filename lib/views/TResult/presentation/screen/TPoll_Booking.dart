@@ -322,7 +322,7 @@ class _TPollBookingScreenState extends State<TPollBookingScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xffF8F9FA),
+      backgroundColor: const Color(0xFFFFFFFF),
       appBar: AppBar(
         title: WanderNovaLogo(
           scaleFactor: context.isMobile ? 0.6 : (context.isTablet ? 0.8 : 1.0),

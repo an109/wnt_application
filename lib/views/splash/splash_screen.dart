@@ -33,6 +33,11 @@ class _SplashScreenState extends State<SplashScreen>
     _controller.forward();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      // The splash sits idle for ~3s before routing away. Spend that time
+      // pulling the home screen's hero photo out of the disk cache and into
+      // the decoded-image cache, so the home screen can paint it on its
+      // first frame instead of starting the fetch only once it's on screen.
+      if (mounted) HomeHeroBanner.warmUp(context);
       _coordinateAppRouting();
     });
   }

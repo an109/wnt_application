@@ -1013,7 +1013,7 @@ class _InsuranceBookingScreenState extends State<InsuranceBookingScreen> {
             ),
             isDense: true,
             filled: true,
-            fillColor: const Color(0xFFF8F9FA),
+            fillColor: const Color(0xFFFFFFFF),
             contentPadding: EdgeInsets.symmetric(
               horizontal: context.w(12),
               vertical: context.h(12),
@@ -1087,7 +1087,7 @@ class _InsuranceBookingScreenState extends State<InsuranceBookingScreen> {
         SizedBox(height: context.h(6)),
         Container(
           decoration: BoxDecoration(
-            color: const Color(0xFFF8F9FA),
+            color: const Color(0xFFFFFFFF),
             borderRadius: BorderRadius.circular(context.r(10)),
             border: Border.all(color: Colors.grey.shade300),
           ),
@@ -1194,7 +1194,7 @@ class _InsuranceBookingScreenState extends State<InsuranceBookingScreen> {
                 ),
                 isDense: true,
                 filled: true,
-                fillColor: const Color(0xFFF8F9FA),
+                fillColor: const Color(0xFFFFFFFF),
                 contentPadding: EdgeInsets.symmetric(
                   horizontal: context.w(12),
                   vertical: context.h(12),

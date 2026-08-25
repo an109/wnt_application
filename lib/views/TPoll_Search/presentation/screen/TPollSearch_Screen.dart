@@ -48,7 +48,7 @@ class _TpollSearchResultsPageState extends State<TpollSearchResultsPage> {
   static const _primaryBlue = Color(0xff1663F7);
   static const _primaryOrange = Color(0xffF97316);
   static const _darkNavy = Color(0xff0D1B3D);
-  static const _bgGray = Color(0xffF8F9FA);
+  static const _bgGray = Color(0xFFFFFFFF);
 
   @override
   void initState() {

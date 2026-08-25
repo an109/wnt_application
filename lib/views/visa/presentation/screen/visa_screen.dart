@@ -34,7 +34,7 @@ class VisaScreen extends StatelessWidget {
       ),
 
       body: Container(
-        color: const Color(0xFFF8F9FA),
+        color: const Color(0xFFFFFFFF),
         child: CustomScrollView(
           physics: context.scrollPhysics,
           slivers: [

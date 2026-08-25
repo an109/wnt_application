@@ -1,6 +1,7 @@
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:wander_nova/common_widgets/deal_banner_image.dart';
 import 'package:wander_nova/core/resources/app_colours.dart';
 import '../../domain/entities/exclusive_deal_entity.dart';
 import '../../../../../UI_helper/responsive_layout.dart';
@@ -107,15 +108,15 @@ class _TransportExclusiveDealsSectionState
             style: TextStyle(
               fontSize: context.bodySmall,
               fontWeight: FontWeight.w400,
-              color: Colors.grey.shade600,
+              color: AppColors.grey,
             ),
           ),
 
-          SizedBox(height: context.gapMedium),
+          SizedBox(height: context.gapLarge),
 
           /// TABS - Pill-shaped buttons
           SizedBox(
-            height: context.h(36),
+            height: context.h(25),
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
               itemCount: 4,
@@ -143,13 +144,13 @@ class _TransportExclusiveDealsSectionState
                     decoration: BoxDecoration(
                       border: Border.all(
                         color: isSelected
-                            ? const Color(0xff005B7F)
+                            ? AppColors.AppBlue
                             : Colors.grey.shade300,
                         width: 0.5,
                       ),
                       borderRadius: BorderRadius.circular(context.r(6)),
                       color: isSelected
-                          ? const Color(0xff005B7F).withOpacity(0.05)
+                          ? Color(0xff00A1E4).withOpacity(0.04)
                           : Colors.transparent,
                     ),
                     child: Center(
@@ -159,11 +160,11 @@ class _TransportExclusiveDealsSectionState
                           fontSize: context.fs(12),
                           letterSpacing: 0.8,
                           fontWeight: isSelected
-                              ? FontWeight.w600
+                              ? FontWeight.w500
                               : FontWeight.w500,
                           color: isSelected
-                              ? const Color(0xff005B7F)
-                              : Colors.grey.shade700,
+                              ? AppColors.AppBlue
+                              : AppColors.grey,
                         ),
                       ),
                     ),
@@ -173,32 +174,50 @@ class _TransportExclusiveDealsSectionState
             ),
           ),
 
-          SizedBox(height: context.gapMedium),
+          SizedBox(height: context.gapLarge),
 
           /// BLOC BUILDER FOR API DATA
-          BlocBuilder<ExclusiveDealsBloc, ExclusiveDealsState>(
-            builder: (context, state) {
-              if (state is ExclusiveDealsLoading) {
-                return _buildLoadingCarousel(context);
-              } else if (state is ExclusiveDealsLoaded) {
-                final filteredDeals = _filterDealsByCategory(
-                  state.deals,
-                  selectedTab,
+          BlocListener<ExclusiveDealsBloc, ExclusiveDealsState>(
+            // The carousel autoplays through up to five banners but only
+            // builds the visible one, so every slide used to start its
+            // download the moment it scrolled in — a visible blank card each
+            // time. Kicking all five off together the instant the deals
+            // arrive downloads them in parallel, in the background, while the
+            // first one is still on screen.
+            listener: (context, state) {
+              if (state is ExclusiveDealsLoaded) {
+                DealBannerImage.prefetch(
+                  context,
+                  _filterDealsByCategory(state.deals, selectedTab)
+                      .take(5)
+                      .map((d) => d.imageUrl),
                 );
-
-                if (filteredDeals.isEmpty) {
-                  return const SizedBox.shrink();
-                }
-
-                return _buildDealsCarousel(context, filteredDeals);
-              } else if (state is ExclusiveDealsError) {
-                return _buildErrorState(context, state.message);
               }
-              return const SizedBox.shrink();
             },
+            child: BlocBuilder<ExclusiveDealsBloc, ExclusiveDealsState>(
+              builder: (context, state) {
+                if (state is ExclusiveDealsLoading) {
+                  return _buildLoadingCarousel(context);
+                } else if (state is ExclusiveDealsLoaded) {
+                  final filteredDeals = _filterDealsByCategory(
+                    state.deals,
+                    selectedTab,
+                  );
+
+                  if (filteredDeals.isEmpty) {
+                    return const SizedBox.shrink();
+                  }
+
+                  return _buildDealsCarousel(context, filteredDeals);
+                } else if (state is ExclusiveDealsError) {
+                  return _buildErrorState(context, state.message);
+                }
+                return const SizedBox.shrink();
+              },
+            ),
           ),
 
-          SizedBox(height: context.gapSmall),
+          SizedBox(height: context.gapLarge),
 
           /// DOTS INDICATOR
           BlocBuilder<ExclusiveDealsBloc, ExclusiveDealsState>(
@@ -227,7 +246,7 @@ class _TransportExclusiveDealsSectionState
                         borderRadius: BorderRadius.circular(4),
                         color: currentIndex == index
                             ? AppColors.AppBlue
-                            : Colors.grey.shade300,
+                            : Color(0xFF0066CB).withOpacity(0.24),
                       ),
                     ),
                   ),
@@ -399,32 +418,26 @@ class _TransportExclusiveDealsSectionState
               offset: const Offset(0, 4),
             ),
           ],
-          image: DecorationImage(
-            image: deal.imageUrl.isNotEmpty
-                ? NetworkImage(deal.imageUrl)
-                : const AssetImage('assets/images/placeholder_deal.png')
-            as ImageProvider,
-            fit: BoxFit.cover,
-            onError: (exception, stackTrace) {
-              return;
-            },
-          ),
         ),
-        child: Stack(
-          children: [
-            // Gradient overlay for text readability
-            Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(context.borderRadius),
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [Colors.transparent, Colors.black.withOpacity(0.6)],
-                  stops: const [0.6, 1.0],
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(context.borderRadius),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              DealBannerImage(imageUrl: deal.imageUrl),
+              // Gradient overlay for text readability
+              Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Colors.transparent, Colors.black.withOpacity(0.6)],
+                    stops: const [0.6, 1.0],
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

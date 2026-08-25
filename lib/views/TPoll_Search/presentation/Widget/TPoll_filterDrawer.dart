@@ -98,7 +98,7 @@ class _TpollFilterDrawerState extends State<TpollFilterDrawer> {
   static const _primaryBlue = Color(0xff1663F7);
   static const _primaryOrange = Color(0xffF97316);
   static const _darkNavy = Color(0xff0D1B3D);
-  static const _bgGray = Color(0xffF8F9FA);
+  static const _bgGray = Color(0xFFFFFFFF);
   static const _divider = Color(0xffF0F1F3);
 
   // ── derived data from results ──

@@ -108,7 +108,7 @@ class _InsuranceQuotesScreenState extends State<InsuranceQuotesScreen> {
             state.plans.map(InsurancePolicy.fromPlan).toList();
         return Scaffold(
           key: _scaffoldKey,
-          backgroundColor: const Color(0xFFF8F9FA),
+          backgroundColor: const Color(0xFFFFFFFF),
           endDrawer: _buildFilterDrawer(context, allPolicies),
           appBar: AppBar(
             backgroundColor: Colors.white,

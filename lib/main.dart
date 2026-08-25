@@ -53,6 +53,7 @@ import 'package:wander_nova/views/trending_route/presentation/bloc/trending_rout
 import 'package:wander_nova/views/wallet/presentation/bloc/wallet_bloc.dart';
 
 import 'core/services/exchange_rate_service.dart';
+import 'core/utils/route_observer.dart';
 import 'views/Send_otp/presentation/bloc/send_otp_bloc.dart';
 import 'core/utils/storage/shared_preference.dart';
 import 'injection_container.dart' as di;
@@ -132,17 +133,18 @@ class MyApp extends StatelessWidget {
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
         title: 'WanderNova',
+        navigatorObservers: [appRouteObserver],
         builder: (context, child) => ResponsiveAppWrapper(child: child),
         theme: ThemeData(
           // primarySwatch: Colors.blue,
           //   textTheme: GoogleFonts.poppinsTextTheme(),
           useMaterial3: true,
           colorScheme: ColorScheme.fromSeed(
-            seedColor: const Color(0xFF0054A0),
-            primary: const Color(0xFF0054A0),
-            secondary: const Color(0xFFFF7200),
+            seedColor: const Color(0xFF0066CB),
+            primary: const Color(0xFF0066CB),
+            secondary: const Color(0xFFFF6600),
           ),
-          scaffoldBackgroundColor: const Color(0xFFF8F9FA),
+          scaffoldBackgroundColor: const Color(0xFFFFFFFF),
           textTheme: GoogleFonts.manropeTextTheme(Theme.of(context).textTheme),
         ),
         home: const SplashScreen(),

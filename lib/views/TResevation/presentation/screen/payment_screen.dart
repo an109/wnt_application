@@ -268,7 +268,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
     print('PAYMENT SCREEN BUILD CALLED');
 
     return Scaffold(
-      backgroundColor: const Color(0xffF8F9FA),
+      backgroundColor: const Color(0xFFFFFFFF),
       appBar: AppBar(
         title: const WanderNovaLogo(scaleFactor: 0.6),
         backgroundColor: Colors.white,
@@ -417,7 +417,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
     return Container(
       padding: EdgeInsets.all(context.wp(3)),
       decoration: BoxDecoration(
-        color: const Color(0xffF8F9FA),
+        color: const Color(0xFFFFFFFF),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: Colors.grey.shade200),
       ),
@@ -555,7 +555,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
               child: Container(
                 padding: EdgeInsets.all(context.wp(3)),
                 decoration: BoxDecoration(
-                  color: const Color(0xffF8F9FA),
+                  color: const Color(0xFFFFFFFF),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
                     color: _returnDate == null

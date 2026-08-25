@@ -68,19 +68,19 @@ class _PopularDestinationsState extends State<PopularDestinations> {
                   color: Colors.black87,
                 ),
               ),
-              SizedBox(height: context.h(4)),
+              SizedBox(height: context.gapXSmall),
               Text(
                 'Travel to the Most Loved Destinations',
                 style: TextStyle(
                   fontSize: context.fs(12),
-                  color: Colors.grey.shade600,
+                  color: AppColors.grey,
                 ),
               ),
             ],
           ),
         ),
 
-        SizedBox(height: context.h(16)),
+        SizedBox(height: context.gapLarge),
 
         // Filter Tabs and View All - Row Layout
         Padding(
@@ -90,7 +90,7 @@ class _PopularDestinationsState extends State<PopularDestinations> {
               // Filter Pills
               Expanded(
                 child: SizedBox(
-                  height: context.h(30),
+                  height: context.h(25),
                   child: ListView.separated(
                     scrollDirection: Axis.horizontal,
                     itemCount: _filterOptions.length,
@@ -114,13 +114,13 @@ class _PopularDestinationsState extends State<PopularDestinations> {
                           decoration: BoxDecoration(
                             border: Border.all(
                               color: isSelected
-                                  ? const Color(0xff005B7F)
-                                  : Colors.grey.shade300,
+                                  ? AppColors.AppBlue
+                                  : AppColors.grey,
                               width: 0.5,
                             ),
                             borderRadius: BorderRadius.circular(context.r(6)),
                             color: isSelected
-                                ? const Color(0xff005B7F).withOpacity(0.05)
+                                ? Color(0xff00A1E4).withOpacity(0.04)
                                 : Colors.transparent,
                           ),
                           child: Center(
@@ -129,11 +129,11 @@ class _PopularDestinationsState extends State<PopularDestinations> {
                               style: TextStyle(
                                 fontSize: context.fs(12),
                                 fontWeight: isSelected
-                                    ? FontWeight.w600
+                                    ? FontWeight.w500
                                     : FontWeight.w500,
                                 color: isSelected
-                                    ? const Color(0xff005B7F)
-                                    : Colors.grey.shade700,
+                                    ? AppColors.AppBlue
+                                    : AppColors.grey,
                                 letterSpacing: 0.8
                               ),
                             ),
@@ -178,7 +178,7 @@ class _PopularDestinationsState extends State<PopularDestinations> {
           ),
         ),
 
-        SizedBox(height: context.h(20)),
+        SizedBox(height: context.gapLarge),
 
         // Destinations Carousel
         BlocBuilder<PopularDestinationBloc, PopularDestinationState>(

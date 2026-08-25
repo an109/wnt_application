@@ -7,8 +7,8 @@ class WhyWanderNovaSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 380,
-      height: 207,
+      width: context.w(380),
+      height: context.h(207),
       margin: EdgeInsets.symmetric(horizontal: context.wp(4)),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(8),
@@ -20,8 +20,8 @@ class WhyWanderNovaSection extends StatelessWidget {
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
             child: SizedBox(
-              height: 207,
-              width: 380,
+              height: context.h(207),
+              width: context.w(380),
               child: Image.asset(
                 'assets/NewIcons/nova.png',
                 fit: BoxFit.cover,
@@ -30,7 +30,7 @@ class WhyWanderNovaSection extends StatelessWidget {
                     color: Colors.blue.shade100,
                     child: Icon(
                       Icons.airplanemode_active,
-                      size: 80,
+                      size: context.w(80),
                       color: Colors.blue.shade300,
                     ),
                   );
@@ -60,7 +60,7 @@ class WhyWanderNovaSection extends StatelessWidget {
             top: context.hp(4),
             bottom: context.hp(4),
             child: SizedBox(
-                width: 220,
+                width: context.w(220),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -71,7 +71,7 @@ class WhyWanderNovaSection extends StatelessWidget {
                         TextSpan(
                           text: 'Why ',
                           style: TextStyle(
-                            fontSize: context.isMobile ? 24 : 30,
+                            fontSize: context.isMobile ? context.fs(24) : context.fs(30),
                             fontWeight: FontWeight.w600,
                             color: Colors.black,
                           ),
@@ -79,7 +79,7 @@ class WhyWanderNovaSection extends StatelessWidget {
                         TextSpan(
                           text: 'Wander ',
                           style: TextStyle(
-                            fontSize: context.isMobile ? 24 : 30,
+                            fontSize: context.isMobile ? context.fs(24) : context.fs(30),
                             fontWeight: FontWeight.w600,
                             color: const Color(0xff005B7F),
                           ),
@@ -87,7 +87,7 @@ class WhyWanderNovaSection extends StatelessWidget {
                         TextSpan(
                           text: 'Nova ',
                           style: TextStyle(
-                            fontSize: context.isMobile ? 24 : 30,
+                            fontSize: context.isMobile ? context.fs(24) : context.fs(30),
                             fontWeight: FontWeight.w600,
                             color: const Color(0xffFF6B00),
                           ),
@@ -95,7 +95,7 @@ class WhyWanderNovaSection extends StatelessWidget {
                         TextSpan(
                           text: '?',
                           style: TextStyle(
-                            fontSize: context.isMobile ? 24 : 30,
+                            fontSize: context.isMobile ? context.fs(24) : context.fs(30),
                             fontWeight: FontWeight.w600,
                             color: const Color(0xff005B7F),
                           ),
@@ -104,7 +104,7 @@ class WhyWanderNovaSection extends StatelessWidget {
                     ),
                   ),
 
-                  const SizedBox(height: 8),
+                  SizedBox(height: context.h(8)),
 
                   // Decorative line
                   Row(
@@ -112,28 +112,28 @@ class WhyWanderNovaSection extends StatelessWidget {
                     children: [
                       Expanded(
                         child: Container(
-                          height: 2,
+                          height: context.h(2),
                           color: const Color(0xff005B7F),
                         ),
                       ),
                        Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 12),
+                        padding: EdgeInsets.symmetric(horizontal: context.w(12)),
                         child: Image.asset(
                           'assets/NewIcons/flight.png',
-                          width: 14,
-                          height: 14,
+                          width: context.w(14),
+                          height: context.w(14),
                         ),
                       ),
                       Expanded(
                         child: Container(
-                          height: 2,
+                          height: context.h(2),
                           color: const Color(0xffFF6B00),
                         ),
                       ),
                     ],
                   ),
 
-                  const SizedBox(height: 12),
+                  SizedBox(height: context.h(12)),
 
                   // Description
                   Expanded(
@@ -148,7 +148,7 @@ class WhyWanderNovaSection extends StatelessWidget {
                           ' WANDER NOVA offers real-time availability, secure payments, and smooth navigation, '
                           'ensuring a hassle-free booking experience every single time.',
                       style: TextStyle(
-                        fontSize: 9,
+                        fontSize: context.fs(9),
                         color: Colors.grey.shade800,
                         height: 1.3,
                       ),

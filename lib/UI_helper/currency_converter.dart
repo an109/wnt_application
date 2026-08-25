@@ -120,6 +120,26 @@ class CurrencyConverter {
     return amountInUSD * targetRate;
   }
 
+  /// Flag emoji for the country/region that issues [currency]. Used by the
+  /// chips that show the active currency so the flag tracks whatever the
+  /// user picked in the drawer's currency picker instead of being hardcoded.
+  /// Unknown codes fall back to a neutral white flag rather than throwing.
+  static const Map<String, String> _currencyFlags = {
+    'USD': '\u{1F1FA}\u{1F1F8}',
+    'INR': '\u{1F1EE}\u{1F1F3}',
+    'EUR': '\u{1F1EA}\u{1F1FA}',
+    'GBP': '\u{1F1EC}\u{1F1E7}',
+    'AED': '\u{1F1E6}\u{1F1EA}',
+    'AUD': '\u{1F1E6}\u{1F1FA}',
+    'CAD': '\u{1F1E8}\u{1F1E6}',
+    'SGD': '\u{1F1F8}\u{1F1EC}',
+    'JPY': '\u{1F1EF}\u{1F1F5}',
+    'CNY': '\u{1F1E8}\u{1F1F3}',
+  };
+
+  static String getFlag(String currency) =>
+      _currencyFlags[currency.toUpperCase()] ?? '\u{1F3F3}\u{FE0F}';
+
   static String getSymbol(String currency) {
     final symbols = {
       'INR': '₹',

@@ -217,7 +217,7 @@ class _VisaApplicationScreenState extends State<VisaApplicationScreen> with Tick
     final isDesktop = context.screenWidth > 1024;
 
     return Scaffold(
-      backgroundColor: const Color(0xffF8F9FA),
+      backgroundColor: const Color(0xFFFFFFFF),
       body: SafeArea(
         child: Column(
           children: [
