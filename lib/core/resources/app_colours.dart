@@ -8,6 +8,7 @@ class AppColors {
   static const accent = Color(0xFFFF3B30);
   static const lightBg = Color(0xFFF7F9FC);
   static const white = Color(0xFFFFFFFF);
+  static const black = Color(0xFF000000);
   static const textPrimary = Color(0xFF1A1A1A);
   static const textSecondary = Color(0xFF666666);
   static const textLight = Color(0xFF999999);
@@ -19,6 +20,7 @@ class AppColors {
   static const navy = Color(0xff07163B);
   static const muted = Color(0xff6B7280);
   static const grey = Color(0xFF6D6D6D);
+  static const subhead = Color(0xFF757575);
 
   static const fieldFill = Color(0xffF6F7FB);
   static const fieldBorder = Color(0xffECEEF4);

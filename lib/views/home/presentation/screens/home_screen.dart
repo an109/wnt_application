@@ -276,7 +276,7 @@ class _HomeScreenState extends State<HomeScreen> {
           child: SafeArea(
             top: false,
             child: Padding(
-              padding: const EdgeInsets.only(bottom: 12),
+              padding: EdgeInsets.only(bottom: context.h(12)),
               child: CustomBottomNav(
                 currentIndex: selectedNavIndex,
                 onItemSelected: (index) {
@@ -370,28 +370,25 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
             ),
-            // if (_showSlidingSearch)
-            //   Positioned.fill(
-            //     child: GestureDetector(
-            //       behavior: HitTestBehavior.translucent,
-            //       onTap: () {
-            //         setState(() {
-            //           _showSlidingSearch = false;
-            //         });
-            //       },
-            //       child: Container(
-            //         color: Colors.black.withOpacity(0.3),
-            //       ),
-            //     ),
-            //   ),
-            // SlidingSearchSection(
-            //   isVisible: _showSlidingSearch,
-            //   onHide: () {
-            //     setState(() {
-            //       _showSlidingSearch = false;
-            //     });
-            //   },
-            // ),
+            if (_showSlidingSearch)
+              Positioned.fill(
+                child: SlidingSearchSection(
+                  isVisible: _showSlidingSearch,
+                  onHide: () {
+                    setState(() {
+                      _showSlidingSearch = false;
+                    });
+                  },
+                ),
+              ),
+            SlidingSearchSection(
+              isVisible: _showSlidingSearch,
+              onHide: () {
+                setState(() {
+                  _showSlidingSearch = false;
+                });
+              },
+            ),
 
             _buildFloatingSearchBar(context),
           ],
@@ -418,8 +415,10 @@ class _HomeScreenState extends State<HomeScreen> {
       case 2:
         return const PopularDestinations();
       case 3:
-        return const TrendingPackages();
+        return const SizedBox(height: 15);
       case 4:
+        return const TrendingPackages();
+      case 5:
         return const SizedBox(height: 8);
       // case 5:
       //   return const ForYourStaySection();
@@ -438,13 +437,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // =========================================================================
-  // Floating search bar — fades/slides in pinned to the top of the screen
-  // once the hero's own top bar has scrolled out of view, expanding to the
-  // full width (no drawer/currency/bell alongside it). Purely visual overlay
-  // on top of the unchanged CustomScrollView; ignores touches while hidden
-  // so it never blocks taps on the hero underneath.
-  // =========================================================================
   Widget _buildFloatingSearchBar(BuildContext context) {
     final topInset = MediaQuery.of(context).padding.top;
 
@@ -453,15 +445,26 @@ class _HomeScreenState extends State<HomeScreen> {
       left: 0,
       right: 0,
       child: IgnorePointer(
-        ignoring: !_showFloatingSearchBar,
+        // Disable the floating search while the sliding panel is open.
+        ignoring: !_showFloatingSearchBar || _showSlidingSearch,
         child: AnimatedSlide(
-          duration: const Duration(milliseconds: 280),
-          curve: Curves.easeOutCubic,
-          offset: _showFloatingSearchBar ? Offset.zero : const Offset(0, -1),
+          duration: const Duration(milliseconds: 350),
+          curve: Curves.easeInOutCubic,
+
+          // First move out when sliding search opens.
+          // Second move out when the floating search itself is hidden.
+          offset: (_showFloatingSearchBar && !_showSlidingSearch)
+              ? Offset.zero
+              : const Offset(0, -1),
+
           child: AnimatedOpacity(
-            duration: const Duration(milliseconds: 280),
-            curve: Curves.easeOutCubic,
-            opacity: _showFloatingSearchBar ? 1 : 0,
+            duration: const Duration(milliseconds: 250),
+            curve: Curves.easeInOutCubic,
+
+            opacity: (_showFloatingSearchBar && !_showSlidingSearch)
+                ? 1.0
+                : 0.0,
+
             child: Container(
               padding: EdgeInsets.fromLTRB(
                 context.w(20),
@@ -470,12 +473,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 context.h(16),
               ),
               decoration: BoxDecoration(
-                // gradient: const LinearGradient(
-                //   begin: Alignment.topLeft,
-                //   end: Alignment.bottomRight,
-                //   colors: [Color(0xFF003B95), Color(0xFF005B7F)],
-                // ),
-                color: Color(0xFF003B95),
+                color: const Color(0xFF003B95),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withOpacity(0.12),
@@ -484,7 +482,15 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ],
               ),
-              child: _buildSearchBar(context),
+              child: GestureDetector(
+                onTap: () {
+                  // Open the top sliding search.
+                  setState(() {
+                    _showSlidingSearch = true;
+                  });
+                },
+                child: _buildSearchBar(context),
+              ),
             ),
           ),
         ),
@@ -493,10 +499,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   // =========================================================================
-  // HERO — redesigned to match the Figma reference:
-  // hamburger + search bar + currency chip + bell over a full-bleed photo,
-  // with a 3x2 grid of service icons (Flight/Hotels/Holiday/Visa/Transport/
-  // Insurance) below it. No search-card opens on tap anywhere in this section.
+
   // =========================================================================
 
   Widget _buildHeroCard(BuildContext context) {
@@ -725,58 +728,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // Widget _buildSearchBar(BuildContext context) {
-  //   return Container(
-  //     height: context.h(37),
-  //     padding: EdgeInsets.symmetric(horizontal: context.w(16)),
-  //     decoration: BoxDecoration(
-  //       color: Colors.white.withOpacity(0.95),
-  //       borderRadius: BorderRadius.circular(context.r(24)),
-  //       boxShadow: [
-  //         BoxShadow(
-  //           color: Colors.black.withOpacity(0.10),
-  //           blurRadius: context.w(8),
-  //           offset: Offset(0, context.h(2)),
-  //         ),
-  //       ],
-  //     ),
-  //     child: Row(
-  //       children: [
-  //         // Icon(
-  //         //   Icons.search_rounded,
-  //         //   color: Colors.grey.shade600,
-  //         //   size: context.iconMedium,
-  //         // ),
-  //         ClipOval(
-  //           child: Image.asset(
-  //             'assets/Newgif/search.gif',
-  //             width: context.w(18),
-  //             height: context.h(18),
-  //             fit: BoxFit.contain,
-  //           ),
-  //         ),
-  //         SizedBox(width: context.w(10)),
-  //         Expanded(
-  //           child: Text(
-  //             'Search places',
-  //             style: TextStyle(
-  //               color: Colors.grey.shade600,
-  //               fontSize: context.fs(12),
-  //               fontWeight: FontWeight.w500,
-  //             ),
-  //           ),
-  //         ),
-  //         SizedBox(width: context.w(8)),
-  //         Image.asset(
-  //           'assets/NewIcons/micHD.png',
-  //           width: context.w(14),
-  //           height: context.w(14),
-  //           color: AppColors.AppBlue,
-  //         ),
-  //       ],
-  //     ),
-  //   );
-  // }
   Widget _buildSearchBar(BuildContext context) {
     return GestureDetector(
       onTap: () {
@@ -784,7 +735,7 @@ class _HomeScreenState extends State<HomeScreen> {
           _showSlidingSearch = true;
         });
         // Hide keyboard if open
-        // SystemChannels.textInput.invokeMethod('TextInput.hide');
+        SystemChannels.textInput.invokeMethod('TextInput.hide');
       },
       child: Container(
         height: context.h(37),
@@ -805,8 +756,8 @@ class _HomeScreenState extends State<HomeScreen> {
             ClipOval(
               child: Image.asset(
                 'assets/Newgif/search.gif',
-                width: 18,
-                height: 18,
+                width: context.w(18),
+                height: context.w(18),
                 fit: BoxFit.contain,
               ),
             ),
@@ -1181,11 +1132,6 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-/// Keeps a lazily-built sliver child alive once it has been built, so
-/// scrolling it out of the cache range and back never disposes its State
-/// (and therefore never re-triggers a network fetch it made in initState).
-/// Wrapping happens purely at the list level — the wrapped widgets are
-/// completely unmodified.
 class _KeepAliveWrapper extends StatefulWidget {
   final Widget child;
 

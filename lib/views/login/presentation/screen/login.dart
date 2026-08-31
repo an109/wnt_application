@@ -478,8 +478,8 @@ class _LoginSignupScreenState extends State<LoginSignupScreen> {
                                   Text(
                                     _isLogin ? "Welcome Back" : "Create Account",
                                     style: TextStyle(
-                                      fontSize: context.fs(20), // Reduced from 24
-                                      fontWeight: FontWeight.w800,
+                                      fontSize: context.fs(18),
+                                      fontWeight: FontWeight.w700,
                                     ),
                                   ),
                                   SizedBox(height: context.h(4)), // Reduced from 6
@@ -488,8 +488,8 @@ class _LoginSignupScreenState extends State<LoginSignupScreen> {
                                         ? "Enter your email or mobile number to login."
                                         : "Enter your email or mobile number to get started.",
                                     style: TextStyle(
-                                      fontSize: context.fs(13), // Reduced from 15
-                                      color: Colors.grey.shade600,
+                                      fontSize: context.fs(12),
+                                      color: AppColors.grey,
                                     ),
                                   ),
                                   SizedBox(height: context.h(16)), // Reduced from 22
@@ -497,8 +497,8 @@ class _LoginSignupScreenState extends State<LoginSignupScreen> {
                                   Text(
                                     "Email ID / Mobile Number",
                                     style: TextStyle(
-                                      fontSize: context.fs(14), // Reduced from 16
-                                      fontWeight: FontWeight.w700,
+                                      fontSize: context.fs(12),
+                                      fontWeight: FontWeight.w600,
                                     ),
                                   ),
                                   SizedBox(height: context.h(8)), // Reduced from 10
@@ -509,7 +509,7 @@ class _LoginSignupScreenState extends State<LoginSignupScreen> {
                                     decoration: BoxDecoration(
                                       border: Border.all(
                                         color: _inlineError != null
-                                            ? const Color(0xffFF3B42)
+                                            ? AppColors.OrangeColor
                                             : Colors.grey.shade300,
                                       ),
                                       borderRadius: BorderRadius.circular(
@@ -519,7 +519,7 @@ class _LoginSignupScreenState extends State<LoginSignupScreen> {
                                     child: TextField(
                                       controller: _emailController,
                                       style: TextStyle(
-                                        fontSize: context.fs(14), // Reduced from 15
+                                        fontSize: context.fs(12),
                                       ),
                                       onChanged: (_) {
                                         if (_inlineError != null) {
@@ -671,13 +671,13 @@ class _LoginSignupScreenState extends State<LoginSignupScreen> {
                                       // ),
                                     ],
                                   ),
-                                  SizedBox(height: context.h(12)), // Reduced from 18
+                                  SizedBox(height: context.h(14)),
 
                                   RichText(
                                     text: TextSpan(
                                       style: TextStyle(
-                                        fontSize: context.fs(11), // Reduced from 13
-                                        color: Colors.grey.shade600,
+                                        fontSize: context.fs(11),
+                                        color: AppColors.grey,
                                       ),
                                       children: const [
                                         TextSpan(

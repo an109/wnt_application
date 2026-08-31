@@ -1,8 +1,10 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import '../../domain/entity/visaDestin_Entity.dart';
 import 'package:wander_nova/views/VisaDestination/presentation/section/visa_apply_screen.dart';
 import '../../../../UI_helper/currency_converter.dart';
 import '../../../../UI_helper/responsive_layout.dart';
+import '../../../../common_widgets/fast_network_image_cache_manager.dart';
 import '../../../../common_widgets/logo.dart';
 import '../../../../core/services/currency_service.dart';
 
@@ -32,6 +34,13 @@ class _VisaDestinationDetailPageState
   void initState() {
     super.initState();
     _loadCurrency();
+    CurrencyConverter.currencyListenable.addListener(_loadCurrency);
+  }
+
+  @override
+  void dispose() {
+    CurrencyConverter.currencyListenable.removeListener(_loadCurrency);
+    super.dispose();
   }
 
   Future<void> _loadCurrency() async {
@@ -66,8 +75,7 @@ class _VisaDestinationDetailPageState
       converted = amount.toDouble() * _conversionRate;
     }
     final formatted = converted.toStringAsFixed(converted % 1 == 0 ? 0 : 2);
-    return '$formatted';
-    // return '$_preferredSymbol$formatted';
+    return '$_preferredSymbol$formatted';
   }
 
   @override
@@ -750,10 +758,11 @@ class _VisaDestinationDetailPageState
       );
     }
 
-    return Image.network(
-      imageUrl,
+    return CachedNetworkImage(
+      imageUrl: imageUrl,
+      cacheManager: FastNetworkImageCacheManager.instance,
       fit: BoxFit.cover,
-      errorBuilder: (_, __, ___) {
+      errorWidget: (_, __, ___) {
         return Container(
           color: Colors.grey.shade200,
           child: const Icon(

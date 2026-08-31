@@ -108,6 +108,7 @@ class _AkHotelResultsScreenState extends State<AkHotelResultsScreen> {
     _scrollController.addListener(_onScroll);
     _autoLoadContentUntilMerged();
     _pollRate();
+    CurrencyConverter.currencyListenable.addListener(_onCurrencyChanged);
   }
 
   @override
@@ -115,7 +116,14 @@ class _AkHotelResultsScreenState extends State<AkHotelResultsScreen> {
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     _searchController.dispose();
+    CurrencyConverter.currencyListenable.removeListener(_onCurrencyChanged);
     super.dispose();
+  }
+
+  void _onCurrencyChanged() {
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   void _retrySearch() {
@@ -375,11 +383,26 @@ class _AkHotelResultsScreenState extends State<AkHotelResultsScreen> {
     final refundableOnly = f['Refundable'] == true;
     final mealType = f['MealType'];
 
+    // HotelFilterDrawer always sends min_price/max_price in INR, but
+    // h.numericPrice is already converted to the user's preferred currency
+    // (see _toUiModel above) — convert the bounds to match before comparing,
+    // otherwise filtering silently breaks for any non-INR currency.
+    final currentCurrency = CurrencyConverter.getPreferredCurrency();
     if (minPrice != null) {
-      result = result.where((h) => h.numericPrice >= (minPrice as num).toDouble()).toList();
+      final minPriceConverted = CurrencyConverter.convert(
+        amount: (minPrice as num).toDouble(),
+        fromCurrency: 'INR',
+        toCurrency: currentCurrency,
+      );
+      result = result.where((h) => h.numericPrice >= minPriceConverted).toList();
     }
     if (maxPrice != null) {
-      result = result.where((h) => h.numericPrice <= (maxPrice as num).toDouble()).toList();
+      final maxPriceConverted = CurrencyConverter.convert(
+        amount: (maxPrice as num).toDouble(),
+        fromCurrency: 'INR',
+        toCurrency: currentCurrency,
+      );
+      result = result.where((h) => h.numericPrice <= maxPriceConverted).toList();
     }
     if (starRating != null) {
       result = result.where((h) => h.rating == (starRating as num).toInt()).toList();
@@ -435,21 +458,66 @@ class _AkHotelResultsScreenState extends State<AkHotelResultsScreen> {
     });
   }
 
+  // HotelUiModel _toUiModel(AkHotelContentItemEntity c, AkHotelRateItemEntity r) {
+  //   final image = _resolveImage(c);
+  //   return HotelUiModel(
+  //     image: image,
+  //     hotelName: c.name,
+  //     address: c.address,
+  //     price: '${CurrencyConverter.getSymbol(_currency)}${r.total.toStringAsFixed(0)}',
+  //     numericPrice: r.total,
+  //     taxes: '${CurrencyConverter.getSymbol(_currency)}${r.taxes.toStringAsFixed(0)}',
+  //     rating: c.starRating.round().clamp(0, 5),
+  //     roomInfo: '',
+  //     description: '',
+  //     images: c.images,
+  //     currency: _currency,
+  //     originalPrice: r.baseRate,
+  //     hotelCode: c.id,
+  //     bookingCode: r.provider,
+  //     isRefundable: r.isRefundable,
+  //     mealType: r.freeBreakfast ? 'Breakfast Included' : '',
+  //     facilities: c.facilities.map((f) => f.name).toList(),
+  //     cityName: _locationName,
+  //     countryName: c.countryCode,
+  //   );
+  // }
   HotelUiModel _toUiModel(AkHotelContentItemEntity c, AkHotelRateItemEntity r) {
     final image = _resolveImage(c);
+    // Get current currency from CurrencyConverter
+    final currentCurrency = CurrencyConverter.getPreferredCurrency();
+
+    // Convert price from _currency to currentCurrency
+    final convertedPrice = CurrencyConverter.convert(
+      amount: r.total,
+      fromCurrency: _currency,
+      toCurrency: currentCurrency,
+    );
+
     return HotelUiModel(
       image: image,
       hotelName: c.name,
       address: c.address,
-      price: '${CurrencyConverter.getSymbol(_currency)}${r.total.toStringAsFixed(0)}',
-      numericPrice: r.total,
-      taxes: '${CurrencyConverter.getSymbol(_currency)}${r.taxes.toStringAsFixed(0)}',
+      price: CurrencyConverter.format(convertedPrice, currentCurrency),
+      numericPrice: convertedPrice,
+      taxes: CurrencyConverter.format(
+        CurrencyConverter.convert(
+          amount: r.taxes,
+          fromCurrency: _currency,
+          toCurrency: currentCurrency,
+        ),
+        currentCurrency,
+      ),
       rating: c.starRating.round().clamp(0, 5),
       roomInfo: '',
       description: '',
       images: c.images,
-      currency: _currency,
-      originalPrice: r.baseRate,
+      currency: currentCurrency, // Store converted currency
+      originalPrice: CurrencyConverter.convert(
+        amount: r.baseRate,
+        fromCurrency: _currency,
+        toCurrency: currentCurrency,
+      ),
       hotelCode: c.id,
       bookingCode: r.provider,
       isRefundable: r.isRefundable,
@@ -460,11 +528,6 @@ class _AkHotelResultsScreenState extends State<AkHotelResultsScreen> {
     );
   }
 
-  /// A curated (exact-match) hotel Content already resolved but Rate hasn't
-  /// priced yet — possibly never will, since Rate is a separate supplier
-  /// feed. `bookingCode: ''` marks it as not-yet-bookable; [_navigateToDetail]
-  /// checks that before opening the detail screen (Hotel Content there
-  /// needs a real `priceProvider` in its query string).
   HotelUiModel _toPendingUiModel(AkHotelContentItemEntity c) {
     final image = _resolveImage(c);
     return HotelUiModel(

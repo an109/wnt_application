@@ -60,22 +60,44 @@ class _RecentSearchesSectionState extends State<RecentSearchesSection>
 
   /// Same route + same date(s) is "the same search" — keep only the newest
   /// (history is already newest-first) instead of stacking duplicate cards.
+
   List<Map<String, dynamic>> _dedupe(List<Map<String, dynamic>> entries) {
     final seen = <String>{};
     final result = <Map<String, dynamic>>[];
+
     for (final entry in entries) {
-      final fromCode = (entry['fromAirport'] as Map)['code'];
-      final toCode = (entry['toAirport'] as Map)['code'];
-      final key = [
-        fromCode,
-        toCode,
-        entry['departureDate'],
-        entry['isRoundTrip'] == true ? entry['returnDate'] : null,
-      ].join('|');
-      if (seen.add(key)) result.add(entry);
+      final fromMap = entry['fromAirport'];
+      final toMap = entry['toAirport'];
+
+      if (fromMap is! Map || toMap is! Map) continue;
+
+      final fromCode =
+          (fromMap['code'] as String?)?.trim().toUpperCase() ?? '';
+      final toCode =
+          (toMap['code'] as String?)?.trim().toUpperCase() ?? '';
+
+      final departureDate = entry['departureDate'] as String?;
+
+      // Calculate total travellers
+      final adults = entry['adults'] as int? ?? 1;
+      final children = entry['children'] as int? ?? 0;
+      final infants = entry['infants'] as int? ?? 0;
+
+      final totalTravellers = adults + children + infants;
+
+      // Same FROM + TO + DATE + TOTAL TRAVELLERS = same search
+      final key =
+          '$fromCode|$toCode|$departureDate|$totalTravellers';
+
+      // History is newest-first, so keep only the newest duplicate.
+      if (seen.add(key)) {
+        result.add(entry);
+      }
     }
+
     return result;
   }
+
 
   Future<void> _loadHistory() async {
     try {
@@ -240,7 +262,7 @@ class _RecentSearchesSectionState extends State<RecentSearchesSection>
         SizedBox(height: context.h(12)),
         Container(
           height: context.h(98),
-          width: context.w(214),
+          // width: context.w(214),
           decoration: BoxDecoration(
             boxShadow: [
               BoxShadow(
@@ -258,17 +280,6 @@ class _RecentSearchesSectionState extends State<RecentSearchesSection>
             itemBuilder: (_, index) => _recentSearchCard(index),
           ),
         ),
-        // SizedBox(
-        //   height: context.h(100),
-        //   width: context.w(214),
-        //   child: ListView.separated(
-        //     scrollDirection: Axis.horizontal,
-        //     padding: EdgeInsets.symmetric(horizontal: context.wp(4)),
-        //     itemCount: _history.length,
-        //     separatorBuilder: (_, __) => SizedBox(width: context.w(12)),
-        //     itemBuilder: (_, index) => _recentSearchCard(index),
-        //   ),
-        // ),
       ],
     );
   }
@@ -292,16 +303,18 @@ class _RecentSearchesSectionState extends State<RecentSearchesSection>
       onTap: () => _repeatSearch(index),
       behavior: HitTestBehavior.opaque,
       child: Container(
-        width: context.w(190),
-        padding: EdgeInsets.all(context.w(14)),
+        width: context.w(214),
+        height: context.h(81),
+        padding: EdgeInsets.all(context.w(12)),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(context.r(14)),
+          borderRadius: BorderRadius.circular(context.r(12)),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.06),
-              blurRadius: context.w(12),
-              offset: Offset(0, context.h(3)),
+              color: Colors.black.withOpacity(0.25),
+              offset: const Offset(0, 4),
+              blurRadius: 5.5,
+              spreadRadius: 0,
             ),
           ],
         ),
@@ -318,7 +331,7 @@ class _RecentSearchesSectionState extends State<RecentSearchesSection>
                 letterSpacing: 0.4,
               ),
             ),
-            SizedBox(height: context.h(6)),
+            SizedBox(height: context.h(11)),
             Row(
               children: [
                 Text(
@@ -329,40 +342,38 @@ class _RecentSearchesSectionState extends State<RecentSearchesSection>
                     color: AppColors.AppBlue,
                   ),
                 ),
-                Expanded(
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(horizontal: context.w(6)),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Container(
-                            height: 1,
-                            width: 68,
-                            color: AppColors.OrangeColor,
-                          ),
-                        ),
-                        Padding(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: context.w(4),
-                          ),
-                          child: Image.asset(
-                            _icFlight,
-                            width: context.w(11.67),
-                            height: context.w(11.67),
-                            fit: BoxFit.contain,
-                          ),
-                        ),
-                        Expanded(
-                          child: Container(
-                            height: 1,
-                            width: 68,
-                            color: AppColors.OrangeColor,
-                          ),
-                        ),
-                      ],
-                    ),
+
+                // Small gap after FROM code
+                SizedBox(width: context.w(20)),
+
+                // Orange line
+                Container(
+                  width: context.w(28),
+                  height: 1,
+                  color: AppColors.OrangeColor,
+                ),
+
+                // Flight icon
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: context.w(4)),
+                  child: Image.asset(
+                    _icFlight,
+                    width: context.w(11.67),
+                    height: context.w(11.67),
+                    fit: BoxFit.contain,
                   ),
                 ),
+
+                // Orange line
+                Container(
+                  width: context.w(28),
+                  height: 1,
+                  color: AppColors.OrangeColor,
+                ),
+
+                // Small gap before TO code
+                SizedBox(width: context.w(20)),
+
                 Text(
                   toCode,
                   style: TextStyle(

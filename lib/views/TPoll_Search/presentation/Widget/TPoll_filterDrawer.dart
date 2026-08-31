@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../UI_helper/currency_converter.dart';
 import '../../domain/entities/TPollSearchEntity.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -106,6 +107,12 @@ class _TpollFilterDrawerState extends State<TpollFilterDrawer> {
   late List<String> _amenityNames;
   late List<int> _passengerOptions;
 
+  // Currency the raw result prices (and _priceRange/_priceRangeLimits) are
+  // denominated in. Filtering/comparison stays in this currency; only the
+  // labels shown on the slider are converted to the user's preferred
+  // currency, so the numbers on screen match what the vehicle cards show.
+  late String _nativeCurrency;
+
   @override
   void initState() {
     super.initState();
@@ -122,6 +129,10 @@ class _TpollFilterDrawerState extends State<TpollFilterDrawer> {
 
   void _deriveOptionsFromResults() {
     final results = widget.results;
+
+    _nativeCurrency = results.isNotEmpty && results.first.totalPriceCurrency.isNotEmpty
+        ? results.first.totalPriceCurrency
+        : 'USD';
 
     // Vehicle types
     _vehicleTypes = results.map((r) => r.vehicleType).toSet().toList()..sort();
@@ -228,7 +239,10 @@ class _TpollFilterDrawerState extends State<TpollFilterDrawer> {
                   _buildSection(
                     title: 'PRICE RANGE',
                     icon: Icons.attach_money,
-                    child: _buildPriceRangeSection(),
+                    child: ValueListenableBuilder<String>(
+                      valueListenable: CurrencyConverter.currencyListenable,
+                      builder: (context, _, __) => _buildPriceRangeSection(),
+                    ),
                   ),
                   _buildDivider(),
                   if (_passengerOptions.isNotEmpty) ...[
@@ -467,6 +481,14 @@ class _TpollFilterDrawerState extends State<TpollFilterDrawer> {
   }
 
   Widget _priceLabel(int value) {
+    final preferredCurrency = CurrencyConverter.getPreferredCurrency();
+    final converted = CurrencyConverter.convert(
+      amount: value.toDouble(),
+      fromCurrency: _nativeCurrency,
+      toCurrency: preferredCurrency,
+    );
+    final symbol = CurrencyConverter.getSymbol(preferredCurrency);
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
@@ -475,7 +497,7 @@ class _TpollFilterDrawerState extends State<TpollFilterDrawer> {
         border: Border.all(color: Colors.grey.shade200),
       ),
       child: Text(
-        '₹$value',
+        '$symbol${converted.toStringAsFixed(0)}',
         style: const TextStyle(
           fontSize: 13,
           fontWeight: FontWeight.w700,

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Dark-mode counterpart of values-v31/styles.xml. Needed as its own
+         qualifier because Android resolves the night qualifier BEFORE the
+         version qualifier: on an API 31+ device in dark mode, plain
+         values-night/styles.xml would otherwise win over values-v31 and the
+         system splash would fall back to black + app icon again.
+
+         The splash looks the same in both modes — it is the Flutter splash's
+         fixed navy, which does not theme. -->
+    <style name="LaunchTheme" parent="@android:style/Theme.Black.NoTitleBar">
+        <item name="android:windowBackground">@drawable/launch_background</item>
+        <item name="android:windowSplashScreenBackground">@color/splash_background</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/splash_icon_blank</item>
+    </style>
+</resources>

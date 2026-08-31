@@ -1,6 +1,9 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
+import '../../../../UI_helper/currency_converter.dart';
+import '../../../../common_widgets/fast_network_image_cache_manager.dart';
 import '../../../../core/resources/app_colours.dart';
 import '../../../Holidays/presentation/screen/holidays_screen.dart';
 import '../../domain/entities/Popular_destination_entity.dart';
@@ -161,7 +164,7 @@ class _PopularDestinationsState extends State<PopularDestinations> {
                       'View all',
                       style: TextStyle(
                         fontSize: context.fs(12),
-                        fontWeight: FontWeight.w400,
+                        fontWeight: FontWeight.w700,
                         color: AppColors.AppBlue,
                       ),
                     ),
@@ -270,25 +273,52 @@ class _PopularDestinationsState extends State<PopularDestinations> {
       BuildContext context,
       List<DestinationEntity> destinations,
       ) {
-    return SizedBox(
-      height: context.h(280),
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: EdgeInsets.symmetric(horizontal: context.wp(4)),
-        itemCount: destinations.length,
-        separatorBuilder: (context, index) => SizedBox(width: context.w(16)),
-        itemBuilder: (context, index) {
-          final destination = destinations[index];
-          return _buildDestinationCard(context, destination);
-        },
-      ),
+    return ValueListenableBuilder<String>(
+      valueListenable: CurrencyConverter.currencyListenable,
+      builder: (context, currentCurrency, _) {
+        return SizedBox(
+          height: context.h(280),
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: EdgeInsets.symmetric(horizontal: context.wp(4)),
+            itemCount: destinations.length,
+            separatorBuilder: (context, index) => SizedBox(width: context.w(16)),
+            itemBuilder: (context, index) {
+              final destination = destinations[index];
+              return _buildDestinationCard(context, destination, currentCurrency);
+            },
+          ),
+        );
+      },
     );
   }
 
   Widget _buildDestinationCard(
       BuildContext context,
       DestinationEntity destination,
+      String currentCurrency, // Added parameter
       ) {
+    // Parse and convert price if available
+    String formattedPrice = '';
+    if (destination.price.isNotEmpty) {
+      // Try to extract numeric value from price string
+      final priceMatch = RegExp(r'([\d,]+)').firstMatch(destination.price);
+      if (priceMatch != null) {
+        final priceStr = priceMatch.group(1)!.replaceAll(',', '');
+        final price = double.tryParse(priceStr);
+        if (price != null) {
+          // Get original currency from price string (assuming INR)
+          final originalCurrency = 'INR';
+          final converted = CurrencyConverter.convert(
+            amount: price,
+            fromCurrency: originalCurrency,
+            toCurrency: currentCurrency,
+          );
+          formattedPrice = CurrencyConverter.format(converted, currentCurrency);
+        }
+      }
+    }
+
     return GestureDetector(
       onTap: () {
         _showDestinationDetail(destination);
@@ -315,10 +345,11 @@ class _PopularDestinationsState extends State<PopularDestinations> {
                 height: context.h(304),
                 width: double.infinity,
                 child: destination.imageUrl.isNotEmpty
-                    ? Image.network(
-                  destination.imageUrl,
+                    ? CachedNetworkImage(
+                  imageUrl: destination.imageUrl,
+                  cacheManager: FastNetworkImageCacheManager.instance,
                   fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) {
+                  errorWidget: (context, url, error) {
                     return Container(
                       color: Colors.grey.shade300,
                       child: Icon(
@@ -393,7 +424,7 @@ class _PopularDestinationsState extends State<PopularDestinations> {
                   Text(
                     destination.name,
                     style: TextStyle(
-                      fontSize: context.fs(18),
+                      fontSize: context.fs(14),
                       fontWeight: FontWeight.w700,
                       color: Colors.white,
                     ),
@@ -407,7 +438,8 @@ class _PopularDestinationsState extends State<PopularDestinations> {
                         ? destination.description
                         : 'Experience luxury, adventure, and iconic landmarks',
                     style: TextStyle(
-                      fontSize: context.fs(12),
+                      fontSize: context.fs(10),
+                      fontWeight: FontWeight.w500,
                       color: Colors.white.withOpacity(0.9),
                       height: 1.4,
                     ),
@@ -415,11 +447,9 @@ class _PopularDestinationsState extends State<PopularDestinations> {
                     overflow: TextOverflow.ellipsis,
                   ),
                   SizedBox(height: context.h(12)),
-                  // Price and View All
+                  // Price - Show converted price or original
                   Text(
-                    destination.price.isNotEmpty
-                        ? destination.price
-                        : '',
+                    formattedPrice.isNotEmpty ? formattedPrice : destination.price,
                     style: TextStyle(
                       fontSize: context.fs(16),
                       fontWeight: FontWeight.w700,
@@ -434,7 +464,7 @@ class _PopularDestinationsState extends State<PopularDestinations> {
                         style: TextStyle(
                           fontSize: context.fs(14),
                           fontWeight: FontWeight.w700,
-                          color: const Color(0xffFF6600),
+                          color: AppColors.OrangeColor,
                         ),
                       ),
                       SizedBox(width: context.w(4)),
@@ -464,128 +494,162 @@ class _PopularDestinationsState extends State<PopularDestinations> {
   }
 }
 
-// Bottom Sheet for Destination Details
 class _DestinationDetailSheet extends StatelessWidget {
   final DestinationEntity destination;
 
   const _DestinationDetailSheet({required this.destination});
 
+  String _formatPriceWithConversion(String priceString, String targetCurrency) {
+    if (priceString.isEmpty) return 'Contact for price';
+
+    // Try to extract numeric value from price string
+    final priceMatch = RegExp(r'([\d,]+)').firstMatch(priceString);
+    if (priceMatch != null) {
+      final priceStr = priceMatch.group(1)!.replaceAll(',', '');
+      final price = double.tryParse(priceStr);
+      if (price != null) {
+        final originalCurrency = 'INR';
+        final converted = CurrencyConverter.convert(
+          amount: price,
+          fromCurrency: originalCurrency,
+          toCurrency: targetCurrency,
+        );
+        return CurrencyConverter.format(converted, targetCurrency);
+      }
+    }
+    return priceString.split('/')[0].trim();
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(context.r(24)),
-          topRight: Radius.circular(context.r(24)),
-        ),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          ClipRRect(
-            child: destination.imageUrl.isNotEmpty
-                ? Image.network(
-              destination.imageUrl,
-              height: context.h(200),
-              width: double.infinity,
-              fit: BoxFit.cover,
-            )
-                : Container(
-              height: context.h(200),
-              color: Colors.grey.shade300,
-              child: Icon(Icons.location_city, size: context.w(80)),
+    return ValueListenableBuilder<String>(
+      valueListenable: CurrencyConverter.currencyListenable,
+      builder: (context, currentCurrency, _) {
+        final formattedPrice = _formatPriceWithConversion(
+          destination.price,
+          currentCurrency,
+        );
+
+        return Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(context.r(24)),
+              topRight: Radius.circular(context.r(24)),
             ),
           ),
-          SizedBox(height: context.h(16)),
-          Padding(
-            padding: EdgeInsets.symmetric(horizontal: context.w(20)),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  destination.name,
-                  style: TextStyle(
-                    fontSize: context.fs(24),
-                    fontWeight: FontWeight.bold,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ClipRRect(
+                child: destination.imageUrl.isNotEmpty
+                    ? CachedNetworkImage(
+                  imageUrl: destination.imageUrl,
+                  cacheManager: FastNetworkImageCacheManager.instance,
+                  height: context.h(200),
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                  errorWidget: (context, url, error) => Container(
+                    height: context.h(200),
+                    color: Colors.grey.shade300,
+                    child: Icon(Icons.location_city, size: context.w(80)),
                   ),
+                )
+                    : Container(
+                  height: context.h(200),
+                  color: Colors.grey.shade300,
+                  child: Icon(Icons.location_city, size: context.w(80)),
                 ),
-                SizedBox(height: context.h(8)),
-                Text(
-                  destination.country,
-                  style: TextStyle(
-                    fontSize: context.fs(14),
-                    color: Colors.grey.shade600,
-                  ),
-                ),
-                SizedBox(height: context.h(16)),
-                Text(
-                  destination.description.isNotEmpty
-                      ? destination.description
-                      : destination.longDescription,
-                  style: TextStyle(
-                    fontSize: context.fs(14),
-                    color: Colors.grey.shade700,
-                    height: 1.5,
-                  ),
-                ),
-                SizedBox(height: context.h(20)),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              ),
+              SizedBox(height: context.h(16)),
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: context.w(20)),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    Text(
+                      destination.name,
+                      style: TextStyle(
+                        fontSize: context.fs(22),
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    SizedBox(height: context.h(8)),
+                    Text(
+                      destination.country,
+                      style: TextStyle(
+                        fontSize: context.fs(12),
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                    SizedBox(height: context.h(16)),
+                    Text(
+                      destination.description.isNotEmpty
+                          ? destination.description
+                          : destination.longDescription,
+                      style: TextStyle(
+                        fontSize: context.fs(12),
+                        color: Colors.grey.shade700,
+                        height: 1.5,
+                      ),
+                    ),
+                    SizedBox(height: context.h(20)),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          'Starting from',
-                          style: TextStyle(
-                            fontSize: context.fs(12),
-                            color: Colors.grey.shade600,
-                          ),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Starting from',
+                              style: TextStyle(
+                                fontSize: context.fs(12),
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                            Text(
+                              formattedPrice,
+                              style: TextStyle(
+                                fontSize: context.fs(28),
+                                fontWeight: FontWeight.bold,
+                                color: const Color(0xff005B7F),
+                              ),
+                            ),
+                          ],
                         ),
-                        Text(
-                          destination.price.isNotEmpty
-                              ? destination.price.split('/')[0].trim()
-                              : 'Contact for price',
-                          style: TextStyle(
-                            fontSize: context.fs(28),
-                            fontWeight: FontWeight.bold,
-                            color: const Color(0xff005B7F),
+                        ElevatedButton(
+                          onPressed: () {
+                            Navigator.pop(context);
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xff005B7F),
+                            padding: EdgeInsets.symmetric(
+                              horizontal: context.w(32),
+                              vertical: context.h(16),
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(context.r(30)),
+                            ),
+                          ),
+                          child: Text(
+                            'Book Now',
+                            style: TextStyle(
+                              fontSize: context.fs(16),
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
                       ],
                     ),
-                    ElevatedButton(
-                      onPressed: () {
-                        Navigator.pop(context);
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xff005B7F),
-                        padding: EdgeInsets.symmetric(
-                          horizontal: context.w(32),
-                          vertical: context.h(16),
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(context.r(30)),
-                        ),
-                      ),
-                      child: Text(
-                        'Book Now',
-                        style: TextStyle(
-                          fontSize: context.fs(16),
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
                   ],
                 ),
-              ],
-            ),
+              ),
+              SizedBox(height: context.h(20)),
+            ],
           ),
-          SizedBox(height: context.h(20)),
-        ],
-      ),
+        );
+      },
     );
   }
 }

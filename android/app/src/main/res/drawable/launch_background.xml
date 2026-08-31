@@ -1,12 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Modify this file to customize your launch splash screen -->
+<!-- Window background shown while the Flutter engine boots, before its first
+     frame. Painted in the Flutter splash's own navy so the two are
+     indistinguishable; it used to be plain white (and ?android:colorBackground
+     — i.e. black in dark mode) which is what produced the flash before the
+     splash appeared. -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:drawable="@android:color/white" />
-
-    <!-- You can insert your own image assets here -->
-    <!-- <item>
-        <bitmap
-            android:gravity="center"
-            android:src="@mipmap/launch_image" />
-    </item> -->
+    <item android:drawable="@color/splash_background" />
 </layer-list>

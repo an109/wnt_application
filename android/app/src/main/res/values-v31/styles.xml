@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Android 12 (API 31) replaced the plain windowBackground launch screen
+         with a mandatory system splash screen: it paints
+         windowSplashScreenBackground and centres windowSplashScreenAnimatedIcon
+         on top, defaulting to the theme's colorBackground (black under the
+         dark-mode theme) and android:icon. That default pairing is exactly the
+         "app icon on black" seen before the Flutter splash.
+
+         The screen itself cannot be disabled, so it is styled to match the
+         Flutter splash instead: same navy, and a transparent icon so nothing
+         is drawn over it. windowBackground stays set for the gap between the
+         system splash dismissing and Flutter's first frame.
+
+         Only LaunchTheme is overridden here — NormalTheme resolves from
+         values/styles.xml as usual. -->
+    <style name="LaunchTheme" parent="@android:style/Theme.Light.NoTitleBar">
+        <item name="android:windowBackground">@drawable/launch_background</item>
+        <item name="android:windowSplashScreenBackground">@color/splash_background</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/splash_icon_blank</item>
+    </style>
+</resources>

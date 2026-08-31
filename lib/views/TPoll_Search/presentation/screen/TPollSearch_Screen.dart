@@ -55,12 +55,18 @@ class _TpollSearchResultsPageState extends State<TpollSearchResultsPage> {
     super.initState();
     _bloc = sl<TpollSearchBloc>();
     _bloc.add(TpollSearchFetchEvent(searchId: widget.searchId));
+    CurrencyConverter.currencyListenable.addListener(_onCurrencyChanged);
   }
 
   @override
   void dispose() {
+    CurrencyConverter.currencyListenable.removeListener(_onCurrencyChanged);
     _bloc.close();
     super.dispose();
+  }
+
+  void _onCurrencyChanged() {
+    if (mounted) setState(() {});
   }
 
   String _getFormattedPrice(SearchResultEntity result) {

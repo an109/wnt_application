@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Matches AppColors.navy (0xff07163B), the background of the Flutter
+         SplashScreen. The native launch window uses the same colour so the
+         handover from the OS launch screen to the Flutter splash is invisible
+         instead of flashing black/white first. Keep the two in sync. -->
+    <color name="splash_background">#FF07163B</color>
+</resources>

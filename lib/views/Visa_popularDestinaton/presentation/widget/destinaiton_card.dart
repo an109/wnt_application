@@ -1,5 +1,8 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
+
+import '../../../../common_widgets/fast_network_image_cache_manager.dart';
 
 class DestinationCard extends StatelessWidget {
   final String image;
@@ -55,12 +58,13 @@ class DestinationCard extends StatelessWidget {
                     topLeft: Radius.circular(context.r(18)),
                     topRight: Radius.circular(context.r(18)),
                   ),
-                  child: Image.network(
-                    image,
+                  child: CachedNetworkImage(
+                    imageUrl: image,
+                    cacheManager: FastNetworkImageCacheManager.instance,
                     height: imageHeight,
                     width: double.infinity,
                     fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) {
+                    errorWidget: (context, url, error) {
                       return Container(
                         height: imageHeight,
                         width: double.infinity,
@@ -72,8 +76,7 @@ class DestinationCard extends StatelessWidget {
                         ),
                       );
                     },
-                    loadingBuilder: (context, child, loadingProgress) {
-                      if (loadingProgress == null) return child;
+                    placeholder: (context, url) {
                       return Container(
                         height: imageHeight,
                         width: double.infinity,

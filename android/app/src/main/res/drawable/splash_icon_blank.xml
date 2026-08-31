@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 12+ always draws an icon on its system splash screen and there is
+     no flag to switch it off — the only control is which drawable it uses.
+     Handing it a fully transparent one leaves just the navy background, so the
+     first thing the user sees is the same navy the Flutter splash paints,
+     with the logo arriving via the splash's own animation rather than popping
+     in twice at two different sizes.
+
+     Replace this reference with the app logo in values-v31/styles.xml if a
+     device's OEM skin insists on drawing something here. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="@android:color/transparent" />
+    <size
+        android:width="288dp"
+        android:height="288dp" />
+</shape>

@@ -4,6 +4,7 @@ import 'package:shimmer/shimmer.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import 'package:wander_nova/injection_container.dart';
+import '../../../../UI_helper/currency_converter.dart';
 import '../../../../common_widgets/logo.dart';
 import '../../../../core/error/data_state.dart';
 import '../../../AKHotelDetailContent/domain/entity/AKHotelDetailContent_entity.dart';
@@ -72,12 +73,24 @@ class _AkHotelDetailScreenState extends State<AkHotelDetailScreen> {
   AkHotelRoomsResultEntity? _rooms;
   bool _roomsLoading = true;
   String? _roomsError;
+  String _currentCurrency = 'INR';
 
   @override
   void initState() {
     super.initState();
+    _currentCurrency = CurrencyConverter.getPreferredCurrency();
     _loadContent();
     _loadRooms();
+  }
+
+  String _formatConvertedPrice(double price, String fromCurrency) {
+    final targetCurrency = CurrencyConverter.getPreferredCurrency();
+    final converted = CurrencyConverter.convert(
+      amount: price,
+      fromCurrency: fromCurrency,
+      toCurrency: targetCurrency,
+    );
+    return CurrencyConverter.format(converted, targetCurrency);
   }
 
   Future<void> _loadContent() async {
@@ -456,9 +469,14 @@ class _AkHotelDetailScreenState extends State<AkHotelDetailScreen> {
   }
 
   Widget _roomTypeSection(
-    String title,
-    List<MapEntry<AkHotelRecommendationEntity, AkHotelRoomGroupEntity>> options,
-  ) {
+      String title,
+      List<MapEntry<AkHotelRecommendationEntity, AkHotelRoomGroupEntity>> options,
+      ) {
+    // Calculate price range for this room type
+    final prices = options.map((e) => e.value.totalRate).toList();
+    final minPrice = prices.reduce((a, b) => a < b ? a : b);
+    final maxPrice = prices.reduce((a, b) => a > b ? a : b);
+
     return Container(
       margin: EdgeInsets.only(bottom: context.gapSmall),
       child: Column(
@@ -474,15 +492,54 @@ class _AkHotelDetailScreenState extends State<AkHotelDetailScreen> {
                   child: Icon(Icons.meeting_room_outlined, size: context.w(16), color: _blue),
                 ),
                 SizedBox(width: context.w(6)),
-                // Full title, wraps to as many lines as it needs — never
-                // truncated — instead of squeezing it onto one line.
                 Expanded(
                   child: Text(
                     title,
                     style: TextStyle(fontSize: context.fs(15), fontWeight: FontWeight.w800, color: _navy, height: 1.25),
                   ),
                 ),
-                SizedBox(width: context.w(8)),
+                // Add price range here
+                ValueListenableBuilder<String>(
+                  valueListenable: CurrencyConverter.currencyListenable,
+                  builder: (context, currency, _) {
+                    final convertedMin = CurrencyConverter.convert(
+                      amount: minPrice,
+                      fromCurrency: 'INR',
+                      toCurrency: currency,
+                    );
+                    final convertedMax = CurrencyConverter.convert(
+                      amount: maxPrice,
+                      fromCurrency: 'INR',
+                      toCurrency: currency,
+                    );
+                    final minFormatted = CurrencyConverter.format(convertedMin, currency);
+                    final maxFormatted = CurrencyConverter.format(convertedMax, currency);
+
+                    String priceDisplay;
+                    if (minPrice == maxPrice) {
+                      priceDisplay = minFormatted;
+                    } else {
+                      priceDisplay = '$minFormatted - $maxFormatted';
+                    }
+
+                    return Container(
+                      padding: EdgeInsets.symmetric(horizontal: context.w(8), vertical: context.h(3)),
+                      decoration: BoxDecoration(
+                        color: _blue.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(context.r(20)),
+                      ),
+                      child: Text(
+                        priceDisplay,
+                        style: TextStyle(
+                          fontSize: context.fs(11),
+                          fontWeight: FontWeight.w700,
+                          color: _blue,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                SizedBox(width: context.w(4)),
                 Container(
                   padding: EdgeInsets.symmetric(horizontal: context.w(8), vertical: context.h(3)),
                   decoration: BoxDecoration(
@@ -503,6 +560,149 @@ class _AkHotelDetailScreenState extends State<AkHotelDetailScreen> {
     );
   }
 
+  // Widget _roomTypeSection(
+  //   String title,
+  //   List<MapEntry<AkHotelRecommendationEntity, AkHotelRoomGroupEntity>> options,
+  // ) {
+  //   return Container(
+  //     margin: EdgeInsets.only(bottom: context.gapSmall),
+  //     child: Column(
+  //       crossAxisAlignment: CrossAxisAlignment.start,
+  //       children: [
+  //         Padding(
+  //           padding: EdgeInsets.only(bottom: context.h(8), left: context.w(2)),
+  //           child: Row(
+  //             crossAxisAlignment: CrossAxisAlignment.start,
+  //             children: [
+  //               Padding(
+  //                 padding: EdgeInsets.only(top: context.h(2)),
+  //                 child: Icon(Icons.meeting_room_outlined, size: context.w(16), color: _blue),
+  //               ),
+  //               SizedBox(width: context.w(6)),
+  //               // Full title, wraps to as many lines as it needs — never
+  //               // truncated — instead of squeezing it onto one line.
+  //               Expanded(
+  //                 child: Text(
+  //                   title,
+  //                   style: TextStyle(fontSize: context.fs(15), fontWeight: FontWeight.w800, color: _navy, height: 1.25),
+  //                 ),
+  //               ),
+  //               SizedBox(width: context.w(8)),
+  //               Container(
+  //                 padding: EdgeInsets.symmetric(horizontal: context.w(8), vertical: context.h(3)),
+  //                 decoration: BoxDecoration(
+  //                   color: _blue.withValues(alpha: 0.08),
+  //                   borderRadius: BorderRadius.circular(context.r(20)),
+  //                 ),
+  //                 child: Text(
+  //                   '${options.length} options',
+  //                   style: TextStyle(fontSize: context.fs(10), fontWeight: FontWeight.w700, color: _blue),
+  //                 ),
+  //               ),
+  //             ],
+  //           ),
+  //         ),
+  //         for (final e in options) _roomCard(e.key, e.value),
+  //       ],
+  //     ),
+  //   );
+  // }
+
+  // Widget _roomCard(AkHotelRecommendationEntity rec, AkHotelRoomGroupEntity rg) {
+  //   return Container(
+  //     margin: EdgeInsets.only(bottom: context.gapMedium),
+  //     padding: EdgeInsets.all(context.w(14)),
+  //     decoration: BoxDecoration(
+  //       color: Colors.white,
+  //       borderRadius: BorderRadius.circular(context.r(12)),
+  //       border: Border.all(color: _border),
+  //     ),
+  //     child: Column(
+  //       crossAxisAlignment: CrossAxisAlignment.start,
+  //       children: [
+  //         // Full room title — wraps to as many lines as it needs
+  //         // (responsive font via context.fs), never truncated.
+  //         Text(
+  //           rg.roomName.isEmpty ? 'Room' : rg.roomName,
+  //           style: TextStyle(fontSize: context.fs(14), fontWeight: FontWeight.w800, color: _navy, height: 1.25),
+  //         ),
+  //         SizedBox(height: context.h(4)),
+  //         Text(
+  //           rg.providerName,
+  //           style: TextStyle(fontSize: context.fs(11), color: _muted, fontWeight: FontWeight.w600),
+  //         ),
+  //         if (_stripHtmlTags(rg.description).isNotEmpty) ...[
+  //           SizedBox(height: context.h(6)),
+  //           Text(
+  //             _stripHtmlTags(rg.description),
+  //             maxLines: 3,
+  //             overflow: TextOverflow.ellipsis,
+  //             style: TextStyle(fontSize: context.fs(12), color: _muted, height: 1.35),
+  //           ),
+  //         ],
+  //         if (_stripHtmlTags(rg.boardBasisDescription).isNotEmpty) ...[
+  //           SizedBox(height: context.h(6)),
+  //           Text(_stripHtmlTags(rg.boardBasisDescription), style: TextStyle(fontSize: context.fs(12), color: _muted)),
+  //         ],
+  //         SizedBox(height: context.h(10)),
+  //         Wrap(
+  //           spacing: context.w(8),
+  //           runSpacing: context.h(6),
+  //           children: [
+  //             if (rg.refundable) _badge('Refundable', Colors.green),
+  //             if (!rg.refundable) _badge('Non-refundable', Colors.red),
+  //             if (rg.needsPriceCheck) _badge('Price check required', Colors.orange),
+  //             // Real availability from the API — only shown when the vendor
+  //             // actually reported a count, never a guessed number.
+  //             if (rg.availability > 0) _badge('${rg.availability} room${rg.availability > 1 ? 's' : ''} left', Colors.orange),
+  //           ],
+  //         ),
+  //         SizedBox(height: context.h(12)),
+  //         Row(
+  //           crossAxisAlignment: CrossAxisAlignment.end,
+  //           children: [
+  //             // Expanded(
+  //             //   child: Text(
+  //             //     rg.totalRate.toStringAsFixed(0),
+  //             //     maxLines: 1,
+  //             //     overflow: TextOverflow.ellipsis,
+  //             //     style: TextStyle(fontSize: context.fs(18), fontWeight: FontWeight.w900, color: _navy),
+  //             //   ),
+  //             // ),
+  //             Expanded(
+  //               child: ValueListenableBuilder<String>(
+  //                 valueListenable: CurrencyConverter.currencyListenable,
+  //                 builder: (context, currency, _) {
+  //                   final converted = CurrencyConverter.convert(
+  //                     amount: rg.totalRate,
+  //                     fromCurrency: 'INR', // Assuming rooms are in INR
+  //                     toCurrency: currency,
+  //                   );
+  //                   final formatted = CurrencyConverter.format(converted, currency);
+  //                   return Text(
+  //                     formatted,
+  //                     maxLines: 1,
+  //                     overflow: TextOverflow.ellipsis,
+  //                     style: TextStyle(fontSize: context.fs(18), fontWeight: FontWeight.w900, color: _navy),
+  //                   );
+  //                 },
+  //               ),
+  //             ),
+  //             ElevatedButton(
+  //               style: ElevatedButton.styleFrom(
+  //                 backgroundColor: _blue,
+  //                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(context.r(8))),
+  //               ),
+  //               onPressed: () => _selectRoom(rec, rg),
+  //               child: const Text('Select', style: TextStyle(color: Colors.white)),
+  //             ),
+  //           ],
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
+
   Widget _roomCard(AkHotelRecommendationEntity rec, AkHotelRoomGroupEntity rg) {
     return Container(
       margin: EdgeInsets.only(bottom: context.gapMedium),
@@ -515,8 +715,6 @@ class _AkHotelDetailScreenState extends State<AkHotelDetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Full room title — wraps to as many lines as it needs
-          // (responsive font via context.fs), never truncated.
           Text(
             rg.roomName.isEmpty ? 'Room' : rg.roomName,
             style: TextStyle(fontSize: context.fs(14), fontWeight: FontWeight.w800, color: _navy, height: 1.25),
@@ -547,8 +745,6 @@ class _AkHotelDetailScreenState extends State<AkHotelDetailScreen> {
               if (rg.refundable) _badge('Refundable', Colors.green),
               if (!rg.refundable) _badge('Non-refundable', Colors.red),
               if (rg.needsPriceCheck) _badge('Price check required', Colors.orange),
-              // Real availability from the API — only shown when the vendor
-              // actually reported a count, never a guessed number.
               if (rg.availability > 0) _badge('${rg.availability} room${rg.availability > 1 ? 's' : ''} left', Colors.orange),
             ],
           ),
@@ -557,11 +753,22 @@ class _AkHotelDetailScreenState extends State<AkHotelDetailScreen> {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Expanded(
-                child: Text(
-                  rg.totalRate.toStringAsFixed(0),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: context.fs(18), fontWeight: FontWeight.w900, color: _navy),
+                child: ValueListenableBuilder<String>(
+                  valueListenable: CurrencyConverter.currencyListenable,
+                  builder: (context, currency, _) {
+                    final converted = CurrencyConverter.convert(
+                      amount: rg.totalRate,
+                      fromCurrency: 'INR', // Assuming rooms are in INR
+                      toCurrency: currency,
+                    );
+                    final formatted = CurrencyConverter.format(converted, currency);
+                    return Text(
+                      formatted,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: context.fs(18), fontWeight: FontWeight.w900, color: _navy),
+                    );
+                  },
                 ),
               ),
               ElevatedButton(

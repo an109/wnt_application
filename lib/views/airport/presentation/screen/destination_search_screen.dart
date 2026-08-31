@@ -11,12 +11,6 @@ import '../bloc/airport_state.dart';
 
 enum _ActiveField { from, to }
 
-/// Full-screen destination picker — replaces the old inline dropdown
-/// overlay. Shows FROM and TO stacked (matching the Figma reference), lets
-/// the user switch which one they're editing, offers a Popular Searches
-/// chip grid plus the live airport search list, and returns both
-/// selections together so one visit can fill in whichever field is still
-/// empty (auto-advances from FROM to TO and vice versa).
 class DestinationSearchScreen extends StatefulWidget {
   final AirportEntity? initialFrom;
   final AirportEntity? initialTo;
@@ -88,7 +82,7 @@ class _DestinationSearchScreenState extends State<DestinationSearchScreen> {
 
   void _onQueryChanged(String query) {
     if (_debounce?.isActive ?? false) _debounce!.cancel();
-    setState(() {}); // toggle Popular Searches vs results immediately
+    setState(() {});
     _debounce = Timer(const Duration(milliseconds: 400), () {
       final trimmed = query.trim();
       _bloc.add(
@@ -124,8 +118,6 @@ class _DestinationSearchScreenState extends State<DestinationSearchScreen> {
       _controller.clear();
     });
 
-    // Guide the user straight to whichever field is still empty; once both
-    // are filled, hand control back to the caller.
     if (pickedFrom && _to == null) {
       _switchActive(_ActiveField.to);
     } else if (!pickedFrom && _from == null) {
@@ -149,7 +141,6 @@ class _DestinationSearchScreenState extends State<DestinationSearchScreen> {
     if (match != null) {
       _selectAirport(match);
     } else {
-      // Not in the currently-loaded list — fall back to a live search.
       setState(() => _controller.text = cityName);
       _bloc.add(LoadAirports(searchQuery: cityName));
     }
@@ -162,49 +153,33 @@ class _DestinationSearchScreenState extends State<DestinationSearchScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            Padding(
-              padding: EdgeInsets.fromLTRB(
-                context.w(4),
-                context.h(24),
-                context.w(16),
-                context.h(4),
-              ),
-            ),
+            SizedBox(height: context.h(24)),
 
+            // From Field
             Padding(
               padding: EdgeInsets.symmetric(horizontal: context.w(16)),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: AppColors.fieldFill,
-                  border: Border.all(color: AppColors.fieldBorder),
-                  borderRadius: BorderRadius.circular(context.r(10)),
-                ),
-                child: Column(
-                  children: [
-                    _fieldRow(
-                      field: _ActiveField.from,
-                      icon: Icons.arrow_back,
-                      placeholder: 'From',
-                      airport: _from,
-                    ),
-                    Divider(
-                      height: 1,
-                      thickness: 1,
-                      color: AppColors.fieldBorder,
-                      indent: context.w(44),
-                    ),
-                    _fieldRow(
-                      field: _ActiveField.to,
-                      icon: Icons.flight_land,
-                      placeholder: 'To',
-                      airport: _to,
-                    ),
-                  ],
-                ),
+              child: _buildSingleField(
+                field: _ActiveField.from,
+                placeholder: 'From',
+                airport: _from,
+                isActive: _active == _ActiveField.from,
               ),
             ),
 
-            SizedBox(height: context.h(14)),
+            SizedBox(height: context.h(10)),
+
+            // To Field
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: context.w(16)),
+              child: _buildSingleField(
+                field: _ActiveField.to,
+                placeholder: 'To',
+                airport: _to,
+                isActive: _active == _ActiveField.to,
+              ),
+            ),
+
+            SizedBox(height: context.h(16)),
 
             Expanded(
               child: BlocBuilder<AirportBloc, AirportState>(
@@ -223,7 +198,7 @@ class _DestinationSearchScreenState extends State<DestinationSearchScreen> {
                             color: AppColors.navy,
                           ),
                         ),
-                        SizedBox(height: context.h(10)),
+                        SizedBox(height: context.h(12)),
                         Wrap(
                           spacing: context.w(10),
                           runSpacing: context.h(10),
@@ -231,7 +206,6 @@ class _DestinationSearchScreenState extends State<DestinationSearchScreen> {
                               .map((city) => _popularChip(city))
                               .toList(),
                         ),
-                        SizedBox(height: context.h(16)),
                       ] else
                         _resultsList(state),
                     ],
@@ -245,89 +219,106 @@ class _DestinationSearchScreenState extends State<DestinationSearchScreen> {
     );
   }
 
-  Widget _fieldRow({
+  Widget _buildSingleField({
     required _ActiveField field,
-    required IconData icon,
     required String placeholder,
     required AirportEntity? airport,
+    required bool isActive,
   }) {
-    final isActive = _active == field;
-    return InkWell(
+    return GestureDetector(
       onTap: () => _switchActive(field),
-      child: Padding(
-        padding: EdgeInsets.symmetric(
-          horizontal: context.w(12),
-          vertical: context.h(10),
+      child: Container(
+        height: context.h(42),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.all(
+            color: const Color(0xFFCCCCCC),
+            // color: isActive ? AppColors.blue : const Color(0xFFCCCCCC),
+            width: isActive ? 1.5 : 1,
+          ),
+          borderRadius: BorderRadius.circular(context.r(8)),
         ),
         child: Row(
           children: [
-            Icon(icon, size: context.w(18), color: AppColors.navy),
-            SizedBox(width: context.w(11)),
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: context.w(14)),
+              child: Image.asset(
+                field == _ActiveField.from
+                    ? 'assets/NewIcons/arrowBack.png'
+                    : 'assets/NewIcons/destinationIcon.png',
+                width: _active == _ActiveField.from
+                    ? context.w(16)  // Blue for From/Departure
+                    : context.w(20),
+                // width: context.w(20),
+                height: _active == _ActiveField.from
+                    ? context.h(16)  // Blue for From/Departure
+                    : context.h(20),
+                // height: context.w(20),
+                color: field == _ActiveField.from
+                    ? AppColors.subhead  // Blue for From/Departure
+                    : Color(0xFFCCCCCC), // Orange for To/Arrival
+              ),
+            ),
             Expanded(
               child: isActive
                   ? TextField(
-                      controller: _controller,
-                      focusNode: _focusNode,
-                      autofocus: true,
-                      decoration: InputDecoration(
-                        hintText: placeholder,
-                        hintStyle: TextStyle(
-                          fontSize: context.fs(15),
-                          fontWeight: FontWeight.w700,
-                          color: const Color(0xff7D849B),
-                        ),
-                        border: InputBorder.none,
-                        isDense: true,
-                        contentPadding: EdgeInsets.zero,
-                      ),
+                controller: _controller,
+                focusNode: _focusNode,
+                autofocus: true,
+                decoration: InputDecoration(
+                  hintText: placeholder,
+                  hintStyle: TextStyle(
+                    fontSize: context.fs(12),
+                    fontWeight: FontWeight.w500,
+                    color: const Color(0xFF9CA3AF),
+                  ),
+                  border: InputBorder.none,
+                  isDense: true,
+                  contentPadding: EdgeInsets.zero,
+                ),
+                style: TextStyle(
+                  fontSize: context.fs(12),
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.black,
+                ),
+                onChanged: _onQueryChanged,
+              )
+                  : Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    airport?.cityName ?? placeholder,
+                    style: TextStyle(
+                      fontSize: context.fs(14),
+                      fontWeight: FontWeight.w700,
+                      color: airport != null
+                          ? AppColors.navy
+                          : const Color(0xFF9CA3AF),
+                    ),
+                  ),
+                  if (airport != null)
+                    Text(
+                      airport.airportName,
                       style: TextStyle(
-                        fontSize: context.fs(15),
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.navy,
-                      ),
-                      onChanged: _onQueryChanged,
-                    )
-                  : Text(
-                      airport != null
-                          ? '${airport.cityName}  ${airport.airportName}'
-                          : placeholder,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: context.fs(15),
-                        fontWeight: FontWeight.w700,
-                        color: airport != null
-                            ? AppColors.navy
-                            : const Color(0xff9CA3AF),
+                        fontSize: context.fs(11),
+                        fontWeight: FontWeight.w400,
+                        color: const Color(0xFF6B7280),
                       ),
                     ),
+                ],
+              ),
             ),
+            if (!isActive && airport == null)
+              Padding(
+                padding: EdgeInsets.only(right: context.w(14)),
+                child: Icon(
+                  Icons.keyboard_arrow_down,
+                  color: const Color(0xFF9CA3AF),
+                  size: context.w(20),
+                ),
+              ),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _popularChip(String city) {
-    return InkWell(
-      onTap: () => _selectCityByName(city),
-      borderRadius: BorderRadius.circular(context.r(8)),
-      child: Container(
-        padding: EdgeInsets.symmetric(
-          horizontal: context.w(14),
-          vertical: context.h(8),
-        ),
-        decoration: BoxDecoration(
-          border: Border.all(color: AppColors.fieldBorder),
-          borderRadius: BorderRadius.circular(context.r(8)),
-        ),
-        child: Text(
-          city,
-          style: TextStyle(
-            fontSize: context.fs(13),
-            fontWeight: FontWeight.w600,
-            color: AppColors.navy,
-          ),
         ),
       ),
     );
@@ -372,26 +363,37 @@ class _DestinationSearchScreenState extends State<DestinationSearchScreen> {
       return Column(
         children: state.airports.map((airport) {
           return ListTile(
-            leading: Icon(
-              Icons.local_airport,
-              color: AppColors.navy,
-              size: context.iconMedium,
+            leading: Image.asset(
+              _active == _ActiveField.from
+                  ? 'assets/NewIcons/arrowBack.png'
+                  : 'assets/NewIcons/destinationIcon.png',
+              width: _active == _ActiveField.from
+                  ? context.w(16)
+                  : context.w(20),
+              // width: context.w(20),
+              height: _active == _ActiveField.from
+                  ? context.h(16)  // Blue for From/Departure
+                  : context.h(20),
+              // height: context.w(20),
+              color: _active == _ActiveField.from
+                  ? AppColors.subhead  // Blue for From/Departure
+                  : Color(0xFFCCCCCC), // Orange for To/Arrival
             ),
             title: Text(
-              "${airport.cityName}, ${airport.countryCode}",
+              airport.cityName,
               style: TextStyle(
-                fontSize: context.bodyMedium,
-                fontWeight: FontWeight.w600,
+                fontSize: context.fs(14),
+                fontWeight: FontWeight.w700,
                 color: AppColors.navy,
               ),
             ),
             subtitle: Text(
-              "${airport.airportName} (${airport.airportCode})",
+              airport.airportName,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                fontSize: context.bodySmall,
-                color: Colors.grey.shade600,
+                fontSize: context.fs(11),
+                color: const Color(0xFF6B7280),
               ),
             ),
             onTap: () => _selectAirport(airport),
@@ -401,4 +403,31 @@ class _DestinationSearchScreenState extends State<DestinationSearchScreen> {
     }
     return const SizedBox.shrink();
   }
+
+  Widget _popularChip(String city) {
+    return InkWell(
+      onTap: () => _selectCityByName(city),
+      borderRadius: BorderRadius.circular(context.r(8)),
+      child: Container(
+        padding: EdgeInsets.symmetric(
+          horizontal: context.w(14),
+          vertical: context.h(8),
+        ),
+        decoration: BoxDecoration(
+          border: Border.all(color: const Color(0xFFCCCCCC)),
+          borderRadius: BorderRadius.circular(context.r(8)),
+        ),
+        child: Text(
+          city,
+          style: TextStyle(
+            fontSize: context.fs(13),
+            fontWeight: FontWeight.w600,
+            color: AppColors.navy,
+          ),
+        ),
+      ),
+    );
+  }
+
+
 }
