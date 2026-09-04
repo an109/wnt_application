@@ -31,6 +31,7 @@ import '../../../NewSection/foryourStay.dart';
 import '../../../Transport/screen/transport_screen.dart';
 import '../../../travel_stories/presentation/screen/travel_stories.dart';
 import '../../../visa/presentation/screen/visa_screen.dart';
+import '../../../Insurance/insurance_screen.dart';
 import '../../../flight_popularDestination/presentation/screen/popular_destination.dart';
 import '../../../trending_route/presentation/screen/trending_routes.dart';
 import '../../flight/flight_screen.dart';
@@ -243,16 +244,6 @@ class _HomeScreenState extends State<HomeScreen> {
     } catch (_) {
       return '';
     }
-  }
-
-  void _showComingSoon(String feature) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('$feature is coming soon'),
-        backgroundColor: const Color(0xff005B7F),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
   }
 
   @override
@@ -926,7 +917,10 @@ class _HomeScreenState extends State<HomeScreen> {
         );
         break;
       case 'Insurance':
-        onTap = () => _showComingSoon('Insurance');
+        onTap = () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const InsuranceScreen()),
+        );
         break;
     }
 

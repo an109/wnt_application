@@ -309,14 +309,14 @@ class _RecentSearchesSectionState extends State<RecentSearchesSection>
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(context.r(12)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.25),
-              offset: const Offset(0, 4),
-              blurRadius: 5.5,
-              spreadRadius: 0,
-            ),
-          ],
+          // boxShadow: [
+          //   BoxShadow(
+          //     color: Colors.black.withOpacity(0.15),
+          //     offset: const Offset(0, 4),
+          //     blurRadius: 5.5,
+          //     spreadRadius: -2,
+          //   ),
+          // ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

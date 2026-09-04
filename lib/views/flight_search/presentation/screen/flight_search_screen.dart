@@ -7,6 +7,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import 'package:wander_nova/core/resources/app_colours.dart';
+import 'package:wander_nova/newUIWidgets/flightCard.dart';
+import 'package:wander_nova/newUIWidgets/sheetActionButtons.dart';
 import '../../../../../injection_container.dart';
 import '../../../../UI_helper/currency_converter.dart';
 import '../../../../common_widgets/custom_bottom_nav.dart';
@@ -28,7 +30,7 @@ import 'package:wander_nova/views/AKFlights/presentation/bloc/AKFlights_bloc.dar
 import 'package:wander_nova/views/AKFlights/presentation/bloc/AKFlights_event.dart';
 import 'package:wander_nova/views/AKFlights/presentation/bloc/AKFlights_state.dart';
 import 'detail_popup.dart';
-import 'filter_drawer.dart';
+import 'filter_screen.dart';
 
 // ---------------------------------------------------------------------------
 // Group model
@@ -123,7 +125,7 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
   bool _isRefetchingTui = false;
 
   // filter & sort state
-  String _selectedSort = "Recommended";
+  String _selectedSort = "Lowest Price";
   RangeValues _priceRange = const RangeValues(0, 50000);
   double _maxPrice = 50000;
   double _minPrice = 0;
@@ -132,6 +134,13 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
   Set<String> _selectedArrivalTimes = {};
   bool _filterRefundable = false;
   bool _filterNonRefundable = false;
+  // Filter screen: stop buckets (0 = non-stop, 1 = 1 stop, 2 = 2+ stops) and
+  // an optional total-duration cap in minutes. Empty / null = no filter.
+  Set<int> _selectedStops = {};
+  RangeValues? _durationRange;
+  // One-way results screen only — toggled from its bottom action bar. Left
+  // false everywhere else, so _applyFilters is a no-op for the multi-leg flow.
+  bool _nonStopOnly = false;
   // While false, _selectedAirlines is kept in sync with every airline seen
   // so far so flights from airlines that only show up in a later poll
   // aren't silently filtered out. Set once the user actually picks airlines
@@ -155,11 +164,13 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
   static const int _dateStripDays = 30;
 
   static const _sortOptions = [
-    "Recommended",
-    "Price: Low to High",
-    "Price: High to Low",
-    "Duration: Shortest",
-    "Departure: Earliest",
+    "Lowest Price",
+    "Direct Flights First",
+    "Earliest Departure",
+    "Latest Departure",
+    "Earliest Arrival",
+    "Latest Arrival",
+    "Shortest Duration",
   ];
 
   // ---------------------------------------------------------------------------
@@ -172,11 +183,24 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
   late final FareTripType _fareTripType;
   late List<FlightLegSelection?> _legSelections;
 
+  // Round trip / special return only (`hasReturnLeg`) — the Wego-style
+  // two-step selector: 0 = pick the departing flight, 1 = pick the
+  // returning flight. Multi-city keeps the side-by-side column layout and
+  // never reads this. Advances when the user taps a departing card;
+  // "Change" on step 1 sets it back to 0.
+  int _rtStep = 0;
+
   int get _legCount {
     if (_fareTripType.hasReturnLeg) return 2;
     if (_fareTripType.isMulticity) return widget.multiCityLegs?.length ?? 1;
     return 1;
   }
+
+  /// One-way and round trip / special return share the Figma chrome: the
+  /// route-summary header, the floating Sort / Non Stop / Filter bar, and no
+  /// bottom nav. Multi-city keeps the original logo AppBar + bottom nav.
+  bool get _usesOneWayChrome =>
+      _fareTripType == FareTripType.oneWay || _fareTripType.hasReturnLeg;
 
   @override
   void initState() {
@@ -584,6 +608,11 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
           .toList();
     }
 
+    // non-stop only (one-way bottom bar)
+    if (_nonStopOnly) {
+      result = result.where((f) => (f.stops ?? 0) <= 0).toList();
+    }
+
     // departure time slots
     if (_selectedDepartureTimes.isNotEmpty) {
       result = result.where((f) {
@@ -597,6 +626,24 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
       result = result.where((f) {
         final h = _hourOf(f.arrivalTime);
         return _selectedArrivalTimes.any((s) => _inSlot(h, s));
+      }).toList();
+    }
+
+    // stop buckets (filter screen)
+    if (_selectedStops.isNotEmpty) {
+      result = result.where((f) {
+        final s = f.stops ?? 0;
+        final bucket = s <= 0 ? 0 : (s == 1 ? 1 : 2);
+        return _selectedStops.contains(bucket);
+      }).toList();
+    }
+
+    // total-duration cap (filter screen)
+    final dr = _durationRange;
+    if (dr != null) {
+      result = result.where((f) {
+        final d = _flightDurationMinutes(f);
+        return d == 0 || (d >= dr.start && d <= dr.end);
       }).toList();
     }
 
@@ -711,10 +758,12 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
   }
 
   // ---------------------------------------------------------------------------
-  // Open drawer with current state
+  // Open the filter screen with current state
   // ---------------------------------------------------------------------------
   void _openFilterDrawer() {
-    _scaffoldKey.currentState?.openDrawer();
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => _buildFilterScreen()),
+    );
   }
 
   void _onFilterApply(FlightFilterResult result) {
@@ -738,9 +787,28 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
       _selectedArrivalTimes = result.selectedArrivalTimes;
       _filterRefundable = result.refundable;
       _filterNonRefundable = result.nonRefundable;
+      _selectedStops = result.selectedStops;
+      _durationRange = result.durationRange;
       _userCustomizedAirlineFilter = true;
     });
   }
+
+  /// stop bucket -> cheapest fare seen for it, in the API currency.
+  Map<int, double> _buildStopMinPrices(List<FlightEntity> flights) {
+    final map = <int, double>{};
+    for (final f in flights) {
+      final s = f.stops ?? 0;
+      final bucket = s <= 0 ? 0 : (s == 1 ? 1 : 2);
+      final price = (f.totalFare ?? 0).toDouble();
+      if (!map.containsKey(bucket) || price < map[bucket]!) {
+        map[bucket] = price;
+      }
+    }
+    return map;
+  }
+
+  int _flightDurationMinutes(FlightEntity f) =>
+      int.tryParse(f.duration ?? '') ?? 0;
 
   // ---------------------------------------------------------------------------
   // Build
@@ -751,22 +819,25 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
       create: (_) => _akflightsBloc,
       child: Scaffold(
         key: _scaffoldKey,
-        drawer: _buildFilterDrawer(),
-        appBar: AppBar(
-          title: const WanderNovaLogo(scaleFactor: 0.6),
-          backgroundColor: Colors.white,
-          elevation: 0,
-          actions: [
-            Padding(
-              padding: EdgeInsets.all(context.w(8)),
-              child: Image.asset(
-                "assets/images/wander_logo.png",
-                height: context.h(35),
+        // One-way and round trip keep the Figma route-summary header;
+        // multi-city keeps the original Wander Nova logo bar, untouched.
+        appBar: _usesOneWayChrome
+            ? _buildOneWayHeader(context)
+            : AppBar(
+                title: const WanderNovaLogo(scaleFactor: 0.6),
+                backgroundColor: Colors.white,
+                elevation: 0,
+                actions: [
+                  Padding(
+                    padding: EdgeInsets.all(context.w(8)),
+                    child: Image.asset(
+                      "assets/images/wander_logo.png",
+                      height: context.h(35),
+                    ),
+                  ),
+                ],
               ),
-            ),
-          ],
-        ),
-        backgroundColor: Colors.grey.shade50,
+        backgroundColor: AppColors.white,
         body: BlocBuilder<AkflightsBloc, AkflightsState>(
           builder: (context, state) {
             final loadingScreen = ProfessionalLoadingScreen(
@@ -813,19 +884,33 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
             return _buildEmptyState();
           },
         ),
-        bottomNavigationBar: const CustomBottomNav(currentIndex: 0),
+        // One-way and round trip use the Figma floating Sort / Non Stop /
+        // Filter bar instead of the app bottom nav; multi-city keeps it.
+        bottomNavigationBar: _usesOneWayChrome
+            ? null
+            : const CustomBottomNav(currentIndex: 0),
       ),
     );
   }
 
-  Widget _buildFilterDrawer() {
+  Widget _buildFilterScreen() {
     // Derive the API currency from any flight in the cached list.
     // This is the same currency that totalFare values (and _priceRange) are stored in.
     final apiCurrency = _allFlights.isNotEmpty
         ? (_allFlights.first.currency ?? 'INR')
         : 'INR';
 
-    return FlightFilterDrawer(
+    // Duration bounds from the cached results (minutes).
+    final durs = _allFlights
+        .map(_flightDurationMinutes)
+        .where((d) => d > 0)
+        .toList();
+    final minDur = durs.isEmpty ? 0.0 : durs.reduce(math.min).toDouble();
+    final maxDur = durs.isEmpty ? 1440.0 : durs.reduce(math.max).toDouble();
+    final maxStops = _allFlights.fold<int>(
+        0, (m, f) => (f.stops ?? 0) > m ? (f.stops ?? 0) : m);
+
+    return FlightFilterScreen(
       minPrice: _minPrice,
       maxPrice: _maxPrice,
       currentPriceRange: _priceRange,
@@ -839,26 +924,435 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
       airlineCodes: _buildAirlineCodes(_allFlights),
       onApply: _onFilterApply,
       apiCurrency: apiCurrency,
+      originCityName: widget.from,
+      stopMinPrices: _buildStopMinPrices(_allFlights),
+      maxStopsAvailable: maxStops,
+      currentSelectedStops: _selectedStops,
+      minDuration: minDur,
+      maxDuration: maxDur,
+      currentDurationRange: _durationRange ?? RangeValues(minDur, maxDur),
     );
   }
 
   Widget _buildMainContent(List<FlightEntity> flights, {required bool isCompleted}) {
     final filtered = _applyFilters(flights);
     final groups = _groupFlights(filtered);
-    return Column(
+    // One-way (Figma): date strip + results, with a floating Sort / Non Stop /
+    // Filter bar at the bottom instead of the top sort chips.
+    return Stack(
       children: [
-        // _buildRouteSummary(filtered),
-        _buildDateStrip(),
-        _buildSortBar(),
-        Expanded(
-          child: _buildFlightList(
-            groups,
-            filtered.length,
-            flights.length,
-            isCompleted: isCompleted,
-          ),
+
+        Column(
+          children: [
+            SizedBox(height: context.h(10)),
+            _buildDateStrip(),
+            SizedBox(height: context.h(10)),
+            Expanded(
+              child: _buildFlightList(
+                groups,
+                filtered.length,
+                flights.length,
+                isCompleted: isCompleted,
+              ),
+            ),
+          ],
+        ),
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          child: _buildOneWayActionBar(),
         ),
       ],
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // One-way route-summary header (Figma "Search Flight own way")
+  // ---------------------------------------------------------------------------
+  PreferredSizeWidget _buildOneWayHeader(BuildContext context) {
+    final travellers = widget.adults + widget.children + widget.infants;
+    final dateLabel = _selectedDate != null
+        ? DateFormat('d MMM').format(_selectedDate!)
+        : _formatDate(widget.date);
+    final meta = '$dateLabel  |  $travellers '
+        'Traveller${travellers == 1 ? '' : 's'}  |  ${widget.travelClass}';
+
+    return PreferredSize(
+      preferredSize: Size.fromHeight(context.h(78)),
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(
+            context.w(16),
+            context.h(8),
+            context.w(16),
+            context.h(6),
+          ),
+          child: Container(
+            padding: EdgeInsets.symmetric(
+              horizontal: context.w(12),
+              vertical: context.h(10),
+            ),
+            decoration: BoxDecoration(
+              color: Color(0xFFFFFFFF).withValues(alpha: 0.84),
+              borderRadius: BorderRadius.circular(context.r(8)),
+              border: Border.all(color: const Color(0xFFCCCCCC)),
+            ),
+            child: Row(
+              children: [
+                GestureDetector(
+                  onTap: () => Navigator.of(context).maybePop(),
+                  behavior: HitTestBehavior.opaque,
+                  child: Icon(Icons.arrow_back_rounded,
+                      size: context.w(22), color: AppColors.subhead),
+                ),
+                SizedBox(width: context.w(12)),
+                Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${widget.from} to ${widget.to}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: context.fs(12),
+                          fontWeight: FontWeight.w500,
+                          color: AppColors.black,
+                        ),
+                      ),
+                      SizedBox(height: context.h(4)),
+                      Text(
+                        meta,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: context.fs(8),
+                          fontWeight: FontWeight.w500,
+                          color: AppColors.subhead,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(width: context.w(8)),
+                GestureDetector(
+                  onTap: () => Navigator.of(context).maybePop(),
+                  behavior: HitTestBehavior.opaque,
+                    child: Image.asset(
+                      'assets/NewIcons/edit.png',
+                      width: context.w(15.83),
+                      height: context.h(15.83),
+                      color: AppColors.subhead
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // One-way bottom action bar: Sort | Non Stop | Filter
+  // ---------------------------------------------------------------------------
+  Widget _buildOneWayActionBar() {
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          context.w(16),
+          context.h(6),
+          context.w(16),
+          context.h(10),
+        ),
+        child: Row(
+          children: [
+            // ==================================================
+            // EXISTING SORT | NON STOP | FILTER BAR
+            // ==================================================
+            Expanded(
+              child: Container(
+                height: context.h(44.8),
+                decoration: BoxDecoration(
+                  color: AppColors.white,
+                  borderRadius: BorderRadius.circular(context.r(30)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xff2B3A67).withValues(alpha: 0.12),
+                      blurRadius: context.w(15),
+                      offset: Offset(0, context.h(4)),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: _actionBarButton(
+                        iconPath: 'assets/NewIcons/sort.png',
+                        label: 'Sort',
+                        onTap: _openSortSheet,
+                      ),
+                    ),
+                    _actionBarDivider(),
+                    Expanded(
+                      child: _actionBarButton(
+                        iconPath: 'assets/NewIcons/nonStop.png',
+                        label: 'Non Stop',
+                        active: _nonStopOnly,
+                        onTap: () => setState(() => _nonStopOnly = !_nonStopOnly),
+                      ),
+                    ),
+                    _actionBarDivider(),
+                    Expanded(
+                      child: _actionBarButton(
+                        iconPath: 'assets/NewIcons/filter.png',
+                        label: 'Filter',
+                        active: _hasActiveFilters(),
+                        onTap: _openFilterDrawer,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            // ==================================================
+            // SPACING BETWEEN BAR AND AI BUTTON
+            // ==================================================
+            SizedBox(width: context.w(12)),
+
+            // ==================================================
+            // FLOATING AI BUTTON
+            // ==================================================
+            GestureDetector(
+              onTap: () {
+                debugPrint("AI button tapped in FlightScreen");
+                // Add your AI functionality here
+              },
+              child: Container(
+                width: context.w(48),
+                height: context.h(48),
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black26,
+                      blurRadius: 10,
+                      offset: Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    // ==================================================
+                    // COLORFUL AI FRAME
+                    // ==================================================
+                    ClipOval(
+                      child: Image.asset(
+                        'assets/Newgif/ai_frame.png',
+                        width: context.w(60),
+                        height: context.h(60),
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                    // ==================================================
+                    // AI GIF
+                    // ==================================================
+                    ClipOval(
+                      child: Image.asset(
+                        'assets/Newgif/home_ai.gif',
+                        width: context.w(62),
+                        height: context.h(62),
+                        fit: BoxFit.contain,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _actionBarDivider() {
+    return Container(
+      width: 1,
+      height: context.h(20),
+      color: const Color(0xffE6ECFF),
+    );
+  }
+
+  Widget _actionBarButton({
+    required String iconPath,
+    required String label,
+    required VoidCallback onTap,
+    bool active = false,
+  }) {
+    final color =
+        active ? AppColors.AppBlue : AppColors.black;
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Image.asset(
+            iconPath,
+            width: context.w(16),
+            height: context.w(16),
+            color: color,
+          ),
+          SizedBox(width: context.w(6)),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: context.fs(12),
+              fontWeight: FontWeight.w600,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _openSortSheet() {
+    // Pending selection — the visible list updates as the user taps, but
+    // `_selectedSort` (and therefore the actual sort) only changes on DONE,
+    // exactly as in the Figma. RESET reverts to the default option.
+    String pendingSort = _selectedSort;
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.white,
+      isScrollControlled: true,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(context.r(20))),
+      ),
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return SafeArea(
+              top: false,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Drag handle
+                  Center(
+                    child: Container(
+                      margin: EdgeInsets.only(
+                        top: context.h(10),
+                        bottom: context.h(4),
+                      ),
+                      width: context.w(100),
+                      height: context.h(6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFD1D1D6),
+                        borderRadius: BorderRadius.circular(context.r(24)),
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      context.w(16),
+                      context.h(14),
+                      context.w(20),
+                      context.h(4),
+                    ),
+                    child: Text(
+                      'Sort by',
+                      style: TextStyle(
+                        fontSize: context.fs(20),
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.black,
+                      ),
+                    ),
+                  ),
+                  Flexible(
+                    child: SingleChildScrollView(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: _sortOptions.map((opt) {
+                          final selected = pendingSort == opt;
+                          return ListTile(
+                            contentPadding: EdgeInsets.symmetric(
+                              horizontal: context.w(16),
+                              vertical: context.h(1),
+                            ),
+                            dense: true, // Makes the ListTile more compact
+                            visualDensity: VisualDensity.compact, // Reduces spacing even more
+                            title: Text(
+                              opt,
+                              style: TextStyle(
+                                fontSize: context.fs(15),
+                                fontWeight: FontWeight.w800,
+                                color: AppColors.black,
+                              ),
+                            ),
+                            trailing: _sortRadio(selected),
+                            onTap: () =>
+                                setSheetState(() => pendingSort = opt),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: context.h(3)),
+                  SheetActionButtons(
+                    onSecondary: () => setSheetState(
+                      () => pendingSort = _sortOptions.first,
+                    ),
+                    onPrimary: () {
+                      setState(() => _selectedSort = pendingSort);
+                      Navigator.of(sheetContext).pop();
+                    },
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _sortRadio(bool selected) {
+    return SizedBox(
+      width: context.w(16),
+      height: context.w(16),
+      child: Center(
+        child: Container(
+          width: context.w(16),
+          height: context.w(16),
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: selected ? AppColors.AppBlue : const Color(0xffCCCCCC),
+              width: selected ? 1.5 : 1,
+            ),
+          ),
+          child: selected
+              ? Center(
+                  child: Container(
+                    width: context.w(6),
+                    height: context.w(6),
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: AppColors.AppBlue,
+                    ),
+                  ),
+                )
+              : null,
+        ),
+      ),
     );
   }
 
@@ -880,6 +1374,11 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
   }
 
   Widget _buildMultiLegContent(List<List<FlightEntity>> legLists, {required bool isCompleted}) {
+    // Round trip / special return use the Wego-style stepped selector.
+    // Multi-city keeps the original side-by-side columns below, untouched.
+    if (_fareTripType.hasReturnLeg) {
+      return _buildRoundTripStepped(legLists, isCompleted: isCompleted);
+    }
     return Column(
       children: [
         _buildSortBar(),
@@ -989,17 +1488,17 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
         child: Container(
           padding: EdgeInsets.all(context.w(8)),
           decoration: BoxDecoration(
-            color: isSelected ? const Color(0xff1663F7).withValues(alpha: 0.06) : Colors.white,
-            borderRadius: BorderRadius.circular(context.r(10)),
+            color: isSelected ? AppColors.AppBlue.withValues(alpha: 0.06) : Colors.white,
+            borderRadius: BorderRadius.circular(context.r(16)),
             border: Border.all(
-              color: isSelected ? const Color(0xff1663F7) : const Color(0xffE9EDF6),
+              color: isSelected ? AppColors.AppBlue : AppColors.white,
               width: isSelected ? 1.6 : 1,
             ),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xff2B3A67).withValues(alpha: 0.05),
-                blurRadius: context.w(6),
-                offset: Offset(0, context.h(2)),
+                color: const Color(0xFF000000).withValues(alpha: 0.05),
+                blurRadius: context.w(2),
+                offset: Offset(0, context.h(0)),
               ),
             ],
           ),
@@ -1146,6 +1645,10 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
   /// manually tapping every column before Continue appears. The user can
   /// still tap a different card to override the pick.
   void _autoSelectFirstFlights(List<List<FlightEntity>> legLists) {
+    // Round trip / special return drive selection through the stepped
+    // selector (`_buildRoundTripStepped`) — the user explicitly taps each
+    // leg, so don't pre-fill picks here.
+    if (_fareTripType.hasReturnLeg) return;
     final toSelect = <int, FlightEntity>{};
     for (var i = 0; i < legLists.length && i < _legSelections.length; i++) {
       if (_legSelections[i] == null && legLists[i].isNotEmpty) {
@@ -1210,20 +1713,495 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
     );
   }
 
+  // ---------------------------------------------------------------------------
+  // Round trip / special return — Wego-style stepped selector. One full-width
+  // list at a time: first the departing flight, then (after a pick) the
+  // returning flight, with a summary of the chosen departure and a stepper
+  // header. Selection still flows through `_legSelections` /
+  // `_selectLegColumnFlight`, so pricing/booking downstream is unchanged.
+  // There is no Continue / total bar here — picking the returning flight
+  // opens the combined detail popup directly (see `_buildRtFlightCard`).
+  // ---------------------------------------------------------------------------
+  Widget _buildRoundTripStepped(
+    List<List<FlightEntity>> legLists, {
+    required bool isCompleted,
+  }) {
+    final departSel = _legSelections.isNotEmpty ? _legSelections[0] : null;
+    final step = (departSel != null && _rtStep == 1) ? 1 : 0;
+    final legIndex = step;
+    final legFlights =
+        legIndex < legLists.length ? legLists[legIndex] : const <FlightEntity>[];
+    final filtered = _applyFilters(legFlights);
 
-  // ---------------------------------------------------------------------------
-  // Horizontally scrollable date + day strip
-  // ---------------------------------------------------------------------------
+    // Same layout contract as one-way (`_buildMainContent`): the list scrolls
+    // full-bleed and the Sort / Non Stop / Filter bar floats over it with no
+    // fixed white strip. Extra bottom padding keeps the last card clear of
+    // the floating bar.
+    return Stack(
+      children: [
+        Column(
+          children: [
+            // Glide the departure summary in/out with the stepper.
+            AnimatedSize(
+              duration: const Duration(milliseconds: 360),
+              curve: Curves.easeInOutCubic,
+              alignment: Alignment.topCenter,
+              child: (step == 1 && departSel != null)
+                  ? _buildRtDepartureSummary(departSel.flight)
+                  : const SizedBox(width: double.infinity),
+            ),
+            _buildRtStepper(step),
+            Expanded(
+              child: filtered.isEmpty
+                  ? Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(context.w(16)),
+                        child: Text(
+                          isCompleted ? 'No flights found' : 'Searching…',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: context.fs(12),
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                      ),
+                    )
+                  : ListView.builder(
+                      padding: EdgeInsets.fromLTRB(
+                        0,
+                        context.h(2),
+                        0,
+                        context.h(84),
+                      ),
+                      itemCount: filtered.length,
+                      itemBuilder: (context, i) {
+                        final flight = filtered[i];
+                        final selected =
+                            _legSelections[legIndex]?.resultIndex ==
+                                (flight.resultIndex ?? '');
+                        return Padding(
+                          padding: EdgeInsets.fromLTRB(
+                            context.w(14),
+                            context.h(6),
+                            context.w(14),
+                            context.h(6),
+                          ),
+                          child: _buildRtFlightCard(
+                            flight,
+                            legIndex: legIndex,
+                            selected: selected,
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          child: _buildOneWayActionBar(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRtStepper(int step) {
+    String fmtDate(DateTime? d) {
+      if (d == null) return '';
+      // Match the mock's "04 Sept 2026, Fri" (intl's MMM is "Sep").
+      return DateFormat('dd MMM yyyy, EEE')
+          .format(d)
+          .replaceFirst('Sep ', 'Sept ');
+    }
+
+    final departDate = fmtDate(_selectedDate ?? widget.date);
+    final returnDate = fmtDate(_returnDate);
+
+    // Single 0..1 driver for the whole card: 0 = departing step, 1 = returning
+    // step. TweenAnimationBuilder eases every dependent value (banner slide,
+    // chip widths, circle/text colours, date reveal) together — the Wego-style
+    // glide instead of an instant swap.
+    final target = step == 1 ? 1.0 : 0.0;
+
+    return Container(
+      margin: EdgeInsets.fromLTRB(
+        context.w(16),
+        context.h(8),
+        context.w(16),
+        context.h(8),
+      ),
+      height: context.h(45),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(context.r(14)),
+        border: Border.all(color: const Color(0xFFCCCCCC), width: 0.5),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: TweenAnimationBuilder<double>(
+        tween: Tween<double>(end: target),
+        duration: const Duration(milliseconds: 360),
+        curve: Curves.easeInOutCubic,
+        builder: (context, t, _) {
+          return Stack(
+            alignment: Alignment.center,
+            children: [
+              // Light-blue banner that slides from the departing side to the
+              // returning side, keeping its `>` chevron edges.
+              Positioned.fill(
+                child: CustomPaint(
+                  painter: _RtStepBannerPainter(
+                    t: t,
+                    bannerColor: const Color(0xFFCDE8FB),
+                    seamColor: const Color(0xFFDCE3EC),
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(0, 8, 0, 8),
+                child: Row(
+                  children: [
+                    // Chip flex tracks the banner's split (56/44 ↔ 44/56) so
+                    // the active chip's content lines up with the blue band
+                    // in both directions.
+                    _rtStepChip(
+                      index: 1,
+                      label: t < 0.5 ? 'Select Departing Flight' : 'Depart',
+                      subLabel: departDate,
+                      fillT: 1 - t,
+                      flex: ui.lerpDouble(56, 44, t)!.round(),
+                      onTap:
+                          step == 1 ? () => setState(() => _rtStep = 0) : null,
+                    ),
+                    _rtStepChip(
+                      index: 2,
+                      label:
+                          t < 0.5 ? 'Return' : 'Select Returning Flight',
+                      subLabel: returnDate,
+                      fillT: t,
+                      flex: ui.lerpDouble(44, 56, t)!.round(),
+                      onTap: null,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  /// One step of the round trip stepper. [fillT] is this step's active
+  /// progress (0 = idle grey, 1 = active blue) — every visual is lerped
+  /// across it so the transition glides.
+  Widget _rtStepChip({
+    required int index,
+    required String label,
+    String? subLabel,
+    required double fillT,
+    required int flex,
+    VoidCallback? onTap,
+  }) {
+    final double f = fillT.clamp(0.0, 1.0);
+    final circleColor = Color.lerp(AppColors.subhead, AppColors.AppBlue, f)!;
+    final labelColor = Color.lerp(AppColors.subhead, AppColors.black, f)!;
+    final double circleSize = ui.lerpDouble(18, 24, f)!;
+
+    return Expanded(
+      flex: flex < 1 ? 1 : flex,
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: Align(
+          // Active step hugs the start of its (wider) side; idle step
+          // sits centred in its side.
+          alignment:
+              Alignment.lerp(Alignment.center, Alignment.centerLeft, f)!,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Leading inset grows with the fill so the active circle clears
+              // the banner's chevron notch instead of sitting on the seam.
+              SizedBox(width: context.w(ui.lerpDouble(8, 18, f)!)),
+              Container(
+                width: context.w(circleSize),
+                height: context.w(circleSize),
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: circleColor,
+                ),
+                child: Text(
+                  '$index',
+                  style: TextStyle(
+                    fontSize: context.fs(ui.lerpDouble(9, 11, f)!),
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.white,
+                  ),
+                ),
+              ),
+              SizedBox(width: context.w(ui.lerpDouble(6, 9, f)!)),
+              Flexible(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: context.fs(ui.lerpDouble(9, 10, f)!),
+                        fontWeight: FontWeight.w500,
+                        color: labelColor,
+                      ),
+                    ),
+                    if (subLabel != null && subLabel.isNotEmpty)
+                      ClipRect(
+                        child: Align(
+                          alignment: Alignment.topLeft,
+                          heightFactor: f,
+                          child: Opacity(
+                            opacity: f,
+                            child: Padding(
+                              padding: EdgeInsets.only(top: context.h(1)),
+                              child: Text(
+                                subLabel,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: context.fs(10),
+                                  fontWeight: FontWeight.w500,
+                                  color: const Color(0xFF8A8D94),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              // Keeps the idle chip's label off the card edge now that the
+              // row itself has no trailing padding.
+              SizedBox(width: context.w(14)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+
+  Widget _buildRtDepartureSummary(FlightEntity f) {
+    final origin = (f.origin ?? '').trim().toUpperCase();
+    final dest = (f.destination ?? '').trim().toUpperCase();
+
+    String dateStr = '';
+    try {
+      dateStr = DateFormat('dd MMM yyyy, EEE')
+          .format(DateTime.parse(f.departureTime ?? ''))
+          .replaceFirst('Sep ', 'Sept ');
+    } catch (_) {}
+    final durStr = _formatDuration(
+        f.duration != null ? int.tryParse(f.duration!) : null);
+    final stopStr =
+        (f.stops ?? 0) <= 0 ? 'Direct' : _formatStops(f.stops);
+
+    final codeStyle = TextStyle(
+      fontSize: context.fs(12),
+      fontWeight: FontWeight.w500,
+      color: AppColors.black,
+    );
+    final timeStyle = TextStyle(
+      fontSize: context.fs(8),
+      fontWeight: FontWeight.w500,
+      color: AppColors.subhead,
+    );
+    final metaStyle = TextStyle(
+      fontSize: context.fs(8),
+      fontWeight: FontWeight.w500,
+      color: AppColors.subhead,
+    );
+
+    return Container(
+      width: double.infinity,
+      color: Colors.white,
+      padding: EdgeInsets.fromLTRB(
+        context.w(14),
+        context.h(8),
+        context.w(14),
+        context.h(4),
+      ),
+      child: Container(
+        padding: EdgeInsets.fromLTRB(16, 8, 16, 8),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(context.r(8)),
+          border: Border.all(color: AppColors.AppBlue, width: 1),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            _airlineLogo(
+              f,
+              context.w(28),
+              bg: const Color(0xFF1E1E5A),
+              radius: context.r(8),
+            ),
+            SizedBox(width: context.w(10)),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text.rich(
+                    TextSpan(
+                      children: [
+                        TextSpan(text: origin, style: codeStyle),
+                        TextSpan(
+                          text: ' ${_formatTime(f.departureTime)}',
+                          style: timeStyle,
+                        ),
+                        WidgetSpan(
+                          alignment: PlaceholderAlignment.middle,
+                          child: Padding(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: context.w(7),
+                            ),
+                            child: Image.asset(
+                              'assets/NewIcons/flightRound.png',
+                              width: context.w(13.33),
+                              height: context.w(13.1),
+                              color: AppColors.AppBlue,
+                            ),
+                          ),
+                        ),
+                        TextSpan(text: dest, style: codeStyle),
+                        TextSpan(
+                          text: ' ${_formatTime(f.arrivalTime)}',
+                          style: timeStyle,
+                        ),
+                      ],
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  SizedBox(height: context.h(3)),
+                  Text.rich(
+                    TextSpan(
+                      style: metaStyle,
+                      children: [
+                        if (dateStr.isNotEmpty) TextSpan(text: '$dateStr  |  '),
+                        if (durStr != '0') TextSpan(text: '$durStr  |  '),
+                        TextSpan(
+                          text: stopStr,
+                          style: const TextStyle(
+                            color: Color(0xFFE23A2F),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            SizedBox(width: context.w(10)),
+            GestureDetector(
+              onTap: () => setState(() => _rtStep = 0),
+              behavior: HitTestBehavior.opaque,
+              child: Text(
+                'Change',
+                style: TextStyle(
+                  fontSize: context.fs(12),
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.AppBlue,
+                  decoration: TextDecoration.underline,
+                  decorationColor: AppColors.AppBlue,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Round trip result card — the same [FlightCard] widget the one-way list
+  /// uses, wrapped so a tap selects the leg (and, on the departing step,
+  /// advances to the returning step) and the current pick shows a blue ring.
+  Widget _buildRtFlightCard(
+    FlightEntity flight, {
+    required int legIndex,
+    required bool selected,
+  }) {
+    final target = CurrencyConverter.getPreferredCurrency();
+    final priceText = '${CurrencyConverter.getSymbol(target)} '
+        '${_convertFlightPrice((flight.totalFare ?? 0).toDouble(), flight.currency)}';
+    final airlineCode = (flight.airlineCode?.isNotEmpty ?? false)
+        ? flight.airlineCode!.toUpperCase()
+        : (flight.airlineName?.isNotEmpty ?? false)
+            ? flight.airlineName!.substring(0, 1).toUpperCase()
+            : 'FL';
+
+    return GestureDetector(
+      onTap: () {
+        _selectLegColumnFlight(legIndex, flight);
+        if (legIndex == 0) {
+          // Departing leg picked — advance to the returning step.
+          setState(() => _rtStep = 1);
+        } else if (_legSelections.every((s) => s != null)) {
+          // Returning leg picked and both legs are set — open the combined
+          // detail popup directly (replaces the old Continue bar).
+          _showMultiLegDetails();
+        }
+      },
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(context.r(18)),
+          border: Border.all(
+            color: selected ? AppColors.AppBlue : Colors.transparent,
+            width: 1.6,
+          ),
+        ),
+        child: FlightCard(
+          airlineName: flight.airlineName ?? 'Airline',
+          flightNumber: _displayFlightNo(flight, codeOverride: airlineCode),
+          logo: _airlineLogo(flight, context.w(46)),
+          priceText: priceText,
+          departureCity:
+              flight.originName ?? _locationName(flight.origin ?? ''),
+          departureCode: (flight.origin ?? '').trim().toUpperCase(),
+          departureTime: _formatTime(flight.departureTime),
+          arrivalCity:
+              flight.destinationName ?? _locationName(flight.destination ?? ''),
+          arrivalCode: (flight.destination ?? '').trim().toUpperCase(),
+          arrivalTime: _formatTime(flight.arrivalTime),
+          duration: _formatDuration(
+              flight.duration != null ? int.tryParse(flight.duration!) : null),
+          stopsLabel: _formatStops(flight.stops),
+        ),
+      ),
+    );
+  }
+
+
   Widget _buildDateStrip() {
     final today = DateUtils.dateOnly(DateTime.now());
     WidgetsBinding.instance.addPostFrameCallback(
-      (_) => _scrollSelectedDateIntoView(),
+          (_) => _scrollSelectedDateIntoView(),
     );
     return Container(
       color: Colors.white,
-      padding: EdgeInsets.only(bottom: context.h(6)),
+      padding: EdgeInsets.fromLTRB(6, 4, 6, 4),
       child: SizedBox(
-        height: context.h(58),
+        height: context.h(42),
         child: ListView.builder(
           controller: _dateScrollController,
           scrollDirection: Axis.horizontal,
@@ -1238,48 +2216,55 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
               onTap: () => _onDateSelected(date),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 180),
-                width: context.w(62),
-                margin: EdgeInsets.symmetric(horizontal: context.w(4)),
+                padding: EdgeInsets.symmetric(
+                  horizontal: context.w(14),
+                  vertical: context.h(10),
+                ),
+                margin: EdgeInsets.only(right: context.w(8)),
                 decoration: BoxDecoration(
-                  color: selected ? const Color(0xff1663F7) : Colors.white,
-                  borderRadius: BorderRadius.circular(context.r(12)),
+                  color: selected
+                      ? AppColors.AppBlue.withOpacity(0.1)  // Light blue background when selected
+                      : Colors.white,
+                  borderRadius: BorderRadius.circular(context.r(8)),
                   border: Border.all(
                     color: selected
-                        ? const Color(0xff1663F7)
-                        : const Color(0xffE6ECFF),
+                        ? AppColors.AppBlue  // Blue border when selected
+                        : const Color(0xFFCCCCCC),  // Light grey border when unselected
+                    width: 1,
                   ),
-                  boxShadow: selected
-                      ? [
-                          BoxShadow(
-                            color:
-                                const Color(0xff1663F7).withValues(alpha: 0.25),
-                            blurRadius: context.w(8),
-                            offset: Offset(0, context.h(3)),
-                          ),
-                        ]
-                      : null,
+                  // boxShadow: selected
+                  //     ? [
+                  //   BoxShadow(
+                  //     color: AppColors.AppBlue.withOpacity(0.15),
+                  //     blurRadius: context.w(6),
+                  //     offset: Offset(0, context.h(2)),
+                  //   ),
+                  // ]
+                  //     : null,
                 ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      DateFormat('EEE').format(date),
+                      // DateFormat('EEE').format(date), // "Mon"
+                      '${DateFormat('EEE').format(date)},',
                       style: TextStyle(
-                        fontSize: context.fs(10),
-                        fontWeight: FontWeight.w600,
+                        fontSize: context.fs(12),
+                        fontWeight: FontWeight.w500,
                         color: selected
-                            ? Colors.white.withValues(alpha: 0.85)
-                            : const Color(0xff9AA2BF),
+                            ? AppColors.AppBlue  // Blue text when selected
+                            : AppColors.black,
                       ),
                     ),
-                    SizedBox(height: context.h(2)),
+                    SizedBox(width: context.w(4)),
                     Text(
-                      DateFormat('d MMM').format(date),
+                      DateFormat('d MMM').format(date), // "24 Aug"
                       style: TextStyle(
-                        fontSize: context.fs(13),
-                        fontWeight: FontWeight.w700,
-                        color:
-                            selected ? Colors.white : const Color(0xff3D3F4A),
+                        fontSize: context.fs(12),
+                        fontWeight: FontWeight.w500,
+                        color: selected
+                            ? AppColors.AppBlue  // Blue text when selected
+                            : AppColors.black,
                       ),
                     ),
                   ],
@@ -1402,8 +2387,11 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
   bool _hasActiveFilters() {
     return _selectedDepartureTimes.isNotEmpty ||
         _selectedArrivalTimes.isNotEmpty ||
+        _selectedStops.isNotEmpty ||
+        _durationRange != null ||
         _filterRefundable ||
         _filterNonRefundable ||
+        // _nonStopOnly ||
         (_selectedAirlines.isNotEmpty &&
             _selectedAirlines.length <
                 _buildAirlineCounts(_allFlights).length) ||
@@ -1430,12 +2418,9 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
     }
     final skeletonCount = isCompleted ? 0 : _loadingMoreSkeletonCount;
     return Container(
-      color: const Color(0xffF3F6FF),
+      color: AppColors.white,
       child: CustomScrollView(
         slivers: [
-          // SliverToBoxAdapter(
-          //   child: _buildRouteSummary(_applyFilters(_allFlights)),
-          // ),
           SliverToBoxAdapter(
             child: Padding(
               padding: EdgeInsets.fromLTRB(
@@ -1448,11 +2433,13 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
             ),
           ),
           SliverPadding(
+            // Extra bottom room so the last card clears the floating
+            // Sort / Non Stop / Filter bar.
             padding: EdgeInsets.fromLTRB(
               context.w(10),
               0,
               context.w(10),
-              context.h(18),
+              context.h(78),
             ),
             sliver: SliverList(
               delegate: SliverChildBuilderDelegate(
@@ -1495,7 +2482,7 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
           border: Border.all(color: const Color(0xffE9EDF6)),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xff2B3A67).withValues(alpha: 0.05),
+              color: AppColors.fieldBorder.withValues(alpha: 0.05),
               blurRadius: context.w(10),
               offset: Offset(0, context.h(4)),
             ),
@@ -1640,7 +2627,7 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
         Text(
           "$showing of $total Flights",
           style: TextStyle(
-            fontSize: context.fs(12),
+            fontSize: context.fs(10),
             fontWeight: FontWeight.w500,
             color: Colors.grey.shade600,
           ),
@@ -1652,6 +2639,7 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
               _selectedArrivalTimes.clear();
               _filterRefundable = false;
               _filterNonRefundable = false;
+              _nonStopOnly = false;
               _selectedAirlines =
                   _allFlights.map((f) => f.airlineName ?? 'Unknown').toSet();
               _priceRange = RangeValues(_minPrice, _maxPrice);
@@ -1662,7 +2650,7 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
               style: TextStyle(
                 fontSize: context.fs(12),
                 fontWeight: FontWeight.w600,
-                color: const Color(0xff1663F7),
+                color: AppColors.AppBlue,
               ),
             ),
           ),
@@ -1700,10 +2688,106 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
             ...group.extras
                 .map((f) => Padding(
                       padding: EdgeInsets.only(top: context.h(6)),
-                      child: _buildExtraCard(f),
+                      child: _buildExpandedFlightCard(f),
                     ))
                 .toList(),
         ],
+      ),
+    );
+  }
+
+  /// One-way primary card — the standalone [FlightCard] widget styled per the
+  /// Figma reference. The tap target, the inline offer strip and the
+  /// "N more flights at this price" toggle all behave exactly as they did in
+  /// the old inline layout; only the visual card body changed.
+  Widget _buildOneWayFlightCard(
+    FlightEntity flight, {
+    required int extraCount,
+    required bool isExpanded,
+    VoidCallback? onMoreTap,
+  }) {
+    final target = CurrencyConverter.getPreferredCurrency();
+    final priceText =
+        '${CurrencyConverter.getSymbol(target)} '
+        '${_convertFlightPrice((flight.totalFare ?? 0).toDouble(), flight.currency)}';
+
+    final airlineCode = (flight.airlineCode?.isNotEmpty ?? false)
+        ? flight.airlineCode!.toUpperCase()
+        : (flight.airlineName?.isNotEmpty ?? false)
+        ? flight.airlineName!.substring(0, 1).toUpperCase()
+        : 'FL';
+
+    Widget? footer;
+    if (extraCount > 0) {
+      footer = Padding(
+        padding: EdgeInsets.only(top: context.h(12)),
+        child: GestureDetector(
+          onTap: onMoreTap,
+          child: Container(
+            width: double.infinity,
+            padding: EdgeInsets.symmetric(
+              horizontal: context.w(12),
+              vertical: context.h(7),
+            ),
+            decoration: BoxDecoration(
+              color: AppColors.AppBlue.withValues(alpha: 0.06),
+              borderRadius: BorderRadius.circular(context.r(10)),
+              border: Border.all(
+                color: AppColors.AppBlue.withValues(alpha: 0.2),
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+
+
+                Text(
+                  isExpanded
+                      ? 'Hide extra flights'
+                      : '$extraCount more flight${extraCount > 1 ? 's' : ''} at the same price',
+                  style: TextStyle(
+                    fontSize: context.fs(12),
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.AppBlue,
+                  ),
+                ),
+                SizedBox(width: context.w(5)),
+                Icon(
+                  isExpanded
+                      ? Icons.keyboard_arrow_up_rounded
+                      : Icons.keyboard_arrow_down_rounded,
+                  size: context.w(16),
+                  color: AppColors.AppBlue,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return GestureDetector(
+      onTap: () => _onFlightCardTap(flight),
+      behavior: HitTestBehavior.opaque,
+      child: FlightCard(
+        airlineName: flight.airlineName ?? 'Airline',
+        flightNumber: _displayFlightNo(flight, codeOverride: airlineCode),
+        logo: _airlineLogo(flight, context.w(46)),
+        priceText: priceText,
+        departureCity: flight.originName ??
+            _locationName(flight.origin ?? widget.fromCode),
+        departureCode:
+            (flight.origin ?? widget.fromCode).trim().toUpperCase(),
+        departureTime: _formatTime(flight.departureTime),
+        arrivalCity: flight.destinationName ??
+            _locationName(flight.destination ?? widget.toCode),
+        arrivalCode:
+            (flight.destination ?? widget.toCode).trim().toUpperCase(),
+        arrivalTime: _formatTime(flight.arrivalTime),
+        duration: _formatDuration(
+            flight.duration != null ? int.tryParse(flight.duration!) : null),
+        stopsLabel: _formatStops(flight.stops),
+        footer: footer,
       ),
     );
   }
@@ -1715,6 +2799,18 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
     VoidCallback? onMoreTap,
   }) {
     final bool isRoundTrip = flight.isRoundTrip;
+
+    // One-way results use the standalone [FlightCard] widget (Figma design).
+    // Round trips keep the existing two-leg layout below, unchanged.
+    if (!isRoundTrip) {
+      return _buildOneWayFlightCard(
+        flight,
+        extraCount: extraCount,
+        isExpanded: isExpanded,
+        onMoreTap: onMoreTap,
+      );
+    }
+
     final Color accentColor =
         isRoundTrip ? const Color(0xff3B82F6) : AppColors.primary;
     final departure = _formatTime(flight.departureTime);
@@ -1901,139 +2997,41 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
     );
   }
 
-  /// Card for an extra ("N more flights at this price") entry in an expanded
-  /// group. Mirrors [_buildFlightCardInner]'s content — airline + corrected
-  /// flight number, departure/arrival with airport labels, stops, duration
-  /// and price — just without the offer strip/"more flights" badge, so an
-  /// expanded group doesn't drop information the primary card shows.
-  Widget _buildExtraCard(FlightEntity flight) {
-    final bool isRoundTrip = flight.isRoundTrip;
-    final Color accentColor =
-        isRoundTrip ? const Color(0xff3B82F6) : const Color(0xff5F86FF);
-    final departure = _formatTime(flight.departureTime);
-    final arrival = _formatTime(flight.arrivalTime);
-    final duration = _formatDuration(
-        flight.duration != null ? int.tryParse(flight.duration!) : null);
+  /// Expanded flight card that uses the same FlightCard widget as primary cards
+  Widget _buildExpandedFlightCard(FlightEntity flight) {
+    final target = CurrencyConverter.getPreferredCurrency();
+    final priceText =
+        '${CurrencyConverter.getSymbol(target)} '
+        '${_convertFlightPrice((flight.totalFare ?? 0).toDouble(), flight.currency)}';
+
     final airlineCode = (flight.airlineCode?.isNotEmpty ?? false)
         ? flight.airlineCode!.toUpperCase()
         : (flight.airlineName?.isNotEmpty ?? false)
-            ? flight.airlineName!.substring(0, 1).toUpperCase()
-            : 'FL';
+        ? flight.airlineName!.substring(0, 1).toUpperCase()
+        : 'FL';
 
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(context.r(8)),
-      child: InkWell(
-        onTap: () => _showFlightDetails(flight),
-        borderRadius: BorderRadius.circular(context.r(8)),
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(context.r(8)),
-            border: Border.all(color: const Color(0xffE6ECFF)),
-          ),
-          padding: EdgeInsets.all(context.w(12)),
-          child: Column(
-            children: [
-              // Header row: logo + airline name/flight no + price
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  _airlineLogo(flight, context.w(28)),
-                  SizedBox(width: context.w(8)),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          flight.airlineName ?? 'Airline',
-                          style: TextStyle(
-                            color: const Color(0xff3D3F4A),
-                            fontSize: context.fs(12),
-                            fontWeight: FontWeight.w700,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        SizedBox(height: context.h(1)),
-                        Text(
-                          _displayFlightNo(flight, codeOverride: airlineCode),
-                          style: TextStyle(
-                            color: const Color(0xffA0A6C2),
-                            fontSize: context.fs(10),
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  SizedBox(width: context.w(8)),
-                  _flightPriceText(
-                    (flight.totalFare ?? 0).toDouble(),
-                    flight.currency,
-                    style: TextStyle(
-                      color: const Color(0xff1663F7),
-                      fontSize: context.fs(15),
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ],
-              ),
-              SizedBox(height: context.h(10)),
-              if (!isRoundTrip)
-                // Compact one-way route row (matches the primary card)
-                Row(
-                  children: [
-                    _timeAirportBlock(
-                      time: departure,
-                      code: flight.originName ??
-                          _locationName(flight.origin ?? widget.fromCode),
-                      alignRight: false,
-                    ),
-                    SizedBox(width: context.w(8)),
-                    Expanded(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            duration,
-                            style: TextStyle(
-                              color: const Color(0xff9AA2BF),
-                              fontSize: context.fs(9),
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          SizedBox(height: context.h(3)),
-                          _ticketFlightPath(accentColor),
-                          if (_formatStops(flight.stops).isNotEmpty) ...[
-                            SizedBox(height: context.h(3)),
-                            Text(
-                              _formatStops(flight.stops),
-                              style: TextStyle(
-                                color: const Color(0xff9AA2BF),
-                                fontSize: context.fs(9),
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                    SizedBox(width: context.w(8)),
-                    _timeAirportBlock(
-                      time: arrival,
-                      code: flight.destinationName ??
-                          _locationName(flight.destination ?? widget.toCode),
-                      alignRight: true,
-                    ),
-                  ],
-                )
-              else
-                // Round-trip — two labelled legs (Depart + Return)
-                _roundTripBody(flight, accentColor),
-            ],
-          ),
-        ),
+    return GestureDetector(
+      onTap: () => _onFlightCardTap(flight),
+      behavior: HitTestBehavior.opaque,
+      child: FlightCard(
+        airlineName: flight.airlineName ?? 'Airline',
+        flightNumber: _displayFlightNo(flight, codeOverride: airlineCode),
+        logo: _airlineLogo(flight, context.w(46), isNavy: true), // Pass isNavy: true
+        priceText: priceText,
+        departureCity: flight.originName ??
+            _locationName(flight.origin ?? widget.fromCode),
+        departureCode:
+        (flight.origin ?? widget.fromCode).trim().toUpperCase(),
+        departureTime: _formatTime(flight.departureTime),
+        arrivalCity: flight.destinationName ??
+            _locationName(flight.destination ?? widget.toCode),
+        arrivalCode:
+        (flight.destination ?? widget.toCode).trim().toUpperCase(),
+        arrivalTime: _formatTime(flight.arrivalTime),
+        duration: _formatDuration(
+            flight.duration != null ? int.tryParse(flight.duration!) : null),
+        stopsLabel: _formatStops(flight.stops),
+        footer: null, // No footer for expanded cards
       ),
     );
   }
@@ -2590,27 +3588,55 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
 
   /// Airline logo fetched from the Kiwi CDN by IATA code, with a graceful
   /// fallback to a coloured initials tile when the logo is missing/offline.
-  Widget _airlineLogo(FlightEntity flight, double size) {
+  Widget _airlineLogo(
+    FlightEntity flight,
+    double size, {
+    bool isNavy = false,
+    Color? bg,
+    double? radius,
+  }) {
     final code = (flight.airlineCode ?? '').trim().toUpperCase();
     final initials = code.isNotEmpty
         ? (code.length > 2 ? code.substring(0, 2) : code)
         : ((flight.airlineName?.isNotEmpty ?? false)
-            ? flight.airlineName!.substring(0, 1).toUpperCase()
-            : 'FL');
+        ? flight.airlineName!.substring(0, 1).toUpperCase()
+        : 'FL');
 
     Widget initialsTile() => Container(
-          color: _airlineColor(initials),
-          alignment: Alignment.center,
-          child: Text(
-            initials,
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: size * 0.32,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        );
+      color: _airlineColor(initials),
+      alignment: Alignment.center,
+      child: Text(
+        initials,
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: size * 0.32,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
 
+    // If isNavy is true (or an explicit bg is given), use a filled tile.
+    if (isNavy || bg != null) {
+      return Container(
+        width: size,
+        height: size,
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          color: bg ?? AppColors.AppBlue,
+          borderRadius: BorderRadius.circular(radius ?? context.r(8)),
+        ),
+        child: code.isEmpty
+            ? initialsTile()
+            : CachedNetworkImage(
+          imageUrl: 'https://images.kiwi.com/airlines/64/$code.png',
+          fit: BoxFit.contain,
+          placeholder: (_, __) => initialsTile(),
+          errorWidget: (_, __, ___) => initialsTile(),
+        ),
+      );
+    }
+
+    // Default style (white background with border) for other flight types
     return Container(
       width: size,
       height: size,
@@ -2618,19 +3644,16 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(context.r(8)),
-        border: Border.all(color: const Color(0xffE6ECFF)),
+        border: Border.all(color: const Color(0xFFCCCCCC), width: 0.5),
       ),
       child: code.isEmpty
           ? initialsTile()
-          : Padding(
-              padding: EdgeInsets.all(context.w(3)),
-              child: CachedNetworkImage(
-                imageUrl: 'https://images.kiwi.com/airlines/64/$code.png',
-                fit: BoxFit.contain,
-                placeholder: (_, __) => initialsTile(),
-                errorWidget: (_, __, ___) => initialsTile(),
-              ),
-            ),
+          : CachedNetworkImage(
+        imageUrl: 'https://images.kiwi.com/airlines/64/$code.png',
+        fit: BoxFit.contain,
+        placeholder: (_, __) => initialsTile(),
+        errorWidget: (_, __, ___) => initialsTile(),
+      ),
     );
   }
 }
@@ -2638,6 +3661,74 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
 // ---------------------------------------------------------------------------
 // Custom Painters
 // ---------------------------------------------------------------------------
+
+/// Round trip stepper background: a light-blue band with `>` chevron edges
+/// that slides from the departing side ([t] = 0) to the returning side
+/// ([t] = 1). Anything past a container edge is clipped away, so the band
+/// reads as anchored to that edge at the extremes. See `_buildRtStepper`.
+class _RtStepBannerPainter extends CustomPainter {
+  final double t;
+  final Color bannerColor;
+  final Color seamColor;
+
+  _RtStepBannerPainter({
+    required this.t,
+    required this.bannerColor,
+    required this.seamColor,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+    final mid = h / 2;
+    final chev = h * 0.34; // chevron depth
+
+    // Both edges travel left→right; the parent clips whatever spills past 0/w.
+    final leftX = ui.lerpDouble(-chev, w * 0.44, t)!;
+    final rightX = ui.lerpDouble(w * 0.56, w + chev, t)!;
+
+    final banner = Path()
+      ..moveTo(leftX, 0)
+      ..lineTo(rightX, 0)
+      ..lineTo(rightX + chev, mid)
+      ..lineTo(rightX, h)
+      ..lineTo(leftX, h);
+    if (leftX > 0.5) banner.lineTo(leftX + chev, mid);
+    banner.close();
+    canvas.drawPath(banner, Paint()..color = bannerColor);
+
+    final seam = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1
+      ..color = seamColor;
+    if (rightX < w - 0.5) {
+      canvas.drawPath(
+        Path()
+          ..moveTo(rightX, 0)
+          ..lineTo(rightX + chev, mid)
+          ..lineTo(rightX, h),
+        seam,
+      );
+    }
+    if (leftX > 0.5) {
+      canvas.drawPath(
+        Path()
+          ..moveTo(leftX, 0)
+          ..lineTo(leftX + chev, mid)
+          ..lineTo(leftX, h),
+        seam,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _RtStepBannerPainter old) =>
+      old.t != t ||
+      old.bannerColor != bannerColor ||
+      old.seamColor != seamColor;
+}
+
 class _RouteArcPainter extends CustomPainter {
   final Color color;
   _RouteArcPainter({required this.color});

@@ -1,476 +1,38 @@
-// import 'package:flutter/material.dart';
-// import 'package:intl/intl.dart';
-// import '../../../../UI_helper/responsive_layout.dart';
-//
-// /// Travel Insurance search card shown inside the home hero.
-// /// Design language borrowed from MakeMyTrip's insurance widget:
-// /// trip-type toggle, destination, dates, travellers, plan type
-// /// and a bold gradient "EXPLORE PLANS" CTA.
-// class InsuranceSearchCard extends StatefulWidget {
-//   const InsuranceSearchCard({super.key});
-//
-//   @override
-//   State<InsuranceSearchCard> createState() => _InsuranceSearchCardState();
-// }
-//
-// class _InsuranceSearchCardState extends State<InsuranceSearchCard> {
-//   static const Color _brandBlue = Color(0xFF003B95);
-//   static const Color _brandTeal = Color(0xFF005B7F);
-//
-//   bool _isSingleTrip = true;
-//   bool _isStudentPlan = false;
-//   String _destination = 'Thailand';
-//   late DateTime _startDate = DateTime.now().add(const Duration(days: 1));
-//   late DateTime _endDate = _startDate.add(const Duration(days: 4));
-//   int _travellers = 1;
-//
-//   static const List<String> _countries = [
-//     'Thailand', 'Singapore', 'Dubai', 'Malaysia', 'Japan', 'Vietnam',
-//     'USA', 'UK', 'Australia', 'Germany', 'France', 'Indonesia',
-//   ];
-//
-//   @override
-//   Widget build(BuildContext context) {
-//     return Container(
-//       padding: EdgeInsets.all(context.w(14)),
-//       decoration: BoxDecoration(
-//         color: Colors.white,
-//         borderRadius: BorderRadius.circular(context.r(16)),
-//         boxShadow: [
-//           BoxShadow(
-//             color: Colors.black.withOpacity(0.12),
-//             blurRadius: context.w(14),
-//             offset: Offset(0, context.h(6)),
-//           ),
-//         ],
-//       ),
-//       child: Column(
-//         mainAxisSize: MainAxisSize.min,
-//         crossAxisAlignment: CrossAxisAlignment.start,
-//         children: [
-//           _buildHeader(context),
-//           SizedBox(height: context.h(10)),
-//           _buildTripTypeRow(context),
-//           SizedBox(height: context.h(8)),
-//           _buildFieldsGrid(context),
-//           SizedBox(height: context.h(8)),
-//           _buildPlanTypeRow(context),
-//           SizedBox(height: context.h(12)),
-//           _buildExploreButton(context),
-//         ],
-//       ),
-//     );
-//   }
-//
-//   // ── Header: icon + title + promo badge (MMT "40% premium" strip) ────────
-//   Widget _buildHeader(BuildContext context) {
-//     return Row(
-//       children: [
-//         Container(
-//           padding: EdgeInsets.all(context.w(6)),
-//           decoration: BoxDecoration(
-//             gradient: const LinearGradient(colors: [_brandBlue, _brandTeal]),
-//             borderRadius: BorderRadius.circular(context.r(10)),
-//           ),
-//           child: Icon(Icons.health_and_safety_rounded,
-//               color: Colors.white, size: context.iconMedium),
-//         ),
-//         SizedBox(width: context.w(8)),
-//         Expanded(
-//           child: Column(
-//             crossAxisAlignment: CrossAxisAlignment.start,
-//             children: [
-//               Text('Travel Insurance',
-//                   style: TextStyle(
-//                       fontSize: context.titleSmall,
-//                       fontWeight: FontWeight.w800,
-//                       color: Colors.black87)),
-//               Text('International Travel + Medical Cover',
-//                   style: TextStyle(
-//                       fontSize: context.labelSmall,
-//                       color: Colors.grey.shade600)),
-//             ],
-//           ),
-//         ),
-//         Container(
-//           padding: EdgeInsets.symmetric(
-//               horizontal: context.w(8), vertical: context.h(3)),
-//           decoration: BoxDecoration(
-//             gradient: const LinearGradient(
-//                 colors: [Color(0xFF7B2FF7), Color(0xFFF107A3)]),
-//             borderRadius: BorderRadius.circular(context.r(8)),
-//           ),
-//           child: Text('40% OFF',
-//               style: TextStyle(
-//                   color: Colors.white,
-//                   fontSize: context.overline,
-//                   fontWeight: FontWeight.w700)),
-//         ),
-//       ],
-//     );
-//   }
-//
-//   // ── Single Trip / Annual Multi Trip (like MMT radios) ───────────────────
-//   Widget _buildTripTypeRow(BuildContext context) {
-//     return Row(
-//       children: [
-//         _toggleChip(context,
-//             label: 'Single Trip',
-//             selected: _isSingleTrip,
-//             onTap: () => setState(() => _isSingleTrip = true)),
-//         SizedBox(width: context.w(8)),
-//         _toggleChip(context,
-//             label: 'Annual Multi Trip',
-//             selected: !_isSingleTrip,
-//             badge: 'new',
-//             onTap: () => setState(() => _isSingleTrip = false)),
-//       ],
-//     );
-//   }
-//
-//   Widget _toggleChip(BuildContext context,
-//       {required String label,
-//         required bool selected,
-//         required VoidCallback onTap,
-//         String? badge}) {
-//     return Expanded(
-//       child: GestureDetector(
-//         onTap: onTap,
-//         child: AnimatedContainer(
-//           duration: const Duration(milliseconds: 200),
-//           padding: EdgeInsets.symmetric(
-//               vertical: context.h(8), horizontal: context.w(8)),
-//           decoration: BoxDecoration(
-//             color: selected ? _brandBlue.withOpacity(0.08) : Colors.grey.shade50,
-//             borderRadius: BorderRadius.circular(context.r(10)),
-//             border: Border.all(
-//                 color: selected ? _brandBlue : Colors.grey.shade300,
-//                 width: 1.2),
-//           ),
-//           child: Row(
-//             mainAxisAlignment: MainAxisAlignment.center,
-//             children: [
-//               Icon(
-//                   selected
-//                       ? Icons.check_circle
-//                       : Icons.radio_button_unchecked,
-//                   size: context.iconSmall + 2,
-//                   color: selected ? _brandBlue : Colors.grey.shade400),
-//               SizedBox(width: context.w(5)),
-//               Flexible(
-//                 child: Text(label,
-//                     maxLines: 1,
-//                     overflow: TextOverflow.ellipsis,
-//                     style: TextStyle(
-//                         fontSize: context.labelMedium,
-//                         fontWeight: FontWeight.w700,
-//                         color: selected ? _brandBlue : Colors.grey.shade700)),
-//               ),
-//               if (badge != null)
-//                 Container(
-//                   margin: EdgeInsets.only(left: context.w(4)),
-//                   padding: EdgeInsets.symmetric(
-//                       horizontal: context.w(5), vertical: context.h(2)),
-//                   decoration: BoxDecoration(
-//                     gradient: const LinearGradient(
-//                         colors: [Color(0xFF7B2FF7), Color(0xFFF107A3)]),
-//                     borderRadius: BorderRadius.circular(context.r(6)),
-//                   ),
-//                   child: Text(badge,
-//                       style: TextStyle(
-//                           color: Colors.white,
-//                           fontSize: context.overline,
-//                           fontWeight: FontWeight.w700,
-//                           height: 1.2)),
-//                 ),
-//             ],
-//           ),
-//         ),
-//       ),
-//     );
-//   }
-//
-//   // ── 4-box grid: Destination | Travellers / Start | End (MMT layout) ─────
-//   Widget _buildFieldsGrid(BuildContext context) {
-//     return Column(
-//       children: [
-//         Row(
-//           children: [
-//             Expanded(
-//               child: _fieldShell(context,
-//                   label: 'TRAVELLING TO',
-//                   onTap: () => _pickDestination(context),
-//                   child: Row(children: [
-//                     Icon(Icons.public, size: context.iconSmall, color: _brandBlue),
-//                     SizedBox(width: context.w(6)),
-//                     Expanded(
-//                       child: Text(_destination,
-//                           maxLines: 1,
-//                           overflow: TextOverflow.ellipsis,
-//                           style: TextStyle(
-//                               fontSize: context.bodyLarge,
-//                               fontWeight: FontWeight.w800,
-//                               color: Colors.black87)),
-//                     ),
-//                     Icon(Icons.arrow_drop_down_rounded,
-//                         size: context.iconMedium, color: Colors.grey.shade600),
-//                   ])),
-//             ),
-//             SizedBox(width: context.w(8)),
-//             Expanded(
-//               child: _fieldShell(context,
-//                   label: 'TRAVELLERS',
-//                   child: Row(
-//                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-//                       children: [
-//                         _stepButton(context, Icons.remove_rounded, () {
-//                           if (_travellers > 1) setState(() => _travellers--);
-//                         }),
-//                         Text('$_travellers',
-//                             style: TextStyle(
-//                                 fontSize: context.bodyLarge,
-//                                 fontWeight: FontWeight.w800)),
-//                         _stepButton(context, Icons.add_rounded, () {
-//                           if (_travellers < 9) setState(() => _travellers++);
-//                         }),
-//                       ])),
-//             ),
-//           ],
-//         ),
-//         SizedBox(height: context.h(8)),
-//         Row(
-//           children: [
-//             Expanded(
-//               child: _fieldShell(context,
-//                   label: 'START DATE',
-//                   onTap: () => _pickDate(context, true),
-//                   child: _dateValue(context, _startDate)),
-//             ),
-//             SizedBox(width: context.w(8)),
-//             Expanded(
-//               child: _fieldShell(context,
-//                   label: 'END DATE',
-//                   onTap: () => _pickDate(context, false),
-//                   child: _dateValue(context, _endDate)),
-//             ),
-//           ],
-//         ),
-//       ],
-//     );
-//   }
-//
-//   Widget _dateValue(BuildContext context, DateTime date) {
-//     return Column(
-//       crossAxisAlignment: CrossAxisAlignment.start,
-//       mainAxisSize: MainAxisSize.min,
-//       children: [
-//         Text(DateFormat('dd MMM yy').format(date),
-//             style: TextStyle(
-//                 fontSize: context.bodyLarge,
-//                 fontWeight: FontWeight.w800,
-//                 color: Colors.black87)),
-//         Text(DateFormat('EEEE').format(date),
-//             style: TextStyle(
-//                 fontSize: context.labelSmall, color: Colors.grey.shade600)),
-//       ],
-//     );
-//   }
-//
-//   Widget _fieldShell(BuildContext context,
-//       {required String label, required Widget child, VoidCallback? onTap}) {
-//     final box = Container(
-//       padding: EdgeInsets.symmetric(
-//           horizontal: context.w(10), vertical: context.h(8)),
-//       decoration: BoxDecoration(
-//         color: const Color(0xFFF6F8FB),
-//         borderRadius: BorderRadius.circular(context.r(12)),
-//         border: Border.all(color: Colors.grey.shade200),
-//       ),
-//       child: Column(
-//         crossAxisAlignment: CrossAxisAlignment.start,
-//         mainAxisSize: MainAxisSize.min,
-//         children: [
-//           Text(label,
-//               style: TextStyle(
-//                   fontSize: context.overline,
-//                   fontWeight: FontWeight.w700,
-//                   color: Colors.grey.shade500,
-//                   letterSpacing: context.letterSpacingWider)),
-//           SizedBox(height: context.h(4)),
-//           child,
-//         ],
-//       ),
-//     );
-//     return onTap == null
-//         ? box
-//         : GestureDetector(onTap: onTap, child: box);
-//   }
-//
-//   Widget _stepButton(BuildContext context, IconData icon, VoidCallback onTap) {
-//     return Material(
-//       color: Colors.white,
-//       shape: CircleBorder(side: BorderSide(color: Colors.grey.shade300)),
-//       child: InkWell(
-//         customBorder: const CircleBorder(),
-//         onTap: onTap,
-//         child: Padding(
-//           padding: EdgeInsets.all(context.w(4)),
-//           child: Icon(icon, size: context.iconXSmall + 2, color: _brandBlue),
-//         ),
-//       ),
-//     );
-//   }
-//
-//   // ── Regular / Student plan chips ────────────────────────────────────────
-//   Widget _buildPlanTypeRow(BuildContext context) {
-//     return Row(
-//       children: [
-//         Text('PLAN',
-//             style: TextStyle(
-//                 fontSize: context.overline,
-//                 fontWeight: FontWeight.w700,
-//                 color: Colors.grey.shade500,
-//                 letterSpacing: context.letterSpacingWider)),
-//         SizedBox(width: context.w(8)),
-//         _toggleChip(context,
-//             label: 'Regular',
-//             selected: !_isStudentPlan,
-//             onTap: () => setState(() => _isStudentPlan = false)),
-//         SizedBox(width: context.w(8)),
-//         _toggleChip(context,
-//             label: 'Student',
-//             selected: _isStudentPlan,
-//             onTap: () => setState(() => _isStudentPlan = true)),
-//       ],
-//     );
-//   }
-//
-//   // ── CTA ─────────────────────────────────────────────────────────────────
-//   Widget _buildExploreButton(BuildContext context) {
-//     return GestureDetector(
-//       onTap: _onExplore,
-//       child: Container(
-//         height: context.h(46),
-//         decoration: BoxDecoration(
-//           gradient: const LinearGradient(colors: [_brandBlue, _brandTeal]),
-//           borderRadius: BorderRadius.circular(context.r(14)),
-//           boxShadow: [
-//             BoxShadow(
-//                 color: _brandBlue.withOpacity(0.35),
-//                 blurRadius: context.w(12),
-//                 offset: Offset(0, context.h(4))),
-//           ],
-//         ),
-//         child: Center(
-//           child: Text('EXPLORE PLANS',
-//               style: TextStyle(
-//                   color: Colors.white,
-//                   fontSize: context.bodyLarge,
-//                   fontWeight: FontWeight.w800,
-//                   letterSpacing: context.letterSpacingWider)),
-//         ),
-//       ),
-//     );
-//   }
-//
-//   void _onExplore() {
-//     // TODO: replace with real navigation, e.g.
-//     // Navigator.push(context, MaterialPageRoute(
-//     //     builder: (_) => InsurancePlansScreen(
-//     //           destination: _destination,
-//     //           startDate: _startDate,
-//     //           endDate: _endDate,
-//     //           travellers: _travellers,
-//     //           studentPlan: _isStudentPlan,
-//     //           singleTrip: _isSingleTrip,
-//     //         )));
-//     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-//       behavior: SnackBarBehavior.floating,
-//       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(context.r(10))),
-//       content: Text(
-//         'Fetching $_destination plans · '
-//             '${DateFormat('dd MMM').format(_startDate)} – ${DateFormat('dd MMM').format(_endDate)} '
-//             '· $_travellers traveller(s)',
-//       ),
-//     ));
-//   }
-//
-//   Future<void> _pickDate(BuildContext context, bool isStart) async {
-//     final now = DateTime.now();
-//     final picked = await showDatePicker(
-//       context: context,
-//       initialDate: isStart ? _startDate : _endDate,
-//       firstDate: isStart ? now : _startDate,
-//       lastDate: now.add(const Duration(days: 365)),
-//       builder: (ctx, child) => Theme(
-//         data: Theme.of(ctx).copyWith(
-//           colorScheme: Theme.of(ctx).colorScheme.copyWith(primary: _brandBlue),
-//         ),
-//         child: child!,
-//       ),
-//     );
-//     if (picked == null) return;
-//     setState(() {
-//       if (isStart) {
-//         _startDate = picked;
-//         if (_endDate.isBefore(picked)) {
-//           _endDate = picked.add(const Duration(days: 4));
-//         }
-//       } else {
-//         _endDate = picked;
-//       }
-//     });
-//   }
-//
-//   Future<void> _pickDestination(BuildContext context) async {
-//     final picked = await showDialog<String>(
-//       context: context,
-//       builder: (dialogCtx) => AlertDialog(
-//         shape: RoundedRectangleBorder(
-//             borderRadius: BorderRadius.circular(context.r(16))),
-//         title: Text('Where are you travelling?',
-//             style: TextStyle(
-//                 fontSize: context.titleSmall, fontWeight: FontWeight.w800)),
-//         content: SingleChildScrollView(
-//           child: Wrap(
-//             spacing: context.w(8),
-//             runSpacing: context.h(8),
-//             children: _countries
-//                 .map((c) => ChoiceChip(
-//               label: Text(c,
-//                   style: TextStyle(fontSize: context.labelLarge)),
-//               selectedColor: _brandBlue.withOpacity(0.15),
-//               selected: c == _destination,
-//               onSelected: (_) => Navigator.of(dialogCtx).pop(c),
-//             ))
-//                 .toList(),
-//           ),
-//         ),
-//       ),
-//     );
-//     if (picked != null) setState(() => _destination = picked);
-//   }
-// }
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'insurance_quotesScreen.dart';
 import '../../UI_helper/responsive_layout.dart';
+import '../../core/resources/app_colours.dart';
 import '../../injection_container.dart' as di;
 import '../AKInsurance/domain/entity/AKInsurance_entity.dart';
 import '../AKInsurance/presentation/bloc/AKInsurance_bloc.dart';
 import '../AKInsurance/presentation/bloc/AKInsurance_event.dart';
 import '../AKInsurance/presentation/bloc/AKInsurance_state.dart';
+import '../MainApi/presentation/bloc/general_setting_bloc.dart';
+import '../MainApi/presentation/bloc/general_settings_event.dart';
+import '../MainApi/presentation/bloc/general_settings_state.dart';
 import '../countries/domain/entities/country_entity.dart';
 import '../countries/presentation/bloc/country_bloc.dart';
 import '../countries/presentation/bloc/country_event.dart';
 import '../countries/presentation/bloc/country_state.dart';
 
-/// Travel Insurance quote card — same visual design as before, but the
-/// fields mirror thewandernova.com/insurance:
-/// Insurance Type | From Country | Travelling Country | Start Date |
-/// End Date | No of Days (auto) | No of Persons (+ DOB per traveller).
+const Color _kLabelGrey = Color(0xFF9AA3B2);
+const Color _kSubGrey = Color(0xFF7A8494);
+const Color _kPageBg = Color(0xFFF8F9FA);
+
+/// Travel Insurance quote card.
+///
+/// The **UI** now mirrors the flight [SearchCard]: a full-bleed hero photo
+/// (the same `section_heroes.flights` image the flight card uses), a frosted
+/// "Insurance" top bar, frosted trip-plan pills and white field cards over
+/// the photo, and an orange "Explore Plans" pill.
+///
+/// The **functionality is unchanged** — every field still maps to the same
+/// state and the CTA still builds the identical `AkInsuranceQuotesRequestEntity`
+/// / `InsuranceQuoteRequest` and pushes [InsuranceQuotesScreen].
 class InsuranceSearchCard extends StatefulWidget {
   const InsuranceSearchCard({super.key});
 
@@ -480,7 +42,6 @@ class InsuranceSearchCard extends StatefulWidget {
 
 class _InsuranceSearchCardState extends State<InsuranceSearchCard> {
   static const Color _brandBlue = Color(0xFF003B95);
-  static const Color _brandTeal = Color(0xFF005B7F);
 
   // ── Quote data (same shape as the web form) ───────────────────────────
   String _insuranceType = 'Individual';
@@ -501,6 +62,14 @@ class _InsuranceSearchCardState extends State<InsuranceSearchCard> {
   // traveller's relation must be sent as MEMBER instead (see
   // _relationOptionsFor in _TravellersDialogState).
   List<String> _travellerRelations = <String>['SELF'];
+
+  // Purely cosmetic — the Figma shows a Single Trip / Annual Multi Trip
+  // selector but there is no backend field for it yet, so this only drives
+  // the pill's selected state and is never sent with the quote request.
+  String _tripPlan = 'single';
+
+  // `section_heroes.flights` — the same hero photo the flight SearchCard uses.
+  String? _heroImage;
 
   bool get _isStudent => _insuranceType.toUpperCase() == 'STUDENT';
   // Benzy's support team: for a FRIENDS policy every non-lead traveller's
@@ -538,6 +107,11 @@ class _InsuranceSearchCardState extends State<InsuranceSearchCard> {
     if (countryState is! CountryLoaded) {
       context.read<CountryBloc>().add(const LoadCountriesEvent());
     }
+
+    // Same source the flight SearchCard reads its hero photo from.
+    context.read<GeneralSettingsBloc>().add(
+      const LoadSectionHeroes(domain: 'thewandernova.com'),
+    );
   }
 
   @override
@@ -553,311 +127,721 @@ class _InsuranceSearchCardState extends State<InsuranceSearchCard> {
     return days > 0 ? days : null;
   }
 
+  // ── Travellers +/- (mirrors the stepper inside _TravellersDialog) ──────
+  void _addTraveller() {
+    if (_travellerDobs.length >= 9) return;
+    setState(() {
+      _travellerDobs = [..._travellerDobs, null];
+      _travellerRelations = [
+        ..._travellerRelations,
+        _isFriends ? 'MEMBER' : 'SPOUSE',
+      ];
+    });
+  }
+
+  void _removeTraveller() {
+    if (_travellerDobs.length <= 1) return;
+    setState(() {
+      _travellerDobs = _travellerDobs.sublist(0, _travellerDobs.length - 1);
+      if (_travellerRelations.length > _travellerDobs.length) {
+        _travellerRelations =
+            _travellerRelations.sublist(0, _travellerDobs.length);
+      }
+    });
+  }
+
+  Future<void> _openTravellersDialog() async {
+    final v = await _TravellersDialog.show(
+      context,
+      _travellerDobs,
+      _travellerRelations,
+      isFriends: _isFriends,
+    );
+    if (v != null) {
+      setState(() {
+        _travellerDobs = v.dobs;
+        _travellerRelations = v.relations;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<CountryBloc, CountryState>(
-      builder: (context, countryState) {
-        final countries = countryState is CountryLoaded
-            ? countryState.countries
-            : const <CountryEntity>[];
-        final countryNames = countries.isNotEmpty
-            ? countries.map((c) => c.name).toList()
-            : _fallbackCountries;
-
-        return BlocBuilder<AkInsuranceBloc, AkInsuranceState>(
-          bloc: _bloc,
-          builder: (context, akState) {
-            final policyTypes = akState.checklist?.policyTypes.isNotEmpty == true
-                ? akState.checklist!.policyTypes
-                : _fallbackInsuranceTypes;
-            return _buildCard(context, countryNames, policyTypes);
-          },
-        );
+    return BlocListener<GeneralSettingsBloc, GeneralSettingsState>(
+      listener: (context, state) {
+        if (state is SectionHeroesLoaded) {
+          setState(() => _heroImage = state.sectionHeroes.flights);
+        }
       },
+      child: BlocBuilder<CountryBloc, CountryState>(
+        builder: (context, countryState) {
+          final countries = countryState is CountryLoaded
+              ? countryState.countries
+              : const <CountryEntity>[];
+          final countryNames = countries.isNotEmpty
+              ? countries.map((c) => c.name).toList()
+              : _fallbackCountries;
+
+          return BlocBuilder<AkInsuranceBloc, AkInsuranceState>(
+            bloc: _bloc,
+            builder: (context, akState) {
+              final policyTypes =
+                  akState.checklist?.policyTypes.isNotEmpty == true
+                      ? akState.checklist!.policyTypes
+                      : _fallbackInsuranceTypes;
+              return _buildHeroForm(context, countryNames, policyTypes);
+            },
+          );
+        },
+      ),
     );
   }
 
-  Widget _buildCard(
+  // ---------------------------------------------------------------- BUILD
+
+  Widget _buildHeroForm(
     BuildContext context,
     List<String> countryNames,
     List<String> policyTypes,
   ) {
-    return Container(
-      padding: EdgeInsets.all(context.w(14)),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(context.r(16)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.12),
-            blurRadius: context.w(14),
-            offset: Offset(0, context.h(6)),
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildHeader(context),
-          SizedBox(height: context.h(10)),
-          // Row 1 — Insurance Type | From Country
-          Row(children: [
-            Expanded(
-              child: _dropdownField(
-                context,
-                label: 'INSURANCE TYPE',
-                value: _insuranceType,
-                options: policyTypes,
-                onChanged: (v) => setState(() {
-                  _insuranceType = v;
-                  if (_isStudent) {
-                    _tenureMonths ??= 3;
-                    _recomputeStudentEndDate();
-                  }
-                }),
-              ),
-            ),
-            SizedBox(width: context.w(8)),
-            Expanded(
-              child: _dropdownField(
-                context,
-                label: 'FROM COUNTRY',
-                value: _fromCountry,
-                options: countryNames,
-                onChanged: (v) => setState(() => _fromCountry = v),
-              ),
-            ),
-          ]),
-          SizedBox(height: context.h(8)),
-          // Row 2 — Travelling Country | No of Persons
-          Row(children: [
-            Expanded(
-              child: _CountryDropdownField(
-                label: 'TRAVELLING COUNTRY',
-                options: countryNames,
-                selected: _travelCountries,
-                onChanged: (v) => setState(() => _travelCountries = v),
-              ),
-            ),
-            SizedBox(width: context.w(8)),
-            Expanded(
-              child: _fieldShell(
-                context,
-                label: 'NO OF PERSONS',
-                onTap: () async {
-                  final v = await _TravellersDialog.show(
-                    context,
-                    _travellerDobs,
-                    _travellerRelations,
-                    isFriends: _isFriends,
-                  );
-                  if (v != null) {
-                    setState(() {
-                      _travellerDobs = v.dobs;
-                      _travellerRelations = v.relations;
-                    });
-                  }
-                },
-                child: Row(children: [
-                  Icon(Icons.person_outline_rounded,
-                      size: context.iconSmall, color: _brandBlue),
-                  SizedBox(width: context.w(6)),
-                  Expanded(
-                    child: Text(
-                      '${_travellerDobs.length} Traveller${_travellerDobs.length > 1 ? 's' : ''}',
-                      maxLines: 1,
-                      style: TextStyle(
-                          fontSize: context.bodyLarge,
-                          fontWeight: FontWeight.w800,
-                          color: Colors.black87),
-                    ),
-                  ),
-                  Icon(Icons.arrow_drop_down_rounded,
-                      size: context.iconMedium, color: Colors.grey.shade600),
-                ]),
-              ),
-            ),
-          ]),
-          SizedBox(height: context.h(8)),
-          // Row 3 — Start Date | End Date
-          Row(children: [
-            Expanded(
-              child: _fieldShell(
-                context,
-                label: 'START DATE',
-                onTap: () => _pickDate(context, true),
-                child: _startDate == null
-                    ? _placeholder(context, 'Select Date')
-                    : _dateValue(context, _startDate!),
-              ),
-            ),
-            SizedBox(width: context.w(8)),
-            Expanded(
-              // STUDENT policies are priced off Start Date + tenure, not a
-              // free-picked date range (Benzy's support team was explicit
-              // about this) — End Date is derived automatically instead.
-              child: _isStudent
-                  ? _dropdownField(
-                      context,
-                      label: 'TENURE (MONTHS)',
-                      value: (_tenureMonths ?? 3).toString(),
-                      options: List.generate(24, (i) => '${i + 1}'),
-                      onChanged: (v) => setState(() {
-                        _tenureMonths = int.parse(v);
-                        _recomputeStudentEndDate();
-                      }),
-                    )
-                  : _fieldShell(
-                      context,
-                      label: 'END DATE',
-                      onTap: () => _pickDate(context, false),
-                      child: _endDate == null
-                          ? _placeholder(context, 'Select Date')
-                          : _dateValue(context, _endDate!),
-                    ),
-            ),
-          ]),
-          SizedBox(height: context.h(8)),
-          // Row 4 — No of Days (auto-calculated, like the web form)
-          _buildDaysStrip(context),
-          SizedBox(height: context.h(12)),
-          _buildCta(context),
-        ],
-      ),
-    );
-  }
-
-  // ── Header ─────────────────────────────────────────────────────────────
-  Widget _buildHeader(BuildContext context) {
-    return Row(
+    return Stack(
       children: [
-        Container(
-          padding: EdgeInsets.all(context.w(6)),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(colors: [_brandBlue, _brandTeal]),
-            borderRadius: BorderRadius.circular(context.r(10)),
+        // Full-bleed hero image — edge to edge, no radius.
+        Positioned.fill(child: _buildHeroBackdrop(context)),
+
+        // ====== BOTTOM MELTING GRADIENT ======
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          child: Container(
+            height: context.h(100),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.bottomCenter,
+                end: Alignment.topCenter,
+                colors: [
+                  Colors.white,
+                  Colors.white.withOpacity(0.90),
+                  Colors.white.withOpacity(0.60),
+                  Colors.white.withOpacity(0.35),
+                  Colors.transparent,
+                ],
+                stops: const [0.0, 0.25, 0.50, 0.75, 1.0],
+              ),
+            ),
           ),
-          child: Icon(Icons.health_and_safety_rounded,
-              color: Colors.white, size: context.iconMedium),
         ),
-        SizedBox(width: context.w(8)),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Travel Insurance',
-                  style: TextStyle(
-                      fontSize: context.titleSmall,
-                      fontWeight: FontWeight.w800,
-                      color: Colors.black87)),
-              Text('Get Instant Travel Insurance Quotes',
-                  style: TextStyle(
-                      fontSize: context.labelSmall, color: Colors.grey.shade600)),
-            ],
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          height: context.h(170),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  _kPageBg.withOpacity(0.0),
+                  _kPageBg.withOpacity(0.45),
+                  _kPageBg,
+                ],
+                stops: const [0.0, 0.55, 1.0],
+              ),
+            ),
+            child: const SizedBox.expand(),
           ),
         ),
-        Container(
-          padding: EdgeInsets.symmetric(
-              horizontal: context.w(8), vertical: context.h(3)),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-                colors: [Color(0xFF7B2FF7), Color(0xFFF107A3)]),
-            borderRadius: BorderRadius.circular(context.r(8)),
-          ),
-          child: Text('NEW',
-              style: TextStyle(
-                  color: Colors.white,
-                  fontSize: context.overline,
-                  fontWeight: FontWeight.w700)),
+
+        // Foreground content
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(height: context.statusBarHeight + context.h(10)),
+            _buildTopBar(context),
+            SizedBox(height: context.h(18)),
+            _buildTripPlanSelector(context),
+            SizedBox(height: context.h(14)),
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: context.w(14)),
+              child: Column(
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: _CountryDropdownField(
+                          label: 'TRAVELLING TO',
+                          options: countryNames,
+                          selected: _travelCountries,
+                          onChanged: (v) =>
+                              setState(() => _travelCountries = v),
+                        ),
+                      ),
+                      SizedBox(width: context.w(10)),
+                      Expanded(
+                        child: _dropdownField(
+                          context,
+                          label: 'INSURANCE TRIP',
+                          leadingIcon: Icons.health_and_safety_rounded,
+                          value: _insuranceType,
+                          options: policyTypes,
+                          onChanged: (v) => setState(() {
+                            _insuranceType = v;
+                            if (_isStudent) {
+                              _tenureMonths ??= 3;
+                              _recomputeStudentEndDate();
+                            }
+                          }),
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: context.h(10)),
+                  _dropdownField(
+                    context,
+                    label: 'FROM COUNTRY',
+                    leadingIcon: Icons.flight_takeoff_rounded,
+                    value: _fromCountry,
+                    options: countryNames,
+                    onChanged: (v) => setState(() => _fromCountry = v),
+                  ),
+                  SizedBox(height: context.h(10)),
+                  _buildTravellersCard(context),
+                  SizedBox(height: context.h(10)),
+                  _isStudent
+                      ? _buildStudentDateRow(context)
+                      : _buildCombinedDateCard(context),
+                ],
+              ),
+            ),
+            SizedBox(height: context.h(24)),
+            _buildExploreButton(context),
+            SizedBox(height: context.h(26)),
+          ],
         ),
       ],
     );
   }
 
-  // ── Field building blocks ──────────────────────────────────────────────
-  Widget _fieldShell(BuildContext context,
-      {required String label, required Widget child, VoidCallback? onTap}) {
-    final box = Container(
-      padding: EdgeInsets.symmetric(
-          horizontal: context.w(10), vertical: context.h(8)),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF6F8FB),
-        borderRadius: BorderRadius.circular(context.r(12)),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
+  // ------------------------------------------------------------ HERO IMAGE
+
+  Widget _buildHeroBackdrop(BuildContext context) {
+    const fallbackGradient = LinearGradient(
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+      colors: [Color(0xFF4A90E2), Color(0xFF87CEEB)],
+    );
+
+    const fallback = DecoratedBox(
+      decoration: BoxDecoration(gradient: fallbackGradient),
+    );
+
+    final hero = _heroImage;
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        if (hero != null && hero.isNotEmpty)
+          Image.network(
+            hero,
+            fit: BoxFit.cover,
+            alignment: Alignment.topCenter,
+            errorBuilder: (_, __, ___) => fallback,
+            loadingBuilder: (ctx, child, progress) =>
+                progress == null ? child : fallback,
+          )
+        else
+          fallback,
+
+        // Soft white gradient near the bottom for the "cloudy" merge.
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          child: Container(
+            height: context.h(154),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.bottomCenter,
+                end: Alignment.topCenter,
+                colors: [
+                  Colors.white,
+                  Colors.white.withOpacity(0.92),
+                  Colors.white.withOpacity(0.72),
+                  Colors.white.withOpacity(0.38),
+                  Colors.white.withOpacity(0.10),
+                  Colors.transparent,
+                ],
+                stops: const [0.0, 0.20, 0.40, 0.60, 0.80, 1.0],
+              ),
+            ),
+          ),
+        ),
+
+        // Top scrim so the white "Insurance" title stays readable.
+        DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Colors.black.withOpacity(0.22),
+                Colors.black.withOpacity(0.0),
+              ],
+              stops: const [0.0, 0.3],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // --------------------------------------------------------------- TOP BAR
+
+  Widget _buildTopBar(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: context.w(14)),
+      child: Row(
         children: [
-          Text(label,
-              style: TextStyle(
-                  fontSize: context.overline,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.grey.shade500,
-                  letterSpacing: context.letterSpacingWider)),
-          SizedBox(height: context.h(4)),
-          child,
+          GestureDetector(
+            onTap: () {
+              if (Navigator.of(context).canPop()) Navigator.of(context).pop();
+            },
+            behavior: HitTestBehavior.opaque,
+            child: Image.asset(
+              'assets/NewIcons/arrowBack.png',
+              width: context.w(17),
+              height: context.w(17),
+              color: const Color(0xFFFFFFFF),
+            ),
+          ),
+          SizedBox(width: context.w(14)),
+          Text(
+            'Insurance',
+            style: TextStyle(
+              fontSize: context.fs(20),
+              fontWeight: FontWeight.w600,
+              color: Colors.white,
+              shadows: [
+                Shadow(
+                  color: Colors.black.withOpacity(0.25),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
-    return onTap == null ? box : GestureDetector(onTap: onTap, child: box);
   }
 
-  // Inline native dropdown — tapping the field opens Flutter's own dropdown
-  // menu right there, populated from live API data (ProviderChecklist /
-  // cached-countries), instead of a separate picker dialog.
+  // ------------------------------------------------- TRIP PLAN PILLS
+
+  Widget _buildTripPlanSelector(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: context.w(14)),
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              child: _tripPlanCard(
+                context,
+                id: 'single',
+                title: 'Single Trip',
+                subtitle: 'Starting at ₹276',
+              ),
+            ),
+            SizedBox(width: context.w(10)),
+            Expanded(
+              child: _tripPlanCard(
+                context,
+                id: 'annual',
+                title: 'Annual Multi Trip',
+                subtitle: 'Save upto 80%',
+                isNew: true,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _tripPlanCard(
+    BuildContext context, {
+    required String id,
+    required String title,
+    required String subtitle,
+    bool isNew = false,
+  }) {
+    final selected = _tripPlan == id;
+    final radius = BorderRadius.circular(context.r(14));
+
+    return GestureDetector(
+      onTap: () => setState(() => _tripPlan = id),
+      behavior: HitTestBehavior.opaque,
+      child: ClipRRect(
+        borderRadius: radius,
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: EdgeInsets.symmetric(
+              horizontal: context.w(12),
+              vertical: context.h(10),
+            ),
+            decoration: BoxDecoration(
+              color: selected ? Colors.white : Colors.white.withOpacity(0.28),
+              borderRadius: radius,
+            ),
+            child: Row(
+              children: [
+                _radioDot(selected),
+                SizedBox(width: context.w(8)),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: context.fs(12.5),
+                                fontWeight: FontWeight.w700,
+                                color: selected ? _brandBlue : Colors.white,
+                              ),
+                            ),
+                          ),
+                          if (isNew) ...[
+                            SizedBox(width: context.w(4)),
+                            Container(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: context.w(5),
+                                vertical: context.h(1),
+                              ),
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  colors: [Color(0xFF7B2FF7), Color(0xFFF107A3)],
+                                ),
+                                borderRadius:
+                                    BorderRadius.circular(context.r(6)),
+                              ),
+                              child: Text(
+                                'New',
+                                style: TextStyle(
+                                  fontSize: context.fs(8),
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                      SizedBox(height: context.h(2)),
+                      Text(
+                        subtitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: context.fs(10),
+                          color: selected
+                              ? _kSubGrey
+                              : Colors.white.withOpacity(0.9),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _radioDot(bool selected) {
+    return Container(
+      width: context.w(18),
+      height: context.w(18),
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: selected ? _brandBlue : Colors.white,
+          width: 2,
+        ),
+      ),
+      child: selected
+          ? Container(
+              width: context.w(9),
+              height: context.w(9),
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                color: _brandBlue,
+              ),
+            )
+          : null,
+    );
+  }
+
+  // ------------------------------------------------------ CARD BUILDING BLOCKS
+
+  BoxDecoration get _cardDecoration => BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(context.r(12)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: context.w(14),
+            offset: Offset(0, context.h(4)),
+          ),
+        ],
+      );
+
+  Widget _cardLabel(String text, {bool showChevron = true}) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          text,
+          style: TextStyle(
+            fontSize: context.fs(8),
+            fontWeight: FontWeight.bold,
+            color: _kLabelGrey,
+            letterSpacing: 0.5,
+          ),
+        ),
+        if (showChevron) ...[
+          SizedBox(width: context.w(3)),
+          Icon(
+            Icons.keyboard_arrow_down_rounded,
+            size: context.w(12),
+            color: _kLabelGrey,
+          ),
+        ],
+      ],
+    );
+  }
+
+  // Inline native dropdown, styled as a white card — tapping opens Flutter's
+  // own dropdown menu, populated from live API data (ProviderChecklist /
+  // cached-countries).
   Widget _dropdownField(
     BuildContext context, {
     required String label,
     required String value,
     required List<String> options,
     required ValueChanged<String> onChanged,
+    IconData? leadingIcon,
   }) {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: context.w(10), vertical: context.h(4)),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF6F8FB),
-        borderRadius: BorderRadius.circular(context.r(12)),
-        border: Border.all(color: Colors.grey.shade200),
+      padding: EdgeInsets.symmetric(
+        horizontal: context.w(12),
+        vertical: context.h(10),
       ),
+      decoration: _cardDecoration,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Padding(
-            padding: EdgeInsets.only(top: context.h(4)),
-            child: Text(label,
-                style: TextStyle(
-                    fontSize: context.overline,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.grey.shade500,
-                    letterSpacing: context.letterSpacingWider)),
-          ),
-          DropdownButtonHideUnderline(
-            child: DropdownButtonFormField<String>(
-              value: options.contains(value) ? value : null,
-              isDense: true,
-              isExpanded: true,
-              icon: Icon(Icons.arrow_drop_down_rounded,
-                  size: context.iconMedium, color: Colors.grey.shade600),
-              style: TextStyle(
-                  fontSize: context.bodyLarge,
-                  fontWeight: FontWeight.w800,
-                  color: Colors.black87),
-              decoration: const InputDecoration(
-                isDense: true,
-                contentPadding: EdgeInsets.zero,
-                border: InputBorder.none,
+          _cardLabel(label),
+          SizedBox(height: context.h(4)),
+          Row(
+            children: [
+              if (leadingIcon != null) ...[
+                Icon(leadingIcon, size: context.w(20), color: _brandBlue),
+                SizedBox(width: context.w(6)),
+              ],
+              Expanded(
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButtonFormField<String>(
+                    value: options.contains(value) ? value : null,
+                    isDense: true,
+                    isExpanded: true,
+                    icon: Icon(
+                      Icons.keyboard_arrow_down_rounded,
+                      size: context.w(16),
+                      color: _kLabelGrey,
+                    ),
+                    style: TextStyle(
+                      fontSize: context.fs(13),
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.navy,
+                    ),
+                    decoration: const InputDecoration(
+                      isDense: true,
+                      contentPadding: EdgeInsets.zero,
+                      border: InputBorder.none,
+                    ),
+                    items: options
+                        .map((o) => DropdownMenuItem(
+                            value: o,
+                            child: Text(o,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis)))
+                        .toList(),
+                    onChanged: (v) {
+                      if (v != null) onChanged(v);
+                    },
+                  ),
+                ),
               ),
-              items: options
-                  .map((o) => DropdownMenuItem(
-                      value: o,
-                      child: Text(o, maxLines: 1, overflow: TextOverflow.ellipsis)))
-                  .toList(),
-              onChanged: (v) {
-                if (v != null) onChanged(v);
-              },
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ------------------------------------------------- NO. OF TRAVELLERS
+
+  Widget _buildTravellersCard(BuildContext context) {
+    final n = _travellerDobs.length;
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: context.w(14),
+        vertical: context.h(12),
+      ),
+      decoration: _cardDecoration,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _cardLabel('NO. OF TRAVELLERS', showChevron: false),
+          SizedBox(height: context.h(8)),
+          Row(
+            children: [
+              Icon(Icons.person_outline_rounded,
+                  size: context.w(22), color: _brandBlue),
+              SizedBox(width: context.w(8)),
+              Expanded(
+                child: GestureDetector(
+                  onTap: _openTravellersDialog,
+                  behavior: HitTestBehavior.opaque,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '$n Traveller${n > 1 ? 's' : ''}',
+                        style: TextStyle(
+                          fontSize: context.fs(13.5),
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.navy,
+                        ),
+                      ),
+                      SizedBox(height: context.h(2)),
+                      Text(
+                        'Age: 6 month to 70 years',
+                        style: TextStyle(
+                          fontSize: context.fs(10.5),
+                          color: _kSubGrey,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              _miniStepper(context),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _miniStepper(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.all(context.w(3)),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF3F5F9),
+        borderRadius: BorderRadius.circular(context.r(10)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _stepBtn(context, Icons.remove_rounded, _travellerDobs.length > 1,
+              _removeTraveller),
+          SizedBox(
+            width: context.w(24),
+            child: Text(
+              '${_travellerDobs.length}',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: context.fs(14),
+                fontWeight: FontWeight.w700,
+                color: AppColors.navy,
+              ),
+            ),
+          ),
+          _stepBtn(context, Icons.add_rounded, _travellerDobs.length < 9,
+              _addTraveller),
+        ],
+      ),
+    );
+  }
+
+  Widget _stepBtn(
+    BuildContext context,
+    IconData icon,
+    bool enabled,
+    VoidCallback onTap,
+  ) {
+    return GestureDetector(
+      onTap: enabled ? onTap : null,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        width: context.w(28),
+        height: context.w(28),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(context.r(8)),
+        ),
+        child: Icon(
+          icon,
+          size: context.w(15),
+          color: enabled ? _brandBlue : Colors.grey.shade300,
+        ),
+      ),
+    );
+  }
+
+  // ------------------------------------------------------------ DATE CARDS
+
+  Widget _buildCombinedDateCard(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: context.w(14),
+        vertical: context.h(12),
+      ),
+      decoration: _cardDecoration,
+      child: Row(
+        children: [
+          Expanded(
+            child: GestureDetector(
+              onTap: () => _pickDate(context, true),
+              behavior: HitTestBehavior.opaque,
+              child: _dateColumn(context, 'START DATE', _startDate),
+            ),
+          ),
+          _dayPill(context),
+          Expanded(
+            child: GestureDetector(
+              onTap: () => _pickDate(context, false),
+              behavior: HitTestBehavior.opaque,
+              child: _dateColumn(context, 'END DATE', _endDate, alignEnd: true),
             ),
           ),
         ],
@@ -865,88 +849,144 @@ class _InsuranceSearchCardState extends State<InsuranceSearchCard> {
     );
   }
 
-  Widget _placeholder(BuildContext context, String text) => Text(text,
-      style: TextStyle(
-          fontSize: context.bodyLarge,
-          fontWeight: FontWeight.w700,
-          color: Colors.grey.shade400));
-
-  Widget _dateValue(BuildContext context, DateTime date) {
-    return Column(
+  Widget _buildStudentDateRow(BuildContext context) {
+    return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
       children: [
-        Text(DateFormat('d MMM yy').format(date),
-            style: TextStyle(
-                fontSize: context.bodyLarge,
-                fontWeight: FontWeight.w800,
-                color: Colors.black87)),
-        Text(DateFormat('EEEE').format(date),
-            style: TextStyle(
-                fontSize: context.labelSmall, color: Colors.grey.shade600)),
+        Expanded(
+          child: GestureDetector(
+            onTap: () => _pickDate(context, true),
+            behavior: HitTestBehavior.opaque,
+            child: Container(
+              padding: EdgeInsets.symmetric(
+                horizontal: context.w(14),
+                vertical: context.h(12),
+              ),
+              decoration: _cardDecoration,
+              child: _dateColumn(context, 'START DATE', _startDate),
+            ),
+          ),
+        ),
+        SizedBox(width: context.w(10)),
+        Expanded(
+          child: _dropdownField(
+            context,
+            label: 'TENURE (MONTHS)',
+            value: (_tenureMonths ?? 3).toString(),
+            options: List.generate(24, (i) => '${i + 1}'),
+            onChanged: (v) => setState(() {
+              _tenureMonths = int.parse(v);
+              _recomputeStudentEndDate();
+            }),
+          ),
+        ),
       ],
     );
   }
 
-  Widget _buildDaysStrip(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.symmetric(
-          horizontal: context.w(10), vertical: context.h(8)),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF6F8FB),
-        borderRadius: BorderRadius.circular(context.r(12)),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Row(children: [
-        Icon(Icons.date_range_rounded, size: context.iconSmall, color: _brandBlue),
-        SizedBox(width: context.w(6)),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('NO OF DAYS',
-                style: TextStyle(
-                    fontSize: context.overline,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.grey.shade500,
-                    letterSpacing: context.letterSpacingWider)),
-            Text('Auto-calculated',
-                style: TextStyle(
-                    fontSize: context.labelSmall, color: Colors.grey.shade600)),
-          ],
+  Widget _dateColumn(
+    BuildContext context,
+    String label,
+    DateTime? date, {
+    bool alignEnd = false,
+  }) {
+    return Column(
+      crossAxisAlignment:
+          alignEnd ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _cardLabel(label, showChevron: false),
+        SizedBox(height: context.h(4)),
+        Text(
+          date != null ? DateFormat('d MMM, yy').format(date) : 'Select Date',
+          style: TextStyle(
+            fontSize: context.fs(14),
+            fontWeight: FontWeight.w700,
+            color: date != null ? AppColors.navy : Colors.grey.shade400,
+          ),
         ),
-        const Spacer(),
-        Text(_noOfDays == null ? '—' : '${_noOfDays} Days',
-            style: TextStyle(
-                fontSize: context.bodyLarge,
-                fontWeight: FontWeight.w800,
-                color: _noOfDays == null ? Colors.grey.shade400 : _brandBlue)),
-      ]),
+        SizedBox(height: context.h(2)),
+        Text(
+          date != null ? DateFormat('EEEE').format(date) : '-',
+          style: TextStyle(fontSize: context.fs(10.5), color: _kSubGrey),
+        ),
+      ],
     );
   }
 
-  Widget _buildCta(BuildContext context) {
-    return GestureDetector(
-      onTap: _onGetQuotes,
-      child: Container(
-        height: context.h(46),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(colors: [_brandBlue, _brandTeal]),
-          borderRadius: BorderRadius.circular(context.r(14)),
-          boxShadow: [
-            BoxShadow(
-                color: _brandBlue.withOpacity(0.35),
-                blurRadius: context.w(12),
-                offset: Offset(0, context.h(4))),
-          ],
+  Widget _dayPill(BuildContext context) {
+    final n = _noOfDays;
+    return Container(
+      margin: EdgeInsets.symmetric(horizontal: context.w(8)),
+      padding: EdgeInsets.symmetric(
+        horizontal: context.w(10),
+        vertical: context.h(5),
+      ),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(context.r(20)),
+        border: Border.all(color: AppColors.orange.withOpacity(0.6)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: context.w(6),
+            offset: Offset(0, context.h(2)),
+          ),
+        ],
+      ),
+      child: Text(
+        n == null ? '—' : '$n Day${n > 1 ? 's' : ''}',
+        style: TextStyle(
+          fontSize: context.fs(11),
+          fontWeight: FontWeight.w700,
+          color: AppColors.orange,
         ),
-        child: Center(
-          child: Text('GET QUOTES',
-              style: TextStyle(
-                  color: Colors.white,
-                  fontSize: context.bodyLarge,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: context.letterSpacingWider)),
+      ),
+    );
+  }
+
+  // ------------------------------------------------------- EXPLORE BUTTON
+
+  Widget _buildExploreButton(BuildContext context) {
+    return Center(
+      child: SizedBox(
+        width: context.w(170),
+        height: context.h(44),
+        child: ElevatedButton(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.orange,
+            foregroundColor: Colors.white,
+            elevation: 6,
+            shadowColor: AppColors.orange.withOpacity(0.45),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(context.r(30)),
+            ),
+            padding: EdgeInsets.symmetric(horizontal: context.w(8)),
+          ),
+          onPressed: _onGetQuotes,
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  'Explore Plans',
+                  style: TextStyle(
+                    fontSize: context.fs(14),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                SizedBox(width: context.w(10)),
+                Image.asset(
+                  'assets/NewIcons/arrowForward.png',
+                  width: context.w(9.54),
+                  height: context.w(13),
+                  color: const Color(0xFFFFFFFF),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -1057,7 +1097,8 @@ class _InsuranceSearchCardState extends State<InsuranceSearchCard> {
   void _snack(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       behavior: SnackBarBehavior.floating,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(context.r(10))),
+      shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(context.r(10))),
       content: Text(msg),
     ));
   }
@@ -1180,14 +1221,18 @@ class _CountryDropdownFieldState extends State<_CountryDropdownField> {
                                 decoration: InputDecoration(
                                   isDense: true,
                                   hintText: 'Search country',
-                                  hintStyle: TextStyle(fontSize: context.labelLarge),
+                                  hintStyle:
+                                      TextStyle(fontSize: context.labelLarge),
                                   prefixIcon:
                                       Icon(Icons.search, size: context.iconSmall),
                                   contentPadding: EdgeInsets.symmetric(
-                                      horizontal: context.w(10), vertical: context.h(8)),
+                                      horizontal: context.w(10),
+                                      vertical: context.h(8)),
                                   border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(context.r(10)),
-                                    borderSide: BorderSide(color: Colors.grey.shade300),
+                                    borderRadius:
+                                        BorderRadius.circular(context.r(10)),
+                                    borderSide:
+                                        BorderSide(color: Colors.grey.shade300),
                                   ),
                                 ),
                               ),
@@ -1198,16 +1243,22 @@ class _CountryDropdownFieldState extends State<_CountryDropdownField> {
                                   children: filtered
                                       .map((c) => CheckboxListTile(
                                             dense: true,
-                                            visualDensity: VisualDensity.compact,
+                                            visualDensity:
+                                                VisualDensity.compact,
                                             contentPadding: EdgeInsets.zero,
-                                            controlAffinity: ListTileControlAffinity.leading,
+                                            controlAffinity:
+                                                ListTileControlAffinity.leading,
                                             activeColor: _brandBlue,
                                             value: _draft.contains(c),
                                             title: Text(c,
-                                                style:
-                                                    TextStyle(fontSize: context.labelLarge)),
-                                            onChanged: (v) => setOverlayState(() {
-                                              v == true ? _draft.add(c) : _draft.remove(c);
+                                                style: TextStyle(
+                                                    fontSize:
+                                                        context.labelLarge)),
+                                            onChanged: (v) =>
+                                                setOverlayState(() {
+                                              v == true
+                                                  ? _draft.add(c)
+                                                  : _draft.remove(c);
                                             }),
                                           ))
                                       .toList(),
@@ -1220,7 +1271,8 @@ class _CountryDropdownFieldState extends State<_CountryDropdownField> {
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: _brandBlue,
                                     shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(context.r(10))),
+                                        borderRadius: BorderRadius.circular(
+                                            context.r(10))),
                                   ),
                                   onPressed: _apply,
                                   child: const Text('DONE',
@@ -1242,25 +1294,40 @@ class _CountryDropdownFieldState extends State<_CountryDropdownField> {
           key: _fieldKey,
           onTap: _open,
           child: Container(
-            padding: EdgeInsets.symmetric(horizontal: context.w(10), vertical: context.h(8)),
+            padding: EdgeInsets.symmetric(
+                horizontal: context.w(12), vertical: context.h(10)),
             decoration: BoxDecoration(
-              color: const Color(0xFFF6F8FB),
+              color: Colors.white,
               borderRadius: BorderRadius.circular(context.r(12)),
-              border: Border.all(color: Colors.grey.shade200),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.06),
+                  blurRadius: context.w(14),
+                  offset: Offset(0, context.h(4)),
+                ),
+              ],
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(widget.label,
-                    style: TextStyle(
-                        fontSize: context.overline,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.grey.shade500,
-                        letterSpacing: context.letterSpacingWider)),
-                SizedBox(height: context.h(4)),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(widget.label,
+                        style: TextStyle(
+                            fontSize: context.fs(8),
+                            fontWeight: FontWeight.bold,
+                            color: _kLabelGrey,
+                            letterSpacing: 0.5)),
+                    SizedBox(width: context.w(3)),
+                    Icon(Icons.keyboard_arrow_down_rounded,
+                        size: context.w(12), color: _kLabelGrey),
+                  ],
+                ),
+                SizedBox(height: context.h(6)),
                 Row(children: [
-                  Icon(Icons.public, size: context.iconSmall, color: _brandBlue),
+                  Icon(Icons.public, size: context.w(20), color: _brandBlue),
                   SizedBox(width: context.w(6)),
                   Expanded(
                     child: Text(
@@ -1268,16 +1335,14 @@ class _CountryDropdownFieldState extends State<_CountryDropdownField> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        fontSize: context.bodyLarge,
-                        fontWeight: FontWeight.w800,
+                        fontSize: context.fs(13),
+                        fontWeight: FontWeight.w700,
                         color: widget.selected.isEmpty
                             ? Colors.grey.shade400
-                            : Colors.black87,
+                            : AppColors.navy,
                       ),
                     ),
                   ),
-                  Icon(Icons.arrow_drop_down_rounded,
-                      size: context.iconMedium, color: Colors.grey.shade600),
                 ]),
               ],
             ),
