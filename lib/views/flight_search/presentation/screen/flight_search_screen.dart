@@ -138,6 +138,18 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
   // an optional total-duration cap in minutes. Empty / null = no filter.
   Set<int> _selectedStops = {};
   RangeValues? _durationRange;
+  // Filter screen: departure/arrival airport codes. Empty = no filter (same
+  // "empty means all" convention as the fields above).
+  Set<String> _selectedDepartureAirports = {};
+  Set<String> _selectedArrivalAirports = {};
+  // Filter screen "Other popular filter" toggles. Note: the flight-search API
+  // doesn't currently return baggage/code-share/self-transfer/nearby-airport
+  // data, so these round-trip through the filter screen but don't narrow
+  // _applyFilters — there's nothing on FlightEntity to filter by yet.
+  bool _checkedInBaggage = false;
+  bool _codeShareFlights = false;
+  bool _hideNearbyAirports = false;
+  bool _hideSelfTransferFlights = false;
   // One-way results screen only — toggled from its bottom action bar. Left
   // false everywhere else, so _applyFilters is a no-op for the multi-leg flow.
   bool _nonStopOnly = false;
@@ -251,6 +263,14 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
       _selectedArrivalTimes = {};
       _filterRefundable = false;
       _filterNonRefundable = false;
+      _selectedStops = {};
+      _durationRange = null;
+      _selectedDepartureAirports = {};
+      _selectedArrivalAirports = {};
+      _checkedInBaggage = false;
+      _codeShareFlights = false;
+      _hideNearbyAirports = false;
+      _hideSelfTransferFlights = false;
       _userCustomizedAirlineFilter = false;
       _expandedGroups.clear();
       _isRefetchingTui = true;
@@ -372,6 +392,7 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
         stops: flight.stops,
         duration: _durationToMinutes(flight.duration),
         cabinClass: flight.cabin,
+        refundable: flight.refundable.toUpperCase() == 'Y',
       ));
 
       final key = '${realAirlineCode}_${flight.flightNo}_${flight.departureTime}';
@@ -589,6 +610,51 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
   }
 
   // ---------------------------------------------------------------------------
+  // Departure / arrival airport metadata derived from flights
+  // ---------------------------------------------------------------------------
+  Map<String, String> _buildDepartureAirports(List<FlightEntity> flights) {
+    final map = <String, String>{};
+    for (final f in flights) {
+      final code = f.origin;
+      if (code == null || code.isEmpty) continue;
+      map.putIfAbsent(code, () => f.originName ?? code);
+    }
+    return map;
+  }
+
+  Map<String, String> _buildArrivalAirports(List<FlightEntity> flights) {
+    final map = <String, String>{};
+    for (final f in flights) {
+      final code = f.destination;
+      if (code == null || code.isEmpty) continue;
+      map.putIfAbsent(code, () => f.destinationName ?? code);
+    }
+    return map;
+  }
+
+  Map<String, double> _buildDepartureAirportPrices(List<FlightEntity> flights) {
+    final map = <String, double>{};
+    for (final f in flights) {
+      final code = f.origin;
+      if (code == null || code.isEmpty) continue;
+      final price = (f.totalFare ?? 0).toDouble();
+      if (!map.containsKey(code) || price < map[code]!) map[code] = price;
+    }
+    return map;
+  }
+
+  Map<String, double> _buildArrivalAirportPrices(List<FlightEntity> flights) {
+    final map = <String, double>{};
+    for (final f in flights) {
+      final code = f.destination;
+      if (code == null || code.isEmpty) continue;
+      final price = (f.totalFare ?? 0).toDouble();
+      if (!map.containsKey(code) || price < map[code]!) map[code] = price;
+    }
+    return map;
+  }
+
+  // ---------------------------------------------------------------------------
   // Filtering & sorting
   // ---------------------------------------------------------------------------
   List<FlightEntity> _applyFilters(List<FlightEntity> flights) {
@@ -645,6 +711,30 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
         final d = _flightDurationMinutes(f);
         return d == 0 || (d >= dr.start && d <= dr.end);
       }).toList();
+    }
+
+    // departure airports (filter screen) – empty selection = no filter
+    if (_selectedDepartureAirports.isNotEmpty) {
+      result = result
+          .where((f) => _selectedDepartureAirports.contains(f.origin ?? ''))
+          .toList();
+    }
+
+    // arrival airports (filter screen) – empty selection = no filter
+    if (_selectedArrivalAirports.isNotEmpty) {
+      result = result
+          .where((f) => _selectedArrivalAirports.contains(f.destination ?? ''))
+          .toList();
+    }
+
+    // refundable / non-refundable (filter screen "Fare Type" and "Other
+    // popular filter" toggles share this pair). Both or neither checked
+    // means no restriction; exactly one checked keeps only flights whose
+    // cheapest fare matches that flag.
+    if (_filterRefundable != _filterNonRefundable) {
+      result = result
+          .where((f) => (f.refundable ?? false) == _filterRefundable)
+          .toList();
     }
 
     // sort
@@ -790,6 +880,24 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
       _selectedStops = result.selectedStops;
       _durationRange = result.durationRange;
       _userCustomizedAirlineFilter = true;
+
+      // Store back as "empty = no filter" — everything ticked is the same
+      // as nothing restricted.
+      final allDeparture = _buildDepartureAirports(_allFlights).keys.toSet();
+      final allArrival = _buildArrivalAirports(_allFlights).keys.toSet();
+      _selectedDepartureAirports =
+          result.selectedDepartureAirports.length >= allDeparture.length
+              ? {}
+              : result.selectedDepartureAirports;
+      _selectedArrivalAirports =
+          result.selectedArrivalAirports.length >= allArrival.length
+              ? {}
+              : result.selectedArrivalAirports;
+
+      _checkedInBaggage = result.checkedInBaggage;
+      _codeShareFlights = result.codeShareFlights;
+      _hideNearbyAirports = result.hideNearbyAirports;
+      _hideSelfTransferFlights = result.hideSelfTransferFlights;
     });
   }
 
@@ -910,6 +1018,13 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
     final maxStops = _allFlights.fold<int>(
         0, (m, f) => (f.stops ?? 0) > m ? (f.stops ?? 0) : m);
 
+    // "Empty selection = no filter" internally, but the filter screen should
+    // still show every checkbox ticked by default (nothing has been
+    // restricted yet) — mirrors how _selectedAirlines defaults to "all"
+    // until the user actually customizes it.
+    final departureAirports = _buildDepartureAirports(_allFlights);
+    final arrivalAirports = _buildArrivalAirports(_allFlights);
+
     return FlightFilterScreen(
       minPrice: _minPrice,
       maxPrice: _maxPrice,
@@ -931,6 +1046,20 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
       minDuration: minDur,
       maxDuration: maxDur,
       currentDurationRange: _durationRange ?? RangeValues(minDur, maxDur),
+      departureAirports: departureAirports,
+      arrivalAirports: arrivalAirports,
+      departureAirportPrices: _buildDepartureAirportPrices(_allFlights),
+      arrivalAirportPrices: _buildArrivalAirportPrices(_allFlights),
+      currentSelectedDepartureAirports: _selectedDepartureAirports.isEmpty
+          ? departureAirports.keys.toSet()
+          : _selectedDepartureAirports,
+      currentSelectedArrivalAirports: _selectedArrivalAirports.isEmpty
+          ? arrivalAirports.keys.toSet()
+          : _selectedArrivalAirports,
+      currentCheckedInBaggage: _checkedInBaggage,
+      currentCodeShareFlights: _codeShareFlights,
+      currentHideNearbyAirports: _hideNearbyAirports,
+      currentHideSelfTransferFlights: _hideSelfTransferFlights,
     );
   }
 
@@ -1067,13 +1196,10 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
           context.w(16),
           context.h(6),
           context.w(16),
-          context.h(10),
+          context.h(30),
         ),
         child: Row(
           children: [
-            // ==================================================
-            // EXISTING SORT | NON STOP | FILTER BAR
-            // ==================================================
             Expanded(
               child: Container(
                 height: context.h(44.8),
@@ -2391,6 +2517,8 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
         _durationRange != null ||
         _filterRefundable ||
         _filterNonRefundable ||
+        _selectedDepartureAirports.isNotEmpty ||
+        _selectedArrivalAirports.isNotEmpty ||
         // _nonStopOnly ||
         (_selectedAirlines.isNotEmpty &&
             _selectedAirlines.length <
@@ -2643,6 +2771,14 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
               _selectedAirlines =
                   _allFlights.map((f) => f.airlineName ?? 'Unknown').toSet();
               _priceRange = RangeValues(_minPrice, _maxPrice);
+              _selectedStops = {};
+              _durationRange = null;
+              _selectedDepartureAirports = {};
+              _selectedArrivalAirports = {};
+              _checkedInBaggage = false;
+              _codeShareFlights = false;
+              _hideNearbyAirports = false;
+              _hideSelfTransferFlights = false;
               _userCustomizedAirlineFilter = false;
             }),
             child: Text(
@@ -3373,6 +3509,14 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
               _selectedAirlines =
                   _allFlights.map((f) => f.airlineName ?? 'Unknown').toSet();
               _priceRange = RangeValues(_minPrice, _maxPrice);
+              _selectedStops = {};
+              _durationRange = null;
+              _selectedDepartureAirports = {};
+              _selectedArrivalAirports = {};
+              _checkedInBaggage = false;
+              _codeShareFlights = false;
+              _hideNearbyAirports = false;
+              _hideSelfTransferFlights = false;
               _userCustomizedAirlineFilter = false;
             }),
             child: Text(

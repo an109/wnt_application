@@ -105,6 +105,11 @@ class FlightEntity extends Equatable {
   // from the API's segment legs.
   final int? stops;
 
+  // Whether the fare shown (the cheapest fare-family variant of this
+  // physical flight) is refundable, from the raw AkflightsModel's
+  // Refundable flag. Null when the mapping site didn't have it available.
+  final bool? refundable;
+
   // Round trip details
   final bool isRoundTrip;
   final String? returnDepartureTime;
@@ -142,6 +147,7 @@ class FlightEntity extends Equatable {
     this.seatsAvailable,
     this.traceId,
     this.stops,
+    this.refundable,
     this.isRoundTrip = false,
     this.returnDepartureTime,
     this.returnArrivalTime,
@@ -175,6 +181,7 @@ class FlightEntity extends Equatable {
       seatsAvailable: seatsAvailable,
       traceId: traceId,
       stops: stops,
+      refundable: refundable,
       isRoundTrip: isRoundTrip,
       returnDepartureTime: returnDepartureTime,
       returnArrivalTime: returnArrivalTime,
@@ -192,7 +199,8 @@ class FlightEntity extends Equatable {
   List<Object?> get props => [
     resultIndex, airlineCode, airlineName, flightNumber, origin, originName,
     destination, destinationName, departureTime, arrivalTime, duration, cabinClass,
-    baseFare, tax, totalFare, currency, seatsAvailable, traceId, stops, isRoundTrip,
+    baseFare, tax, totalFare, currency, seatsAvailable, traceId, stops, refundable,
+    isRoundTrip,
     returnDepartureTime, returnArrivalTime, returnDuration, returnOrigin,
     returnOriginName, returnDestination, returnDestinationName, returnStops,
     fareFamilyOptions,

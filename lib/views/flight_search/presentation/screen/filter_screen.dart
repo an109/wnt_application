@@ -139,7 +139,14 @@ class FlightFilterScreen extends StatefulWidget {
 }
 
 class _FlightFilterScreenState extends State<FlightFilterScreen> {
-  static const _orange = Color(0xffF97316);
+  // Figma "Sec" token (#FF6600) — matches AppColors.OrangeColor.
+  static const _orange = AppColors.OrangeColor;
+  // Figma "Strok" token.
+  static const _stroke = Color(0xFFCCCCCC);
+  // Figma section border: rgba(198,198,205,0.3).
+  static const _sectionBorder = Color(0x4DC6C6CD);
+  // Figma "Neutral/Text+Icon/Title 900".
+  static const _title900 = AppColors.black;
 
   late RangeValues _priceRange;
   late Set<String> _selectedAirlines;
@@ -276,7 +283,7 @@ class _FlightFilterScreenState extends State<FlightFilterScreen> {
                           : "Stops",
                       child: _buildStopsSection(),
                     ),
-                    SizedBox(height: context.h(8)),
+                    SizedBox(height: context.h(20)),
                   ],
 
                   // ==========================================================
@@ -286,7 +293,7 @@ class _FlightFilterScreenState extends State<FlightFilterScreen> {
                     title: "Price Range",
                     child: _buildPriceSection(),
                   ),
-                  SizedBox(height: context.h(8)),
+                  SizedBox(height: context.h(20)),
 
                   // ==========================================================
                   // DURATION SECTION
@@ -295,7 +302,7 @@ class _FlightFilterScreenState extends State<FlightFilterScreen> {
                     title: "Duration",
                     child: _buildDurationSection(),
                   ),
-                  SizedBox(height: context.h(8)),
+                  SizedBox(height: context.h(20)),
 
                   // ==========================================================
                   // DEPARTURE AIRPORTS SECTION - NEW
@@ -303,6 +310,19 @@ class _FlightFilterScreenState extends State<FlightFilterScreen> {
                   if (widget.departureAirports.isNotEmpty) ...[
                     _sectionContainer(
                       title: "Departure Airports",
+                      trailing: _selectAllTrailing(
+                        selected: _selectedDepartureAirports,
+                        all: widget.departureAirports.keys,
+                        onToggle: (all) {
+                          setState(() {
+                            if (all) {
+                              _selectedDepartureAirports = Set.from(widget.departureAirports.keys);
+                            } else {
+                              _selectedDepartureAirports.clear();
+                            }
+                          });
+                        },
+                      ),
                       child: _buildAirportSection(
                         airports: widget.departureAirports,
                         prices: widget.departureAirportPrices,
@@ -316,18 +336,9 @@ class _FlightFilterScreenState extends State<FlightFilterScreen> {
                             }
                           });
                         },
-                        onSelectAll: (all) {
-                          setState(() {
-                            if (all) {
-                              _selectedDepartureAirports = Set.from(widget.departureAirports.keys);
-                            } else {
-                              _selectedDepartureAirports.clear();
-                            }
-                          });
-                        },
                       ),
                     ),
-                    SizedBox(height: context.h(8)),
+                    SizedBox(height: context.h(20)),
                   ],
 
                   // ==========================================================
@@ -336,6 +347,19 @@ class _FlightFilterScreenState extends State<FlightFilterScreen> {
                   if (widget.arrivalAirports.isNotEmpty) ...[
                     _sectionContainer(
                       title: "Arrival Airports",
+                      trailing: _selectAllTrailing(
+                        selected: _selectedArrivalAirports,
+                        all: widget.arrivalAirports.keys,
+                        onToggle: (all) {
+                          setState(() {
+                            if (all) {
+                              _selectedArrivalAirports = Set.from(widget.arrivalAirports.keys);
+                            } else {
+                              _selectedArrivalAirports.clear();
+                            }
+                          });
+                        },
+                      ),
                       child: _buildAirportSection(
                         airports: widget.arrivalAirports,
                         prices: widget.arrivalAirportPrices,
@@ -349,18 +373,9 @@ class _FlightFilterScreenState extends State<FlightFilterScreen> {
                             }
                           });
                         },
-                        onSelectAll: (all) {
-                          setState(() {
-                            if (all) {
-                              _selectedArrivalAirports = Set.from(widget.arrivalAirports.keys);
-                            } else {
-                              _selectedArrivalAirports.clear();
-                            }
-                          });
-                        },
                       ),
                     ),
-                    SizedBox(height: context.h(8)),
+                    SizedBox(height: context.h(20)),
                   ],
 
                   // ==========================================================
@@ -369,9 +384,22 @@ class _FlightFilterScreenState extends State<FlightFilterScreen> {
                   if (widget.airlineCounts.isNotEmpty) ...[
                     _sectionContainer(
                       title: "Airlines",
+                      trailing: _selectAllTrailing(
+                        selected: _selectedAirlines,
+                        all: widget.airlineCounts.keys,
+                        onToggle: (all) {
+                          setState(() {
+                            if (all) {
+                              _selectedAirlines = Set.from(widget.airlineCounts.keys);
+                            } else {
+                              _selectedAirlines.clear();
+                            }
+                          });
+                        },
+                      ),
                       child: _buildAirlinesSection(),
                     ),
-                    SizedBox(height: context.h(8)),
+                    SizedBox(height: context.h(20)),
                   ],
 
                   // ==========================================================
@@ -381,7 +409,7 @@ class _FlightFilterScreenState extends State<FlightFilterScreen> {
                     title: "Departure Time",
                     child: _buildTimeGrid(_departureTimes),
                   ),
-                  SizedBox(height: context.h(8)),
+                  SizedBox(height: context.h(20)),
 
                   // ==========================================================
                   // ARRIVAL TIME SECTION
@@ -390,16 +418,7 @@ class _FlightFilterScreenState extends State<FlightFilterScreen> {
                     title: "Arrival Time",
                     child: _buildTimeGrid(_arrivalTimes),
                   ),
-                  SizedBox(height: context.h(8)),
-
-                  // ==========================================================
-                  // OTHER POPULAR FILTER SECTION - NEW
-                  // ==========================================================
-                  _sectionContainer(
-                    title: "Other popular filter",
-                    child: _buildOtherPopularFilters(),
-                  ),
-                  SizedBox(height: context.h(8)),
+                  SizedBox(height: context.h(20)),
 
                   // ==========================================================
                   // FARE TYPE SECTION
@@ -407,6 +426,39 @@ class _FlightFilterScreenState extends State<FlightFilterScreen> {
                   _sectionContainer(
                     title: "Fare Type",
                     child: _buildFareType(),
+                  ),
+
+
+                  // ==========================================================
+                  // OTHER POPULAR FILTER SECTION - NEW
+                  // ==========================================================
+                  SizedBox(height: context.h(20)),
+
+                  _sectionContainer(
+                    title: "Other popular filter",
+                    trailing: GestureDetector(
+                      onTap: () {
+                        final all = !(_checkedInBaggage &&
+                            _codeShareFlights &&
+                            _hideNearbyAirports &&
+                            _hideSelfTransferFlights);
+                        setState(() {
+                          _checkedInBaggage = all;
+                          _codeShareFlights = all;
+                          _hideNearbyAirports = all;
+                          _hideSelfTransferFlights = all;
+                        });
+                      },
+                      child: Text(
+                        "Select All",
+                        style: TextStyle(
+                          fontSize: context.fs(12),
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.AppBlue,
+                        ),
+                      ),
+                    ),
+                    child: _buildOtherPopularFilters(),
                   ),
                   SizedBox(height: context.h(16)),
                 ],
@@ -420,52 +472,98 @@ class _FlightFilterScreenState extends State<FlightFilterScreen> {
   }
 
   // ================================================================
-  // SECTION CONTAINER - UPDATED WITH DIVIDER
+  // SECTION CONTAINER
+  // Matches Figma: white card, 16px radius, 0.5px rgba(198,198,205,0.3)
+  // border, subtle 1px drop shadow, 24px gap between the title block and
+  // the content. Sections that carry a "Select All" action (Airlines,
+  // Departure/Arrival Airports, Other popular filter) put it opposite the
+  // title with a stroke divider underneath; the simple sections (Price
+  // Range, Duration, Stops) just show the title.
   // ================================================================
   Widget _sectionContainer({
     required String title,
     required Widget child,
+    Widget? trailing,
   }) {
+    final hasHeader = trailing != null;
     return Container(
-      padding: EdgeInsets.all(context.w(20)),
+      width: double.infinity,
+      padding: EdgeInsets.symmetric(
+        horizontal: context.w(12.5),
+        vertical: context.h(20),
+      ),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(context.r(12)),
-        border: Border.all(
-          color: const Color(0xFFE8ECF4),
-          width: 1,
-        ),
+        borderRadius: BorderRadius.circular(context.r(16)),
+        border: Border.all(color: _sectionBorder, width: 0.5),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: context.w(6),
-            offset: Offset(0, context.h(2)),
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 1,
+            offset: const Offset(0, 1),
           ),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: context.fs(18),
-              fontWeight: FontWeight.w400,
-              color: AppColors.subhead,
+          if (hasHeader)
+            Container(
+              width: double.infinity,
+              padding: EdgeInsets.only(bottom: context.h(12)),
+              decoration: const BoxDecoration(
+                border: Border(bottom: BorderSide(color: _stroke, width: 0.5)),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: context.fs(18),
+                      fontWeight: FontWeight.w400,
+                      color: AppColors.subhead,
+                    ),
+                  ),
+                  trailing,
+                ],
+              ),
+            )
+          else
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: context.fs(16),
+                fontWeight: FontWeight.w500,
+                color: AppColors.subhead,
+                height: 1.5,
+              ),
             ),
-          ),
-          SizedBox(height: context.h(8)),
-          // ==========================================================
-          // DIVIDER AFTER TITLE
-          // ==========================================================
-          Divider(
-            height: 1,
-            thickness: 1,
-            color: const Color(0xFFE8ECF4),
-          ),
-          SizedBox(height: context.h(10)),
+          SizedBox(height: context.h(24)),
           child,
         ],
+      ),
+    );
+  }
+
+  /// "Select All" text action shown opposite a section title. Toggles all
+  /// keys in [all] on/off in [selected] depending on whether everything is
+  /// already selected.
+  Widget _selectAllTrailing({
+    required Set<String> selected,
+    required Iterable<String> all,
+    required void Function(bool selectAll) onToggle,
+  }) {
+    final allSelected = all.isNotEmpty && all.every(selected.contains);
+    return GestureDetector(
+      onTap: () => onToggle(!allSelected),
+      child: Text(
+        "Select All",
+        style: TextStyle(
+          fontSize: context.fs(12),
+          fontWeight: FontWeight.w600,
+          color: AppColors.AppBlue,
+        ),
       ),
     );
   }
@@ -478,30 +576,11 @@ class _FlightFilterScreenState extends State<FlightFilterScreen> {
     required Map<String, double> prices,
     required Set<String> selected,
     required Function(String, bool) onChanged,
-    required Function(bool) onSelectAll,
   }) {
     final names = airports.keys.toList()..sort();
-    final allSelected = names.every((n) => selected.contains(n));
 
     return Column(
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              "Select All",
-              style: TextStyle(
-                fontSize: context.fs(13),
-                color: Colors.grey.shade700,
-              ),
-            ),
-            Checkbox(
-              value: allSelected,
-              activeColor: AppColors.AppBlue,
-              onChanged: (val) => onSelectAll(val ?? false),
-            ),
-          ],
-        ),
         ...names.map((code) {
           final name = airports[code] ?? code;
           final price = prices[code];
@@ -572,14 +651,16 @@ class _FlightFilterScreenState extends State<FlightFilterScreen> {
       value: value,
       onChanged: onChanged,
       activeColor: AppColors.AppBlue,
+      checkColor: AppColors.subhead,
       title: Text(
         label,
         style: TextStyle(
-          fontSize: context.fs(13),
-          color: Colors.grey.shade800,
+          fontSize: context.fs(16),
+          fontWeight: FontWeight.w400,
+          color: AppColors.black,
         ),
       ),
-      controlAffinity: ListTileControlAffinity.leading,
+      controlAffinity: ListTileControlAffinity.trailing,
       contentPadding: EdgeInsets.zero,
       dense: true,
     );
@@ -588,42 +669,47 @@ class _FlightFilterScreenState extends State<FlightFilterScreen> {
   Widget _buildHeader() {
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.fromLTRB(
-        context.w(6),
-        context.h(10),
-        context.w(12),
-        context.h(10),
+      padding: EdgeInsets.symmetric(
+        horizontal: context.w(16),
+        vertical: context.h(12),
       ),
       decoration: BoxDecoration(
         color: Colors.white,
-        border: Border(bottom: BorderSide(color: Colors.grey.shade100)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.12),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Row(
         children: [
-          IconButton(
-            onPressed: () => Navigator.maybePop(context),
-            icon: Icon(
+          GestureDetector(
+            onTap: () => Navigator.maybePop(context),
+            child: Icon(
               Icons.close,
-              size: context.w(22),
-              color: const Color(0xff1a1a2e),
+              size: context.w(24),
+              color: _title900,
             ),
           ),
+          SizedBox(width: context.w(12)),
           Text(
             "Filters",
             style: TextStyle(
               fontSize: context.fs(20),
-              fontWeight: FontWeight.bold,
-              color: const Color(0xff1a1a2e),
+              fontWeight: FontWeight.w600,
+              color: _title900,
             ),
           ),
           const Spacer(),
-          TextButton(
-            onPressed: _reset,
+          GestureDetector(
+            onTap: _reset,
             child: Text(
-              "Clear",
+              "Reset",
               style: TextStyle(
                 color: AppColors.AppBlue,
-                fontSize: context.fs(13),
+                fontSize: context.fs(14),
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -675,43 +761,44 @@ class _FlightFilterScreenState extends State<FlightFilterScreen> {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 160),
           padding: EdgeInsets.symmetric(
-            vertical: context.h(12),
-            horizontal: context.w(6),
+            vertical: context.h(4),
+            horizontal: context.w(16),
           ),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(context.r(12)),
-            color: selected ? AppColors.AppBlue.withValues(alpha: 0.06) : Colors.grey.shade50,
+            borderRadius: BorderRadius.circular(context.r(4)),
+            color: selected ? AppColors.AppBlue.withValues(alpha: 0.06) : Colors.white,
             border: Border.all(
-              color: selected ? AppColors.AppBlue : Colors.grey.shade200,
-              width: selected ? 1.4 : 1,
+              color: selected ? AppColors.AppBlue : _stroke,
+              width: selected ? 1 : 0.5,
             ),
           ),
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
               Text(
                 big,
                 style: TextStyle(
-                  fontSize: context.fs(16),
-                  fontWeight: FontWeight.w700,
-                  color: selected ? AppColors.AppBlue : const Color(0xff2C2F36),
+                  fontSize: context.fs(18),
+                  fontWeight: FontWeight.w600,
+                  color: selected ? AppColors.AppBlue : _title900,
                 ),
               ),
               SizedBox(height: context.h(2)),
               Text(
                 small,
                 style: TextStyle(
-                  fontSize: context.fs(11),
-                  color: Colors.grey.shade600,
+                  fontSize: context.fs(10),
+                  color: AppColors.subhead,
                 ),
               ),
               if (price != null) ...[
-                SizedBox(height: context.h(4)),
+                SizedBox(height: context.h(2)),
                 Text(
                   _money(price),
                   style: TextStyle(
-                    fontSize: context.fs(11),
+                    fontSize: context.fs(10),
                     fontWeight: FontWeight.w600,
-                    color: selected ? AppColors.AppBlue : Colors.grey.shade700,
+                    color: selected ? AppColors.AppBlue : AppColors.subhead,
                   ),
                 ),
               ],
@@ -813,9 +900,9 @@ class _FlightFilterScreenState extends State<FlightFilterScreen> {
   }
 
   TextStyle get _boundStyle => TextStyle(
-    color: Colors.grey.shade500,
-    fontWeight: FontWeight.w500,
-    fontSize: context.fs(11),
+    color: _title900,
+    fontWeight: FontWeight.w400,
+    fontSize: context.fs(12),
   );
 
   Widget _slider({
@@ -827,13 +914,21 @@ class _FlightFilterScreenState extends State<FlightFilterScreen> {
   }) {
     return SliderTheme(
       data: SliderTheme.of(context).copyWith(
-        trackHeight: 3,
+        trackHeight: context.h(6),
         activeTrackColor: AppColors.AppBlue,
-        inactiveTrackColor: Colors.grey.shade200,
+        inactiveTrackColor: const Color(0xFFE0E0E0),
         thumbColor: AppColors.AppBlue,
         overlayColor: AppColors.AppBlue.withValues(alpha: 0.12),
-        thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),
-        valueIndicatorColor: AppColors.AppBlue,
+        thumbShape: RoundSliderThumbShape(
+          enabledThumbRadius: context.w(11),
+          elevation: 3,
+        ),
+        valueIndicatorColor: Colors.white,
+        valueIndicatorTextStyle: TextStyle(
+          color: _title900,
+          fontSize: context.fs(12),
+          fontWeight: FontWeight.w600,
+        ),
         showValueIndicator: ShowValueIndicator.always,
       ),
       child: Slider(
@@ -850,35 +945,9 @@ class _FlightFilterScreenState extends State<FlightFilterScreen> {
 
   Widget _buildAirlinesSection() {
     final names = widget.airlineCounts.keys.toList()..sort();
-    final allSelected = names.every((n) => _selectedAirlines.contains(n));
 
     return Column(
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              "Select All",
-              style: TextStyle(
-                fontSize: context.fs(13),
-                color: Colors.grey.shade700,
-              ),
-            ),
-            Checkbox(
-              value: allSelected,
-              activeColor: AppColors.AppBlue,
-              onChanged: (val) {
-                setState(() {
-                  if (val == true) {
-                    _selectedAirlines = Set.from(names);
-                  } else {
-                    _selectedAirlines.clear();
-                  }
-                });
-              },
-            ),
-          ],
-        ),
         ...names.map((name) {
           final count = widget.airlineCounts[name] ?? 0;
           final minPrice = widget.airlineMinPrices[name];
@@ -1019,11 +1088,16 @@ class _FlightFilterScreenState extends State<FlightFilterScreen> {
       value: value,
       onChanged: onChanged,
       activeColor: AppColors.AppBlue,
+
       title: Text(
-        label,
-        style: TextStyle(fontSize: context.fs(13), color: Colors.grey.shade800),
+      label,
+      style: TextStyle(
+        fontSize: context.fs(16),
+        fontWeight: FontWeight.w400,
+        color: AppColors.black,
       ),
-      controlAffinity: ListTileControlAffinity.leading,
+    ),
+      controlAffinity: ListTileControlAffinity.trailing,
       contentPadding: EdgeInsets.zero,
       dense: true,
     );
@@ -1031,34 +1105,43 @@ class _FlightFilterScreenState extends State<FlightFilterScreen> {
 
   Widget _buildBottomBar() {
     return Container(
-      padding: EdgeInsets.fromLTRB(
-        context.w(16),
-        context.h(12),
-        context.w(16),
-        context.h(16),
+      width: double.infinity,
+      padding: EdgeInsets.symmetric(
+        horizontal: context.w(19),
+        vertical: context.h(12),
       ),
       decoration: BoxDecoration(
         color: Colors.white,
-        border: Border(top: BorderSide(color: Colors.grey.shade100)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.12),
+            blurRadius: 12,
+            offset: const Offset(0, -4),
+          ),
+        ],
       ),
       child: SizedBox(
         width: double.infinity,
+        height: context.h(48),
         child: ElevatedButton(
           onPressed: _apply,
           style: ElevatedButton.styleFrom(
             backgroundColor: _orange,
             elevation: 0,
-            padding: EdgeInsets.symmetric(vertical: context.h(14)),
+            padding: EdgeInsets.symmetric(
+              horizontal: context.w(16),
+              vertical: context.h(8),
+            ),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(context.r(12)),
             ),
           ),
           child: Text(
-            "Done",
+            "DONE",
             style: TextStyle(
-              fontSize: context.fs(15),
+              fontSize: context.fs(14),
               color: AppColors.white,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ),
