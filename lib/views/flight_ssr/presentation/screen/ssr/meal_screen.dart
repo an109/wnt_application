@@ -585,7 +585,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../../UI_helper/responsive_layout.dart';
-import '../../../../../common_widgets/airline_logo.dart';
+import '../../../../../core/resources/app_colours.dart';
 import '../../../domain/entities/meal_option_entity.dart';
 import '../../../domain/entities/ssr_entity.dart';
 import '../../bloc/ssr_bloc.dart';
@@ -617,6 +617,10 @@ class _MealScreenState extends State<MealScreen> {
   int _currentSegmentIndex = 0;
   String? _selectedMealCode;
   int? _selectedMealIndex;
+
+  // Figma veg/non-veg filter — a plain client-side filter over the same
+  // list the bloc already loaded; doesn't touch selection semantics.
+  bool? _vegOnly; // null = both
 
   @override
   Widget build(BuildContext context) {
@@ -811,116 +815,132 @@ class _MealScreenState extends State<MealScreen> {
       return _buildEmptyState();
     }
 
-    return Column(
-      children: [
-        // Flight info card
-        if (availableMeals.isNotEmpty)
-          _buildFlightInfoCard(availableMeals.first),
+    // Figma veg/non-veg filter — purely a display filter over the same
+    // `availableMeals` list; onTap below still indexes into the unfiltered
+    // list so the selection callback's contract doesn't change.
+    final displayedMeals = _vegOnly == null
+        ? availableMeals
+        : availableMeals.where((m) => m.isVegetarian == _vegOnly).toList();
 
-        // Segment selector (if multiple segments)
-        if (mealSegments.length > 1) _buildSegmentSelector(mealSegments.length),
+    return Container(
+      color: Colors.white,
+      child: Column(
+        children: [
+          // Segment selector (if multiple segments)
+          if (mealSegments.length > 1) _buildSegmentSelector(mealSegments.length),
 
-        // Meal options list
-        Expanded(
-          child: availableMeals.isEmpty
-              ? _buildEmptyState()
-              : ListView.builder(
-                  padding: EdgeInsets.all(context.w(12)),
-                  itemCount: availableMeals.length,
-                  itemBuilder: (context, index) {
-                    final option = availableMeals[index];
-                    final isSelected = _selectedMealCode == option.code;
+          Padding(
+            padding: EdgeInsets.fromLTRB(context.w(16), context.h(16), context.w(16), 0),
+            child: _vegFilterRow(context),
+          ),
 
-                    return _buildMealOptionCard(
-                      context,
-                      option: option,
-                      isSelected: isSelected,
-                      onTap: () => _handleMealSelection(index, option),
-                    );
-                  },
-                ),
+          // Meal options list
+          Expanded(
+            child: displayedMeals.isEmpty
+                ? _buildEmptyState()
+                : ListView.separated(
+                    padding: EdgeInsets.all(context.w(16)),
+                    itemCount: displayedMeals.length,
+                    separatorBuilder: (_, __) => SizedBox(height: context.h(12)),
+                    itemBuilder: (context, i) {
+                      final option = displayedMeals[i];
+                      final originalIndex = availableMeals.indexOf(option);
+                      final isSelected = _selectedMealCode == option.code;
+
+                      return _buildMealOptionCard(
+                        context,
+                        option: option,
+                        isSelected: isSelected,
+                        onTap: () => _handleMealSelection(originalIndex, option),
+                      );
+                    },
+                  ),
+          ),
+
+          _selectionSummary(context, availableMeals.length),
+        ],
+      ),
+    );
+  }
+
+  Widget _vegFilterRow(BuildContext context) {
+    Widget chip(String label, Color dot, bool? value) {
+      final selected = _vegOnly == value;
+      return GestureDetector(
+        onTap: () => setState(() => _vegOnly = selected ? null : value),
+        child: Container(
+          margin: EdgeInsets.only(right: context.w(12)),
+          padding: EdgeInsets.symmetric(horizontal: context.w(6), vertical: context.h(4)),
+          decoration: BoxDecoration(
+            border: Border.all(color: selected ? dot : const Color(0xFFCCCCCC)),
+            borderRadius: BorderRadius.circular(context.r(4)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: context.w(8),
+                height: context.w(8),
+                decoration: BoxDecoration(color: dot, shape: BoxShape.circle, border: Border.all(color: dot)),
+              ),
+              SizedBox(width: context.w(4)),
+              Text(label, style: TextStyle(color: AppColors.subhead, fontSize: context.fs(12))),
+            ],
+          ),
         ),
+      );
+    }
+
+    return Row(
+      children: [
+        chip('Veg', const Color(0xFF34C759), true),
+        chip('Non Veg', const Color(0xFFFF383C), false),
       ],
     );
   }
 
-  Widget _buildFlightInfoCard(MealOptionEntity firstOption) {
+  /// Figma's sticky "N meal(s) selected / ₹price · Added to fare" strip —
+  /// purely derived from the already-selected state above.
+  Widget _selectionSummary(BuildContext context, int totalAvailable) {
+    final selected = _selectedMealCode != null;
     return Container(
-      margin: EdgeInsets.fromLTRB(
-        context.gapMedium,
-        context.gapMedium,
-        context.gapMedium,
-        0,
-      ),
-      padding: EdgeInsets.all(context.w(12)),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(context.borderRadius),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 12,
-            offset: const Offset(0, 2),
-          ),
-        ],
+      width: double.infinity,
+      padding: EdgeInsets.symmetric(horizontal: context.w(16), vertical: context.h(6)),
+      decoration: const BoxDecoration(
+        border: Border(top: BorderSide(color: Color(0xFFCCCCCC), width: 0.5)),
       ),
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // Airline logo
-          AirlineLogo(
-            code: firstOption.airlineCode,
-            name: firstOption.airlineCode,
-            size: 48,
-            borderRadius: BorderRadius.circular(12),
+          Text(
+            selected ? '1 meal(s) Selected' : 'No meal selected',
+            style: TextStyle(color: const Color(0xFF111527), fontSize: context.fs(12), fontWeight: FontWeight.w500),
           ),
-          SizedBox(width: context.gapMedium),
-
-          // Flight details
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '${_getAirlineName(firstOption.airlineCode)} · ${firstOption.flightNumber}',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: context.bodyLarge,
-                  ),
-                ),
-                SizedBox(height: context.gapSmall / 2),
-                Text(
-                  '${firstOption.origin} → ${firstOption.destination}',
-                  style: TextStyle(
-                    color: Colors.grey.shade600,
-                    fontSize: context.bodySmall,
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // Meal badge
-          Container(
-            padding: EdgeInsets.symmetric(
-              horizontal: context.gapSmall,
-              vertical: context.gapSmall / 2,
-            ),
-            decoration: BoxDecoration(
-              color: Colors.blue.shade50,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text(
-              'Meal Service',
-              style: TextStyle(
-                color: Colors.blue.shade700,
-                fontSize: context.labelSmall,
-                fontWeight: FontWeight.w500,
+          if (selected)
+            Text(
+              SsrPriceFormatter.format(
+                availableMealByCode(_selectedMealCode)?.price ?? 0,
+                availableMealByCode(_selectedMealCode)?.currency ?? '',
               ),
+              style: TextStyle(color: const Color(0xFF111527), fontSize: context.fs(12), fontWeight: FontWeight.w700),
             ),
-          ),
         ],
       ),
     );
+  }
+
+  MealOptionEntity? availableMealByCode(String? code) {
+    if (code == null) return null;
+    final state = context.read<SsrBloc>().state;
+    if (state is! SsrLoaded) return null;
+    final meals = state.ssrData.mealOptions;
+    if (meals == null) return null;
+    for (final segment in meals) {
+      for (final m in segment) {
+        if (m.code == code) return m;
+      }
+    }
+    return null;
   }
 
   Widget _buildSegmentSelector(int segmentCount) {
@@ -986,6 +1006,11 @@ class _MealScreenState extends State<MealScreen> {
     );
   }
 
+  // Figma "Flighjt meals": a horizontal card — image, veg/non-veg dot +
+  // description, price/person, and a +/- stepper. The underlying selection
+  // is still single-select (one meal per segment, same as before this
+  // redesign) — the stepper only ever shows 0 or 1, "+" selects this meal
+  // (deselecting whichever one was selected before) and "-" clears it.
   Widget _buildMealOptionCard(
     BuildContext context, {
     required MealOptionEntity option,
@@ -993,188 +1018,140 @@ class _MealScreenState extends State<MealScreen> {
     required VoidCallback onTap,
   }) {
     return Container(
-      margin: EdgeInsets.only(bottom: context.gapMedium),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(context.borderRadius),
-          child: Container(
-            padding: EdgeInsets.all(context.w(12)),
-            decoration: BoxDecoration(
-              color: isSelected ? Colors.orange.shade50 : Colors.white,
-              borderRadius: BorderRadius.circular(context.borderRadius),
-              border: Border.all(
-                color: isSelected
-                    ? Colors.orange.shade400
-                    : Colors.grey.shade200,
-                width: isSelected ? 1.5 : 1,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(context.r(12)),
+        border: Border.all(color: const Color(0xFFCCCCCC), width: 0.5),
+      ),
+      padding: EdgeInsets.all(context.w(12.5)),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(context.r(12)),
+            child: SizedBox(
+              width: context.w(102),
+              height: context.h(101),
+              child: Image.network(
+                _getMealImageUrl(option.code),
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) => Container(
+                  color: _getMealColor(option.code),
+                  child: Icon(option.mealIcon, size: context.iconLarge, color: Colors.white),
+                ),
+                loadingBuilder: (context, child, loadingProgress) {
+                  if (loadingProgress == null) return child;
+                  return Container(
+                    color: _getMealColor(option.code).withValues(alpha: 0.2),
+                    child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                  );
+                },
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.03),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
             ),
-            child: Row(
+          ),
+          SizedBox(width: context.w(12)),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Placeholder Image
-                Container(
-                  width: context.wp(20),
-                  height: context.wp(20),
-                  decoration: BoxDecoration(
-                    color: _getMealColor(option.code),
-                    borderRadius: BorderRadius.circular(context.borderRadius),
-                    boxShadow: [
-                      BoxShadow(
-                        color: _getMealColor(
-                          option.code,
-                        ).withValues(alpha: 0.3),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: context.w(14),
+                      height: context.w(14),
+                      margin: EdgeInsets.only(top: context.h(2)),
+                      padding: EdgeInsets.all(context.w(3)),
+                      decoration: BoxDecoration(
+                        border: Border.all(
+                          color: option.isNoMeal
+                              ? AppColors.subhead
+                              : (option.isVegetarian ? const Color(0xFF16A34A) : const Color(0xFFFF383C)),
+                        ),
                       ),
-                    ],
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(context.borderRadius),
-                    child: Image.network(
-                      _getMealImageUrl(option.code),
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
-                        return Container(
-                          color: _getMealColor(option.code),
-                          child: Icon(
-                            option.mealIcon,
-                            size: context.iconLarge,
-                            color: Colors.white,
-                          ),
-                        );
-                      },
-                      loadingBuilder: (context, child, loadingProgress) {
-                        if (loadingProgress == null) return child;
-                        return Center(
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: const AlwaysStoppedAnimation<Color>(
-                              Colors.white,
-                            ),
-                          ),
-                        );
-                      },
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: option.isNoMeal
+                              ? AppColors.subhead
+                              : (option.isVegetarian ? const Color(0xFF16A34A) : const Color(0xFFFF383C)),
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-                SizedBox(width: context.gapMedium),
-
-                // Meal Details (Name and Caption)
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        option.displayTitle,
-                        style: TextStyle(
-                          fontWeight: FontWeight.w700,
-                          fontSize: context.bodyLarge,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      SizedBox(height: context.gapSmall / 2),
-                      Text(
-                        option.displaySubtitle,
-                        style: TextStyle(
-                          color: Colors.grey.shade600,
-                          fontSize: context.bodySmall,
-                        ),
+                    SizedBox(width: context.w(8)),
+                    Expanded(
+                      child: Text(
+                        option.displaySubtitle.isNotEmpty ? option.displaySubtitle : option.displayTitle,
+                        style: TextStyle(color: AppColors.subhead, fontSize: context.fs(12)),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      if (option.quantity > 0 && !option.isNoMeal)
-                        Padding(
-                          padding: EdgeInsets.only(top: context.gapSmall / 2),
-                          child: Text(
-                            'Quantity: ${option.quantity}',
+                    ),
+                  ],
+                ),
+                SizedBox(height: context.h(8)),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    RichText(
+                      text: TextSpan(
+                        children: [
+                          TextSpan(
+                            text: SsrPriceFormatter.format(option.price, option.currency),
                             style: TextStyle(
-                              color: Colors.grey.shade600,
-                              fontSize: context.bodySmall,
+                              color: const Color(0xFF111527),
+                              fontWeight: FontWeight.w700,
+                              fontSize: context.fs(14),
                             ),
                           ),
-                        ),
-                    ],
-                  ),
-                ),
-
-                // Price and Selection Indicator
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      SsrPriceFormatter.format(option.price, option.currency),
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: context.bodyLarge,
-                        color: option.isFree
-                            ? Colors.green.shade700
-                            : Colors.orange.shade700,
+                          if (!option.isFree)
+                            TextSpan(
+                              text: '/person',
+                              style: TextStyle(color: AppColors.subhead, fontSize: context.fs(10)),
+                            ),
+                        ],
                       ),
                     ),
-                    if (!option.isFree && option.quantity > 0)
-                      Padding(
-                        padding: EdgeInsets.only(top: context.gapSmall / 2),
-                        child: Text(
-                          SsrPriceFormatter.unit(
-                            option.price / option.quantity,
-                            option.currency,
-                            'item',
-                          ),
-                          style: TextStyle(
-                            color: Colors.grey.shade500,
-                            fontSize: context.labelSmall,
-                          ),
-                        ),
-                      ),
-                    if (isSelected)
-                      Padding(
-                        padding: EdgeInsets.only(top: context.gapSmall / 2),
-                        child: Container(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: context.gapSmall,
-                            vertical: context.gapSmall / 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.green.shade100,
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.check_circle,
-                                size: context.iconSmall,
-                                color: Colors.green.shade700,
-                              ),
-                              SizedBox(width: 4),
-                              Text(
-                                'Selected',
-                                style: TextStyle(
-                                  fontSize: context.labelSmall,
-                                  color: Colors.green.shade700,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
+                    _mealStepper(context, isSelected: isSelected, onTap: onTap),
                   ],
                 ),
               ],
             ),
           ),
-        ),
+        ],
+      ),
+    );
+  }
+
+  Widget _mealStepper(BuildContext context, {required bool isSelected, required VoidCallback onTap}) {
+    Widget stepperButton(IconData icon, VoidCallback? onPressed) => GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onPressed,
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: context.w(8), vertical: context.h(8)),
+            child: Icon(icon, size: context.w(14), color: onPressed == null ? const Color(0xFFCCCCCC) : AppColors.AppBlue),
+          ),
+        );
+
+    return Container(
+      decoration: BoxDecoration(
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        borderRadius: BorderRadius.circular(context.r(8)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          stepperButton(Icons.remove, isSelected ? onTap : null),
+          SizedBox(
+            width: context.w(20),
+            child: Text(
+              isSelected ? '1' : '0',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: const Color(0xFF111527), fontSize: context.fs(14), fontWeight: FontWeight.w600),
+            ),
+          ),
+          stepperButton(Icons.add, isSelected ? null : onTap),
+        ],
       ),
     );
   }
@@ -1209,17 +1186,6 @@ class _MealScreenState extends State<MealScreen> {
       }
     }
     return null;
-  }
-
-  String _getAirlineName(String code) {
-    final airlines = {
-      'SG': 'SpiceJet',
-      'AI': 'Air India',
-      '6E': 'IndiGo',
-      'UK': 'Vistara',
-      'I5': 'AirAsia',
-    };
-    return airlines[code] ?? code;
   }
 
   // Helper methods for meal images

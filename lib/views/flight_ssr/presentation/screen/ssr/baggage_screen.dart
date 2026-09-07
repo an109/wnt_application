@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../../UI_helper/responsive_layout.dart';
-import '../../../../../common_widgets/airline_logo.dart';
+import '../../../../../core/resources/app_colours.dart';
 import '../../../domain/entities/baggage_option_entity.dart';
 import '../../../domain/entities/ssr_entity.dart';
 import '../../bloc/ssr_bloc.dart';
@@ -245,116 +245,37 @@ class _BaggageScreenState extends State<BaggageScreen> {
         ? baggageSegments[currentSegmentIndex]
         : <BaggageOptionEntity>[];
 
-    return Column(
-      children: [
-        // Flight info card
-        if (segmentBaggage.isNotEmpty)
-          _buildFlightInfoCard(segmentBaggage.first),
-
-        // Segment selector (if multiple segments)
-        if (baggageSegments.length > 1)
-          _buildSegmentSelector(baggageSegments.length),
-
-        // Baggage options list
-        Expanded(
-          child: segmentBaggage.isEmpty
-              ? _buildEmptyState()
-              : ListView.builder(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: context.gapMedium,
-                    vertical: context.gapSmall,
-                  ),
-                  itemCount: segmentBaggage.length,
-                  itemBuilder: (context, index) {
-                    final option = segmentBaggage[index];
-                    final isSelected = _selectedBaggageIndex == index;
-
-                    return _buildBaggageOptionCard(
-                      context,
-                      option: option,
-                      isSelected: isSelected,
-                      onTap: () => _handleBaggageSelection(index, option),
-                    );
-                  },
-                ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildFlightInfoCard(BaggageOptionEntity firstOption) {
     return Container(
-      margin: EdgeInsets.fromLTRB(
-        context.gapMedium,
-        context.gapMedium,
-        context.gapMedium,
-        0,
-      ),
-      padding: EdgeInsets.all(context.w(12)),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(context.borderRadius),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 12,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
+      color: Colors.white,
+      child: Column(
         children: [
-          // Airline logo
-          AirlineLogo(
-            code: firstOption.airlineCode,
-            name: firstOption.airlineCode,
-            size: 48,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          SizedBox(width: context.gapMedium),
+          // Segment selector (if multiple segments) — the route/airline
+          // badge itself now lives in the shared Add-ons header.
+          if (baggageSegments.length > 1)
+            _buildSegmentSelector(baggageSegments.length),
 
-          // Flight details
+          SizedBox(height: context.h(baggageSegments.length > 1 ? 8 : 20)),
+
+          // Baggage options list
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '${_getAirlineName(firstOption.airlineCode)} · ${firstOption.flightNumber}',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: context.bodyLarge,
-                  ),
-                ),
-                SizedBox(height: context.gapSmall / 2),
-                Text(
-                  '${firstOption.origin} → ${firstOption.destination}',
-                  style: TextStyle(
-                    color: Colors.grey.shade600,
-                    fontSize: context.bodySmall,
-                  ),
-                ),
-              ],
-            ),
-          ),
+            child: segmentBaggage.isEmpty
+                ? _buildEmptyState()
+                : ListView.separated(
+                    padding: EdgeInsets.symmetric(horizontal: context.w(16)),
+                    itemCount: segmentBaggage.length,
+                    separatorBuilder: (_, __) => SizedBox(height: context.h(24)),
+                    itemBuilder: (context, index) {
+                      final option = segmentBaggage[index];
+                      final isSelected = _selectedBaggageIndex == index;
 
-          // Baggage badge
-          Container(
-            padding: EdgeInsets.symmetric(
-              horizontal: context.gapSmall,
-              vertical: context.gapSmall / 2,
-            ),
-            decoration: BoxDecoration(
-              color: Colors.green.shade50,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text(
-              '1 Bag Included',
-              style: TextStyle(
-                color: Colors.green.shade700,
-                fontSize: context.labelSmall,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
+                      return _buildBaggageOptionCard(
+                        context,
+                        option: option,
+                        isSelected: isSelected,
+                        onTap: () => _handleBaggageSelection(index, option),
+                      );
+                    },
+                  ),
           ),
         ],
       ),
@@ -423,168 +344,102 @@ class _BaggageScreenState extends State<BaggageScreen> {
     );
   }
 
+  // Figma "Flighjt BAGGAGE": a plain bordered row per option; the selected
+  // one gets a pale-blue tint, a blue border, and a check badge straddling
+  // its top-right corner.
   Widget _buildBaggageOptionCard(
     BuildContext context, {
     required BaggageOptionEntity option,
     required bool isSelected,
     required VoidCallback onTap,
   }) {
-    return Container(
-      margin: EdgeInsets.only(bottom: context.gapMedium),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(context.borderRadius),
-          child: Container(
-            padding: EdgeInsets.all(context.w(12)),
-            decoration: BoxDecoration(
-              color: isSelected ? Colors.blue.shade50 : Colors.white,
-              borderRadius: BorderRadius.circular(context.borderRadius),
-              border: Border.all(
-                color: isSelected ? Colors.blue.shade400 : Colors.grey.shade200,
-                width: isSelected ? 1.5 : 1,
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(context.r(8)),
+            child: Container(
+              padding: EdgeInsets.all(context.w(12)),
+              decoration: BoxDecoration(
+                color: isSelected ? AppColors.AppBlue.withValues(alpha: 0.04) : Colors.white,
+                borderRadius: BorderRadius.circular(context.r(8)),
+                border: Border.all(
+                  color: isSelected ? AppColors.AppBlue : const Color(0xFFCCCCCC),
+                  width: isSelected ? 0.5 : 0.5,
+                ),
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.03),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                // Selection indicator
-                Container(
-                  width: 22,
-                  height: 22,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: isSelected
-                          ? Colors.blue.shade600
-                          : Colors.grey.shade400,
-                      width: 1.5,
+              child: Row(
+                children: [
+                  Container(
+                    width: context.w(38),
+                    height: context.h(39),
+                    alignment: Alignment.center,
+                    child: Icon(
+                      option.isNoBaggage ? Icons.no_luggage : Icons.luggage,
+                      color: AppColors.AppBlue,
+                      size: context.w(24),
                     ),
                   ),
-                  child: isSelected
-                      ? Center(
-                          child: Container(
-                            width: 12,
-                            height: 12,
-                            decoration: const BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: Colors.blue,
-                            ),
-                          ),
-                        )
-                      : null,
-                ),
-                SizedBox(width: context.gapMedium),
-
-                // Icon
-                Container(
-                  padding: EdgeInsets.all(context.gapSmall),
-                  decoration: BoxDecoration(
-                    color: option.isNoBaggage
-                        ? Colors.grey.shade100
-                        : Colors.blue.shade100,
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: Icon(
-                    option.isNoBaggage ? Icons.no_luggage : Icons.luggage,
-                    color: option.isNoBaggage
-                        ? Colors.grey.shade600
-                        : Colors.blue.shade700,
-                    size: 26,
-                  ),
-                ),
-                SizedBox(width: context.gapMedium),
-
-                // Details
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        option.displayTitle,
-                        style: TextStyle(
-                          fontWeight: FontWeight.w700,
-                          fontSize: context.bodyLarge,
-                        ),
-                      ),
-                      SizedBox(height: context.gapSmall / 2),
-                      if (option.displaySubtitle.isNotEmpty)
+                  SizedBox(width: context.w(12)),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                         Text(
-                          option.displaySubtitle,
+                          option.displayTitle,
                           style: TextStyle(
-                            color: Colors.grey.shade600,
-                            fontSize: context.bodySmall,
+                            fontWeight: FontWeight.w600,
+                            fontSize: context.fs(14),
+                            color: const Color(0xFF111527),
                           ),
                         ),
-                      if (option.weight > 0 && !option.isNoBaggage)
-                        Padding(
-                          padding: EdgeInsets.only(top: context.gapSmall / 2),
-                          child: Text(
-                            'Up to ${option.weight} kg',
-                            style: TextStyle(
-                              color: Colors.grey.shade600,
-                              fontSize: context.bodySmall,
-                            ),
+                        if (option.displaySubtitle.isNotEmpty)
+                          Text(
+                            option.displaySubtitle,
+                            style: TextStyle(color: AppColors.subhead, fontSize: context.fs(8)),
                           ),
-                        ),
-                    ],
-                  ),
-                ),
-
-                // Price
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      SsrPriceFormatter.format(option.price, option.currency),
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: context.bodyLarge,
-                        color: option.isFree
-                            ? Colors.green.shade700
-                            : Colors.black87,
-                      ),
+                      ],
                     ),
-                    if (option.pricePerKg.isNotEmpty)
-                      Padding(
-                        padding: EdgeInsets.only(top: context.gapSmall / 2),
-                        child: Text(
-                          SsrPriceFormatter.unit(
-                            option.price / option.weight,
-                            option.currency,
-                            'kg',
-                          ),
+                  ),
+                  RichText(
+                    text: TextSpan(
+                      children: [
+                        TextSpan(
+                          text: SsrPriceFormatter.format(option.price, option.currency),
                           style: TextStyle(
-                            color: Colors.grey.shade500,
-                            fontSize: context.labelSmall,
+                            fontWeight: FontWeight.w600,
+                            fontSize: context.fs(14),
+                            color: const Color(0xFF111527),
                           ),
                         ),
-                      ),
-                  ],
-                ),
-              ],
+                        if (!option.isFree)
+                          TextSpan(
+                            text: '/person',
+                            style: TextStyle(color: AppColors.subhead, fontSize: context.fs(8)),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
-      ),
+        if (isSelected)
+          Positioned(
+            right: -context.w(6),
+            top: -context.h(12),
+            child: Container(
+              width: context.w(24),
+              height: context.w(24),
+              decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+              child: Icon(Icons.check_circle, color: AppColors.AppBlue, size: context.w(24)),
+            ),
+          ),
+      ],
     );
-  }
-
-  String _getAirlineName(String code) {
-    final airlines = {
-      'SG': 'SpiceJet',
-      'AI': 'Air India',
-      '6E': 'IndiGo',
-      'UK': 'Vistara',
-      'I5': 'AirAsia',
-    };
-    return airlines[code] ?? code;
   }
 }

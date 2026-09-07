@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wander_nova/UI_helper/currency_converter.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
+import 'package:wander_nova/common_widgets/airline_logo.dart';
+import 'package:wander_nova/core/resources/app_colours.dart';
 import 'package:wander_nova/core/utils/storage/shared_preference.dart';
 import 'package:wander_nova/injection_container.dart';
 import 'package:wander_nova/core/error/data_state.dart';
@@ -24,11 +26,11 @@ import 'booking_screen.dart';
 
 const _blue = Color(0xFF1769F6);
 const _navy = Color(0xFF071638);
-const _pageBg = Color(0xFFF3F6FC);
 const _border = Color(0xFFE2E7F0);
 const _muted = Color(0xFF6B7280);
-const _availableBorder = Color(0xFF2E9E5B);
-const _availableFill = Color(0xFFE7F6EC);
+
+const _title900 = Color(0xFF111527);
+const _stroke = Color(0xFFCCCCCC);
 
 class _PaxDescriptor {
   final int paxId;
@@ -124,19 +126,35 @@ class SeatAddonsScreen extends StatefulWidget {
   State<SeatAddonsScreen> createState() => _SeatAddonsScreenState();
 }
 
-class _SeatAddonsScreenState extends State<SeatAddonsScreen> {
+class _SeatAddonsScreenState extends State<SeatAddonsScreen> with SingleTickerProviderStateMixin {
   final PageController _pageController = PageController();
   late final AkSeatLayoutBloc _seatLayoutBloc;
   late final AkSsrBloc _ssrBloc;
   late final List<_PaxDescriptor> _pax;
+  final ScrollController _seatScrollController = ScrollController();
 
-  static const _titles = ['Choose Your Seat', 'Baggage & Meals'];
+  // Animation for smooth sliding
+  late AnimationController _animationController;
+  late Animation<double> _slideAnimation;
+
+  double _scrollProgress = 0.0;
+  double _targetProgress = 0.0;
+
+  // Figma tab order: SEATS, MEALS, BAGGAGE (was one combined "Baggage &
+  // Meals" page) — `_ssrSectionsByType` below splits the same already-loaded
+  // AkSsr data by typeName so this is purely a display change.
+  static const _tabLabels = ['SEATS', 'MEALS', 'BAGGAGE'];
   int _currentIndex = 0;
 
   int _activePaxId = 1;
   final Map<String, _SeatPick> _seatPicks = {};
   final List<_SsrPick> _ssrPicks = [];
   bool _submitting = false;
+
+  // Populated on each seat-map build; used only to derive the Figma legend's
+  // "standard"/"premium" fare bands per segment (see `_seatIsPremium`).
+  final Map<int, List<AkSeatEntity>> _seatsByFuid = {};
+  final Map<int, double> _medianPaidFareByFuid = {};
 
   bool get _hasPricing => (widget.route.pricingTui ?? '').isNotEmpty;
   bool get _hasChildOrInfant => _pax.any((p) => !p.isAdult);
@@ -174,6 +192,40 @@ class _SeatAddonsScreenState extends State<SeatAddonsScreen> {
     _seatLayoutBloc = sl<AkSeatLayoutBloc>();
     _ssrBloc = sl<AkSsrBloc>();
 
+    // Initialize animation controller with smooth curve
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 400),
+      vsync: this,
+    );
+
+    _slideAnimation = CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeInOutCubic,
+    );
+
+    // Listen to scroll and update target progress
+    _seatScrollController.addListener(() {
+      final maxScroll = _seatScrollController.position.maxScrollExtent;
+      if (maxScroll > 0) {
+        final progress = _seatScrollController.offset / maxScroll;
+        _targetProgress = progress.clamp(0.0, 1.0);
+
+        // Animate to the new position
+        _animationController.animateTo(
+          _targetProgress,
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOutCubic,
+        );
+      }
+    });
+
+    // Listen to animation updates
+    _animationController.addListener(() {
+      setState(() {
+        _scrollProgress = _slideAnimation.value;
+      });
+    });
+
     final pricingTui = widget.route.pricingTui;
     if (pricingTui != null && pricingTui.isNotEmpty) {
       // One order_id per leg — [1] for one-way, [1, 2] for round trip/multi
@@ -191,6 +243,8 @@ class _SeatAddonsScreenState extends State<SeatAddonsScreen> {
   void dispose() {
     _pageController.dispose();
     _seatLayoutBloc.close();
+    _seatScrollController.dispose();
+    _animationController.dispose();
     _ssrBloc.close();
     super.dispose();
   }
@@ -240,17 +294,16 @@ class _SeatAddonsScreenState extends State<SeatAddonsScreen> {
 
   void _skip() => _goToBooking();
 
+  void _goToTab(int index) {
+    if (index == _currentIndex) return;
+    _pageController.animateToPage(index, duration: const Duration(milliseconds: 250), curve: Curves.easeInOut);
+  }
+
   void _nextPage() {
-    if (_currentIndex < _titles.length - 1) {
+    if (_currentIndex < _tabLabels.length - 1) {
       _pageController.nextPage(duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
     } else {
       _continue();
-    }
-  }
-
-  void _previousPage() {
-    if (_currentIndex > 0) {
-      _pageController.previousPage(duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
     }
   }
 
@@ -271,12 +324,12 @@ class _SeatAddonsScreenState extends State<SeatAddonsScreen> {
             sessionId: sessionId,
             selectedSeats: _seatPicks.values
                 .map((p) => AkSelectedSeatItemEntity(
-                      ssid: p.ssid,
-                      fuid: p.fuid,
-                      paxId: p.paxId,
-                      fare: p.fare,
-                      tax: p.tax,
-                    ))
+              ssid: p.ssid,
+              fuid: p.fuid,
+              paxId: p.paxId,
+              fare: p.fare,
+              tax: p.tax,
+            ))
                 .toList(),
           ),
         );
@@ -293,12 +346,12 @@ class _SeatAddonsScreenState extends State<SeatAddonsScreen> {
             sessionId: sessionId,
             selectedSsr: _ssrPicks
                 .map((p) => AkSelectedSsrItemEntity(
-                      id: p.id,
-                      fuid: p.fuid,
-                      paxId: p.paxId,
-                      charge: p.charge,
-                      vat: 0,
-                    ))
+              id: p.id,
+              fuid: p.fuid,
+              paxId: p.paxId,
+              charge: p.charge,
+              vat: 0,
+            ))
                 .toList(),
           ),
         );
@@ -332,19 +385,22 @@ class _SeatAddonsScreenState extends State<SeatAddonsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _pageBg,
+      backgroundColor: Colors.white,
       body: SafeArea(
         child: Column(
           children: [
             _header(context),
-            _fareSummaryCard(context),
-            SizedBox(height: context.h(10)),
+            _tabBar(context),
+
+            if (_currentIndex == 0 && widget.route.from.isNotEmpty) ...[
+              _routeCardLarge(context),
+              _exitRowBanner(context),
+            ],
             Expanded(
               child: PageView(
                 controller: _pageController,
-                physics: const NeverScrollableScrollPhysics(),
                 onPageChanged: (v) => setState(() => _currentIndex = v),
-                children: [_seatsPage(context), _addonsPage(context)],
+                children: [_seatsPage(context), _mealsPage(context), _baggagePage(context)],
               ),
             ),
             _bottomBar(context),
@@ -354,107 +410,170 @@ class _SeatAddonsScreenState extends State<SeatAddonsScreen> {
     );
   }
 
+  // ==================== HEADER (Figma: "← Add-ons" [+ route badge / Skip]) ====================
   Widget _header(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.fromLTRB(context.w(18), context.h(10), context.w(18), 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      padding: EdgeInsets.symmetric(horizontal: context.w(16), vertical: context.h(12)),
+      child: Row(
         children: [
-          Row(
-            children: [
-              InkWell(
-                onTap: () => Navigator.of(context).maybePop(),
-                borderRadius: BorderRadius.circular(context.r(20)),
-                child: Padding(
-                  padding: EdgeInsets.all(context.w(4)),
-                  child: Icon(Icons.arrow_back_ios_new_rounded, size: context.w(16), color: _navy),
-                ),
-              ),
-              SizedBox(width: context.w(6)),
-              Expanded(
-                child: Text(
-                  'Customize Your Journey',
-                  style: TextStyle(fontSize: context.titleLarge, fontWeight: FontWeight.bold, color: _navy),
-                ),
-              ),
-            ],
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => Navigator.of(context).maybePop(),
+            child: Image.asset('assets/NewIcons/arrowBack.png', width: context.w(24), height: context.h(24), color: _title900),
           ),
-          SizedBox(height: context.gapXSmall),
-          Text(
-            _titles[_currentIndex],
-            style: TextStyle(fontSize: context.bodyLarge, color: _muted, fontWeight: FontWeight.w600),
-          ),
-          SizedBox(height: context.gapMedium),
-          Row(
-            children: List.generate(
-              _titles.length,
-              (i) => Expanded(
-                child: Container(
-                  margin: EdgeInsets.only(right: i == _titles.length - 1 ? 0 : context.w(8)),
-                  height: context.h(4),
-                  decoration: BoxDecoration(
-                    color: i <= _currentIndex ? _blue : const Color(0xFFE1E6F0),
-                    borderRadius: BorderRadius.circular(context.r(50)),
-                  ),
-                ),
-              ),
+          SizedBox(width: context.w(12)),
+          Expanded(
+            child: Text(
+              'Add-ons',
+              style: TextStyle(color: _title900, fontSize: context.fs(20), fontWeight: FontWeight.w600),
             ),
+          ),
+          // Not in Figma, but skipping seats/add-ons entirely is real,
+          // existing functionality (straight to the booking form) — kept
+          // as a small text action instead of dropping it.
+          if (_currentIndex == 0)
+            GestureDetector(
+              onTap: _submitting ? null : _skip,
+              child: Text('Skip', style: TextStyle(color: AppColors.subhead, fontSize: context.fs(13), fontWeight: FontWeight.w600)),
+            )
+          else if (widget.route.from.isNotEmpty)
+            _routeBadgeCompact(context),
+        ],
+      ),
+    );
+  }
+
+  /// `route.flightNo` is built upstream as "`<IATA code>` • `<number>`"
+  /// (see detail_popup.dart's `_bookNow`) — this pulls the code back out so
+  /// the real airline logo can be shown instead of a generic route icon.
+  String _routeAirlineCode() {
+    final flightNo = widget.route.flightNo;
+    final sep = flightNo.indexOf('•');
+    return (sep > 0 ? flightNo.substring(0, sep) : flightNo).trim();
+  }
+
+  Widget _routeBadgeCompact(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        AirlineLogo(code: _routeAirlineCode(), name: widget.route.airline, size: context.w(24), borderRadius: BorderRadius.circular(context.r(8))),
+        SizedBox(width: context.w(8)),
+        Text(
+          '${widget.route.from} - ${widget.route.to}',
+          style: TextStyle(color: _title900, fontSize: context.fs(16), fontWeight: FontWeight.w700),
+        ),
+      ],
+    );
+  }
+
+  // ==================== LARGE ROUTE CARD (Figma: Seats tab) ====================
+  Widget _routeCardLarge(BuildContext context) {
+    final route = widget.route;
+    final paleBlue = Color.lerp(AppColors.AppBlue, Colors.white, 0.72)!;
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.symmetric(horizontal: context.w(16), vertical: context.h(20)),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(begin: Alignment.centerRight, end: Alignment.centerLeft, colors: [paleBlue, Colors.white]),
+      ),
+      child: Row(
+        children: [
+          AirlineLogo(code: _routeAirlineCode(), name: route.airline, size: context.w(38), borderRadius: BorderRadius.circular(context.r(8))),
+          SizedBox(width: context.w(16)),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('${route.from} - ${route.to}', style: TextStyle(color: _title900, fontSize: context.fs(18), fontWeight: FontWeight.w700)),
+              Text('${route.from} to ${route.to}', style: TextStyle(color: _title900, fontSize: context.fs(12))),
+            ],
           ),
         ],
       ),
     );
   }
 
-  /// A persistent MMT/Paytm-style fare card — always populated (base fare +
-  /// running extras total), so this screen never reads as empty even while
-  /// the seat/SSR calls are still loading.
-  Widget _fareSummaryCard(BuildContext context) {
-    final total = _baseFare + _addOnsTotal;
-    return Padding(
-      padding: EdgeInsets.fromLTRB(context.w(18), context.h(14), context.w(18), 0),
-      child: Container(
-        padding: EdgeInsets.symmetric(horizontal: context.w(16), vertical: context.h(12)),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFF1769F6), Color(0xFF3F8CFF)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(context.borderRadiusLarge),
-          boxShadow: [
-            BoxShadow(color: _blue.withValues(alpha: 0.28), blurRadius: 18, offset: const Offset(0, 8)),
-          ],
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Fare + Extras',
-                      style: TextStyle(color: Colors.white70, fontSize: context.fs(11), fontWeight: FontWeight.w600)),
-                  SizedBox(height: context.h(2)),
-                  Text(
-                    _displayAmount(total),
-                    style: TextStyle(color: Colors.white, fontSize: context.fs(20), fontWeight: FontWeight.w800),
+  // ==================== EXIT ROW BANNER (Figma: "Flighjt seat2", node 458:5319) ====================
+  /// A real aircraft cross-section image with a red-outlined highlight over
+  /// the exit-row area. Figma places the highlight at a fixed spot on a
+  /// fixed illustration — it isn't computed from this flight's actual
+  /// exit-row seats, so this stays a static visual aid rather than a claim
+  /// about where the real exit row is.
+  Widget _exitRowBanner(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      height: context.h(116),
+      // `clipBehavior` other than Clip.none requires a real `decoration`
+      // (Container's own assertion: `decoration != null || clipBehavior ==
+      // Clip.none`) — a bare `color:` doesn't satisfy it, which is exactly
+      // what crashed this screen on launch.
+      decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.64)),
+      clipBehavior: Clip.hardEdge,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          // Start from the far left and scan to the right
+          final startLeft = constraints.maxWidth * 0.12;  // Start from leftmost
+          final endLeft = constraints.maxWidth * 0.65;    // End at rightmost
+
+          // Use the animated progress value for smooth sliding
+          final currentLeft = startLeft + (_scrollProgress * (endLeft - startLeft));
+
+          return Stack(
+            children: [
+              Positioned.fill(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: context.w(20)),
+                  child: Image.asset('assets/NewIcons/flightSeat.png', fit: BoxFit.cover),
+                ),
+              ),
+              Positioned(
+                left: currentLeft,
+                top: constraints.maxHeight * 0.20,
+                child: Container(
+                  width: constraints.maxWidth * 0.107,
+                  height: constraints.maxHeight * 0.52,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFF383C).withValues(alpha: 0.34),
+                    border: Border.all(color: const Color(0xFFFF383C)),
+                    borderRadius: BorderRadius.circular(context.r(4)),
                   ),
-                ],
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  // ==================== TAB BAR (Figma: SEATS / MEALS / BAGGAGE) ====================
+  Widget _tabBar(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Color(0xFFE5E7EB)))),
+      child: Row(
+        children: [
+          for (var i = 0; i < _tabLabels.length; i++)
+            Expanded(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => _goToTab(i),
+                child: Container(
+                  padding: EdgeInsets.symmetric(vertical: context.h(12.5)),
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    border: Border(bottom: BorderSide(color: _currentIndex == i ? AppColors.AppBlue : Colors.transparent, width: 2)),
+                  ),
+                  child: Text(
+                    _tabLabels[i],
+                    style: TextStyle(
+                      color: _currentIndex == i ? AppColors.AppBlue : AppColors.subhead,
+                      fontSize: context.fs(14),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
               ),
             ),
-            if (_addOnsTotal > 0)
-              Container(
-                padding: EdgeInsets.symmetric(horizontal: context.w(10), vertical: context.h(6)),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.18),
-                  borderRadius: BorderRadius.circular(context.r(20)),
-                ),
-                child: Text(
-                  '+${_displayAmount(_addOnsTotal)} extras',
-                  style: TextStyle(color: Colors.white, fontSize: context.fs(11), fontWeight: FontWeight.w700),
-                ),
-              ),
-          ],
-        ),
+        ],
       ),
     );
   }
@@ -520,11 +639,14 @@ class _SeatAddonsScreenState extends State<SeatAddonsScreen> {
         // clearly labelled, instead of just listing every flight number
         // back-to-back with no indication of which leg they belong to.
         final legGroups = <int, List<AkSeatLayoutSegmentEntity>>{};
+        _seatsByFuid.clear();
+        _medianPaidFareByFuid.clear();
         for (int t = 0; t < data.trips.length; t++) {
           for (final journey in data.trips[t].journey) {
             for (final segment in journey.segments) {
               if (segment.seats.isNotEmpty) {
                 legGroups.putIfAbsent(t, () => []).add(segment);
+                _seatsByFuid[segment.fuid] = segment.seats;
               }
             }
           }
@@ -534,25 +656,9 @@ class _SeatAddonsScreenState extends State<SeatAddonsScreen> {
         return Column(
           children: [
             _paxSelector(context),
-            Padding(
-              padding: EdgeInsets.fromLTRB(context.w(18), 0, context.w(18), context.h(8)),
-              child: Row(
-                children: [
-                  Icon(Icons.info_outline_rounded, size: context.w(14), color: _blue),
-                  SizedBox(width: context.w(6)),
-                  Expanded(
-                    child: Text(
-                      _hasChildOrInfant
-                          ? 'Emergency exit seats are blocked for this booking.'
-                          : 'Tap a seat to assign it to the selected passenger.',
-                      style: TextStyle(fontSize: context.fs(11), color: _muted, fontWeight: FontWeight.w600),
-                    ),
-                  ),
-                ],
-              ),
-            ),
             Expanded(
               child: ListView(
+                controller: _seatScrollController,
                 padding: EdgeInsets.fromLTRB(context.w(14), 0, context.w(14), context.h(10)),
                 children: [
                   for (final tripIndex in legGroups.keys.toList()..sort()) ...[
@@ -578,11 +684,11 @@ class _SeatAddonsScreenState extends State<SeatAddonsScreen> {
 
   Widget _seatSkeleton(BuildContext context) {
     Widget bar(double w) => Container(
-          width: w,
-          height: context.h(10),
-          margin: EdgeInsets.only(bottom: context.h(10)),
-          decoration: BoxDecoration(color: const Color(0xFFE7EAF2), borderRadius: BorderRadius.circular(context.r(6))),
-        );
+      width: w,
+      height: context.h(10),
+      margin: EdgeInsets.only(bottom: context.h(10)),
+      decoration: BoxDecoration(color: const Color(0xFFE7EAF2), borderRadius: BorderRadius.circular(context.r(6))),
+    );
     return Padding(
       padding: EdgeInsets.all(context.w(18)),
       child: Column(
@@ -605,8 +711,8 @@ class _SeatAddonsScreenState extends State<SeatAddonsScreen> {
     final text = tripIndex == 0
         ? 'Onward Flight'
         : tripIndex == 1
-            ? 'Return Flight'
-            : 'Flight ${tripIndex + 1}';
+        ? 'Return Flight'
+        : 'Flight ${tripIndex + 1}';
     return Padding(
       padding: EdgeInsets.only(left: context.w(4)),
       child: Text(
@@ -687,48 +793,50 @@ class _SeatAddonsScreenState extends State<SeatAddonsScreen> {
     final pickedByOtherPax =
         !isPickedByMe && _seatPicks.values.any((p) => p.fuid == fuid && p.ssid == seat.ssid);
 
-    Color fill = _availableFill;
-    Color border = _availableBorder;
-    Color iconColor = _availableBorder;
-
+    // Figma flat-square scheme: free = pale orange, paid = blue (a fuller
+    // blue once fare crosses this seat map's own median paid fare, so the
+    // "premium" tier is derived from the real fares, not hardcoded),
+    // selected = solid AppBlue + check, blocked = grey + ×.
+    Color fill;
+    Widget? mark;
     if (blocked || pickedByOtherPax) {
-      fill = const Color(0xFFEDEFF3);
-      border = const Color(0xFFD7DBE3);
-      iconColor = const Color(0xFFAEB4C0);
+      fill = Colors.grey.shade300;
+      mark = Icon(Icons.close, size: context.w(12), color: AppColors.subhead.withValues(alpha: 0.6));
     } else if (isPickedByMe) {
-      fill = _blue;
-      border = _blue;
-      iconColor = Colors.white;
-    } else if (seat.fare > 0) {
-      border = const Color(0xFFF59E0B);
+      fill = AppColors.AppBlue;
+      mark = const Icon(Icons.check, color: Colors.white, size: 16);
+    } else if (seat.fare <= 0) {
+      fill = AppColors.OrangeColor.withValues(alpha: 0.15);
+    } else {
+      fill = _seatIsPremium(fuid, seat) ? AppColors.AppBlue : AppColors.AppBlue.withValues(alpha: 0.24);
     }
 
     return Tooltip(
       message: blocked
           ? (blockedByExit ? 'Emergency exit — unavailable' : 'Not available')
           : pickedByOtherPax
-              ? 'Taken by another passenger'
-              : seat.seatNumber,
+          ? 'Taken by another passenger'
+          : seat.seatNumber,
       child: GestureDetector(
         onTap: (blocked || pickedByOtherPax)
             ? null
             : () {
-                setState(() {
-                  final key = _seatPickKey(fuid, _activePaxId);
-                  if (isPickedByMe) {
-                    _seatPicks.remove(key);
-                  } else {
-                    _seatPicks[key] = _SeatPick(
-                      ssid: seat.ssid,
-                      fuid: fuid,
-                      paxId: _activePaxId,
-                      fare: seat.fare,
-                      tax: seat.tax,
-                      seatNumber: seat.seatNumber,
-                    );
-                  }
-                });
-              },
+          setState(() {
+            final key = _seatPickKey(fuid, _activePaxId);
+            if (isPickedByMe) {
+              _seatPicks.remove(key);
+            } else {
+              _seatPicks[key] = _SeatPick(
+                ssid: seat.ssid,
+                fuid: fuid,
+                paxId: _activePaxId,
+                fare: seat.fare,
+                tax: seat.tax,
+                seatNumber: seat.seatNumber,
+              );
+            }
+          });
+        },
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -739,10 +847,10 @@ class _SeatAddonsScreenState extends State<SeatAddonsScreen> {
               alignment: Alignment.center,
               decoration: BoxDecoration(
                 color: fill,
-                borderRadius: BorderRadius.circular(context.r(8)),
-                border: Border.all(color: border),
+                borderRadius: BorderRadius.circular(context.r(10)),
+                border: (blocked || pickedByOtherPax || isPickedByMe) ? null : Border.all(color: const Color(0xFFF1F5F9)),
               ),
-              child: Icon(Icons.event_seat, size: context.w(16), color: iconColor),
+              child: mark,
             ),
             SizedBox(height: context.h(2)),
             Text(
@@ -756,27 +864,42 @@ class _SeatAddonsScreenState extends State<SeatAddonsScreen> {
     );
   }
 
+  /// A paid seat counts as "premium" once its fare reaches the median paid
+  /// fare among this segment's seats — splits the real fare data into two
+  /// visual bands instead of hardcoding a price cutoff.
+  bool _seatIsPremium(int fuid, AkSeatEntity seat) {
+    final median = _medianPaidFareByFuid.putIfAbsent(fuid, () {
+      final fares = _seatsByFuid[fuid]?.where((s) => s.fare > 0).map((s) => s.fare).toList() ?? [];
+      if (fares.isEmpty) return 0.0;
+      fares.sort();
+      return fares[fares.length ~/ 2];
+    });
+    return median > 0 && seat.fare >= median;
+  }
+
   Widget _seatLegend(BuildContext context) {
-    Widget dot(Color fill, Color border, String label) => Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: context.w(14),
-              height: context.w(14),
-              decoration: BoxDecoration(color: fill, border: Border.all(color: border), borderRadius: BorderRadius.circular(context.r(4))),
-            ),
-            SizedBox(width: context.w(5)),
-            Text(label, style: TextStyle(fontSize: context.fs(10.5), color: _muted)),
-          ],
-        );
+    Widget swatch(Color color, String label, {Border? border}) => Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: context.w(12),
+          height: context.w(12),
+          decoration: BoxDecoration(color: color, border: border, borderRadius: BorderRadius.circular(2)),
+        ),
+        SizedBox(width: context.w(5)),
+        Text(label, style: TextStyle(fontSize: context.fs(10.5), color: AppColors.subhead)),
+      ],
+    );
     return Wrap(
       spacing: context.w(14),
       runSpacing: context.h(6),
       alignment: WrapAlignment.center,
       children: [
-        dot(_availableFill, _availableBorder, 'Available'),
-        dot(_blue, _blue, 'Selected'),
-        dot(const Color(0xFFEDEFF3), const Color(0xFFD7DBE3), 'Unavailable'),
+        swatch(AppColors.OrangeColor.withValues(alpha: 0.15), 'Free'),
+        swatch(AppColors.AppBlue.withValues(alpha: 0.24), 'Standard fare'),
+        swatch(AppColors.AppBlue, 'Premium fare'),
+        swatch(AppColors.AppBlue, 'Selected'),
+        swatch(Colors.grey.shade300, 'Unavailable', border: Border.all(color: _stroke)),
       ],
     );
   }
@@ -785,8 +908,52 @@ class _SeatAddonsScreenState extends State<SeatAddonsScreen> {
   // Add-ons page
   // ---------------------------------------------------------------------------
 
-  Widget _addonsPage(BuildContext context) {
-    if (!_hasPricing) return _emptyState(context, Icons.card_travel_outlined, 'No add-ons available for this fare.');
+  /// Figma splits the old combined "Baggage & Meals" page into two tabs —
+  /// this builds the widget list for whichever `typeName`s [wantedTypes]
+  /// asks for, from the exact same already-loaded AkSsr data the old single
+  /// page iterated. `_ssrGroupCard`/`_ssrItemTile`/the selection maps below
+  /// are untouched, so nothing about *how* an item gets selected changed.
+  List<Widget> _typedSections(BuildContext context, AkSsrEntity data, Set<String> wantedTypes) {
+    final showLegLabels = data.trips.where((t) => t.journey.any(
+          (j) => j.segments.any((s) => s.items.any((i) => wantedTypes.contains(_typeKey(i.typeName)))),
+    )).length >
+        1;
+
+    final sections = <Widget>[];
+    for (int t = 0; t < data.trips.length; t++) {
+      final trip = data.trips[t];
+      for (final journey in trip.journey) {
+        for (final segment in journey.segments) {
+          final wanted = segment.items.where((i) => wantedTypes.contains(_typeKey(i.typeName))).toList();
+          if (wanted.isEmpty) continue;
+          final grouped = <String, List<AkSsrItemEntity>>{};
+          for (final item in wanted) {
+            grouped.putIfAbsent(_typeKey(item.typeName), () => []).add(item);
+          }
+          for (final entry in grouped.entries) {
+            if (showLegLabels) {
+              sections.add(_legLabel(context, t));
+              sections.add(SizedBox(height: context.h(8)));
+            }
+            sections.add(_ssrGroupCard(
+              context,
+              fuid: segment.fuid,
+              typeName: entry.key,
+              items: entry.value,
+              multiSelectAllowed: journey.multiSelectAllowed,
+            ));
+            sections.add(SizedBox(height: context.h(12)));
+          }
+        }
+      }
+    }
+    return sections;
+  }
+
+  String _typeKey(String typeName) => typeName.isEmpty ? 'OTHER' : typeName.toUpperCase();
+
+  Widget _addonsTabScaffold(BuildContext context, {required IconData emptyIcon, required String emptyMessage, required Set<String> wantedTypes}) {
+    if (!_hasPricing) return _emptyState(context, emptyIcon, emptyMessage);
 
     return BlocBuilder<AkSsrBloc, AkSsrState>(
       bloc: _ssrBloc,
@@ -795,47 +962,12 @@ class _SeatAddonsScreenState extends State<SeatAddonsScreen> {
           return _addonsSkeleton(context);
         }
         if (state is AkSsrFailed) {
-          return _emptyState(context, Icons.card_travel_outlined, 'No add-ons available for this fare.');
+          return _emptyState(context, emptyIcon, emptyMessage);
         }
         final data = (state as AkSsrLoaded).data;
-        if (!data.hasOptions) {
-          return _emptyState(context, Icons.card_travel_outlined, 'No add-ons available for this fare.');
-        }
-
-        final showLegLabels = data.trips.where((t) => t.journey.any(
-              (j) => j.segments.any((s) => s.items.isNotEmpty),
-            )).length >
-            1;
-
-        final sections = <Widget>[];
-        for (int t = 0; t < data.trips.length; t++) {
-          final trip = data.trips[t];
-          final tripHasItems = trip.journey.any((j) => j.segments.any((s) => s.items.isNotEmpty));
-          if (!tripHasItems) continue;
-          if (showLegLabels) {
-            sections.add(_legLabel(context, t));
-            sections.add(SizedBox(height: context.h(8)));
-          }
-          for (final journey in trip.journey) {
-            for (final segment in journey.segments) {
-              if (segment.items.isEmpty) continue;
-              final grouped = <String, List<AkSsrItemEntity>>{};
-              for (final item in segment.items) {
-                final key = item.typeName.isEmpty ? 'OTHER' : item.typeName;
-                grouped.putIfAbsent(key, () => []).add(item);
-              }
-              for (final entry in grouped.entries) {
-                sections.add(_ssrGroupCard(
-                  context,
-                  fuid: segment.fuid,
-                  typeName: entry.key,
-                  items: entry.value,
-                  multiSelectAllowed: journey.multiSelectAllowed,
-                ));
-                sections.add(SizedBox(height: context.h(12)));
-              }
-            }
-          }
+        final sections = data.hasOptions ? _typedSections(context, data, wantedTypes) : <Widget>[];
+        if (sections.isEmpty) {
+          return _emptyState(context, emptyIcon, emptyMessage);
         }
 
         return Column(
@@ -843,7 +975,7 @@ class _SeatAddonsScreenState extends State<SeatAddonsScreen> {
             _paxSelector(context),
             Expanded(
               child: ListView(
-                padding: EdgeInsets.fromLTRB(context.w(18), 0, context.w(18), context.h(10)),
+                padding: EdgeInsets.fromLTRB(context.w(18), context.h(12), context.w(18), context.h(10)),
                 children: sections,
               ),
             ),
@@ -853,12 +985,25 @@ class _SeatAddonsScreenState extends State<SeatAddonsScreen> {
     );
   }
 
+  Widget _mealsPage(BuildContext context) =>
+      _addonsTabScaffold(context, emptyIcon: Icons.restaurant_outlined, emptyMessage: 'No meal options available for this fare.', wantedTypes: const {'MEALS'});
+
+  /// Everything that isn't a meal (BAGGAGE, SPORTS, SEAT extras, …) lives on
+  /// the last tab — Figma only names "Baggage", but any other add-on type
+  /// the API returns still needs a home or it becomes unreachable.
+  Widget _baggagePage(BuildContext context) => _addonsTabScaffold(
+    context,
+    emptyIcon: Icons.luggage_outlined,
+    emptyMessage: 'No baggage options available for this fare.',
+    wantedTypes: const {'BAGGAGE', 'SPORTS', 'SEAT', 'OTHER'},
+  );
+
   Widget _addonsSkeleton(BuildContext context) {
     Widget card() => Container(
-          margin: EdgeInsets.only(bottom: context.h(12)),
-          height: context.h(70),
-          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(context.borderRadius)),
-        );
+      margin: EdgeInsets.only(bottom: context.h(12)),
+      height: context.h(70),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(context.borderRadius)),
+    );
     return Padding(
       padding: EdgeInsets.all(context.w(18)),
       child: Column(children: [card(), card(), card()]),
@@ -880,23 +1025,31 @@ class _SeatAddonsScreenState extends State<SeatAddonsScreen> {
     }
   }
 
+  /// Best-effort veg/non-veg dot for a MEALS item — this API only gives a
+  /// free-text description/code (no dedicated veg flag like the TBO meal
+  /// codes elsewhere in the app), so this is a keyword guess and shows no
+  /// dot at all when it can't tell either way, instead of asserting one.
+  bool? _mealIsVeg(AkSsrItemEntity item) {
+    final text = '${item.code} ${item.description}'.toLowerCase();
+    if (text.contains('non veg') || text.contains('non-veg') || text.contains('nonveg')) return false;
+    if (text.contains('veg')) return true;
+    return null;
+  }
+
   Widget _ssrGroupCard(
-    BuildContext context, {
-    required int fuid,
-    required String typeName,
-    required List<AkSsrItemEntity> items,
-    required bool multiSelectAllowed,
-  }) {
+      BuildContext context, {
+        required int fuid,
+        required String typeName,
+        required List<AkSsrItemEntity> items,
+        required bool multiSelectAllowed,
+      }) {
     return Container(
       width: double.infinity,
       padding: EdgeInsets.all(context.w(14)),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(context.borderRadius),
-        border: Border.all(color: _border),
-        boxShadow: [
-          BoxShadow(color: _navy.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 4)),
-        ],
+        borderRadius: BorderRadius.circular(context.r(12)),
+        border: Border.all(color: _stroke, width: 0.5),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -907,29 +1060,30 @@ class _SeatAddonsScreenState extends State<SeatAddonsScreen> {
                 width: context.w(28),
                 height: context.w(28),
                 alignment: Alignment.center,
-                decoration: BoxDecoration(color: _blue.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(context.r(8))),
-                child: Icon(_typeIcon(typeName), size: context.w(15), color: _blue),
+                decoration: BoxDecoration(color: AppColors.AppBlue.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(context.r(8))),
+                child: Icon(_typeIcon(typeName), size: context.w(15), color: AppColors.AppBlue),
               ),
               SizedBox(width: context.w(8)),
-              Text(typeName, style: TextStyle(fontSize: context.fs(13.5), fontWeight: FontWeight.w800, color: _navy)),
+              Text(typeName, style: TextStyle(fontSize: context.fs(14), fontWeight: FontWeight.w600, color: _title900)),
             ],
           ),
           SizedBox(height: context.h(6)),
-          Divider(color: _border, height: context.h(14)),
+          Divider(color: _stroke, height: context.h(14)),
           for (final item in items)
-            _ssrItemTile(context, fuid: fuid, item: item, groupItems: items, multiSelectAllowed: multiSelectAllowed),
+            _ssrItemTile(context, fuid: fuid, item: item, groupItems: items, multiSelectAllowed: multiSelectAllowed, isMeal: typeName == 'MEALS'),
         ],
       ),
     );
   }
 
   Widget _ssrItemTile(
-    BuildContext context, {
-    required int fuid,
-    required AkSsrItemEntity item,
-    required List<AkSsrItemEntity> groupItems,
-    required bool multiSelectAllowed,
-  }) {
+      BuildContext context, {
+        required int fuid,
+        required AkSsrItemEntity item,
+        required List<AkSsrItemEntity> groupItems,
+        required bool multiSelectAllowed,
+        required bool isMeal,
+      }) {
     final selected = _ssrPicks.any((p) => p.id == item.id && p.fuid == fuid && p.paxId == _activePaxId);
 
     void toggle() {
@@ -953,6 +1107,8 @@ class _SeatAddonsScreenState extends State<SeatAddonsScreen> {
       });
     }
 
+    final veg = isMeal ? _mealIsVeg(item) : null;
+
     return InkWell(
       onTap: toggle,
       borderRadius: BorderRadius.circular(context.r(10)),
@@ -960,13 +1116,24 @@ class _SeatAddonsScreenState extends State<SeatAddonsScreen> {
         padding: EdgeInsets.symmetric(vertical: context.h(8)),
         child: Row(
           children: [
-            Icon(
-              multiSelectAllowed
-                  ? (selected ? Icons.check_box : Icons.check_box_outline_blank)
-                  : (selected ? Icons.radio_button_checked : Icons.radio_button_off),
-              size: context.w(18),
-              color: selected ? _blue : const Color(0xFFB0B4BD),
-            ),
+            if (veg != null) ...[
+              Container(
+                width: context.w(10),
+                height: context.w(10),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: veg ? const Color(0xFF16A34A) : const Color(0xFFFF383C),
+                ),
+              ),
+              SizedBox(width: context.w(10)),
+            ] else
+              Icon(
+                multiSelectAllowed
+                    ? (selected ? Icons.check_box : Icons.check_box_outline_blank)
+                    : (selected ? Icons.check_circle : Icons.radio_button_off),
+                size: context.w(18),
+                color: selected ? AppColors.AppBlue : _stroke,
+              ),
             SizedBox(width: context.w(10)),
             Expanded(
               child: Column(
@@ -974,7 +1141,7 @@ class _SeatAddonsScreenState extends State<SeatAddonsScreen> {
                 children: [
                   Text(
                     item.description.isEmpty ? item.code : item.description,
-                    style: TextStyle(fontSize: context.fs(12.5), fontWeight: FontWeight.w600, color: _navy),
+                    style: TextStyle(fontSize: context.fs(12.5), fontWeight: FontWeight.w600, color: _title900),
                   ),
                   if (item.isFree)
                     Padding(
@@ -987,6 +1154,15 @@ class _SeatAddonsScreenState extends State<SeatAddonsScreen> {
                 ],
               ),
             ),
+            if (veg != null)
+              Padding(
+                padding: EdgeInsets.only(right: context.w(10)),
+                child: Icon(
+                  selected ? Icons.check_circle : Icons.radio_button_off,
+                  size: context.w(18),
+                  color: selected ? AppColors.AppBlue : _stroke,
+                ),
+              ),
             Text(
               item.isFree ? _displayAmount(0) : _displayAmount(item.charge),
               style: TextStyle(fontSize: context.fs(12.5), fontWeight: FontWeight.w800, color: _navy),
@@ -1033,57 +1209,54 @@ class _SeatAddonsScreenState extends State<SeatAddonsScreen> {
     );
   }
 
+  // ==================== BOTTOM BAR (Figma: total + Continue) ====================
   Widget _bottomBar(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.fromLTRB(context.w(18), context.h(10), context.w(18), context.h(14)),
+    final total = _baseFare + _addOnsTotal;
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: context.w(19), vertical: context.h(12)),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.12), blurRadius: 12, offset: const Offset(0, -4))],
+      ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          if (_currentIndex != 0) ...[
-            Expanded(
-              child: OutlinedButton(
-                onPressed: _submitting ? null : _previousPage,
-                style: OutlinedButton.styleFrom(
-                  minimumSize: Size(double.infinity, context.buttonHeight),
-                  side: const BorderSide(color: _border),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(context.r(10))),
-                ),
-                child: Text('Back', style: TextStyle(color: _navy, fontWeight: FontWeight.w700, fontSize: context.fs(13))),
-              ),
-            ),
-            SizedBox(width: context.gapMedium),
-          ] else ...[
-            Expanded(
-              child: OutlinedButton(
-                onPressed: _submitting ? null : _skip,
-                style: OutlinedButton.styleFrom(
-                  minimumSize: Size(double.infinity, context.buttonHeight),
-                  side: const BorderSide(color: _border),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(context.r(10))),
-                ),
-                child: Text('Skip', style: TextStyle(color: _muted, fontWeight: FontWeight.w700, fontSize: context.fs(13))),
-              ),
-            ),
-            SizedBox(width: context.gapMedium),
-          ],
           Expanded(
-            flex: 2,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  _displayAmount(total),
+                  style: TextStyle(color: _title900, fontSize: context.fs(24), fontWeight: FontWeight.w800, letterSpacing: -0.6),
+                ),
+                Text(
+                  'FOR ${widget.travellerCount} ADULT${widget.travellerCount > 1 ? 'S' : ''}',
+                  style: TextStyle(color: AppColors.subhead, fontSize: context.fs(8), fontWeight: FontWeight.w700),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(
+            height: context.h(44),
             child: ElevatedButton(
               onPressed: _submitting ? null : _nextPage,
               style: ElevatedButton.styleFrom(
-                minimumSize: Size(double.infinity, context.buttonHeight),
-                backgroundColor: _blue,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(context.r(10))),
+                backgroundColor: AppColors.OrangeColor,
+                elevation: 0,
+                padding: EdgeInsets.symmetric(horizontal: context.w(24)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(context.r(12))),
               ),
               child: _submitting
                   ? SizedBox(
-                      width: context.w(18),
-                      height: context.w(18),
-                      child: const CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                    )
+                width: context.w(18),
+                height: context.w(18),
+                child: const CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+              )
                   : Text(
-                      _currentIndex == _titles.length - 1 ? 'Continue' : 'Next',
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: context.fs(13.5)),
-                    ),
+                'CONTINUE',
+                style: TextStyle(color: Colors.white, fontSize: context.fs(14), fontWeight: FontWeight.w600),
+              ),
             ),
           ),
         ],

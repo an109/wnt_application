@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../../UI_helper/responsive_layout.dart';
-import '../../../../../common_widgets/logo.dart';
+import '../../../../../common_widgets/airline_logo.dart';
+import '../../../../../core/resources/app_colours.dart';
 import '../../../../../injection_container.dart';
 import '../../../domain/entities/baggage_option_entity.dart';
 import '../../../domain/entities/meal_option_entity.dart';
@@ -15,6 +16,13 @@ import 'baggage_screen.dart';
 import 'meal_screen.dart';
 import 'seats_screen.dart';
 
+/// Add-ons screen — Figma "Flighjt seat 1" / "Flighjt meals" / "Flighjt
+/// BAGGAGE" (node-id 458:5077 / 467:6784 / 487:1672): a SEATS / MEALS /
+/// BAGGAGE tab bar instead of the old wizard (progress bar + Back/Next),
+/// with a shared route badge in the header and a sticky bottom bar showing
+/// the running total + the primary action. Same 3 sub-screens, same
+/// selection callbacks, same `_navigateToPayment` payload as before — only
+/// the shell around them changed.
 class SSRMainScreen extends StatefulWidget {
   final String traceId;
   final String tokenId;
@@ -49,6 +57,8 @@ class SSRMainScreen extends StatefulWidget {
 }
 
 class _SSRMainScreenState extends State<SSRMainScreen> {
+  static const _title900 = Color(0xFF111527);
+
   final PageController _pageController = PageController();
   late final SsrBloc _ssrBloc;
   MealOptionEntity? _selectedMeal;
@@ -58,7 +68,8 @@ class _SSRMainScreenState extends State<SSRMainScreen> {
   int currentIndex = 0;
   BaggageOptionEntity? _selectedBaggage;
 
-  final List<String> titles = ["Baggage", "Meals", "Choose Your Seat"];
+  // Figma tab order: SEATS, MEALS, BAGGAGE (was Baggage/Meals/Seats).
+  static const _tabLabels = ["SEATS", "MEALS", "BAGGAGE"];
 
   @override
   void initState() {
@@ -85,21 +96,18 @@ class _SSRMainScreenState extends State<SSRMainScreen> {
     super.dispose();
   }
 
-  void nextPage() {
-    if (currentIndex < titles.length - 1) {
-      _pageController.nextPage(
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-      );
-    }
+  void _goToTab(int index) {
+    if (index == currentIndex) return;
+    _pageController.animateToPage(
+      index,
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeInOut,
+    );
   }
 
-  void previousPage() {
-    if (currentIndex > 0) {
-      _pageController.previousPage(
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-      );
+  void nextPage() {
+    if (currentIndex < _tabLabels.length - 1) {
+      _goToTab(currentIndex + 1);
     }
   }
 
@@ -113,8 +121,21 @@ class _SSRMainScreenState extends State<SSRMainScreen> {
       setState(() {
         _selectedBaggage = options[selectedIndex];
       });
-      print('Baggage selected: ${options[selectedIndex].code}');
     }
+  }
+
+  /// Base fare (chosen result's amount) + everything selected so far — a
+  /// display-only running total for the bottom bar (Figma shows it growing
+  /// tab to tab). Doesn't change what's actually sent to payment — that's
+  /// still the untouched `ssrSelections` payload below.
+  double get _runningTotal {
+    final base = widget.route?.amount ??
+        double.tryParse((widget.route?.price ?? '').replaceAll(RegExp(r'[^0-9.]'), '')) ??
+        0;
+    final seats = _selectedSeats.fold<double>(0, (sum, s) => sum + s.price);
+    final meal = _selectedMeal?.price ?? 0;
+    final baggage = _selectedBaggage?.price ?? 0;
+    return base + seats + meal + baggage;
   }
 
   void _navigateToPayment() {
@@ -139,8 +160,6 @@ class _SSRMainScreenState extends State<SSRMainScreen> {
       'services': _selectedServices.map((s) => s.toTboJson()).toList(),
     };
 
-    print('SSR Selections: $ssrSelections');
-
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -162,94 +181,29 @@ class _SSRMainScreenState extends State<SSRMainScreen> {
     return BlocProvider<SsrBloc>(
       create: (_) => _ssrBloc,
       child: Scaffold(
-        backgroundColor: const Color(0xFFF3F6FC),
-        appBar: AppBar(
-          title: const WanderNovaLogo(scaleFactor: 0.6),
-          backgroundColor: const Color(0xFFF3F6FC),
-          elevation: 0,
-          actions: [
-            Padding(
-              padding: EdgeInsets.all(context.w(8)),
-              child: Image.asset(
-                "assets/images/wander_logo.png",
-                height: 35,
-              ),
-            ),
-          ],
-        ),
+        backgroundColor: Colors.white,
         body: SafeArea(
           child: Column(
             children: [
-              /// TOP HEADER
-              Padding(
-                padding: context.horizontalPadding,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    SizedBox(height: context.gapMedium),
-                    Text(
-                      "Customize Your Journey",
-                      style: TextStyle(
-                        fontSize: context.titleLarge,
-                        fontWeight: FontWeight.bold,
-                        color: const Color(0xFF071638),
-                      ),
-                    ),
-                    SizedBox(height: context.gapSmall),
-                    Text(
-                      titles[currentIndex],
-                      style: TextStyle(
-                        fontSize: context.bodyLarge,
-                        color: Colors.grey.shade600,
-                      ),
-                    ),
-                    SizedBox(height: context.gapMedium),
-
-                    /// PROGRESS BAR
-                    Row(
-                      children: List.generate(
-                        titles.length,
-                        (index) => Expanded(
-                          child: Container(
-                            margin: EdgeInsets.only(right: index == 3 ? 0 : 8),
-                            height: context.hp(0.8),
-                            decoration: BoxDecoration(
-                              color: index <= currentIndex
-                                  ? const Color(0xFF1769F6)
-                                  : Colors.grey.shade300,
-                              borderRadius: BorderRadius.circular(50),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              SizedBox(height: context.gapMedium),
-
-              /// PAGES
+              _header(context),
+              // Figma: a bigger route card on the Seats tab, a compact
+              // header badge on Meals/Baggage.
+              if (currentIndex == 0) _routeCardLarge(context),
+              _tabBar(context),
               Expanded(
                 child: PageView(
                   controller: _pageController,
-                  physics: const NeverScrollableScrollPhysics(),
-                  onPageChanged: (value) {
-                    setState(() {
-                      currentIndex = value;
-                    });
-                  },
+                  onPageChanged: (value) => setState(() => currentIndex = value),
                   children: [
-                    /// BAGGAGE SCREEN WITH BLOC
-                    BaggageScreen(
+                    SeatScreen(
                       traceId: widget.traceId,
                       tokenId: widget.tokenId,
                       resultIndex: widget.resultIndex,
-                      endUserIp: widget.endUserIp,
-                      selectedSegmentIndex: 0,
-                      onBaggageSelected: _handleBaggageSelected,
+                      travellerCount: widget.travellerCount,
+                      onSeatsSelected: (seats) {
+                        setState(() => _selectedSeats = seats);
+                      },
                     ),
-
                     MealScreen(
                       traceId: widget.traceId,
                       tokenId: widget.tokenId,
@@ -261,78 +215,226 @@ class _SSRMainScreenState extends State<SSRMainScreen> {
                           setState(() {
                             _selectedMeal = meals[index];
                           });
-                          print(
-                            'Meal selected for segment: ${meals[index].code}',
-                          );
+                        } else {
+                          setState(() => _selectedMeal = null);
                         }
                       },
                     ),
-                    SeatScreen(
+                    BaggageScreen(
                       traceId: widget.traceId,
                       tokenId: widget.tokenId,
                       resultIndex: widget.resultIndex,
-                      travellerCount: widget.travellerCount,
-                      onSeatsSelected: (seats) {
-                        setState(() => _selectedSeats = seats);
-                      },
+                      endUserIp: widget.endUserIp,
+                      selectedSegmentIndex: 0,
+                      onBaggageSelected: _handleBaggageSelected,
                     ),
                   ],
                 ),
               ),
-
-              /// BOTTOM BUTTONS
-              Padding(
-                padding: context.horizontalPadding,
-                child: Row(
-                  children: [
-                    if (currentIndex != 0) ...[
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: previousPage,
-                          style: OutlinedButton.styleFrom(
-                            minimumSize: Size(
-                              double.infinity,
-                              context.buttonHeight,
-                            ),
-                          ),
-                          child: const Text("Back"),
-                        ),
-                      ),
-                      SizedBox(width: context.gapMedium),
-                    ],
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: () {
-                          if (currentIndex == titles.length - 1) {
-                            _navigateToPayment();
-                          } else {
-                            nextPage();
-                          }
-                        },
-                        style: ElevatedButton.styleFrom(
-                          minimumSize: Size(
-                            double.infinity,
-                            context.buttonHeight,
-                          ),
-                          backgroundColor: const Color(0xFF1769F6),
-                          foregroundColor: Colors.white,
-                        ),
-                        child: Text(
-                          currentIndex == titles.length - 1
-                              ? "Continue"
-                              : "Next",
-                          style: TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              SizedBox(height: context.gapLarge),
+              _bottomBar(context),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  // ==================== HEADER (Figma: "← Add-ons" [+ route badge]) ====================
+  Widget _header(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: context.w(16), vertical: context.h(12)),
+      child: Row(
+        children: [
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => Navigator.maybePop(context),
+            child: Image.asset(
+              'assets/NewIcons/arrowBack.png',
+              width: context.w(24),
+              height: context.h(24),
+              color: _title900,
+            ),
+          ),
+          SizedBox(width: context.w(12)),
+          Expanded(
+            child: Text(
+              'Add-ons',
+              style: TextStyle(color: _title900, fontSize: context.fs(20), fontWeight: FontWeight.w600),
+            ),
+          ),
+          // Compact route badge — shown on Meals/Baggage tabs (Figma); the
+          // Seats tab shows the bigger _routeCardLarge instead.
+          if (currentIndex != 0 && widget.route != null) _routeBadgeCompact(context),
+        ],
+      ),
+    );
+  }
+
+  /// `route.flightNo` is built upstream as "`<IATA code>` • `<number>`"
+  /// (see detail_popup.dart's `_bookNow`) — pulls the code back out so the
+  /// real airline logo shows instead of a generic route icon.
+  String _routeAirlineCode(FlightRouteSegment route) {
+    final sep = route.flightNo.indexOf('•');
+    return (sep > 0 ? route.flightNo.substring(0, sep) : route.flightNo).trim();
+  }
+
+  Widget _routeBadgeCompact(BuildContext context) {
+    final route = widget.route!;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        AirlineLogo(code: _routeAirlineCode(route), name: route.airline, size: context.w(24), borderRadius: BorderRadius.circular(context.r(8))),
+        SizedBox(width: context.w(8)),
+        Text(
+          '${route.from} - ${route.to}',
+          style: TextStyle(color: _title900, fontSize: context.fs(16), fontWeight: FontWeight.w700),
+        ),
+      ],
+    );
+  }
+
+  // ==================== LARGE ROUTE CARD (Figma: Seats tab) ====================
+  Widget _routeCardLarge(BuildContext context) {
+    final route = widget.route;
+    final paleBlue = Color.lerp(AppColors.AppBlue, Colors.white, 0.72)!;
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.symmetric(horizontal: context.w(16), vertical: context.h(20)),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.centerRight,
+          end: Alignment.centerLeft,
+          colors: [paleBlue, Colors.white],
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
+              route != null
+                  ? AirlineLogo(code: _routeAirlineCode(route), name: route.airline, size: context.w(38), borderRadius: BorderRadius.circular(context.r(8)))
+                  : Container(
+                      width: context.w(38),
+                      height: context.w(38),
+                      padding: EdgeInsets.all(context.w(10)),
+                      decoration: BoxDecoration(color: const Color(0xFF000080), borderRadius: BorderRadius.circular(context.r(8))),
+                      child: Image.asset('assets/NewIcons/oneWay.png', color: Colors.white, fit: BoxFit.contain),
+                    ),
+              SizedBox(width: context.w(16)),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    route != null ? '${route.from} - ${route.to}' : 'Select flight',
+                    style: TextStyle(color: _title900, fontSize: context.fs(18), fontWeight: FontWeight.w700),
+                  ),
+                  if (route != null)
+                    Text(
+                      '${route.from} to ${route.to}',
+                      style: TextStyle(color: _title900, fontSize: context.fs(12)),
+                    ),
+                ],
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ==================== TAB BAR (Figma: SEATS / MEALS / BAGGAGE) ====================
+  Widget _tabBar(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: Color(0xFFE5E7EB))),
+      ),
+      child: Row(
+        children: [
+          for (var i = 0; i < _tabLabels.length; i++)
+            Expanded(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => _goToTab(i),
+                child: Container(
+                  padding: EdgeInsets.symmetric(vertical: context.h(12.5)),
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    border: Border(
+                      bottom: BorderSide(
+                        color: currentIndex == i ? AppColors.AppBlue : Colors.transparent,
+                        width: 2,
+                      ),
+                    ),
+                  ),
+                  child: Text(
+                    _tabLabels[i],
+                    style: TextStyle(
+                      color: currentIndex == i ? AppColors.AppBlue : AppColors.subhead,
+                      fontSize: context.fs(14),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  // ==================== BOTTOM BAR (Figma: total + Continue/Proceed to Payment) ====================
+  Widget _bottomBar(BuildContext context) {
+    final isLastTab = currentIndex == _tabLabels.length - 1;
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: context.w(19), vertical: context.h(12)),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.12), blurRadius: 12, offset: const Offset(0, -4)),
+        ],
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '₹ ${_runningTotal.toStringAsFixed(0)}',
+                  style: TextStyle(
+                    color: _title900,
+                    fontSize: context.fs(24),
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.6,
+                  ),
+                ),
+                Text(
+                  'FOR ${widget.travellerCount} ADULT${widget.travellerCount > 1 ? 'S' : ''}',
+                  style: TextStyle(color: AppColors.subhead, fontSize: context.fs(8), fontWeight: FontWeight.w700),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(
+            height: context.h(44),
+            child: ElevatedButton(
+              onPressed: isLastTab ? _navigateToPayment : nextPage,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.OrangeColor,
+                elevation: 0,
+                padding: EdgeInsets.symmetric(horizontal: context.w(20)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(context.r(12))),
+              ),
+              child: Text(
+                isLastTab ? 'PROCEED TO PAYMENT' : 'CONTINUE',
+                style: TextStyle(color: Colors.white, fontSize: context.fs(14), fontWeight: FontWeight.w600),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
