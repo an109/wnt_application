@@ -307,6 +307,20 @@ class _SearchCardState extends State<SearchCard> {
   }
 
   void _performSearch() async {
+
+    /// REMOVE THIS WHEN MULTI-CITY WILL WORK
+    if (isMultiCityMode) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Multi-city search coming soon!'),
+          backgroundColor: Colors.orange,
+          behavior: SnackBarBehavior.floating,
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
     if (!_validateBeforeSearch()) return;
 
     setState(() => _isSearching = true);
@@ -520,8 +534,16 @@ class _SearchCardState extends State<SearchCard> {
       child: Stack(
         children: [
           // Full-bleed hero image - no padding, no radius, edge to edge.
-          Positioned.fill(child: _buildHeroBackdrop(context)),
-
+          // Positioned.fill(child: _buildHeroBackdrop(context)),
+          Positioned(
+            left: 0,
+            right: 0,
+            top: 0,
+            child: Container(
+              height: context.screenHeight * 0.75, // Adjust this value
+              child: _buildHeroBackdrop(context),
+            ),
+          ),
           // ====== BOTTOM MELTING GRADIENT ======
           // This creates smooth transition so the next section merges with white
           Positioned(
@@ -696,7 +718,7 @@ class _SearchCardState extends State<SearchCard> {
           right: 0,
           bottom: 0,
           child: Container(
-            height: context.h(154),
+            height: context.h(50),
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.bottomCenter,
@@ -709,7 +731,7 @@ class _SearchCardState extends State<SearchCard> {
                   Colors.white.withOpacity(0.10),
                   Colors.transparent,
                 ],
-                stops: const [0.0, 0.20, 0.40, 0.60, 0.80, 1.0],
+                stops: const [0.0, 0.0, 0.50, 0.70, 0.80, 1.0],
               ),
             ),
           ),
@@ -721,17 +743,17 @@ class _SearchCardState extends State<SearchCard> {
           right: 0,
           bottom: 0,
           child: Container(
-            height: context.h(100),
+            height: context.h(50),
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.bottomCenter,
                 end: Alignment.topCenter,
                 colors: [
-                  Colors.white.withOpacity(0.3),
+                  Colors.white.withOpacity(0.2),
                   Colors.white.withOpacity(0.10),
                   Colors.transparent,
                 ],
-                stops: const [0.0, 0.5, 1.0],
+                stops: const [0.0, 0.7, 1.0],
               ),
             ),
           ),

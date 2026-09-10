@@ -21,6 +21,7 @@ class AppColors {
   static const muted = Color(0xff6B7280);
   static const grey = Color(0xFF6D6D6D);
   static const subhead = Color(0xFF757575);
+  static const lightsubhead = Color(0xFFCCCCCC);
 
   static const fieldFill = Color(0xffF6F7FB);
   static const fieldBorder = Color(0xffECEEF4);

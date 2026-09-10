@@ -4,11 +4,11 @@ import 'package:intl/intl.dart';
 import 'package:lottie/lottie.dart';
 import 'package:wander_nova/UI_helper/currency_converter.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
+import 'package:wander_nova/newUIWidgets/fare_breakup_sheet.dart';
 import 'package:wander_nova/views/flight_search/presentation/screen/traveller_info_card.dart';
 
 import '../../../../common_widgets/airline_logo.dart';
-import '../../../../common_widgets/custom_bottom_nav.dart';
-import '../../../../common_widgets/logo.dart';
+import '../../../../core/resources/app_colours.dart';
 import '../../../../core/utils/storage/shared_preference.dart';
 import '../../../../injection_container.dart' as di;
 import '../../../MainApi/domain/entities/general_setting_entity.dart';
@@ -18,7 +18,6 @@ import '../../../MainApi/presentation/bloc/general_settings_state.dart';
 import '../../../fare_quote/domain/entities/fare_quote_entity.dart';
 import '../../../login/presentation/screen/login.dart';
 import '../../../AKGetSPricer/domain/entity/AKGetSPricer_entity.dart';
-import '../../../AKFareRule/presentation/screen/ak_fare_rule_popup.dart';
 import '../../../AKTravelCheckList/domain/entity/AKTravelCheckList_entity.dart';
 import '../../../AKTravelCheckList/presentation/bloc/AKTravelCheckList_bloc.dart';
 import '../../../AKTravelCheckList/presentation/bloc/AKTravelCheckList_event.dart';
@@ -27,11 +26,14 @@ import '../../../AKCreateItinerary/domain/entity/AKCreateItinerary_entity.dart';
 import '../../../AKCreateItinerary/presentation/bloc/AKCreateItinerary_bloc.dart';
 import '../../../AKCreateItinerary/presentation/bloc/AKCreateItinerary_event.dart';
 import '../../../AKCreateItinerary/presentation/bloc/AKCreateItinerary_state.dart';
-import '../../../flight_payment/presentation/screen/ak_payment_screen.dart';
+import '../../../flight_payment/presentation/screen/ak_trip_review_screen.dart';
+import 'seat_addons_screen.dart';
 
 class FlightRouteSegment {
   final String from;
   final String to;
+  final String? fromCity;
+  final String? toCity;
   final String departureTime;
   final String arrivalTime;
   final String duration;
@@ -89,6 +91,8 @@ class FlightRouteSegment {
     this.sessionId,
     this.amount,
     this.akFareData,
+    this.fromCity,
+    this.toCity,
   });
 
   factory FlightRouteSegment.fromFareQuoteEntity({
@@ -101,6 +105,8 @@ class FlightRouteSegment {
     return FlightRouteSegment(
       from: original.from,
       to: original.to,
+      fromCity: original.fromCity,
+      toCity: original.toCity,
       departureTime: original.departureTime,
       arrivalTime: original.arrivalTime,
       duration: original.duration,
@@ -152,6 +158,8 @@ class FlightRouteSegment {
     return FlightRouteSegment(
       from: original.from,
       to: original.to,
+      fromCity: original.fromCity,
+      toCity: original.toCity,
       departureTime: original.departureTime,
       arrivalTime: original.arrivalTime,
       duration: original.duration,
@@ -253,6 +261,13 @@ class FlightBookingScreen extends StatefulWidget {
   /// Number of travellers — used to cap seat selection on the SSR screen.
   final int travellerCount;
 
+  /// The SearchCard's passenger split, so the traveller form renders one
+  /// Adult / Child / Infant block per selected passenger. All zero falls back
+  /// to [travellerCount] adults.
+  final int adultCount;
+  final int childCount;
+  final int infantCount;
+
   /// Combined cost of any seats/baggage/meals picked on [SeatAddonsScreen]
   /// (always in INR, per that screen's SelectSeats/SelectSSR amounts).
   /// Those selections are saved server-side against the session, so
@@ -272,6 +287,9 @@ class FlightBookingScreen extends StatefulWidget {
     this.traceId,
     required this.price,
     this.travellerCount = 1,
+    this.adultCount = 0,
+    this.childCount = 0,
+    this.infantCount = 0,
     this.addOnsTotal = 0.0,
   });
 
@@ -299,10 +317,62 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
   bool _itineraryRetried = false;
   bool _submittingItinerary = false;
 
+  /// Seats/baggage/meals total. Seeded from [widget.addOnsTotal] and updated
+  /// when [SeatAddonsScreen] returns its picks, so the fare breakdown and the
+  /// bottom bar stay in step with what the user chose.
+  late double _addOnsTotal = widget.addOnsTotal;
+
+  // Section anchors for the Figma chip row (Traveller details / Offers /
+  // Insurance / Booking policies).
+  final ScrollController _scrollController = ScrollController();
+  final GlobalKey _travellerSectionKey = GlobalKey();
+  final GlobalKey _offersSectionKey = GlobalKey();
+  final GlobalKey _insuranceSectionKey = GlobalKey();
+  final GlobalKey _policiesSectionKey = GlobalKey();
+  int _activeSection = 0;
+
+  /// Figma shows two offer cards plus a "View more" toggle.
+  bool _showAllOffers = false;
+
+  /// Passenger split for the traveller form. Prefers what the SearchCard
+  /// selected, falls back to GetSPricer's echo for this fare, and finally to
+  /// "everyone is an adult".
+  ({int adults, int children, int infants}) get _paxSplit {
+    if (widget.adultCount > 0 || widget.childCount > 0 || widget.infantCount > 0) {
+      return (
+        adults: widget.adultCount,
+        children: widget.childCount,
+        infants: widget.infantCount,
+      );
+    }
+    final pricer = (_updatedRouteWithFareQuote ?? widget.routes.first).akFareData;
+    if (pricer != null &&
+        (pricer.adultCount > 0 || pricer.childCount > 0 || pricer.infantCount > 0)) {
+      return (
+        adults: pricer.adultCount,
+        children: pricer.childCount,
+        infants: pricer.infantCount,
+      );
+    }
+    return (adults: widget.travellerCount < 1 ? 1 : widget.travellerCount, children: 0, infants: 0);
+  }
+
+  int get _totalPax {
+    final s = _paxSplit;
+    final total = s.adults + s.children + s.infants;
+    return total < 1 ? 1 : total;
+  }
+
   static const _blue = Color(0xFF1769F6);
   static const _navy = Color(0xFF071638);
-  static const _pageBg = Color(0xFFF3F6FC);
   static const _border = Color(0xFFE2E7F0);
+
+  // ---- Figma tokens (reusing AppColors where they already match) ----
+  static const _pri = AppColors.AppBlue; // Pri            #00A1E4
+  static const _sec = AppColors.OrangeColor; // Sec        #FF6600
+  static const _muted = AppColors.subhead; // text         #757575
+  static const _stroke = Color(0xFFCCCCCC); // Strok       #CCCCCC
+  static const _hairline = Color(0xFFF1F5F9);
 
   @override
   void initState() {
@@ -507,9 +577,9 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
     // convert into whatever currency the fare itself is in before folding it
     // into the base the promo discount is computed against.
     final addOnsInFareCurrency = originalCurrency.toUpperCase() == 'INR'
-        ? widget.addOnsTotal
+        ? _addOnsTotal
         : CurrencyConverter.convert(
-            amount: widget.addOnsTotal,
+            amount: _addOnsTotal,
             fromCurrency: 'INR',
             toCurrency: originalCurrency,
           );
@@ -563,11 +633,11 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
   /// [widget.addOnsTotal] (seats/baggage/meals picked on the add-ons screen,
   /// always INR) converted into the caller's preferred display currency.
   double _addOnsInDisplayCurrency(String targetCurrency) {
-    if (widget.addOnsTotal <= 0) return 0;
+    if (_addOnsTotal <= 0) return 0;
     return targetCurrency.toUpperCase() == 'INR'
-        ? widget.addOnsTotal
+        ? _addOnsTotal
         : CurrencyConverter.convert(
-            amount: widget.addOnsTotal,
+            amount: _addOnsTotal,
             fromCurrency: 'INR',
             toCurrency: targetCurrency,
           );
@@ -696,155 +766,8 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
     _checkListBloc.close();
     _createItineraryBloc.close();
     _promoCodeController.dispose();
+    _scrollController.dispose();
     super.dispose();
-  }
-
-  Widget _buildPromoCodeSection(BuildContext context) {
-    return BlocBuilder<GeneralSettingsBloc, GeneralSettingsState>(
-      builder: (context, state) {
-        final filtered = state is PromoCodesLoaded
-            ? state.promoCodes
-                .where((p) =>
-                    p.category == 'flight_booking' || p.category == 'payment')
-                .toList()
-            : <PromoCodeEntity>[];
-
-        return Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(context.r(8)),
-            border: Border.all(color: _border),
-            boxShadow: [
-              BoxShadow(
-                color: _navy.withValues(alpha: 0.06),
-                blurRadius: 24,
-                offset: const Offset(0, 14),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: EdgeInsets.fromLTRB(
-                    context.w(12), context.h(12), context.w(12), 0),
-                child: Row(
-                  children: [
-                    Icon(Icons.local_offer_rounded,
-                        color: _blue, size: context.iconMedium),
-                    SizedBox(width: context.gapSmall),
-                    Text(
-                      'Coupons & Offers',
-                      style: TextStyle(
-                        fontSize: context.titleMedium,
-                        fontWeight: FontWeight.bold,
-                        color: _navy,
-                      ),
-                    ),
-                    if (filtered.isNotEmpty && !_promoCodeApplied) ...[
-                      const Spacer(),
-                      Container(
-                        padding: EdgeInsets.symmetric(
-                            horizontal: context.w(8), vertical: context.h(3)),
-                        decoration: BoxDecoration(
-                          color: Colors.orange.shade50,
-                          borderRadius: BorderRadius.circular(context.r(10)),
-                        ),
-                        child: Text(
-                          '${filtered.length} offer${filtered.length > 1 ? 's' : ''}',
-                          style: TextStyle(
-                            fontSize: context.labelSmall,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.orange.shade700,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              SizedBox(height: context.h(12)),
-              Padding(
-                padding: EdgeInsets.symmetric(horizontal: context.w(12)),
-                child: _promoCodeApplied
-                    ? _buildPromoAppliedBanner(context)
-                    : _buildPromoInputRow(context),
-              ),
-              if (!_promoCodeApplied && filtered.isNotEmpty) ...[
-                SizedBox(height: context.h(12)),
-                Divider(height: 1, thickness: 1, color: Colors.grey.shade100),
-                Padding(
-                  padding: EdgeInsets.fromLTRB(
-                      context.w(12), context.h(10), context.w(12), 0),
-                  child: Text(
-                    'AVAILABLE OFFERS',
-                    style: TextStyle(
-                      fontSize: context.labelSmall,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.grey.shade500,
-                      letterSpacing: 0.8,
-                    ),
-                  ),
-                ),
-                ...filtered.asMap().entries.map(
-                  (e) => _buildFlightCouponCard(
-                      context, e.value,
-                      showTopDivider: e.key > 0),
-                ),
-              ],
-              SizedBox(height: context.h(12)),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildPromoAppliedBanner(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.all(context.w(12)),
-      decoration: BoxDecoration(
-        color: Colors.green.shade50,
-        borderRadius: BorderRadius.circular(context.r(8)),
-        border: Border.all(color: Colors.green.shade200),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.check_circle_rounded,
-              color: Colors.green.shade700, size: context.iconSmall),
-          SizedBox(width: context.gapSmall),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '$_appliedPromoCode applied',
-                  style: TextStyle(
-                    fontSize: context.bodyMedium,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.green.shade800,
-                  ),
-                ),
-                Text(
-                  'You saved ${_getPreferredCurrencySymbol()}${_promoDiscountAmount.toStringAsFixed(2)}',
-                  style: TextStyle(
-                      fontSize: context.bodySmall,
-                      color: Colors.green.shade700),
-                ),
-              ],
-            ),
-          ),
-          TextButton(
-            onPressed: _removePromoCode,
-            child: Text(
-              'Remove',
-              style: TextStyle(
-                  color: Colors.red.shade700, fontWeight: FontWeight.w600),
-            ),
-          ),
-        ],
-      ),
-    );
   }
 
   Widget _buildPromoInputRow(BuildContext context) {
@@ -879,11 +802,11 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
         ),
         SizedBox(width: context.gapSmall),
         SizedBox(
-          height: context.h(48),
+          height: context.h(46),
           child: ElevatedButton(
             onPressed: _applyPromoCode,
             style: ElevatedButton.styleFrom(
-              backgroundColor: _blue,
+              backgroundColor: AppColors.AppBlue,
               foregroundColor: Colors.white,
               elevation: 0,
               shape: RoundedRectangleBorder(
@@ -900,117 +823,6 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
     );
   }
 
-  Widget _buildFlightCouponCard(BuildContext context, PromoCodeEntity promo,
-      {bool showTopDivider = false}) {
-    final discountLabel = promo.discountType == 'percent'
-        ? 'Get ${double.tryParse(promo.discountValue)?.toStringAsFixed(0) ?? promo.discountValue}% off on this booking'
-        : 'Get ${_getPreferredCurrencySymbol()}${promo.discountValue} off on this booking';
-
-    return Column(
-      children: [
-        if (showTopDivider)
-          Divider(
-              height: 1,
-              thickness: 1,
-              color: Colors.grey.shade100,
-              indent: context.w(12),
-              endIndent: context.w(12)),
-        InkWell(
-          onTap: () {
-            _promoCodeController.text = promo.code;
-            _applyPromoCode();
-          },
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(context.w(12), context.h(10),
-                context.w(12), context.h(10)),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Container(
-                  padding: EdgeInsets.all(context.w(8)),
-                  decoration: BoxDecoration(
-                    color: _blue.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(context.r(8)),
-                  ),
-                  child: Icon(Icons.confirmation_number_outlined,
-                      color: _blue, size: context.iconMedium),
-                ),
-                SizedBox(width: context.gapMedium),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        padding: EdgeInsets.symmetric(
-                            horizontal: context.w(8), vertical: context.h(3)),
-                        decoration: BoxDecoration(
-                          color: _blue.withValues(alpha: 0.06),
-                          borderRadius: BorderRadius.circular(context.r(4)),
-                          border: Border.all(
-                              color: _blue.withValues(alpha: 0.2)),
-                        ),
-                        child: Text(
-                          promo.code,
-                          style: TextStyle(
-                            fontSize: context.bodySmall,
-                            fontWeight: FontWeight.w800,
-                            color: _blue,
-                            letterSpacing: 1,
-                          ),
-                        ),
-                      ),
-                      SizedBox(height: context.h(4)),
-                      Text(
-                        discountLabel,
-                        style: TextStyle(
-                          fontSize: context.bodyMedium,
-                          fontWeight: FontWeight.w600,
-                          color: _navy,
-                        ),
-                      ),
-                      if (promo.description.isNotEmpty)
-                        Text(
-                          promo.description,
-                          style: TextStyle(
-                              fontSize: context.bodySmall,
-                              color: Colors.grey.shade600),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                    ],
-                  ),
-                ),
-                SizedBox(width: context.w(8)),
-                OutlinedButton(
-                  onPressed: () {
-                    _promoCodeController.text = promo.code;
-                    _applyPromoCode();
-                  },
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: _blue,
-                    side: const BorderSide(color: _blue, width: 1.5),
-                    padding: EdgeInsets.symmetric(
-                        horizontal: context.w(12), vertical: context.h(6)),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(context.r(6))),
-                    minimumSize: Size.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
-                  child: Text(
-                    'APPLY',
-                    style: TextStyle(
-                        fontSize: context.labelSmall,
-                        fontWeight: FontWeight.w700),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return MultiBlocProvider(
@@ -1019,66 +831,1286 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
         BlocProvider<AkCreateItineraryBloc>.value(value: _createItineraryBloc),
       ],
       child: Scaffold(
-        backgroundColor: _pageBg,
-        appBar: AppBar(
-          title: const WanderNovaLogo(scaleFactor: 0.6),
-          // backgroundColor: _pageBg,
-          // elevation: 0,
-          actions: [
+        backgroundColor: Colors.white,
+        body: SingleChildScrollView(
+          controller: _scrollController,
+          physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildHeader(context),
+              SizedBox(height: context.h(16)),
+              _buildSectionChips(context),
+              SizedBox(height: context.h(24)),
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: context.w(16)),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (!_isLoggedIn()) ...[
+                      _buildLoginCard(context),
+                      SizedBox(height: context.h(24)),
+                    ],
+                    _buildTravellerSection(context),
+                    SizedBox(height: context.h(24)),
+                    _buildOffersSection(context),
+                    if (_isInternationalRoute) ...[
+                      SizedBox(height: context.h(24)),
+                      _buildInsuranceSection(context),
+                    ],
+                    SizedBox(height: context.h(24)),
+                    _buildBookingPoliciesSection(context),
+                    SizedBox(height: context.h(24)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        bottomNavigationBar: _buildBottomBar(context),
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Header — Figma nodes 447:1181 (domestic) / 450:2110 (international)
+  // ---------------------------------------------------------------------------
+
+  /// First / last flight of a leg, straight off GetSPricer's response — this
+  /// is where aircraft type, cabin class and terminals live.
+  AkGetSPricerFlightEntity? _flightOf(FlightRouteSegment route, {required bool last}) {
+    final trips = route.akFareData?.trips;
+    if (trips == null || trips.isEmpty) return null;
+    final journeys = trips.first.journey;
+    if (journeys.isEmpty) return null;
+    final segments = journeys.first.segments;
+    if (segments.isEmpty) return null;
+    return last ? segments.last.flight : segments.first.flight;
+  }
+
+  AkGetSPricerBaggageEntity? _includedBaggage(FlightRouteSegment route) {
+    final map = route.akFareData?.includedBaggage;
+    if (map == null || map.isEmpty) return null;
+    final perPax = map.values.first;
+    if (perPax.isEmpty) return null;
+    return perPax['ADT'] ?? perPax.values.first;
+  }
+
+  /// "25 Aug, Tue" from GetSPricer's raw segment timestamp, falling back to
+  /// the already-formatted date the route carries.
+  String _segmentDate(String raw, String fallback) {
+    final value = raw.trim();
+    if (value.isEmpty) return fallback;
+    try {
+      return DateFormat('dd MMM, EEE').format(DateTime.parse(value.replaceFirst(' ', 'T')));
+    } catch (_) {
+      return fallback;
+    }
+  }
+
+
+
+  String _headerTitle(FlightRouteSegment route) {
+    // City names come from GetSPricer's airport names (see detail_popup's
+    // `_shortCityName`); the IATA code is only a fallback when the API didn't
+    // give one.
+    final from = (route.fromCity ?? '').trim();
+    final to = (route.toCity ?? '').trim();
+    return '${from.isNotEmpty ? from : route.from} to ${to.isNotEmpty ? to : route.to}';
+  }
+
+  Widget _buildHeader(BuildContext context) {
+    final route = _updatedRouteWithFareQuote ?? widget.routes.first;
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.only(bottom: context.h(24)),
+      decoration: BoxDecoration(
+        // Figma: linear-gradient(-76.78deg, #FFFFFF 25%, #80DAFF 182%)
+        gradient: const LinearGradient(
+          begin: Alignment(-1, 1),
+          end: Alignment(1, -1),
+          colors: [Color(0xFF80DAFF), Color(0xFFFFFFFF)],
+          stops: [0.0, 0.85],
+        ),
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(context.r(24))),
+      ),
+      clipBehavior: Clip.hardEdge,
+      child: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            SizedBox(height: context.h(12)),
             Padding(
-              padding: EdgeInsets.all(context.w(8)),
-              child: Image.asset(
-                "assets/images/wander_logo.png",
-                height: context.h(35),
+              padding: EdgeInsets.symmetric(horizontal: context.w(16)),
+              child: Row(
+                children: [
+                  GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => Navigator.of(context).maybePop(),
+                    child: Image.asset(
+                      'assets/NewIcons/arrowBack.png',
+                      width: context.w(18),
+                      height: context.h(18),
+                      color: Colors.black,
+                    ),
+                  ),
+                  SizedBox(width: context.w(12)),
+                  Expanded(
+                    child: Text(
+                      _headerTitle(route),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: Colors.black,
+                        fontSize: context.fs(16),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  SizedBox(width: context.w(8)),
+                  Icon(Icons.share, size: context.w(18), color: Colors.black),
+                ],
+              ),
+            ),
+            SizedBox(height: context.h(24)),
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: context.w(16)),
+              child: Column(
+                children: [
+                  for (var i = 0; i < widget.routes.length; i++) ...[
+                    if (i > 0) SizedBox(height: context.h(12)),
+                    _buildFlightCard(
+                      context,
+                      i == 0 ? route : widget.routes[i],
+                    ),
+                  ],
+                ],
               ),
             ),
           ],
         ),
-        body: SingleChildScrollView(
-          physics: context.scrollPhysics,
-          padding: context.responsivePadding,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildRouteSummaryCard(context),
-              SizedBox(height: context.gapSmall),
-              _buildFareBreakdownCard(context),
-              SizedBox(height: context.gapSmall),
-              _buildPromoCodeSection(context),
-              SizedBox(height: context.gapLarge),
-              if (!_isLoggedIn()) _buildLoginCard(context),
-              // SizedBox(height: context.gapSmall),
-              _buildBookingSteps(),
-              SizedBox(height: context.gapLarge),
-
-              BlocBuilder<AkTravelCheckListBloc, AkTravelCheckListState>(
-                builder: (context, checklistState) {
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (checklistState is AkTravelCheckListLoaded &&
-                          checklistState.data.unavailable)
-                        _buildCheckListUnavailableBanner(context),
-                      TravellerInformationSection(
-                        key: _formKey,
-                        isInternational: _isPassportRequired(checklistState),
-                        travellerCount: widget.travellerCount,
-                      ),
-                    ],
-                  );
-                },
-              ),
-
-              SizedBox(height: context.hp(3)),
-              _buildContinueButton(context),
-              SizedBox(height: context.hp(2)),
-            ],
-          ),
-        ),
-        bottomNavigationBar: const CustomBottomNav(currentIndex: 0),
       ),
     );
   }
+
+  /// The white flight card inside the header (Figma nodes 447:1220 / 450:2129).
+  Widget _buildFlightCard(BuildContext context, FlightRouteSegment route) {
+    final first = _flightOf(route, last: false);
+    final last = _flightOf(route, last: true);
+
+    final flightNo = route.flightNo.replaceAll('•', '').replaceAll(RegExp(r'\s+'), ' ').trim();
+    final aircraft = (first?.aircraft.trim().isNotEmpty ?? false)
+        ? first!.aircraft.trim()
+        : (first?.equipmentType.trim() ?? '');
+    final cabin = (first?.cabin ?? '').trim();
+
+    String endpoint(String code, String terminal) =>
+        terminal.trim().isEmpty ? code : '$code, Terminal ${terminal.trim()}';
+
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.symmetric(horizontal: context.w(12), vertical: context.h(16)),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(context.r(12)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ---- airline row ----
+          Container(
+            padding: EdgeInsets.only(top: context.h(16), bottom: context.h(17)),
+            decoration: const BoxDecoration(
+              border: Border(bottom: BorderSide(color: _hairline)),
+            ),
+            child: Row(
+              children: [
+                AirlineLogo(
+                  code: route.flightNo.contains('•')
+                      ? route.flightNo.split('•').first.trim()
+                      : '',
+                  name: route.airline,
+                  size: context.w(32),
+                  borderRadius: BorderRadius.circular(context.r(8)),
+                ),
+                SizedBox(width: context.w(12)),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Flexible(
+                            child: Text(
+                              route.airline,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: context.fs(14),
+                                fontWeight: FontWeight.w700,
+                                color: Colors.black,
+                              ),
+                            ),
+                          ),
+                          SizedBox(width: context.w(4)),
+                          Text(
+                            flightNo,
+                            style: TextStyle(
+                              fontSize: context.fs(14),
+                              fontWeight: FontWeight.w500,
+                              color: _muted,
+                              height: 1.43,
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (aircraft.isNotEmpty)
+                        Text(
+                          aircraft,
+                          style: TextStyle(
+                            fontSize: context.fs(12),
+                            color: _muted,
+                            height: 1.33,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                if (cabin.isNotEmpty) ...[
+                  SizedBox(width: context.w(8)),
+                  Container(
+                    padding: EdgeInsets.symmetric(horizontal: context.w(12), vertical: context.h(4)),
+                    decoration: BoxDecoration(
+                      color: _pri.withValues(alpha: 0.04),
+                      borderRadius: BorderRadius.circular(context.r(999)),
+                    ),
+                    child: Text(
+                      _getFullCabinName(cabin),
+                      // cabin.toUpperCase(),
+                      style: TextStyle(
+                        fontSize: context.fs(12),
+                        fontWeight: FontWeight.w700,
+                        color: _pri,
+                        letterSpacing: 0.6,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          SizedBox(height: context.h(24)),
+          // ---- times / duration / route ----
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildEndpointColumn(
+                context,
+                time: route.departureTime,
+                date: _segmentDate(first?.departureTime ?? '', route.departureDate ?? ''),
+                place: endpoint(route.from, first?.departureTerminal ?? ''),
+                alignEnd: false,
+              ),
+              Expanded(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: context.w(16)),
+                  child: Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.schedule_rounded, size: context.w(11.6), color: _muted),
+                          SizedBox(width: context.w(4)),
+                          Flexible(
+                            child: Text(
+                              route.duration,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: context.fs(10),
+                                fontWeight: FontWeight.w700,
+                                color: _muted,
+                                height: 1.5,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: context.h(14)),
+                      SizedBox(
+                        height: context.h(8),
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            Container(height: 1, color: _pri),
+                            Align(
+                              alignment: Alignment.centerLeft,
+                              child: _dot(context),
+                            ),
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: _dot(context),
+                            ),
+                          ],
+                        ),
+                      ),
+                      SizedBox(height: context.h(14)),
+                      Text(
+                        _stopsLabel(route).toUpperCase(),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: context.fs(10),
+                          fontWeight: FontWeight.w700,
+                          color: _muted,
+                          letterSpacing: 1,
+                          height: 1.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              _buildEndpointColumn(
+                context,
+                time: route.arrivalTime,
+                date: _segmentDate(last?.arrivalTime ?? '', route.departureDate ?? ''),
+                place: endpoint(route.to, last?.arrivalTerminal ?? ''),
+                alignEnd: true,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _getFullCabinName(String code) {
+    switch (code.toUpperCase()) {
+      case 'E':
+        return 'ECONOMY';
+      case 'PE':
+        return 'PREMIUM ECONOMY';
+      case 'B':
+        return 'BUSINESS';
+      case 'F':
+        return 'FIRST';
+      default:
+        return code.toUpperCase();
+    }
+  }
+
+  Widget _dot(BuildContext context) => Container(
+        width: context.w(8),
+        height: context.w(8),
+        decoration: const BoxDecoration(color: _pri, shape: BoxShape.circle),
+      );
+
+  Widget _buildEndpointColumn(
+    BuildContext context, {
+    required String time,
+    required String date,
+    required String place,
+    required bool alignEnd,
+  }) {
+    return Column(
+      crossAxisAlignment: alignEnd ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          time,
+          style: TextStyle(
+            fontSize: context.fs(18),
+            fontWeight: FontWeight.w700,
+            color: Colors.black,
+          ),
+        ),
+        SizedBox(height: context.h(2)),
+        if (date.isNotEmpty)
+          Text(
+            date,
+            style: TextStyle(fontSize: context.fs(10), fontWeight: FontWeight.w500, color: _muted),
+          ),
+        SizedBox(height: context.h(2)),
+        Text(
+          place,
+          style: TextStyle(fontSize: context.fs(10), color: _muted),
+        ),
+      ],
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Section chips — Figma nodes 447:1254 / 450:2161
+  // ---------------------------------------------------------------------------
+
+  List<({String label, GlobalKey key})> get _sections => [
+        (label: 'Traveller details', key: _travellerSectionKey),
+        (label: 'Offers', key: _offersSectionKey),
+        if (_isInternationalRoute) (label: 'Insurance', key: _insuranceSectionKey),
+        (label: 'Booking policies', key: _policiesSectionKey),
+      ];
+
+  void _scrollToSection(int index) {
+    setState(() => _activeSection = index);
+    final ctx = _sections[index].key.currentContext;
+    if (ctx == null) return;
+    Scrollable.ensureVisible(
+      ctx,
+      duration: const Duration(milliseconds: 350),
+      curve: Curves.easeInOutCubic,
+      alignment: 0.05,
+    );
+  }
+
+  Widget _buildSectionChips(BuildContext context) {
+    final sections = _sections;
+    return SizedBox(
+      height: context.h(28),
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: EdgeInsets.symmetric(horizontal: context.w(16)),
+        itemCount: sections.length,
+        separatorBuilder: (_, __) => SizedBox(width: context.w(12)),
+        itemBuilder: (context, i) {
+          final active = i == _activeSection;
+          return GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => _scrollToSection(i),
+            child: Container(
+              alignment: Alignment.center,
+              padding: EdgeInsets.symmetric(horizontal: context.w(8), vertical: context.h(4)),
+              decoration: BoxDecoration(
+                color: active ? const Color(0xFF0066CB).withValues(alpha: 0.04) : Colors.white,
+                borderRadius: BorderRadius.circular(context.r(6)),
+                border: Border.all(color: active ? _pri : _stroke, width: 0.5),
+              ),
+              child: Text(
+                sections[i].label,
+                style: TextStyle(
+                  fontSize: context.fs(12),
+                  fontWeight: active ? FontWeight.w500 : FontWeight.w400,
+                  color: active ? _pri : _muted,
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _sectionTitle(BuildContext context, String text, {String? trailing}) {
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: context.w(4)),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            text,
+            style: TextStyle(
+              fontSize: context.fs(16),
+              fontWeight: FontWeight.w600,
+              color: Colors.black,
+              letterSpacing: -0.45,
+            ),
+          ),
+          if (trailing != null)
+            Text(
+              trailing,
+              style: TextStyle(
+                fontSize: context.fs(12),
+                fontWeight: FontWeight.w600,
+                color: _muted,
+                height: 1.33,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Traveller Details — Figma nodes 450:2387 / 453:2925
+  // ---------------------------------------------------------------------------
+
+  Widget _buildTravellerSection(BuildContext context) {
+    return Column(
+      key: _travellerSectionKey,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _sectionTitle(context, 'Traveller Details'),
+            // trailing: '0/${widget.travellerCount} Added'),
+        SizedBox(height: context.h(16)),
+        Container(
+          width: double.infinity,
+          padding: EdgeInsets.all(context.w(16)),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(context.r(12)),
+            border: Border.all(color: _stroke, width: 0.5),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 30,
+                spreadRadius: -5,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: BlocBuilder<AkTravelCheckListBloc, AkTravelCheckListState>(
+            builder: (context, checklistState) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (checklistState is AkTravelCheckListLoaded &&
+                      checklistState.data.unavailable)
+                    _buildCheckListUnavailableBanner(context),
+                  // `validateForm()` / `getAllTravellersData()` keep the same
+                  // contract `_validateAndProceed` depends on. The checklist
+                  // is handed down so the Add-Traveller sheet asks only for
+                  // the fields this airline actually requires.
+                  TravellerInformationSection(
+                    key: _formKey,
+                    isInternational: _isPassportRequired(checklistState),
+                    travellerCount: _totalPax,
+                    adultCount: _paxSplit.adults,
+                    childCount: _paxSplit.children,
+                    infantCount: _paxSplit.infants,
+                    checkList: checklistState is AkTravelCheckListLoaded
+                        ? checklistState.data
+                        : null,
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Offers — Figma nodes 453:2804 / 453:2861
+  // ---------------------------------------------------------------------------
+
+  Widget _buildOffersSection(BuildContext context) {
+    return BlocBuilder<GeneralSettingsBloc, GeneralSettingsState>(
+      builder: (context, state) {
+        // A promo tagged for both 'flight_booking' and 'payment' (or simply
+        // duplicated server-side) otherwise renders as two identical cards —
+        // one showing "Apply", the other "Remove" once applied. Keep only the
+        // first occurrence of each code so every offer shows exactly once.
+        final seenCodes = <String>{};
+        final all = state is PromoCodesLoaded
+            ? state.promoCodes
+                .where((p) => p.category == 'flight_booking' || p.category == 'payment')
+                .where((p) {
+                  final code = p.code.trim().toUpperCase();
+                  return code.isNotEmpty && seenCodes.add(code);
+                })
+                .toList()
+            : <PromoCodeEntity>[];
+        final visible = _showAllOffers ? all : all.take(2).toList();
+
+        return Column(
+          key: _offersSectionKey,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _sectionTitle(context, 'Offers'),
+            SizedBox(height: context.h(16)),
+            if (all.isEmpty)
+              _buildPromoInputRow(context)
+            else ...[
+              for (var i = 0; i < visible.length; i++) ...[
+                if (i > 0) SizedBox(height: context.h(12)),
+                _buildOfferCard(context, visible[i]),
+              ],
+              if (all.length > 2) ...[
+                SizedBox(height: context.h(8)),
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => setState(() => _showAllOffers = !_showAllOffers),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      Text(
+                        _showAllOffers ? 'View less' : 'View more',
+                        style: TextStyle(
+                          fontSize: context.fs(10),
+                          fontWeight: FontWeight.w600,
+                          color: _pri,
+                        ),
+                      ),
+                      SizedBox(width: context.w(4)),
+                      Icon(
+                        _showAllOffers
+                            ? Icons.keyboard_arrow_up_rounded
+                            : Icons.keyboard_arrow_down_rounded,
+                        size: context.w(14),
+                        color: _pri,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ],
+        );
+      },
+    );
+  }
+
+  /// One promo card (Figma node 453:2807). Applied cards get the cyan border
+  /// and a red "Remove"; the rest show a cyan "Apply".
+  Widget _buildOfferCard(BuildContext context, PromoCodeEntity promo) {
+    final isApplied = _promoCodeApplied &&
+        _appliedPromoCode.toUpperCase() == promo.code.toUpperCase();
+
+    final offLabel = promo.discountType == 'percent'
+        ? '${double.tryParse(promo.discountValue)?.toStringAsFixed(0) ?? promo.discountValue}% off'
+        : '${_getPreferredCurrencySymbol()}${promo.discountValue} off';
+
+    final body = isApplied
+        ? 'Congratulations! Promo Discount of ${_getPreferredCurrencySymbol()}${_promoDiscountAmount.toStringAsFixed(0)} applied successfully to your booking.'
+        : (promo.description.isNotEmpty
+            ? promo.description
+            : 'Apply this code to get $offLabel on your booking.');
+
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(context.w(20)),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(context.r(12)),
+        border: Border.all(
+          color: isApplied ? _pri : _stroke,
+          width: isApplied ? 1 : 0.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 1,
+            offset: const Offset(0, 1),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                isApplied ? Icons.check_circle : Icons.local_offer_outlined,
+                size: context.w(21),
+                color: isApplied ? const Color(0xFF16A34A) : _pri,
+              ),
+              SizedBox(width: context.w(12)),
+              Expanded(
+                child: Text(
+                  promo.code.toUpperCase(),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: context.fs(16),
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black,
+                    letterSpacing: -0.4,
+                  ),
+                ),
+              ),
+              SizedBox(width: context.w(8)),
+              Text(
+                offLabel,
+                style: TextStyle(
+                  fontSize: context.fs(18),
+                  fontWeight: FontWeight.w600,
+                  color: _pri,
+                  height: 1.56,
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: context.h(11)),
+          Text(
+            body,
+            style: TextStyle(fontSize: context.fs(12), color: _muted),
+          ),
+          SizedBox(height: context.h(11)),
+          Container(
+            width: double.infinity,
+            padding: EdgeInsets.only(top: context.h(12.5)),
+            decoration: const BoxDecoration(
+              border: Border(top: BorderSide(color: _stroke, width: 0.5)),
+            ),
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () {
+                  if (isApplied) {
+                    _removePromoCode();
+                  } else {
+                    _promoCodeController.text = promo.code;
+                    _applyPromoCode();
+                  }
+                },
+                child: Text(
+                  isApplied ? 'Remove' : 'Apply',
+                  style: TextStyle(
+                    fontSize: context.fs(12),
+                    fontWeight: FontWeight.w800,
+                    color: isApplied ? const Color(0xFFFF383C) : _pri,
+                    letterSpacing: 0.7,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Insurance (international only) — Figma node 453:2890
+  // ---------------------------------------------------------------------------
+
+  Widget _buildInsuranceSection(BuildContext context) {
+    final benefits = <({IconData icon, Color bg, Color fg, String label, String value})>[
+      (
+        icon: Icons.local_hospital_rounded,
+        bg: const Color(0xFFFEF2F2),
+        fg: const Color(0xFFEF4444),
+        label: 'Medical Expenses',
+        value: r'$250,000'
+      ),
+      (
+        icon: Icons.event_busy_rounded,
+        bg: const Color(0xFFFFFBEB),
+        fg: const Color(0xFFF59E0B),
+        label: 'Trip Cancellation',
+        value: r'$2,500'
+      ),
+      (
+        icon: Icons.luggage_rounded,
+        bg: const Color(0xFFEFF6FF),
+        fg: const Color(0xFF3B82F6),
+        label: 'Delayed Baggage',
+        value: r'$500'
+      ),
+    ];
+
+    return Column(
+      key: _insuranceSectionKey,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _sectionTitle(context, 'Insurance'),
+        SizedBox(height: context.h(16)),
+        Container(
+          width: double.infinity,
+          padding: EdgeInsets.symmetric(horizontal: context.w(16), vertical: context.h(24)),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              begin: Alignment.bottomCenter,
+              end: Alignment.topCenter,
+              colors: [Colors.white, Color(0xFF80DAFF)],
+              stops: [0.1, 1.0],
+            ),
+            borderRadius: BorderRadius.circular(context.r(12)),
+          ),
+          clipBehavior: Clip.hardEdge,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.health_and_safety_rounded, size: context.w(56), color: _pri),
+                  SizedBox(width: context.w(12)),
+                  Expanded(
+                    child: Text.rich(
+                      TextSpan(children: [
+                        TextSpan(
+                          text: 'International ',
+                          style: TextStyle(color: const Color(0xFF0B9D9D), fontSize: context.fs(18)),
+                        ),
+                        TextSpan(
+                          text: 'Travel + Medical Insurance',
+                          style: TextStyle(color: Colors.black, fontSize: context.fs(18)),
+                        ),
+                      ]),
+                      style: TextStyle(fontWeight: FontWeight.w700, letterSpacing: -0.45),
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: context.h(24)),
+              SizedBox(
+                height: context.h(130),
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: benefits.length,
+                  separatorBuilder: (_, __) => SizedBox(width: context.w(12)),
+                  itemBuilder: (context, i) {
+                    final b = benefits[i];
+                    return Container(
+                      width: context.w(160),
+                      padding: EdgeInsets.all(context.w(16)),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(context.r(16)),
+                        border: Border.all(color: _hairline),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.05),
+                            blurRadius: 1,
+                            offset: const Offset(0, 1),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Container(
+                            width: context.w(40),
+                            height: context.w(40),
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: b.bg,
+                              borderRadius: BorderRadius.circular(context.r(12)),
+                            ),
+                            child: Icon(b.icon, size: context.w(20), color: b.fg),
+                          ),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                b.label,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: context.fs(12),
+                                  fontWeight: FontWeight.w500,
+                                  color: const Color(0xFF64748B),
+                                ),
+                              ),
+                              Text(
+                                b.value,
+                                style: TextStyle(
+                                  fontSize: context.fs(18),
+                                  fontWeight: FontWeight.w700,
+                                  color: const Color(0xFF0F172A),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+              SizedBox(height: context.h(24)),
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => _scrollToSection(_sections.length - 1),
+                child: Container(
+                  width: double.infinity,
+                  height: context.h(44),
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(context.r(8)),
+                    border: Border.all(color: _sec),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'View All Benefits',
+                        style: TextStyle(
+                          fontSize: context.fs(14),
+                          fontWeight: FontWeight.w600,
+                          color: _sec,
+                        ),
+                      ),
+                      SizedBox(width: context.w(4)),
+                      Icon(Icons.arrow_forward_rounded, size: context.w(20), color: _sec),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Booking Policies — Figma nodes 447:1326 / 453:2836
+  // ---------------------------------------------------------------------------
+
+  Widget _buildBookingPoliciesSection(BuildContext context) {
+    final route = _updatedRouteWithFareQuote ?? widget.routes.first;
+    final baggage = _includedBaggage(route);
+    final refundable = route.isRefundable == true;
+
+    Widget bagRow(IconData icon, String label, String value) => Row(
+          children: [
+            Icon(icon, size: context.w(13), color: AppColors.black),
+            SizedBox(width: context.w(8)),
+            Text(label, style: TextStyle(fontSize: context.fs(10), color: _muted)),
+            SizedBox(width: context.w(8)),
+            Text.rich(
+              TextSpan(children: [
+                TextSpan(text: value, style: const TextStyle(color: Colors.black)),
+                TextSpan(text: ' /adult', style: TextStyle(color: _muted)),
+              ]),
+              style: TextStyle(fontSize: context.fs(10)),
+            ),
+          ],
+        );
+
+    Widget bullet(String bold, String rest) => Padding(
+          padding: EdgeInsets.only(top: context.h(6)),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: EdgeInsets.only(top: context.h(4)),
+                child: Container(
+                  width: context.w(2),
+                  height: context.w(2),
+                  decoration: const BoxDecoration(color: Colors.black, shape: BoxShape.circle),
+                ),
+              ),
+              SizedBox(width: context.w(6)),
+              Expanded(
+                child: Text.rich(
+                  TextSpan(children: [
+                    TextSpan(
+                      text: bold,
+                      style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.black),
+                    ),
+                    TextSpan(text: rest, style: TextStyle(color: _muted)),
+                  ]),
+                  style: TextStyle(fontSize: context.fs(8)),
+                ),
+              ),
+            ],
+          ),
+        );
+
+    return Column(
+      key: _policiesSectionKey,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _sectionTitle(context, 'Booking Policies'),
+        SizedBox(height: context.h(16)),
+        Container(
+          width: double.infinity,
+          padding: EdgeInsets.all(context.w(12)),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(context.r(12)),
+            border: Border.all(color: _stroke, width: 0.5),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (baggage != null) ...[
+                if (baggage.cabin.trim().isNotEmpty)
+                  bagRow(Icons.work_outline_rounded, 'Cabin Bag:', baggage.cabin.trim()),
+                if (baggage.cabin.trim().isNotEmpty && baggage.checkin.trim().isNotEmpty)
+                  SizedBox(height: context.h(8)),
+                if (baggage.checkin.trim().isNotEmpty)
+                  bagRow(Icons.luggage_outlined, 'Check-in:', baggage.checkin.trim()),
+                SizedBox(height: context.h(12)),
+              ],
+              Container(
+                width: double.infinity,
+                padding: EdgeInsets.only(top: context.h(12)),
+                decoration: BoxDecoration(
+                  border: Border(
+                    top: BorderSide(
+                      color: baggage != null ? _stroke : Colors.transparent,
+                      width: 0.5,
+                    ),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Cancellation refund & date change',
+                      style: TextStyle(
+                        fontSize: context.fs(10),
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black,
+                      ),
+                    ),
+                    bullet(
+                      'Cancellation: ',
+                      refundable
+                          ? 'This fare is refundable. Airline cancellation charges apply as per the fare rules.'
+                          : 'This fare is non-refundable. Airline cancellation charges apply as per the fare rules.',
+                    ),
+                    bullet(
+                      'Date change: ',
+                      'Airline date-change fee plus any fare difference applies, as per the fare rules.',
+                    ),
+                  ],
+                ),
+              ),
+              // SizedBox(height: context.h(4)),
+              // Align(
+              //   alignment: Alignment.centerRight,
+              //   child: GestureDetector(
+              //     behavior: HitTestBehavior.opaque,
+              //     onTap: () {
+              //       final searchTui = route.searchTui;
+              //       final resultIndex = widget.resultIndex ?? route.resultIndex;
+              //       if (searchTui == null ||
+              //           searchTui.isEmpty ||
+              //           resultIndex == null ||
+              //           resultIndex.isEmpty) {
+              //         ScaffoldMessenger.of(context).showSnackBar(
+              //           const SnackBar(content: Text('Fare rules are not available for this fare.')),
+              //         );
+              //         return;
+              //       }
+              //       AkFareRulePopup.show(
+              //         context,
+              //         searchTui: searchTui,
+              //         resultIndex: resultIndex,
+              //         amount: route.amount ?? 0,
+              //       );
+              //     },
+              //     child: Text(
+              //       'View fare rules',
+              //       style: TextStyle(
+              //         fontSize: context.fs(10),
+              //         fontWeight: FontWeight.w600,
+              //         color: _pri,
+              //       ),
+              //     ),
+              //   ),
+              // ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Bottom bar — Figma nodes 453:2969 / 453:2960
+  // ---------------------------------------------------------------------------
+
+  Widget _buildBottomBar(BuildContext context) {
+    final route = _updatedRouteWithFareQuote ?? widget.routes.first;
+    final fare = route.fareQuoteData;
+    final total = fare != null
+        ? _getFinalTotalDisplay(fare)
+        : _convertFareAmount(
+            double.tryParse(widget.totalPrice.replaceAll(RegExp(r'[^0-9.]'), '')) ?? 0,
+            'INR',
+          );
+
+    final paxLabel = 'FOR ${widget.travellerCount} '
+        '${widget.travellerCount > 1 ? 'TRAVELLERS' : 'ADULT'}';
+
+    return SafeArea(
+      top: false,
+      child: Container(
+        height: context.h(80),
+        padding: EdgeInsets.symmetric(horizontal: context.w(19), vertical: context.h(12)),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          // borderRadius: BorderRadius.vertical(bottom: Radius.circular(context.r(24))),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.12),
+              blurRadius: 12,
+              offset: const Offset(0, -4),
+            ),
+          ],
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => _openFareBreakup(context),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Flexible(
+                          child: Text(
+                            total,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: context.fs(24),
+                              fontWeight: FontWeight.w800,
+                              color: Colors.black,
+                              letterSpacing: -0.6,
+                              height: 1.33,
+                            ),
+                          ),
+                        ),
+                        SizedBox(width: context.w(4)),
+                        Icon(Icons.info_outline, size: context.w(12), color: _muted),
+                      ],
+                    ),
+                    Text(
+                      paxLabel,
+                      style: TextStyle(
+                        fontSize: context.fs(8),
+                        fontWeight: FontWeight.w700,
+                        color: _muted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            SizedBox(width: context.w(12)),
+            SizedBox(
+              height: context.h(44),
+              width: context.w(149),
+              child: ElevatedButton(
+                onPressed: _submittingItinerary ? null : _validateAndProceed,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _sec,
+                  disabledBackgroundColor: _sec.withValues(alpha: 0.6),
+                  elevation: 0,
+                  padding: EdgeInsets.zero,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(context.r(12)),
+                  ),
+                ),
+                child: _submittingItinerary
+                    ? SizedBox(
+                        width: context.w(18),
+                        height: context.w(18),
+                        child: const CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white),
+                      )
+                    : Text(
+                        'CONTINUE',
+                        style: TextStyle(
+                          fontSize: context.fs(14),
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Opens the shared Fare Breakup drawer from the bottom bar's total/info
+  /// tap. Reuses the exact figures the fare-breakdown card already computes
+  /// (`fareQuoteData`, add-ons, promo) — no new pricing logic.
+  void _openFareBreakup(BuildContext context) {
+    final route = _updatedRouteWithFareQuote ?? widget.routes.first;
+    final fare = route.fareQuoteData;
+    final split = _paxSplit;
+    final pax = _totalPax < 1 ? 1 : _totalPax;
+    final prefCurrency = di.sl<PreferencesManager>().getPreferredCurrency() ?? 'INR';
+
+    final paxNoun = (split.children > 0 || split.infants > 0) ? 'Traveller(s)' : 'Adult(s)';
+    String unitLabel(double totalForAll, String currency) =>
+        '$paxNoun ($pax X ${_convertFareAmount(totalForAll / pax, currency)})';
+
+    final lines = <FareBreakupLine>[];
+
+    if (fare != null) {
+      lines.add(FareBreakupLine(
+        label: 'Base Fare',
+        amount: _convertFareAmount(fare.baseFare, fare.currency),
+        subLabel: unitLabel(fare.baseFare, fare.currency),
+        subAmount: _convertFareAmount(fare.baseFare, fare.currency),
+      ));
+      lines.add(FareBreakupLine(
+        label: 'Taxes & Surcharges',
+        amount: _convertFareAmount(fare.tax, fare.currency),
+        subLabel: unitLabel(fare.tax, fare.currency),
+        subAmount: _convertFareAmount(fare.tax, fare.currency),
+      ));
+      if (fare.serviceFee > 0) {
+        lines.add(FareBreakupLine(
+          label: 'Service Fee',
+          amount: _convertFareAmount(fare.serviceFee, fare.currency),
+        ));
+      }
+      if (_addOnsTotal > 0) {
+        lines.add(FareBreakupLine(
+          label: 'Seat, Baggage & Meals',
+          amount: _convertFareAmount(_addOnsTotal, 'INR'),
+        ));
+      }
+      if (_promoCodeApplied && _promoDiscountAmount > 0) {
+        final d = '-${CurrencyConverter.format(_promoDiscountAmount, prefCurrency)}';
+        lines.add(FareBreakupLine(
+          label: 'Discounts',
+          amount: d,
+          subLabel: _appliedPromoCode,
+          subAmount: d,
+          isDiscount: true,
+        ));
+      }
+      FareBreakupSheet.show(context, lines: lines, totalAmount: _getFinalTotalDisplay(fare));
+    } else {
+      final est = _convertFareAmount(
+        double.tryParse(widget.totalPrice.replaceAll(RegExp(r'[^0-9.]'), '')) ?? 0,
+        'INR',
+      );
+      lines.add(FareBreakupLine(
+        label: 'Base Fare',
+        amount: est,
+        subLabel: '$pax $paxNoun',
+        subAmount: est,
+      ));
+      FareBreakupSheet.show(context, lines: lines, totalAmount: est);
+    }
+  }
+
+  /// The fare breakdown moves into a sheet behind the bottom bar's total —
+  /// Figma has no inline breakdown card, but the numbers still need a home.
+  // void _showFareBreakdownSheet(BuildContext context) {
+  //   showModalBottomSheet<void>(
+  //     context: context,
+  //     backgroundColor: Colors.transparent,
+  //     isScrollControlled: true,
+  //     builder: (sheetContext) => SafeArea(
+  //       top: false,
+  //       child: Container(
+  //         margin: EdgeInsets.all(context.w(12)),
+  //         padding: EdgeInsets.all(context.w(4)),
+  //         decoration: BoxDecoration(
+  //           color: Colors.white,
+  //           borderRadius: BorderRadius.circular(context.r(16)),
+  //         ),
+  //         child: SingleChildScrollView(child: _buildFareBreakdownCard(context)),
+  //       ),
+  //     ),
+  //   );
+  // }
 
   Widget _buildCheckListUnavailableBanner(BuildContext context) {
     return Padding(
@@ -1107,285 +2139,6 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  /// One leg's flight card content — extracted so [_buildRouteSummaryCard]
-  /// can stack it once per entry in `widget.routes` (RT/RS: onward +
-  /// return; Multi City: one per leg) instead of only ever showing
-  /// `routes.first`, which is all a plain one-way booking ever has anyway.
-  Widget _buildRouteLegContent(BuildContext context, FlightRouteSegment route) {
-    return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              AirlineLogo(
-                code: route.flightNo.contains('•')
-                    ? route.flightNo.split('•').first.trim()
-                    : '',
-                name: route.airline,
-                size: context.iconMedium + context.gapSmall * 2,
-                borderRadius: BorderRadius.circular(context.r(14)),
-              ),
-              SizedBox(width: context.gapMedium),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      route.airline,
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: context.bodyLarge,
-                        color: _navy,
-                      ),
-                    ),
-                    Text(
-                      route.flightNo,
-                      style: TextStyle(
-                        color: Colors.grey.shade600,
-                        fontSize: context.bodySmall,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              GestureDetector(
-                onTap: () {
-                  final searchTui = route.searchTui;
-                  final resultIndex = widget.resultIndex ?? route.resultIndex;
-                  if (searchTui == null || searchTui.isEmpty || resultIndex == null || resultIndex.isEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Fare rules are not available for this fare.')),
-                    );
-                    return;
-                  }
-                  AkFareRulePopup.show(
-                    context,
-                    searchTui: searchTui,
-                    resultIndex: resultIndex,
-                    amount: route.amount ?? 0,
-                  );
-                },
-                child: Container(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: context.w(12),
-                    vertical: context.h(6),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.info_outline,
-                        color: _blue,
-                        size: context.iconSmall,
-                      ),
-                      SizedBox(width: context.w(4)),
-                      Text(
-                        "Fare Rules",
-                        style: TextStyle(
-                          color: _blue,
-                          fontWeight: FontWeight.w600,
-                          fontSize: context.labelMedium,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: context.gapLarge),
-          Row(
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    route.departureTime,
-                    style: TextStyle(
-                      fontSize: context.headlineSmall,
-                      fontWeight: FontWeight.bold,
-                      color: _navy,
-                    ),
-                  ),
-                  SizedBox(height: context.h(4)),
-                  Text(
-                    route.from,
-                    style: TextStyle(
-                      color: Colors.grey.shade700,
-                      fontSize: context.bodyMedium,
-                    ),
-                  ),
-                ],
-              ),
-              Expanded(
-                child: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: context.gapMedium),
-                  child: Column(
-                    children: [
-                      Text(
-                        route.duration,
-                        style: TextStyle(
-                          color: Colors.grey.shade600,
-                          fontSize: context.bodySmall,
-                        ),
-                      ),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Divider(
-                              color: Colors.grey.shade300,
-                              thickness: 1,
-                            ),
-                          ),
-                          Padding(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: context.w(8),
-                            ),
-                            child: Icon(
-                              Icons.flight,
-                              size: context.iconSmall,
-                              color: _blue,
-                            ),
-                          ),
-                          Expanded(
-                            child: Divider(
-                              color: Colors.grey.shade300,
-                              thickness: 1,
-                            ),
-                          ),
-                        ],
-                      ),
-                      Text(
-                        _stopsLabel(route),
-                        style: TextStyle(
-                          color: Colors.blue.shade700,
-                          fontSize: context.labelSmall,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    route.arrivalTime,
-                    style: TextStyle(
-                      fontSize: context.headlineSmall,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  SizedBox(height: context.h(4)),
-                  Text(
-                    route.to,
-                    style: TextStyle(
-                      color: Colors.grey.shade700,
-                      fontSize: context.bodyMedium,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          if (route.isRefundable != null || route.isHoldAllowed != null) ...[
-            SizedBox(height: context.gapMedium),
-            Divider(color: Colors.grey.shade200),
-            SizedBox(height: context.gapSmall),
-            Row(
-              children: [
-                if (route.isRefundable == true)
-                  _buildBadge(
-                    context,
-                    Icons.check_circle,
-                    'Refundable',
-                    Colors.green,
-                  ),
-                if (route.isHoldAllowed == true) ...[
-                  if (route.isRefundable == true)
-                    SizedBox(width: context.gapSmall),
-                  _buildBadge(
-                    context,
-                    Icons.lock_clock,
-                    'Hold Allowed',
-                    Colors.blue,
-                  ),
-                ],
-              ],
-            ),
-          ],
-        ],
-    );
-  }
-
-  Widget _buildRouteSummaryCard(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.all(context.w(14)),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        // borderRadius: BorderRadius.circular(9),
-        border: Border.all(color: _border),
-        boxShadow: [
-          BoxShadow(
-            color: _navy.withValues(alpha: 0.06),
-            blurRadius: 24,
-            offset: const Offset(0, 14),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          for (var i = 0; i < widget.routes.length; i++) ...[
-            if (i > 0) ...[
-              SizedBox(height: context.gapMedium),
-              Divider(color: Colors.grey.shade200),
-              SizedBox(height: context.gapMedium),
-            ],
-            _buildRouteLegContent(
-              context,
-              i == 0 ? (_updatedRouteWithFareQuote ?? widget.routes[i]) : widget.routes[i],
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBadge(
-    BuildContext context,
-    IconData icon,
-    String label,
-    Color color,
-  ) {
-    return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: context.gapSmall,
-        vertical: context.h(4),
-      ),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(context.r(20)),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: context.iconSmall, color: color),
-          SizedBox(width: context.w(4)),
-          Text(
-            label,
-            style: TextStyle(
-              color: color,
-              fontSize: context.labelSmall,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -1453,13 +2206,13 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
                 _convertFareAmount(fare.serviceFee, fare.currency),
               ),
             ],
-            if (widget.addOnsTotal > 0) ...[
+            if (_addOnsTotal > 0) ...[
               SizedBox(height: context.gapSmall),
               _fareRow(
                 context,
                 'Seat, Baggage & Meals',
                 // widget.addOnsTotal is always INR (see field doc).
-                _convertFareAmount(widget.addOnsTotal, 'INR'),
+                _convertFareAmount(_addOnsTotal, 'INR'),
               ),
             ],
             if (_promoDiscountAmount > 0) ...[
@@ -1538,100 +2291,6 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
     );
   }
 
-  Widget _buildBookingSteps() {
-    const steps = [
-      (Icons.flight_takeoff_rounded, 'Flight'),
-      (Icons.event_seat_outlined, 'Add-ons'),
-      (Icons.call_outlined, 'Contact'),
-      (Icons.person_outline_rounded, 'Traveller'),
-      (Icons.payments_outlined, 'Pay'),
-    ];
-
-    return Container(
-      padding: EdgeInsets.symmetric(vertical: context.h(9)),
-      decoration: BoxDecoration(
-        // color: Colors.white,
-        // borderRadius: BorderRadius.circular(12),
-        // border: Border.all(color: _border),
-      ),
-      child: Row(
-        children: [
-          for (int i = 0; i < steps.length; i++) ...[
-            Expanded(
-              child: Column(
-                children: [
-                  Container(
-                    width: context.w(34),
-                    height: context.w(34),
-                    decoration: BoxDecoration(
-                      color: i <= 3 ? _blue : const Color(0xFFF0F3F8),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      steps[i].$1,
-                      size: context.w(17),
-                      color: i <= 3 ? Colors.white : const Color(0xFF8A93A3),
-                    ),
-                  ),
-                  SizedBox(height: context.h(6)),
-                  Text(
-                    steps[i].$2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: i <= 3 ? _navy : const Color(0xFF8A93A3),
-                      fontSize: context.fs(11),
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            if (i != steps.length - 1)
-              Container(
-                width: context.w(16),
-                height: context.h(1),
-                color: i < 3 ? _blue.withValues(alpha: 0.45) : _border,
-              ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildLoadingCard(BuildContext context, String message) {
-    return Container(
-      padding: EdgeInsets.all(context.w(12)),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(context.borderRadius),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          SizedBox(
-            width: context.w(20),
-            height: context.w(20),
-            child: CircularProgressIndicator(strokeWidth: 2),
-          ),
-          SizedBox(width: context.gapMedium),
-          Text(
-            message,
-            style: TextStyle(
-              color: Colors.grey.shade600,
-              fontSize: context.bodyMedium,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildErrorCard(BuildContext context, String message) {
     return Container(
       padding: EdgeInsets.all(context.w(12)),
@@ -1664,7 +2323,7 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
 
   Widget _buildLoginCard(BuildContext context) {
     return Container(
-      padding: EdgeInsets.all(context.w(12)),
+      padding: EdgeInsets.all(context.w(10)),
       decoration: BoxDecoration(
         color: const Color(0xFFFFF8E8),
         borderRadius: BorderRadius.circular(context.borderRadius),
@@ -1675,15 +2334,15 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
           Icon(
             Icons.info_outline,
             color: Colors.orange.shade700,
-            size: context.iconMedium,
+            size: context.iconSmall,
           ),
           SizedBox(width: context.gapMedium),
           Expanded(
             child: Text(
               "Login to auto-fill traveller details and manage your bookings easily.",
               style: TextStyle(
-                fontSize: context.bodySmall,
-                color: Colors.grey.shade700,
+                fontSize: context.fs(11),
+              color: AppColors.subhead,
               ),
             ),
           ),
@@ -1694,90 +2353,9 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
                 MaterialPageRoute(builder: (_) => const LoginSignupScreen()),
               );
             },
-            child: const Text("Login"),
+            child: Text("Login", style: TextStyle(color: AppColors.AppBlue, fontSize: context.fs(12),),),
           ),
         ],
-      ),
-    );
-  }
-
-  // Widget _buildContinueButton(BuildContext context) {
-  //   return SizedBox(
-  //     width: double.infinity,
-  //     height: context.buttonHeight + 10,
-  //     child: ElevatedButton(
-  //       onPressed: _isLoadingFareQuote
-  //           ? null
-  //           : () {
-  //               print('FlightBookingScreen: Continue booking pressed');
-  //               _validateAndProceed();
-  //             },
-  //       style: ElevatedButton.styleFrom(
-  //         backgroundColor: _isLoadingFareQuote
-  //             ? Colors.grey
-  //             : const Color(0xFFE71D36),
-  //         shape: RoundedRectangleBorder(
-  //           borderRadius: BorderRadius.circular(context.borderRadius),
-  //         ),
-  //         elevation: 2,
-  //       ),
-  //       child: _isLoadingFareQuote
-  //           ? SizedBox(
-  //               width: 20,
-  //               height: 20,
-  //               child: CircularProgressIndicator(
-  //                 strokeWidth: 2,
-  //                 valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-  //               ),
-  //             )
-  //           : GestureDetector(
-  //               onTap: () {
-  //                 Navigator.push(context, MaterialPageRoute(builder: (_) => SSRMainScreen(
-  //                   endUserIp: '122.161.72.69',
-  //                   traceId: widget.traceId ?? '',
-  //                   tokenId: '',
-  //                   resultIndex: widget.resultIndex ?? '',
-  //                 )));
-  //               },
-  //               child: Text(
-  //                 "Continue",
-  //                 style: TextStyle(
-  //                   color: Colors.white,
-  //                   fontWeight: FontWeight.bold,
-  //                   fontSize: context.bodyLarge,
-  //                 ),
-  //               ),
-  //             ),
-  //     ),
-  //   );
-  // }
-  Widget _buildContinueButton(BuildContext context) {
-    if (_submittingItinerary) {
-      return _buildLoadingCard(context, 'Confirming your itinerary...');
-    }
-    return SizedBox(
-      width: double.infinity,
-      height: context.buttonHeight + 10,
-      child: ElevatedButton(
-        onPressed: () {
-          print('FlightBookingScreen: Continue booking pressed');
-          _validateAndProceed();
-        },
-        style: ElevatedButton.styleFrom(
-          backgroundColor: _blue,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(context.r(18)),
-          ),
-          elevation: 0,
-        ),
-        child: Text(
-          'Continue',
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            fontSize: context.bodyLarge,
-          ),
-        ),
       ),
     );
   }
@@ -1809,6 +2387,60 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
         .map((t) => '${t['title'] ?? ''} ${t['firstName'] ?? ''} ${t['lastName'] ?? ''}'.trim())
         .where((n) => n.isNotEmpty)
         .toList();
+
+    // Seats / meals / baggage come next in the flow. SelectSeats and
+    // SelectSSR must run before CreateItinerary, because they're what put
+    // the add-on cost onto the server-side session that CreateItinerary
+    // then prices — so the add-ons screen itself runs CreateItinerary (via
+    // `_completeBooking`, passed in as `onProceed`) and pushes straight to
+    // payment from its own context on Skip/Continue, instead of popping
+    // back to this screen first.
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => SeatAddonsScreen(
+          route: route,
+          totalPrice: widget.totalPrice,
+          traceId: widget.traceId,
+          resultIndex: widget.resultIndex,
+          price: widget.price,
+          travellerCount: _totalPax,
+          adultCount: _paxSplit.adults,
+          childCount: _paxSplit.children,
+          infantCount: _paxSplit.infants,
+          additionalLegs:
+              widget.routes.length > 1 ? widget.routes.sublist(1) : const [],
+          onProceed: (addOnsContext, addOns) => _completeBooking(
+            addOnsContext,
+            route: route,
+            sessionId: sessionId,
+            lead: lead,
+            travellers: travellers,
+            travellerNames: travellerNames,
+            addOns: addOns,
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Runs CreateItinerary with the traveller details collected on this
+  /// screen plus the add-on total chosen on [SeatAddonsScreen], then pushes
+  /// [AkFlightPaymentScreen] from [ctx] — [SeatAddonsScreen]'s own context —
+  /// so Skip/Continue land on payment directly. This never routes back
+  /// through [FlightBookingScreen]: on failure it simply leaves the user on
+  /// the add-ons screen to retry.
+  Future<void> _completeBooking(
+    BuildContext ctx, {
+    required FlightRouteSegment route,
+    required String sessionId,
+    required Map<String, dynamic> lead,
+    required List<Map<String, dynamic>> travellers,
+    required List<String> travellerNames,
+    required AddOnsSummary addOns,
+  }) async {
+    if (!mounted) return;
+    setState(() => _addOnsTotal = addOns.total);
 
     final contactInfo = AkContactInfoRequestEntity(
       title: (lead['title'] ?? 'Mr').toString(),
@@ -1845,9 +2477,9 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
               fName: (t['firstName'] ?? '').toString(),
               lName: (t['lastName'] ?? '').toString(),
               gender: _mapGender((t['gender'] ?? '').toString()),
-              // The form has no child/infant sub-forms today — every
-              // traveller is submitted as an adult (pre-existing limitation).
-              ptc: 'ADT',
+              ptc: (t['paxType'] ?? 'ADT').toString().isEmpty
+                  ? 'ADT'
+                  : (t['paxType'] ?? 'ADT').toString(),
               dob: _toIsoDate((t['dateOfBirth'] ?? '').toString()),
               email: (t['email'] ?? '').toString(),
               pMobileNo: (t['mobileNumber'] ?? '').toString(),
@@ -1857,22 +2489,26 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
     setState(() => _submittingItinerary = true);
     _itineraryRetried = false;
 
-    final result = await _submitItinerary(sessionId, contactInfo, akTravellers);
+    final result = await _submitItinerary(sessionId, contactInfo, akTravellers, uiContext: ctx);
 
     if (!mounted) return;
     setState(() => _submittingItinerary = false);
-    if (result == null) return;
+    if (result == null || !ctx.mounted) return;
 
+    // Add-ons → Review → Payment. The review screen is read-only and pushes
+    // AkFlightPaymentScreen itself with these same arguments.
     Navigator.push(
-      context,
+      ctx,
       MaterialPageRoute(
-        builder: (_) => AkFlightPaymentScreen(
+        builder: (_) => AkTripReviewScreen(
           route: route,
           leadPassenger: lead,
+          travellers: travellers,
           netAmount: result.netAmount,
           additionalLegs: widget.routes.length > 1 ? widget.routes.sublist(1) : const [],
-          travellerCount: widget.travellerCount,
+          travellerCount: _totalPax,
           travellerNames: travellerNames,
+          addOns: addOns,
         ),
       ),
     );
@@ -1882,11 +2518,17 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
   /// `itinerary_changed`, shows a confirm dialog and retries exactly once
   /// (per the doc's caution that there's no built-in loop guard) before
   /// giving up and asking the user to tap Continue again.
+  ///
+  /// [uiContext] — when given — is used for the failure snackbar and the
+  /// confirm dialog instead of this screen's own `context`, since by the
+  /// time this runs the visible screen is [SeatAddonsScreen], not this one.
   Future<AkCreateItineraryEntity?> _submitItinerary(
     String sessionId,
     AkContactInfoRequestEntity contactInfo,
-    List<AkTravellerRequestEntity> travellers,
-  ) async {
+    List<AkTravellerRequestEntity> travellers, {
+    BuildContext? uiContext,
+  }) async {
+    final feedbackContext = uiContext ?? context;
     _createItineraryBloc.add(LoadAkCreateItineraryEvent(
       AkCreateItineraryRequestEntity(
         sessionId: sessionId,
@@ -1900,8 +2542,8 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
     );
 
     if (state is AkCreateItineraryFailed) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+      if (feedbackContext.mounted) {
+        ScaffoldMessenger.of(feedbackContext).showSnackBar(
           SnackBar(
             content: Text(state.error.message ?? 'Could not confirm your itinerary. Please try again.'),
           ),
@@ -1914,25 +2556,25 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
     if (!data.itineraryChanged) return data;
 
     if (_itineraryRetried) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+      if (feedbackContext.mounted) {
+        ScaffoldMessenger.of(feedbackContext).showSnackBar(
           const SnackBar(content: Text('Your itinerary keeps changing — please tap Continue again.')),
         );
       }
       return null;
     }
 
-    if (!mounted) return null;
-    final accepted = await _confirmItineraryChange(data.netAmount);
+    if (!feedbackContext.mounted) return null;
+    final accepted = await _confirmItineraryChange(data.netAmount, uiContext: feedbackContext);
     if (!accepted) return null;
 
     _itineraryRetried = true;
-    return _submitItinerary(sessionId, contactInfo, travellers);
+    return _submitItinerary(sessionId, contactInfo, travellers, uiContext: uiContext);
   }
 
-  Future<bool> _confirmItineraryChange(double newAmount) async {
+  Future<bool> _confirmItineraryChange(double newAmount, {BuildContext? uiContext}) async {
     final wantsToContinue = await showDialog<bool>(
-      context: context,
+      context: uiContext ?? context,
       barrierDismissible: false,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Itinerary Updated'),

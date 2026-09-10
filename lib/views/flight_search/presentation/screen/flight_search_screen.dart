@@ -3448,6 +3448,9 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
         flight.currency,
       ),
       travellerCount: widget.travellers,
+      adultCount: widget.adults,
+      childCount: widget.children,
+      infantCount: widget.infants,
       fareFamilyOptions: flight.fareFamilyOptions,
     );
   }
@@ -3477,6 +3480,9 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
       duration: "${first.flight.duration ?? '--'} min",
       price: _convertFlightPrice(first.amount, first.flight.currency),
       travellerCount: widget.travellers,
+      adultCount: widget.adults,
+      childCount: widget.children,
+      infantCount: widget.infants,
       fareFamilyOptions: first.flight.fareFamilyOptions,
       tripType: widget.fareType,
       additionalLegs: selections.sublist(1),

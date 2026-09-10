@@ -33,7 +33,6 @@ import 'package:wander_nova/views/flight_search/domain/entities/fare_trip_type.d
 import 'package:wander_nova/views/AKSmartPricer/domain/usecase/AKSmartPricer_usecase.dart';
 import 'package:wander_nova/views/AKGetSPricer/domain/usecase/AKGetSPricer_usecase.dart';
 import 'package:wander_nova/views/flight_search/presentation/screen/booking_screen.dart';
-import 'package:wander_nova/views/flight_search/presentation/screen/seat_addons_screen.dart';
 import 'package:wander_nova/core/resources/app_colours.dart';
 
 class FlightDetailsPopup extends StatefulWidget {
@@ -51,6 +50,14 @@ class FlightDetailsPopup extends StatefulWidget {
   final String price;
   final String? traceId;
   final int travellerCount;
+
+  /// The SearchCard's passenger split. Threaded through so the booking form
+  /// can render one Adult / Child / Infant block per selected passenger
+  /// instead of guessing from [travellerCount].
+  final int adultCount;
+  final int childCount;
+  final int infantCount;
+
   final List<FareFamilyIndexEntity>? fareFamilyOptions;
   final String tripType;
   final List<FlightLegSelection> additionalLegs;
@@ -71,6 +78,9 @@ class FlightDetailsPopup extends StatefulWidget {
     required this.price,
     this.traceId,
     this.travellerCount = 1,
+    this.adultCount = 0,
+    this.childCount = 0,
+    this.infantCount = 0,
     this.fareFamilyOptions,
     this.tripType = 'ON',
     this.additionalLegs = const [],
@@ -91,6 +101,9 @@ class FlightDetailsPopup extends StatefulWidget {
     required String price,
     String? traceId,
     int travellerCount = 1,
+    int adultCount = 0,
+    int childCount = 0,
+    int infantCount = 0,
     List<FareFamilyIndexEntity>? fareFamilyOptions,
     String tripType = 'ON',
     List<FlightLegSelection> additionalLegs = const [],
@@ -117,6 +130,9 @@ class FlightDetailsPopup extends StatefulWidget {
           price: price,
           traceId: traceId,
           travellerCount: travellerCount,
+          adultCount: adultCount,
+          childCount: childCount,
+          infantCount: infantCount,
           fareFamilyOptions: fareFamilyOptions,
           tripType: tripType,
           additionalLegs: additionalLegs,
@@ -2305,6 +2321,7 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup> with SingleTick
     final totalPrice = '₹${data.netAmount.toStringAsFixed(0)}';
     Navigator.pop(context);
 
+
     final additionalLegRoutes = data.trips.length > 1
         ? data.trips
         .sublist(1)
@@ -2317,6 +2334,8 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup> with SingleTick
       return FlightRouteSegment(
         from: legFirstFlight.departureCode,
         to: legLastFlight.arrivalCode,
+        fromCity: _shortCityName(legFirstFlight.depAirportName),  // NEW
+        toCity: _shortCityName(legLastFlight.arrAirportName),
         departureTime: _formatTime(legFirstFlight.departureTime),
         arrivalTime: _formatTime(legLastFlight.arrivalTime),
         departureDate: _formatDate(legFirstFlight.departureTime),
@@ -2339,10 +2358,14 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup> with SingleTick
     final segments = journey.segments;
     final firstFlight = segments.first.flight;
     final lastFlight = segments.last.flight;
+    final fromCity = _shortCityName(firstFlight.depAirportName);
+    final toCity = _shortCityName(lastFlight.arrAirportName);
 
     final route = FlightRouteSegment(
       from: firstFlight.departureCode,
       to: lastFlight.arrivalCode,
+      fromCity: fromCity,  // NEW - pass city name
+      toCity: toCity,
       price: totalPrice,
       traceId: widget.traceId,
       resultIndex: widget.resultIndex,
@@ -2362,22 +2385,30 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup> with SingleTick
       akFareData: _pricerData,
     );
 
-    final pricer = _pricerData;
-
+    // Search → Booking → Add-ons → Payment: the booking screen collects
+    // traveller details first and pushes [SeatAddonsScreen] itself, so that
+    // SelectSeats/SelectSSR still run before CreateItinerary prices the
+    // session.
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => SeatAddonsScreen(
-          route: route,
+        builder: (_) => FlightBookingScreen(
+          routes: [route, ...additionalLegRoutes],
           totalPrice: totalPrice,
           traceId: widget.traceId,
           resultIndex: widget.resultIndex,
           price: totalPrice,
           travellerCount: widget.travellerCount,
-          adultCount: pricer?.adultCount ?? 0,
-          childCount: pricer?.childCount ?? 0,
-          infantCount: pricer?.infantCount ?? 0,
-          additionalLegs: additionalLegRoutes,
+          // Prefer the SearchCard's own split; fall back to what GetSPricer
+          // echoed back for this fare when the caller didn't pass one.
+          adultCount: widget.adultCount > 0
+              ? widget.adultCount
+              : (data.adultCount > 0 ? data.adultCount : 0),
+          childCount:
+              widget.childCount > 0 ? widget.childCount : data.childCount,
+          infantCount:
+              widget.infantCount > 0 ? widget.infantCount : data.infantCount,
+          isLoggedIn: false,
         ),
       ),
     );
