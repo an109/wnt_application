@@ -770,17 +770,39 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
 
   bool _inSlot(int hour, String slot) {
     switch (slot) {
-      case '05am-12pm':
-        return hour >= 5 && hour < 12;
-      case '12pm-6pm':
+      // Figma "Flight Filter own way" windows (see filter_screen._timeSlots).
+      case '0-6':
+        return hour < 6;
+      case '6-12':
+        return hour >= 6 && hour < 12;
+      case '12-18':
         return hour >= 12 && hour < 18;
-      case '6pm-11pm':
-        return hour >= 18 && hour < 23;
-      case '11pm-05am':
-        return hour >= 23 || hour < 5;
+      case '18-24':
+        return hour >= 18;
       default:
         return false;
     }
+  }
+
+  /// Cheapest fare per departure-time window ('0-6' / '6-12' / '12-18' /
+  /// '18-24'), in the API currency, for the filter screen's time cards.
+  Map<String, double> _buildTimePrices(
+      List<FlightEntity> flights, String? Function(FlightEntity) isoOf) {
+    final map = <String, double>{};
+    for (final f in flights) {
+      final h = _hourOf(isoOf(f));
+      final slot = h < 6
+          ? '0-6'
+          : h < 12
+              ? '6-12'
+              : h < 18
+                  ? '12-18'
+                  : '18-24';
+      final price = (f.totalFare ?? 0).toDouble();
+      if (price <= 0) continue;
+      if (!map.containsKey(slot) || price < map[slot]!) map[slot] = price;
+    }
+    return map;
   }
 
   // ---------------------------------------------------------------------------
@@ -1040,6 +1062,7 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
       onApply: _onFilterApply,
       apiCurrency: apiCurrency,
       originCityName: widget.from,
+      destinationCityName: widget.to,
       stopMinPrices: _buildStopMinPrices(_allFlights),
       maxStopsAvailable: maxStops,
       currentSelectedStops: _selectedStops,
@@ -1050,6 +1073,8 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
       arrivalAirports: arrivalAirports,
       departureAirportPrices: _buildDepartureAirportPrices(_allFlights),
       arrivalAirportPrices: _buildArrivalAirportPrices(_allFlights),
+      departureTimePrices: _buildTimePrices(_allFlights, (f) => f.departureTime),
+      arrivalTimePrices: _buildTimePrices(_allFlights, (f) => f.arrivalTime),
       currentSelectedDepartureAirports: _selectedDepartureAirports.isEmpty
           ? departureAirports.keys.toSet()
           : _selectedDepartureAirports,
@@ -1357,15 +1382,53 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
     String pendingSort = _selectedSort;
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: Colors.white,
+      backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(context.r(20))),
-      ),
       builder: (sheetContext) {
         return StatefulBuilder(
           builder: (context, setSheetState) {
-            return SafeArea(
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Close — floating just above the sheet, top right.
+                Padding(
+                  padding: EdgeInsets.only(
+                      right: context.w(16), bottom: context.h(10)),
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => Navigator.of(sheetContext).pop(),
+                      child: Container(
+                        width: context.w(34),
+                        height: context.w(34),
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.18),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Icon(Icons.close_rounded,
+                            size: context.w(19), color: AppColors.black),
+                      ),
+                    ),
+                  ),
+                ),
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.vertical(
+                        top: Radius.circular(context.r(20))),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: SafeArea(
               top: false,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -1443,6 +1506,9 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
                   ),
                 ],
               ),
+                  ),
+                ),
+              ],
             );
           },
         );

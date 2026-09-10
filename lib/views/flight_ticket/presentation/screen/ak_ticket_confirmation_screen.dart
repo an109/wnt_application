@@ -393,9 +393,13 @@ class _AkTicketConfirmationScreenState extends State<AkTicketConfirmationScreen>
       children: [
         SizedBox(
           height: context.h(180),
+          // child: Lottie.asset(
+          //   'assets/animation/success.json',
+          //   repeat: false,
+          //   fit: BoxFit.contain,
           child: Lottie.asset(
-            'assets/animation/success.json',
-            repeat: false,
+            'assets/animation/celebrate.json',
+            repeat: true,
             fit: BoxFit.contain,
             errorBuilder: (_, __, ___) => Center(
               child: Container(
@@ -403,6 +407,8 @@ class _AkTicketConfirmationScreenState extends State<AkTicketConfirmationScreen>
                 height: context.w(74),
                 decoration: const BoxDecoration(color: Color(0xFFEAFBF1), shape: BoxShape.circle),
                 child: Icon(Icons.check_circle_rounded, color: const Color(0xFF16A34A), size: context.w(44)),
+
+                // ),
               ),
             ),
           ),

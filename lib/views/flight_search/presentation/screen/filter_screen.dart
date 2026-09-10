@@ -72,8 +72,11 @@ class FlightFilterScreen extends StatefulWidget {
   final String apiCurrency;
 
   // ---- Stops ("Stop From <origin>") -----------------------------------------
-  /// Origin city name, for the "Stop From …" heading.
+  /// Origin city name, for the "Stop From …" / "Departure From …" headings.
   final String originCityName;
+
+  /// Destination city name, for the "Arrival at …" heading.
+  final String destinationCityName;
 
   /// Cheapest fare per stop bucket (0 / 1 / 2+), in [apiCurrency].
   final Map<int, double> stopMinPrices;
@@ -93,6 +96,12 @@ class FlightFilterScreen extends StatefulWidget {
   final Map<String, String> arrivalAirports; // airport code -> airport name
   final Map<String, double> departureAirportPrices;
   final Map<String, double> arrivalAirportPrices;
+
+  /// Cheapest fare per departure / arrival time bucket ('0-6' / '6-12' /
+  /// '12-18' / '18-24'), in [apiCurrency]. Optional — an empty map just
+  /// renders the time cards without a price line.
+  final Map<String, double> departureTimePrices;
+  final Map<String, double> arrivalTimePrices;
   final Set<String> currentSelectedDepartureAirports;
   final Set<String> currentSelectedArrivalAirports;
   final bool currentCheckedInBaggage;
@@ -116,6 +125,7 @@ class FlightFilterScreen extends StatefulWidget {
     required this.onApply,
     this.apiCurrency = 'INR',
     this.originCityName = '',
+    this.destinationCityName = '',
     this.stopMinPrices = const {},
     this.maxStopsAvailable = 0,
     this.currentSelectedStops = const {},
@@ -126,6 +136,8 @@ class FlightFilterScreen extends StatefulWidget {
     this.arrivalAirports = const {},
     this.departureAirportPrices = const {},
     this.arrivalAirportPrices = const {},
+    this.departureTimePrices = const {},
+    this.arrivalTimePrices = const {},
     this.currentSelectedDepartureAirports = const {},
     this.currentSelectedArrivalAirports = const {},
     this.currentCheckedInBaggage = false,
@@ -165,18 +177,14 @@ class _FlightFilterScreenState extends State<FlightFilterScreen> {
   late bool _hideNearbyAirports;
   late bool _hideSelfTransferFlights;
 
+  // Figma "Flight Filter own way" — four fixed windows. Keys are the tokens
+  // handed back in [FlightFilterResult]; flight_search_screen._inSlot buckets
+  // flights by these same tokens.
   static const _timeSlots = {
-    '05am-12pm': 'Morning',
-    '12pm-6pm': 'Afternoon',
-    '6pm-11pm': 'Evening',
-    '11pm-05am': 'Night',
-  };
-
-  static const _timeIcons = {
-    '05am-12pm': Icons.wb_sunny_outlined,
-    '12pm-6pm': Icons.wb_cloudy_outlined,
-    '6pm-11pm': Icons.nights_stay_outlined,
-    '11pm-05am': Icons.bedtime_outlined,
+    '0-6': 'Before 6AM',
+    '6-12': '6AM-12Noon',
+    '12-18': '12 Noon-6PM',
+    '18-24': 'After 6PM',
   };
 
   @override
@@ -406,8 +414,10 @@ class _FlightFilterScreenState extends State<FlightFilterScreen> {
                   // DEPARTURE TIME SECTION
                   // ==========================================================
                   _sectionContainer(
-                    title: "Departure Time",
-                    child: _buildTimeGrid(_departureTimes),
+                    title: widget.originCityName.isNotEmpty
+                        ? "Departure From ${widget.originCityName}"
+                        : "Departure Time",
+                    child: _buildTimeGrid(_departureTimes, widget.departureTimePrices),
                   ),
                   SizedBox(height: context.h(20)),
 
@@ -415,19 +425,11 @@ class _FlightFilterScreenState extends State<FlightFilterScreen> {
                   // ARRIVAL TIME SECTION
                   // ==========================================================
                   _sectionContainer(
-                    title: "Arrival Time",
-                    child: _buildTimeGrid(_arrivalTimes),
+                    title: widget.destinationCityName.isNotEmpty
+                        ? "Arrival at ${widget.destinationCityName}"
+                        : "Arrival Time",
+                    child: _buildTimeGrid(_arrivalTimes, widget.arrivalTimePrices),
                   ),
-                  SizedBox(height: context.h(20)),
-
-                  // ==========================================================
-                  // FARE TYPE SECTION
-                  // ==========================================================
-                  _sectionContainer(
-                    title: "Fare Type",
-                    child: _buildFareType(),
-                  ),
-
 
                   // ==========================================================
                   // OTHER POPULAR FILTER SECTION - NEW
@@ -515,16 +517,20 @@ class _FlightFilterScreenState extends State<FlightFilterScreen> {
                 border: Border(bottom: BorderSide(color: _stroke, width: 0.5)),
               ),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: context.fs(18),
-                      fontWeight: FontWeight.w400,
-                      color: AppColors.subhead,
+                  Expanded(
+                    child: Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: context.fs(18),
+                        fontWeight: FontWeight.w400,
+                        color: AppColors.subhead,
+                      ),
                     ),
                   ),
+                  SizedBox(width: context.w(8)),
                   trailing,
                 ],
               ),
@@ -569,7 +575,30 @@ class _FlightFilterScreenState extends State<FlightFilterScreen> {
   }
 
   // ================================================================
-  // AIRPORT SECTION - NEW
+  // Figma checkbox — a 20px blue rounded square (white tick) when selected,
+  // a 0.5px #CCCCCC outline when not. Replaces Material `Checkbox` so the
+  // Airlines / Airports / Other-popular rows match the design exactly.
+  // ================================================================
+  Widget _check(bool selected) {
+    return Container(
+      width: context.w(20),
+      height: context.w(20),
+      decoration: BoxDecoration(
+        color: selected ? AppColors.AppBlue : Colors.white,
+        borderRadius: BorderRadius.circular(context.r(4)),
+        border: Border.all(
+          color: selected ? AppColors.AppBlue : _stroke,
+          width: selected ? 1 : 0.5,
+        ),
+      ),
+      child: selected
+          ? Icon(Icons.check_rounded, size: context.w(14), color: Colors.white)
+          : null,
+    );
+  }
+
+  // ================================================================
+  // AIRPORT SECTION - NEW  (Figma: name + price stacked, checkbox right)
   // ================================================================
   Widget _buildAirportSection({
     required Map<String, String> airports,
@@ -584,33 +613,45 @@ class _FlightFilterScreenState extends State<FlightFilterScreen> {
         ...names.map((code) {
           final name = airports[code] ?? code;
           final price = prices[code];
-          return Row(
-            children: [
-              Expanded(
-                child: Text(
-                  name,
-                  style: TextStyle(fontSize: context.fs(13)),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              if (price != null) ...[
-                Text(
-                  _money(price),
-                  style: TextStyle(
-                    fontSize: context.fs(11),
-                    color: AppColors.AppBlue,
-                    fontWeight: FontWeight.w600,
+          final isSel = selected.contains(code);
+          return GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => onChanged(code, !isSel),
+            child: Padding(
+              padding: EdgeInsets.symmetric(vertical: context.h(12)),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          name,
+                          style: TextStyle(
+                              fontSize: context.fs(16), color: AppColors.black),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        if (price != null) ...[
+                          SizedBox(height: context.h(2)),
+                          Text(
+                            _money(price),
+                            style: TextStyle(
+                              fontSize: context.fs(13),
+                              color: AppColors.black,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
                   ),
-                ),
-                SizedBox(width: context.w(4)),
-              ],
-              Checkbox(
-                value: selected.contains(code),
-                activeColor: AppColors.AppBlue,
-                onChanged: (v) => onChanged(code, v ?? false),
+                  SizedBox(width: context.w(12)),
+                  _check(isSel),
+                ],
               ),
-            ],
+            ),
           );
         }),
       ],
@@ -647,22 +688,28 @@ class _FlightFilterScreenState extends State<FlightFilterScreen> {
       bool value,
       void Function(bool?) onChanged,
       ) {
-    return CheckboxListTile(
-      value: value,
-      onChanged: onChanged,
-      activeColor: AppColors.AppBlue,
-      checkColor: AppColors.subhead,
-      title: Text(
-        label,
-        style: TextStyle(
-          fontSize: context.fs(16),
-          fontWeight: FontWeight.w400,
-          color: AppColors.black,
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => onChanged(!value),
+      child: Padding(
+        padding: EdgeInsets.symmetric(vertical: context.h(12)),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: context.fs(16),
+                  fontWeight: FontWeight.w400,
+                  color: AppColors.black,
+                ),
+              ),
+            ),
+            SizedBox(width: context.w(12)),
+            _check(value),
+          ],
         ),
       ),
-      controlAffinity: ListTileControlAffinity.trailing,
-      contentPadding: EdgeInsets.zero,
-      dense: true,
     );
   }
 
@@ -951,155 +998,143 @@ class _FlightFilterScreenState extends State<FlightFilterScreen> {
         ...names.map((name) {
           final count = widget.airlineCounts[name] ?? 0;
           final minPrice = widget.airlineMinPrices[name];
-          return Row(
-            children: [
-              AirlineLogo(
-                code: widget.airlineCodes[name] ?? '',
-                name: name,
-                size: context.w(26),
-                borderRadius: BorderRadius.circular(context.w(13)),
-              ),
-              SizedBox(width: context.w(8)),
-              Expanded(
-                child: Text(
-                  name,
-                  style: TextStyle(fontSize: context.fs(13)),
-                ),
-              ),
-              Text(
-                "($count)",
-                style: TextStyle(
-                  fontSize: context.fs(11),
-                  color: Colors.grey.shade500,
-                ),
-              ),
-              if (minPrice != null) ...[
-                SizedBox(width: context.w(4)),
-                Text(
-                  _money(minPrice),
-                  style: TextStyle(
-                    fontSize: context.fs(11),
-                    color: AppColors.AppBlue,
-                    fontWeight: FontWeight.w600,
+          final isSel = _selectedAirlines.contains(name);
+          return GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => setState(() {
+              if (isSel) {
+                _selectedAirlines.remove(name);
+              } else {
+                _selectedAirlines.add(name);
+              }
+            }),
+            child: Padding(
+              padding: EdgeInsets.symmetric(vertical: context.h(12)),
+              child: Row(
+                children: [
+                  AirlineLogo(
+                    code: widget.airlineCodes[name] ?? '',
+                    name: name,
+                    size: context.w(32),
+                    borderRadius: BorderRadius.circular(context.w(8)),
                   ),
-                ),
-              ],
-              Checkbox(
-                value: _selectedAirlines.contains(name),
-                activeColor: AppColors.AppBlue,
-                onChanged: (v) {
-                  setState(() {
-                    if (v == true) {
-                      _selectedAirlines.add(name);
-                    } else {
-                      _selectedAirlines.remove(name);
-                    }
-                  });
-                },
+                  SizedBox(width: context.w(16)),
+                  Expanded(
+                    child: Text(
+                      name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                          fontSize: context.fs(16), color: AppColors.black),
+                    ),
+                  ),
+                  Text(
+                    "($count)",
+                    style: TextStyle(
+                      fontSize: context.fs(11),
+                      color: Colors.grey.shade500,
+                    ),
+                  ),
+                  if (minPrice != null) ...[
+                    SizedBox(width: context.w(4)),
+                    Text(
+                      _money(minPrice),
+                      style: TextStyle(
+                        fontSize: context.fs(11),
+                        color: AppColors.AppBlue,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                  SizedBox(width: context.w(12)),
+                  _check(isSel),
+                ],
               ),
-            ],
+            ),
           );
         }),
       ],
     );
   }
 
-  Widget _buildTimeGrid(Map<String, bool> map) {
-    return Wrap(
-      spacing: context.w(8),
-      runSpacing: context.h(8),
-      children: _timeSlots.keys.map((slot) {
-        final selected = map[slot] ?? false;
-        final label = _timeSlots[slot]!;
-        final icon = _timeIcons[slot]!;
-        return GestureDetector(
-          onTap: () => setState(() => map[slot] = !selected),
+  /// Figma "Departure From …" / "Arrival at …" — a 2-per-row grid of bordered
+  /// cards (label + cheapest fare for that window). A window with no flights
+  /// (price 0 / null when prices are supplied) is dimmed and not tappable.
+  Widget _buildTimeGrid(Map<String, bool> map, Map<String, double> prices) {
+    final slots = _timeSlots.keys.toList();
+    final hasPrices = prices.isNotEmpty;
+
+    Widget card(String slot) {
+      final selected = map[slot] ?? false;
+      final label = _timeSlots[slot]!;
+      final price = prices[slot];
+      final available = !hasPrices || (price != null && price > 0);
+
+      return Opacity(
+        opacity: available ? 1 : 0.54,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: available ? () => setState(() => map[slot] = !selected) : null,
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
+            duration: const Duration(milliseconds: 160),
             padding: EdgeInsets.symmetric(
-              horizontal: context.w(12),
-              vertical: context.h(8),
+              horizontal: context.w(16),
+              vertical: context.h(6),
             ),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(context.r(10)),
+              borderRadius: BorderRadius.circular(context.r(4)),
               color: selected
-                  ? AppColors.AppBlue.withValues(alpha: 0.08)
-                  : Colors.grey.shade50,
+                  ? AppColors.AppBlue.withValues(alpha: 0.06)
+                  : Colors.white,
               border: Border.all(
-                color: selected ? AppColors.AppBlue : Colors.grey.shade200,
+                color: selected ? AppColors.AppBlue : _stroke,
+                width: selected ? 1 : 0.5,
               ),
             ),
-            child: Row(
+            child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(
-                  icon,
-                  size: context.w(14),
-                  color: selected ? AppColors.AppBlue : Colors.grey.shade500,
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: context.fs(12),
+                    fontWeight: FontWeight.w600,
+                    color: selected ? AppColors.AppBlue : AppColors.black,
+                  ),
                 ),
-                SizedBox(width: context.w(5)),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      label,
-                      style: TextStyle(
-                        fontSize: context.fs(11),
-                        fontWeight: FontWeight.w600,
-                        color: selected ? AppColors.AppBlue : const Color(0xff2C2F36),
-                      ),
-                    ),
-                    Text(
-                      slot,
-                      style: TextStyle(
-                        fontSize: context.fs(9),
-                        color: Colors.grey.shade500,
-                      ),
-                    ),
-                  ],
+                SizedBox(height: context.h(2)),
+                Text(
+                  hasPrices ? _money(price ?? 0) : '',
+                  style: TextStyle(
+                    fontSize: context.fs(10),
+                    color: AppColors.subhead,
+                  ),
                 ),
               ],
             ),
           ),
-        );
-      }).toList(),
-    );
-  }
+        ),
+      );
+    }
 
-  Widget _buildFareType() {
     return Column(
       children: [
-        _fareCheckTile("Refundable", _refundable, (v) {
-          setState(() => _refundable = v ?? false);
-        }),
-        _fareCheckTile("Non-refundable", _nonRefundable, (v) {
-          setState(() => _nonRefundable = v ?? false);
-        }),
+        for (var i = 0; i < slots.length; i += 2) ...[
+          if (i > 0) SizedBox(height: context.h(12)),
+          Row(
+            children: [
+              Expanded(child: card(slots[i])),
+              SizedBox(width: context.w(12)),
+              if (i + 1 < slots.length)
+                Expanded(child: card(slots[i + 1]))
+              else
+                const Expanded(child: SizedBox.shrink()),
+            ],
+          ),
+        ],
       ],
-    );
-  }
-
-  Widget _fareCheckTile(
-      String label,
-      bool value,
-      void Function(bool?) onChanged,
-      ) {
-    return CheckboxListTile(
-      value: value,
-      onChanged: onChanged,
-      activeColor: AppColors.AppBlue,
-
-      title: Text(
-      label,
-      style: TextStyle(
-        fontSize: context.fs(16),
-        fontWeight: FontWeight.w400,
-        color: AppColors.black,
-      ),
-    ),
-      controlAffinity: ListTileControlAffinity.trailing,
-      contentPadding: EdgeInsets.zero,
-      dense: true,
     );
   }
 
@@ -1112,6 +1147,7 @@ class _FlightFilterScreenState extends State<FlightFilterScreen> {
       ),
       decoration: BoxDecoration(
         color: Colors.white,
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(context.r(24))),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.12),
@@ -1137,7 +1173,7 @@ class _FlightFilterScreenState extends State<FlightFilterScreen> {
             ),
           ),
           child: Text(
-            "DONE",
+            "APPLY FILTER",
             style: TextStyle(
               fontSize: context.fs(14),
               color: AppColors.white,

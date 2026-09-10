@@ -1970,7 +1970,7 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
                           ),
                         ),
                         SizedBox(width: context.w(4)),
-                        Icon(Icons.info_outline, size: context.w(12), color: _muted),
+                        Icon(Icons.info, size: context.w(12), color: _muted),
                       ],
                     ),
                     Text(

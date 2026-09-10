@@ -693,7 +693,7 @@ class _SeatAddonsScreenState extends State<SeatAddonsScreen> {
           final boxTop = h * 0.169;
           // Travel range: nose-ward start through to the tail-ward end,
           // keeping the box fully inside the illustration's 20px insets.
-          final startLeft = w * 0.12;
+          final startLeft = w * 0.2;
           final endLeft = w * 0.78 - boxW;
 
           return Stack(
@@ -701,7 +701,7 @@ class _SeatAddonsScreenState extends State<SeatAddonsScreen> {
               Positioned.fill(
                 child: Padding(
                   // Figma: image inset 20px each side, slight vertical bleed.
-                  padding: EdgeInsets.symmetric(horizontal: context.w(20)),
+                  padding: EdgeInsets.symmetric(horizontal: context.w(10)),
                   child: Image.asset('assets/NewIcons/flightSeat.png', fit: BoxFit.cover),
                 ),
               ),
@@ -2447,7 +2447,7 @@ class _SeatAddonsScreenState extends State<SeatAddonsScreen> {
                       ),
                     ),
                     SizedBox(width: context.w(4)),
-                    Icon(Icons.info_outline, size: context.w(12), color: AppColors.subhead),
+                    Icon(Icons.info, size: context.w(12), color: AppColors.subhead),
                   ],
                 ),
                 Text(

@@ -9,6 +9,7 @@ import 'package:wander_nova/core/resources/app_colours.dart';
 import '../../../../core/error/data_state.dart';
 import '../../../../core/utils/storage/shared_preference.dart';
 import '../../../../injection_container.dart';
+import '../../../../newUIWidgets/shine.dart';
 import '../../../MainApi/presentation/bloc/general_setting_bloc.dart';
 import '../../../MainApi/presentation/bloc/general_settings_event.dart';
 import '../../../MainApi/presentation/bloc/general_settings_state.dart';
@@ -30,6 +31,7 @@ const String _icMultiCity = 'assets/NewIcons/multicity.png';
 const String _icFrom = 'assets/NewIcons/from.png';
 const String _icTo = 'assets/NewIcons/to.png';
 const String _icDepartureCalendar = 'assets/NewIcons/departureCalendar.png';
+const String _icReturnCalendar = 'assets/Newimage/CA.png';
 const String _icTravellerAdult = 'assets/NewIcons/TravellerAdult.png';
 const String _icTravellerChild = 'assets/NewIcons/TravellerChild.png';
 const String _icTravellerBaby = 'assets/NewIcons/TravellerBaby.png';
@@ -638,8 +640,9 @@ class _SearchCardState extends State<SearchCard> {
                         Expanded(
                           child: _buildDateCard(
                             label: "RETURN",
-                            iconAsset: _icDepartureCalendar,
-                            iconColor: AppColors.AppBlue,
+                            iconAsset: _icReturnCalendar,
+                            // iconAsset: _icDepartureCalendar,
+                            // iconColor: AppColors.AppBlue,
                             date: isRoundTrip ? returnDate : null,
                             placeholder: "Own Way",
                             subPlaceholder: "-",
@@ -1525,63 +1528,127 @@ class _SearchCardState extends State<SearchCard> {
 
   // ------------------------------------------------------- SEARCH BUTTON
 
+  // Widget _buildSearchButton() {
+  //   return Center(
+  //     child: SizedBox(
+  //       width: context.w(150),
+  //       height: context.h(42),
+  //       child: ElevatedButton(
+  //         style: ElevatedButton.styleFrom(
+  //           backgroundColor: AppColors.orange,
+  //           foregroundColor: Colors.white,
+  //           elevation: 6,
+  //           shadowColor: AppColors.orange.withOpacity(0.45),
+  //           shape: RoundedRectangleBorder(
+  //             borderRadius: BorderRadius.circular(context.r(30)),
+  //           ),
+  //           // The pill's width is already fixed by the SizedBox above and its
+  //           // content is centred, so Material's default 24dp side padding only
+  //           // eats usable space. On a 360dp-wide phone it left 96dp of the
+  //           // 144dp button for a label + arrow that need 102dp, and the Row
+  //           // overflowed. Trimming it is invisible — the pill and the centred
+  //           // label stay exactly where they were.
+  //           padding: EdgeInsets.symmetric(horizontal: context.w(8)),
+  //         ),
+  //         onPressed: _isSearching ? null : _performSearch,
+  //         child: _isSearching
+  //             ? SizedBox(
+  //                 width: context.w(22),
+  //                 height: context.w(22),
+  //                 child: const CircularProgressIndicator(
+  //                   strokeWidth: 2,
+  //                   valueColor: AlwaysStoppedAnimation(Colors.white),
+  //                 ),
+  //               )
+  //             : FittedBox(
+  //                 fit: BoxFit.scaleDown,
+  //                 child: Row(
+  //                   // Required inside FittedBox, which lays its child out
+  //                   // unbounded — MainAxisSize.max would assert there.
+  //                   mainAxisSize: MainAxisSize.min,
+  //                   mainAxisAlignment: MainAxisAlignment.center,
+  //                   children: [
+  //                     Text(
+  //                       "Search Flight",
+  //                       style: TextStyle(
+  //                         fontSize: context.fs(14),
+  //                         fontWeight: FontWeight.w600,
+  //                       ),
+  //                     ),
+  //                     SizedBox(width: context.w(10)),
+  //                     Image.asset(
+  //                       'assets/NewIcons/arrowForward.png',
+  //                       width: context.w(9.54),
+  //                       height: context.w(13),
+  //                       color: Color(0xFFFFFFFF),
+  //                     ),
+  //                   ],
+  //                 ),
+  //               ),
+  //       ),
+  //     ),
+  //   );
+  // }
   Widget _buildSearchButton() {
+    // Shrink the inner content by the shine's thickness so the outer pill
+    // (shine + button) still measures exactly 150×42, matching your vector.
+    const double shineWidth = 2.5;
+
     return Center(
-      child: SizedBox(
-        width: context.w(150),
-        height: context.h(42),
-        child: ElevatedButton(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.orange,
-            foregroundColor: Colors.white,
-            elevation: 6,
-            shadowColor: AppColors.orange.withOpacity(0.45),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(context.r(30)),
+      child: ShineBorderButton(
+        enabled: !_isSearching,
+        borderRadius: context.r(30),
+        borderWidth: shineWidth,
+        shineColor: const Color(0xFFFFE0B2), // warm highlight
+        duration: const Duration(seconds: 2, milliseconds: 500),
+        child: SizedBox(
+          width: context.w(150) - (shineWidth * 2),
+          height: context.h(42) - (shineWidth * 2),
+          child: ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.orange,
+              foregroundColor: Colors.white,
+              elevation: 6,
+              shadowColor: AppColors.orange.withOpacity(0.45),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(context.r(30)),
+              ),
+              padding: EdgeInsets.symmetric(horizontal: context.w(8)),
             ),
-            // The pill's width is already fixed by the SizedBox above and its
-            // content is centred, so Material's default 24dp side padding only
-            // eats usable space. On a 360dp-wide phone it left 96dp of the
-            // 144dp button for a label + arrow that need 102dp, and the Row
-            // overflowed. Trimming it is invisible — the pill and the centred
-            // label stay exactly where they were.
-            padding: EdgeInsets.symmetric(horizontal: context.w(8)),
+            onPressed: _isSearching ? null : _performSearch,
+            child: _isSearching
+                ? SizedBox(
+              width: context.w(22),
+              height: context.w(22),
+              child: const CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation(Colors.white),
+              ),
+            )
+                : FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    "Search Flight",
+                    style: TextStyle(
+                      fontSize: context.fs(14),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  SizedBox(width: context.w(10)),
+                  Image.asset(
+                    'assets/NewIcons/arrowForward.png',
+                    width: context.w(9.54),
+                    height: context.w(13),
+                    color: const Color(0xFFFFFFFF),
+                  ),
+                ],
+              ),
+            ),
           ),
-          onPressed: _isSearching ? null : _performSearch,
-          child: _isSearching
-              ? SizedBox(
-                  width: context.w(22),
-                  height: context.w(22),
-                  child: const CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation(Colors.white),
-                  ),
-                )
-              : FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Row(
-                    // Required inside FittedBox, which lays its child out
-                    // unbounded — MainAxisSize.max would assert there.
-                    mainAxisSize: MainAxisSize.min,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        "Search Flight",
-                        style: TextStyle(
-                          fontSize: context.fs(14),
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      SizedBox(width: context.w(10)),
-                      Image.asset(
-                        'assets/NewIcons/arrowForward.png',
-                        width: context.w(9.54),
-                        height: context.w(13),
-                        color: Color(0xFFFFFFFF),
-                      ),
-                    ],
-                  ),
-                ),
         ),
       ),
     );
