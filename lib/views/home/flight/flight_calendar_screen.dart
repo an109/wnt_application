@@ -13,6 +13,15 @@ class FlightCalendarScreen extends StatefulWidget {
   final DateTime firstDate;
   final DateTime lastDate;
 
+  /// Wording for the two date pickers. Defaults to the flight flow
+  /// ("Departure" / "Return"); the hotel flow passes "Check-in" / "Check-out".
+  final String startLabel;
+  final String endLabel;
+
+  /// Empty-state text inside each picker when no date is chosen yet.
+  final String startEmptyText;
+  final String endEmptyText;
+
   const FlightCalendarScreen({
     super.key,
     this.initialDeparture,
@@ -21,6 +30,10 @@ class FlightCalendarScreen extends StatefulWidget {
     this.startWithReturn = false,
     required this.firstDate,
     required this.lastDate,
+    this.startLabel = 'Departure',
+    this.endLabel = 'Return',
+    this.startEmptyText = 'Select date',
+    this.endEmptyText = 'Add Return Date',
   });
 
   @override
@@ -88,14 +101,18 @@ class _FlightCalendarScreenState extends State<FlightCalendarScreen> {
                       height: context.w(17),
                     ),
                   ),
-                  Text(
-                    _picking == _PickTarget.departure
-                        ? 'Select Departure Date'
-                        : 'Select Return Date',
-                    style: TextStyle(
-                      fontSize: context.fs(20),
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.black,
+                  Expanded(
+                    child: Text(
+                      _picking == _PickTarget.departure
+                          ? 'Select ${widget.startLabel} Date'
+                          : 'Select ${widget.endLabel} Date',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: context.fs(20),
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.black,
+                      ),
                     ),
                   ),
                 ],
@@ -111,7 +128,8 @@ class _FlightCalendarScreenState extends State<FlightCalendarScreen> {
                 children: [
                   Expanded(
                     child: _floatingLabelDatePicker(
-                      label: 'Departure',
+                      label: widget.startLabel,
+                      emptyText: widget.startEmptyText,
                       date: _departure,
                       isActive: _picking == _PickTarget.departure,
                       onTap: () =>
@@ -122,7 +140,8 @@ class _FlightCalendarScreenState extends State<FlightCalendarScreen> {
                   Expanded(
                     child: _roundTrip
                         ? _floatingLabelDatePicker(
-                      label: 'Return',
+                      label: widget.endLabel,
+                      emptyText: widget.endEmptyText,
                       date: _return,
                       isActive: _picking == _PickTarget.returnDate,
                       onTap: () => setState(
@@ -234,6 +253,7 @@ class _FlightCalendarScreenState extends State<FlightCalendarScreen> {
     required DateTime? date,
     required bool isActive,
     required VoidCallback onTap,
+    String emptyText = 'Select date',
   }) {
     return GestureDetector(
       onTap: onTap,
@@ -282,12 +302,16 @@ class _FlightCalendarScreenState extends State<FlightCalendarScreen> {
                           ),
                           SizedBox(width: context.w(4)),
                           // Day of Week, Month and Year (Small, Grey)
-                          Text(
-                            DateFormat('EEE, yyyy').format(date),
-                            style: TextStyle(
-                              fontSize: context.fs(8),
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.subhead,
+                          Flexible(
+                            child: Text(
+                              DateFormat('EEE, yyyy').format(date),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: context.fs(8),
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.subhead,
+                              ),
                             ),
                           ),
                         ],
@@ -295,7 +319,9 @@ class _FlightCalendarScreenState extends State<FlightCalendarScreen> {
                     else
                     // Empty state layout
                       Text(
-                        label == 'Return' ? 'Add Return Date' : 'Select date',
+                        emptyText,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontSize: context.fs(12),
                           fontWeight: FontWeight.w500,
@@ -370,7 +396,7 @@ class _FlightCalendarScreenState extends State<FlightCalendarScreen> {
                     ),
                     SizedBox(width: context.w(8)),
                     Text(
-                      'Add Return Date',
+                      widget.endEmptyText,
                       style: TextStyle(
                         fontSize: context.fs(12),
                         fontWeight: FontWeight.w500,
@@ -394,7 +420,7 @@ class _FlightCalendarScreenState extends State<FlightCalendarScreen> {
                   borderRadius: BorderRadius.circular(context.r(4)),
                 ),
                 child: Text(
-                  'Return',
+                  widget.endLabel,
                   style: TextStyle(
                     fontSize: context.fs(11),
                     fontWeight: FontWeight.w600,

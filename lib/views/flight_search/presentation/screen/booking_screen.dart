@@ -1406,7 +1406,13 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
         final seenCodes = <String>{};
         final all = state is PromoCodesLoaded
             ? state.promoCodes
-                .where((p) => p.category == 'flight_booking' || p.category == 'payment')
+                // 'all' means the promo applies everywhere (not scoped to a
+                // single category) — e.g. the API's SAVE10 comes back with
+                // category "all" and still needs to show up here.
+                .where((p) {
+                  final cat = p.category.trim().toLowerCase();
+                  return cat == 'flight_booking' || cat == 'payment' || cat == 'all';
+                })
                 .where((p) {
                   final code = p.code.trim().toUpperCase();
                   return code.isNotEmpty && seenCodes.add(code);
@@ -1502,10 +1508,15 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
         children: [
           Row(
             children: [
-              Icon(
-                isApplied ? Icons.check_circle : Icons.local_offer_outlined,
-                size: context.w(21),
-                color: isApplied ? const Color(0xFF16A34A) : _pri,
+              // Icon(
+              //   isApplied ? Icons.check_circle : Icons.local_offer_outlined,
+              //   size: context.w(21),
+              //   color: isApplied ? const Color(0xFF16A34A) : _pri,
+              // ),
+              Image.asset(
+                'assets/NewIcons/coupon_offer.png',
+                width: context.w(18),
+                height: context.h(18),
               ),
               SizedBox(width: context.w(12)),
               Expanded(

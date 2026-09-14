@@ -860,7 +860,7 @@ class _HomeScreenState extends State<HomeScreen> {
             Expanded(
               child: _buildHeroServiceIcon(
                 context,
-                'Transport',
+                'Transfer',
                 'assets/NewIcons/transport.png',
               ),
             ),

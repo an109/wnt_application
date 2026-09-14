@@ -1664,16 +1664,30 @@ class _SearchCardState extends State<SearchCard> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(context.r(24)),
-        ),
-      ),
+      backgroundColor: Colors.transparent,
       builder: (sheetContext) {
         return StatefulBuilder(
           builder: (context, setSheetState) {
-            return Padding(
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Close — floating just above the sheet, top right.
+                Padding(
+                  padding: EdgeInsets.only(
+                      right: context.w(20), bottom: context.h(10)),
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: _sheetCloseButton(sheetContext),
+                  ),
+                ),
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.vertical(
+                        top: Radius.circular(context.r(24))),
+                  ),
+                  child: Padding(
               padding: EdgeInsets.fromLTRB(
                 context.w(20),
                 context.h(10),
@@ -1744,10 +1758,38 @@ class _SearchCardState extends State<SearchCard> {
                   SizedBox(height: context.h(20)),
                 ],
               ),
+            ),
+                ),
+              ],
             );
           },
         );
       },
+    );
+  }
+
+  Widget _sheetCloseButton(BuildContext ctx) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => Navigator.of(ctx).maybePop(),
+      child: Container(
+        width: context.w(34),
+        height: context.w(34),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.18),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Icon(Icons.close_rounded,
+            size: context.w(19), color: AppColors.black),
+      ),
     );
   }
 
