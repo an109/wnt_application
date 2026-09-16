@@ -54,6 +54,8 @@ class AkHotelDetailContentModel extends AkHotelDetailContentEntity {
     required super.id,
     required super.name,
     required super.starRating,
+    super.reviewRating,
+    super.reviewCount,
     required super.addressLine1,
     required super.city,
     required super.state,
@@ -79,11 +81,14 @@ class AkHotelDetailContentModel extends AkHotelDetailContentEntity {
     final checkinInfo = hotel['checkinInfo'] as Map<String, dynamic>? ?? {};
     final checkoutInfo = hotel['checkoutInfo'] as Map<String, dynamic>? ?? {};
     final rawSpecialInstructions = checkinInfo['specialInstructions'] as List<dynamic>? ?? [];
+    final userReview = hotel['userReview'] as Map<String, dynamic>?;
 
     return AkHotelDetailContentModel(
       id: hotel['id']?.toString() ?? '',
       name: hotel['name']?.toString() ?? '',
       starRating: _toDouble(hotel['starRating']) ?? 0.0,
+      reviewRating: _toDouble(userReview?['rating']) ?? 0.0,
+      reviewCount: (userReview?['count'] as num?)?.toInt() ?? 0,
       addressLine1: (address['line1'] ?? '').toString(),
       city: (address['city'] ?? '').toString(),
       state: (address['state'] ?? '').toString(),

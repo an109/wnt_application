@@ -20,6 +20,10 @@ class SheetActionButtons extends StatelessWidget {
   /// Outer padding around the row.
   final EdgeInsetsGeometry? padding;
 
+  /// Filled button's background. Defaults to the Figma "Flight Sort" orange
+  /// so every existing caller keeps its current look.
+  final Color primaryColor;
+
   const SheetActionButtons({
     super.key,
     required this.onPrimary,
@@ -27,6 +31,7 @@ class SheetActionButtons extends StatelessWidget {
     this.primaryLabel = 'DONE',
     this.secondaryLabel = 'RESET',
     this.padding,
+    this.primaryColor = AppColors.orange,
   });
 
   @override
@@ -59,6 +64,7 @@ class SheetActionButtons extends StatelessWidget {
               label: primaryLabel,
               onTap: onPrimary,
               filled: true,
+              fillColor: primaryColor,
             ),
           ),
         ],
@@ -71,10 +77,11 @@ class SheetActionButtons extends StatelessWidget {
         required String label,
         required VoidCallback onTap,
         required bool filled,
+        Color fillColor = AppColors.orange,
       }) {
     final radius = BorderRadius.circular(context.r(12));
     return Material(
-      color: filled ? AppColors.orange : Colors.white,
+      color: filled ? fillColor : Colors.white,
       borderRadius: radius,
       child: InkWell(
         onTap: onTap,

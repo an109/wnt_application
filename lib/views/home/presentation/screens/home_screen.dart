@@ -910,7 +910,7 @@ class _HomeScreenState extends State<HomeScreen> {
           MaterialPageRoute(builder: (_) => VisaScreen()),
         );
         break;
-      case 'Transport':
+      case 'Transfer':
         onTap = () => Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => const TransportBookingScreen()),

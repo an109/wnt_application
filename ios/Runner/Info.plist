@@ -67,5 +67,7 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Wander Nova uses your location to show how far this hotel is from you.</string>
 </dict>
 </plist>

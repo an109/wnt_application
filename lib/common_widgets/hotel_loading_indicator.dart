@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
+import 'package:wander_nova/core/resources/app_colours.dart';
 
 class HotelLoadingIndicator extends StatefulWidget {
   const HotelLoadingIndicator({super.key});
@@ -81,7 +82,7 @@ class _HotelLoadingIndicatorState extends State<HotelLoadingIndicator> {
               child: LinearProgressIndicator(
                 backgroundColor: Colors.grey.shade200,
                 valueColor: const AlwaysStoppedAnimation<Color>(
-                  Color(0xFF1769F6),
+                  AppColors.AppBlue,
                 ),
                 minHeight: 4,
               ),

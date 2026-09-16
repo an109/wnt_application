@@ -58,6 +58,10 @@ class AkHotelRoomGroupEntity extends Equatable {
   /// The room's own description, straight from the API's `room.description`
   /// (independent of [boardBasisDescription], which is the meal plan).
   final String description;
+  /// The room's own photos, straight from `room.images` — often empty (the
+  /// vendor doesn't always supply per-room photos), in which case callers
+  /// fall back to the hotel's own gallery images from Content.
+  final List<String> images;
   final List<AkHotelOccupancyEntity> occupancies;
   final int roomCount;
   final double baseRate;
@@ -67,6 +71,33 @@ class AkHotelRoomGroupEntity extends Equatable {
   final String boardBasisDescription;
   final List<String> cancellationPolicyTexts;
 
+  /// `room.maxGuestAllowed` / `maxAdultAllowed` / `maxChildrenAllowed` — the
+  /// vendor's own stated occupancy cap for this room, when it supplies one.
+  /// Null on many hotels (the vendor just doesn't send it), in which case
+  /// callers should fall back to summing [occupancies] instead of guessing.
+  final int? maxGuestAllowed;
+  final int? maxAdultAllowed;
+  final int? maxChildrenAllowed;
+
+  /// `room.area` — floor area, when the vendor supplies one. Unit isn't
+  /// carried in the payload; every hotel in this feed prices in INR/serves
+  /// the Indian market, so this is shown as sq.ft.
+  final double? area;
+
+  /// `room.beds` — bed configuration strings (e.g. "King", "2 Twin"), when
+  /// the vendor supplies them.
+  final List<String> bedTypes;
+
+  /// `room.facilities` — this room's own amenities, distinct from the
+  /// hotel-level facilities in Content. Same `{id, groupId, name}` shape as
+  /// hotel facilities.
+  final List<String> roomFacilities;
+
+  /// `room.views` — e.g. "Garden View", when supplied.
+  final String? view;
+
+  final bool? smokingAllowed;
+
   const AkHotelRoomGroupEntity({
     required this.id,
     required this.providerName,
@@ -75,6 +106,7 @@ class AkHotelRoomGroupEntity extends Equatable {
     required this.roomId,
     required this.roomName,
     required this.description,
+    required this.images,
     required this.occupancies,
     required this.roomCount,
     required this.baseRate,
@@ -83,12 +115,21 @@ class AkHotelRoomGroupEntity extends Equatable {
     required this.refundable,
     required this.boardBasisDescription,
     required this.cancellationPolicyTexts,
+    this.maxGuestAllowed,
+    this.maxAdultAllowed,
+    this.maxChildrenAllowed,
+    this.area,
+    this.bedTypes = const [],
+    this.roomFacilities = const [],
+    this.view,
+    this.smokingAllowed,
   });
 
   @override
   List<Object?> get props => [
-        id, providerName, needsPriceCheck, availability, roomId, roomName, description, occupancies, roomCount,
-        baseRate, totalRate, taxes, refundable, boardBasisDescription, cancellationPolicyTexts,
+        id, providerName, needsPriceCheck, availability, roomId, roomName, description, images, occupancies,
+        roomCount, baseRate, totalRate, taxes, refundable, boardBasisDescription, cancellationPolicyTexts,
+        maxGuestAllowed, maxAdultAllowed, maxChildrenAllowed, area, bedTypes, roomFacilities, view, smokingAllowed,
       ];
 }
 

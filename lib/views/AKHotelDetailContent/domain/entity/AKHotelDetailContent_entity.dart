@@ -30,6 +30,14 @@ class AkHotelDetailContentEntity extends Equatable {
   final String id;
   final String name;
   final double starRating;
+  /// `hotel.userReview.rating` — the aggregate guest review score (out of
+  /// 5), distinct from [starRating] (the hotel's own classification, e.g.
+  /// "4-star hotel" set by the property/rating body, not by guests).
+  final double reviewRating;
+  /// `hotel.userReview.count` — how many guest ratings [reviewRating] is
+  /// averaged over. The API gives no further breakdown (no per-tier
+  /// counts, no individual review text) — just this one aggregate.
+  final int reviewCount;
   final String addressLine1;
   final String city;
   final String state;
@@ -50,6 +58,8 @@ class AkHotelDetailContentEntity extends Equatable {
     required this.id,
     required this.name,
     required this.starRating,
+    this.reviewRating = 0.0,
+    this.reviewCount = 0,
     required this.addressLine1,
     required this.city,
     required this.state,
@@ -69,7 +79,7 @@ class AkHotelDetailContentEntity extends Equatable {
 
   @override
   List<Object?> get props => [
-        id, name, starRating, addressLine1, city, state, country, descriptions, facilities,
+        id, name, starRating, reviewRating, reviewCount, addressLine1, city, state, country, descriptions, facilities,
         images, heroImage, nearByAttractions, checkinBeginTime, checkoutTime, checkinSpecialInstructions, policies,
         lat, long,
       ];

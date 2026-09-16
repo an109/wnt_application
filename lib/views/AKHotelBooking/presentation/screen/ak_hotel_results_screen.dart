@@ -5,9 +5,8 @@ import 'package:wander_nova/injection_container.dart';
 import '../../../../common_widgets/custom_bottom_nav.dart';
 import '../../../../common_widgets/hotel_loading_indicator.dart';
 import '../../../../core/error/data_state.dart';
-import '../../../Hotel/Filter_drawer/filter_drawer.dart';
+import '../../../../core/resources/app_colours.dart';
 import '../../../Hotel_api/domain/entities/hotel_ui_entity.dart';
-import '../../../Hotel_api/presentation/screen/hotel_listing.dart' show HotelCard;
 import '../../../AKHotelDetailContent/domain/entity/AKHotelDetailContent_entity.dart';
 import '../../../AKHotelDetailContent/domain/usecase/AKHotelDetailContent_usecase.dart';
 import '../../../AKHotelResultContent/domain/entity/AKHotelResultContent_entity.dart';
@@ -15,15 +14,25 @@ import '../../../AKHotelResultContent/domain/usecase/AKHotelResultContent_usecas
 import '../../../AKHotelResultRate/domain/entity/AKHotelResultRate_entity.dart';
 import '../../../AKHotelResultRate/domain/usecase/AKHotelResultRate_usecase.dart';
 import '../../../AKHotelSearchInit/domain/entity/AKHotelSearchInit_entity.dart';
+import '../widgets/ak_hotel_bottom_bar.dart';
+import '../widgets/ak_hotel_client_filters.dart';
+import '../widgets/ak_hotel_collections_section.dart';
+import '../widgets/ak_hotel_recommended_card.dart';
+import '../widgets/ak_hotel_section_card.dart';
+import '../widgets/ak_hotel_sort_sheet.dart';
+import '../widgets/ak_hotel_top_bar.dart';
 import 'ak_hotel_detail_screen.dart';
+import 'ak_hotel_filter_screen.dart';
+import 'ak_hotel_view_all_screen.dart';
 
 /// Results screen for the Akbar Hotels flow: Content (static hotel info)
 /// and Rate (pricing) are independent, slower-resolving providers, so both
 /// are fetched in parallel and merged by hotel id as each poll comes back —
 /// a hotel only becomes a visible card once it has both. Reuses the
-/// existing [HotelCard]/[HotelUiModel] presentational widgets from
-/// Hotel_api so the on-screen look matches the old tbo-hotel listing
-/// exactly; only the data source is new.
+/// existing [HotelUiModel] presentational model from Hotel_api (only the
+/// data source is new); rendered as horizontal-scroll "Match" /
+/// "Recommended Hotel" / "Near by" sections of [AkHotelSectionCard]s, each
+/// with its own "View all" into [AkHotelViewAllScreen].
 class AkHotelResultsScreen extends StatefulWidget {
   final String searchId;
   final String searchTracingKey;
@@ -57,16 +66,15 @@ class AkHotelResultsScreen extends StatefulWidget {
 }
 
 class _AkHotelResultsScreenState extends State<AkHotelResultsScreen> {
-  static const _blue = Color(0xFF1769F6);
-  static const _pageBg = Color(0xFFF3F6FC);
+  static const _blue = AppColors.AppBlue;
+  static const _pageBg = AppColors.white;
   static const _maxRatePolls = 20;
 
   final ScrollController _scrollController = ScrollController();
-  final TextEditingController _searchController = TextEditingController();
-  // Client-side only: narrows the hotels already loaded from Content+Rate
-  // by name/address. It cannot surface a hotel that never made it into
-  // _mergedHotels in the first place (see _applySearch's doc comment).
-  String _searchQuery = '';
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  // Purely additive, client-side "Sort" from the new bottom bar — reorders
+  // whatever's already been fetched/filtered/searched, never re-queries.
+  AkHotelSortOption? _sortOption;
 
   final Map<String, AkHotelContentItemEntity> _contentById = {};
   // Content's lower-detail `curatedHotels` sibling list, kept in its own map
@@ -95,9 +103,22 @@ class _AkHotelResultsScreenState extends State<AkHotelResultsScreen> {
   String? _error;
   int _ratePollCount = 0;
   bool _rateTimedOut = false;
+  // True only while _pollRate's loop is actually running. Distinct from
+  // _rateCompleted (which only means "the provider said done") — this also
+  // flips false when polling gives up for any other reason (hits
+  // _maxRatePolls, or a transient poll failure breaks the loop), so nothing
+  // that only checks "rate is done" is left waiting forever on a poll that
+  // has actually stopped. See the "Match Result" skeleton below, which used
+  // to gate on `!_rateCompleted` alone and would shimmer forever once
+  // polling gave up without ever reaching `completed`.
+  bool _ratePollingActive = false;
 
   bool _isFilterApplied = false;
   Map<String, dynamic> _activeFilters = {};
+  // True only while _autoLoadContentForMatch is actively paging looking for
+  // a match — drives the "Match" section's skeleton placeholder so that
+  // section isn't just silently absent while it's still being looked for.
+  bool _matchSearchInProgress = false;
 
   static const _maxAutoContentPages = 12;
 
@@ -105,17 +126,20 @@ class _AkHotelResultsScreenState extends State<AkHotelResultsScreen> {
   void initState() {
     super.initState();
     _locationName = widget.locationName;
-    _scrollController.addListener(_onScroll);
-    _autoLoadContentUntilMerged();
+    // Sections are horizontal carousels now, not one long vertical list, so
+    // "scrolled near the bottom" no longer means "needs more data" — it kept
+    // firing almost continuously (see the removed _onScroll) because a
+    // handful of short rows barely scrolls at all. All Content pagination
+    // now happens proactively, right after search, bounded, and once —
+    // never re-triggered by scrolling.
+    _autoLoadContentUntilMerged().then((_) => _autoLoadContentForMatch());
     _pollRate();
     CurrencyConverter.currencyListenable.addListener(_onCurrencyChanged);
   }
 
   @override
   void dispose() {
-    _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
-    _searchController.dispose();
     CurrencyConverter.currencyListenable.removeListener(_onCurrencyChanged);
     super.dispose();
   }
@@ -132,26 +156,22 @@ class _AkHotelResultsScreenState extends State<AkHotelResultsScreen> {
       _rateTimedOut = false;
       _ratePollCount = 0;
     });
-    if (_contentById.isEmpty) _autoLoadContentUntilMerged();
-    if (!_rateCompleted) _pollRate();
-  }
-
-  void _onScroll() {
-    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 300) {
-      if (!_contentLoading && _contentById.length < _contentTotal) {
-        _loadNextContentPage();
-      }
+    if (_contentById.isEmpty) {
+      _autoLoadContentUntilMerged().then((_) => _autoLoadContentForMatch());
+    } else if (_matchedHotels.isEmpty) {
+      _autoLoadContentForMatch();
     }
+    if (!_rateCompleted) _pollRate();
   }
 
   /// Content and Rate rarely price the same hotels on their first page —
   /// they're independent, differently-ordered providers ("the two sets
-  /// barely overlap at first"). Scroll-triggered pagination alone can't
-  /// break that deadlock: with zero merged hotels there's no ListView to
-  /// scroll, so nothing would ever request page 2. This keeps auto-pulling
-  /// Content pages (bounded, so it can't runaway) until something merges,
-  /// content is exhausted, or Rate finishes — after that, scrolling drives
-  /// further pages as normal.
+  /// barely overlap at first"). This keeps auto-pulling Content pages
+  /// (bounded, so it can't runaway) until something merges, content is
+  /// exhausted, or Rate finishes — purely so the first section has
+  /// *something* to show as fast as possible. See [_autoLoadContentForMatch]
+  /// for the follow-up phase that keeps looking specifically for the hotel
+  /// the user searched for.
   Future<void> _autoLoadContentUntilMerged() async {
     int pagesLoaded = 0;
     while (mounted && pagesLoaded < _maxAutoContentPages) {
@@ -166,6 +186,39 @@ class _AkHotelResultsScreenState extends State<AkHotelResultsScreen> {
       // rate-limit requires it, so keep it short rather than adding dead
       // time on top of each round trip while nothing has merged yet.
       await Future.delayed(const Duration(milliseconds: 150));
+    }
+  }
+
+  /// Runs right after [_autoLoadContentUntilMerged] settles. That first pass
+  /// stops the instant *anything* merges — usually a "Near by"/"Recommended"
+  /// hotel, since the property the user actually searched for often only
+  /// shows up in a later page's `curatedHotels` (see
+  /// AkHotelResultContentEntity.curatedHotels). Left alone, "Match" would
+  /// then only ever appear whenever the user happened to scroll far enough
+  /// to ask for another page — popping in and reflowing everything already
+  /// on screen long after the other sections had settled. This keeps
+  /// quietly paging a little further, purely to give that match a real
+  /// chance to turn up. Bounded and self-stopping: most searches (a plain
+  /// city, not a specific property) have no match at all, so this must not
+  /// keep paging forever hunting for one that was never coming.
+  Future<void> _autoLoadContentForMatch() async {
+    if (_matchedHotels.isNotEmpty) return; // nothing to look for
+    setState(() => _matchSearchInProgress = true);
+    try {
+      const maxExtraPages = 4;
+      int extraPagesLoaded = 0;
+      while (mounted &&
+          extraPagesLoaded < maxExtraPages &&
+          _matchedHotels.isEmpty &&
+          _error == null &&
+          !(_contentTotal > 0 && _contentById.length >= _contentTotal)) {
+        await _loadNextContentPage();
+        extraPagesLoaded++;
+        if (!mounted) return;
+        await Future.delayed(const Duration(milliseconds: 150));
+      }
+    } finally {
+      if (mounted) setState(() => _matchSearchInProgress = false);
     }
   }
 
@@ -211,6 +264,7 @@ class _AkHotelResultsScreenState extends State<AkHotelResultsScreen> {
   }
 
   Future<void> _pollRate() async {
+    setState(() => _ratePollingActive = true);
     while (mounted && !_rateCompleted && _ratePollCount < _maxRatePolls) {
       _ratePollCount++;
       final result = await sl<AkHotelResultRateUseCase>().call(
@@ -252,6 +306,7 @@ class _AkHotelResultsScreenState extends State<AkHotelResultsScreen> {
     if (mounted && !_rateCompleted && _ratePollCount >= _maxRatePolls) {
       setState(() => _rateTimedOut = true);
     }
+    if (mounted) setState(() => _ratePollingActive = false);
   }
 
   /// True if [hotelName] looks like the place/hotel the user actually typed
@@ -325,124 +380,71 @@ class _AkHotelResultsScreenState extends State<AkHotelResultsScreen> {
     return c.heroImage.isNotEmpty ? c.heroImage : (c.images.isNotEmpty ? c.images.first : '');
   }
 
-  List<HotelUiModel> get _mergedHotels {
-    // Two buckets, always rendered in this order, so the hotel the user
-    // actually searched for never requires scrolling to find — whether it
-    // arrived in Content's `hotels` list or its `curatedHotels` sibling
-    // (see AkHotelResultContentEntity.curatedHotels), and whether or not
-    // the in-page search bar is being used.
+  /// The hotel(s) the user actually searched for (see
+  /// [_matchesSearchedName]'s doc comment — this only ever kicks in for a
+  /// property-style search, e.g. "Zostel Kochi"). Surfaced on its own as the
+  /// results screen's "Match" section.
+  List<HotelUiModel> get _matchedHotels {
     final matched = <HotelUiModel>[];
-    final rest = <HotelUiModel>[];
-
     for (final entry in _curatedById.entries) {
+      if (!_matchesSearchedName(entry.value.name)) continue;
       final rate = _rateById[entry.key];
-      final isMatch = _matchesSearchedName(entry.value.name);
-      if (rate == null) {
-        // Only the actual searched-for match is worth showing before it's
-        // priced; every other curated hotel waits for Rate like normal.
-        if (isMatch) {
-          _scheduleImageBackfill(entry.value);
-          matched.add(_toPendingUiModel(entry.value));
-        }
-        continue;
-      }
-      // Every curated row that actually renders gets its own backfill
-      // attempt, not just the pinned match — curatedHotels never carries
-      // image data at all (see _scheduleImageBackfill's doc comment), so
-      // any of these left un-backfilled would show no photo, ever.
       _scheduleImageBackfill(entry.value);
-      (isMatch ? matched : rest).add(_toUiModel(entry.value, rate));
+      // Only the actual searched-for match is worth showing before it's
+      // priced; every other curated hotel waits for Rate like normal (see
+      // _restHotels).
+      matched.add(rate == null ? _toPendingUiModel(entry.value) : _toUiModel(entry.value, rate));
     }
     for (final entry in _contentById.entries) {
       final rate = _rateById[entry.key];
       if (rate == null) continue;
+      if (!_matchesSearchedName(entry.value.name)) continue;
+      _scheduleImageBackfill(entry.value);
+      matched.add(_toUiModel(entry.value, rate));
+    }
+    return matched;
+  }
+
+  /// Every other loaded hotel — i.e. [_mergedHotels] minus [_matchedHotels].
+  List<HotelUiModel> get _restHotels {
+    final rest = <HotelUiModel>[];
+    for (final entry in _curatedById.entries) {
+      if (_matchesSearchedName(entry.value.name)) continue;
+      final rate = _rateById[entry.key];
+      if (rate == null) continue;
+      // Every curated row that actually renders gets its own backfill
+      // attempt — curatedHotels never carries image data at all (see
+      // _scheduleImageBackfill's doc comment), so any of these left
+      // un-backfilled would show no photo, ever.
+      _scheduleImageBackfill(entry.value);
+      rest.add(_toUiModel(entry.value, rate));
+    }
+    for (final entry in _contentById.entries) {
+      final rate = _rateById[entry.key];
+      if (rate == null) continue;
+      if (_matchesSearchedName(entry.value.name)) continue;
       // No-ops instantly for a hotel that already has a real heroImage —
       // only the ones Content genuinely sent with none actually fetch
       // anything, so this is cheap for the common case.
       _scheduleImageBackfill(entry.value);
-      final model = _toUiModel(entry.value, rate);
-      (_matchesSearchedName(entry.value.name) ? matched : rest).add(model);
+      rest.add(_toUiModel(entry.value, rate));
     }
-
-    return [...matched, ...rest];
+    return rest;
   }
+
+  /// [_matchedHotels] followed by [_restHotels] — kept as a single getter
+  /// (same shape as before this screen grew separate "Match"/"Recommended
+  /// Hotel"/"Near by" sections) since the loading/error/empty-state and
+  /// pagination checks below only ever care about the combined count.
+  List<HotelUiModel> get _mergedHotels => [..._matchedHotels, ..._restHotels];
 
   /// Same client-side filtering the old tbo-hotel listing screen applied
   /// (min/max price, star rating, amenities) — extended to also honor the
   /// drawer's Refundable/meal-plan fields since that data is available here
   /// (the old TBO screen sent those to the backend instead; this flow has
   /// no server-side hotel filter wired up yet, so everything is client-side).
-  List<HotelUiModel> _applyFilters(List<HotelUiModel> hotels) {
-    var result = hotels;
-    final f = _activeFilters;
-
-    final minPrice = f['min_price'];
-    final maxPrice = f['max_price'];
-    final starRating = f['star_rating'];
-    final amenities = f['amenities'];
-    final refundableOnly = f['Refundable'] == true;
-    final mealType = f['MealType'];
-
-    // HotelFilterDrawer always sends min_price/max_price in INR, but
-    // h.numericPrice is already converted to the user's preferred currency
-    // (see _toUiModel above) — convert the bounds to match before comparing,
-    // otherwise filtering silently breaks for any non-INR currency.
-    final currentCurrency = CurrencyConverter.getPreferredCurrency();
-    if (minPrice != null) {
-      final minPriceConverted = CurrencyConverter.convert(
-        amount: (minPrice as num).toDouble(),
-        fromCurrency: 'INR',
-        toCurrency: currentCurrency,
-      );
-      result = result.where((h) => h.numericPrice >= minPriceConverted).toList();
-    }
-    if (maxPrice != null) {
-      final maxPriceConverted = CurrencyConverter.convert(
-        amount: (maxPrice as num).toDouble(),
-        fromCurrency: 'INR',
-        toCurrency: currentCurrency,
-      );
-      result = result.where((h) => h.numericPrice <= maxPriceConverted).toList();
-    }
-    if (starRating != null) {
-      result = result.where((h) => h.rating == (starRating as num).toInt()).toList();
-    }
-    if (amenities != null && (amenities as List).isNotEmpty) {
-      final required = amenities.map((a) => a.toString().toLowerCase()).toList();
-      result = result.where((h) {
-        final facilityText = h.facilities.join(' ').toLowerCase();
-        return required.every((a) => facilityText.contains(a));
-      }).toList();
-    }
-    if (refundableOnly) {
-      result = result.where((h) => h.isRefundable).toList();
-    }
-    if (mealType != null && mealType != 'All') {
-      result = result.where((h) => h.mealType.toLowerCase().contains(mealType.toString().toLowerCase())).toList();
-    }
-
-    return result;
-  }
-
-  /// Narrows an already-merged, already-filtered hotel list by name/address.
-  /// Purely client-side over what's currently loaded — it can only find a
-  /// hotel that has *already* made it into [_mergedHotels]. Curated
-  /// (exact-match) hotels appear there even before Rate prices them, but a
-  /// hotel Content never returned at all (in `hotels` or `curatedHotels`)
-  /// for this search still can't be found here — no amount of client-side
-  /// text filtering can recover data the API never sent.
-  List<HotelUiModel> _applySearch(List<HotelUiModel> hotels) {
-    if (_searchQuery.isEmpty) return hotels;
-    return hotels
-        .where((h) =>
-            h.hotelName.toLowerCase().contains(_searchQuery) ||
-            h.address.toLowerCase().contains(_searchQuery))
-        .toList();
-  }
-
-  void _onSearchChanged(String value) {
-    setState(() => _searchQuery = value.trim().toLowerCase());
-  }
+  List<HotelUiModel> _applyFilters(List<HotelUiModel> hotels) =>
+      applyAkHotelClientFilters(hotels, _activeFilters);
 
   void _onFiltersApplied(Map<String, dynamic> filters) {
     setState(() {
@@ -456,6 +458,25 @@ class _AkHotelResultsScreenState extends State<AkHotelResultsScreen> {
       _isFilterApplied = false;
       _activeFilters = {};
     });
+  }
+
+  /// Replaces the old [HotelFilterDrawer] with a full screen (Figma
+  /// reference) — same `onFiltersApplied`/`onClearFilters` contract, so
+  /// nothing about how filtering actually works changes, only how it's
+  /// opened. [_mergedHotels] (every hotel loaded so far, before the active
+  /// filters narrow it) backs the real per-option counts the screen shows.
+  void _openFilterScreen() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AkHotelFilterScreen(
+          initialFilters: _activeFilters,
+          hotels: _mergedHotels,
+          onApply: _onFiltersApplied,
+          onClear: _onClearFilters,
+        ),
+      ),
+    );
   }
 
   // HotelUiModel _toUiModel(AkHotelContentItemEntity c, AkHotelRateItemEntity r) {
@@ -586,66 +607,24 @@ class _AkHotelResultsScreenState extends State<AkHotelResultsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      key: _scaffoldKey,
       backgroundColor: _pageBg,
-      drawer: HotelFilterDrawer(
-        onFiltersApplied: _onFiltersApplied,
-        onClearFilters: _onClearFilters,
-        isFilterApplied: _isFilterApplied,
-      ),
-      appBar: AppBar(
-        title: _buildAppBarSearchField(),
-        titleSpacing: context.gapSmall,
-        backgroundColor: _pageBg,
-        elevation: 0,
-        actions: [
-          Padding(
-            padding: EdgeInsets.all(context.w(8)),
-            child: Image.asset(
-              "assets/images/wander_logo.png",
-              height: 35,
-              errorBuilder: (context, error, stackTrace) => const Icon(Icons.hotel, size: 35),
-            ),
+      body: Column(
+        children: [
+          AkHotelTopBar(
+            locationName: _locationName,
+            checkIn: widget.checkIn,
+            checkOut: widget.checkOut,
+            adults: widget.adults,
+            children: widget.children,
+            roomCount: widget.rooms.length,
+            onBack: () => Navigator.of(context).maybePop(),
+            onEdit: () => Navigator.of(context).maybePop(),
           ),
+          Expanded(child: _buildBody()),
         ],
       ),
-      body: _buildBody(),
-      bottomNavigationBar: const CustomBottomNav(currentIndex: 1),
       floatingActionButton: _buildFilterBadge(),
-    );
-  }
-
-  /// Replaces the old centred logo title — the app bar itself is now the
-  /// search box, filtering whatever's already loaded on this screen.
-  Widget _buildAppBarSearchField() {
-    return Container(
-      height: context.h(40),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(context.r(10)),
-        border: Border.all(color: const Color(0xFFE2E7F0)),
-      ),
-      child: TextField(
-        controller: _searchController,
-        onChanged: _onSearchChanged,
-        style: TextStyle(fontSize: context.bodyMedium, color: const Color(0xFF071638)),
-        decoration: InputDecoration(
-          hintText: 'Search hotels by name',
-          hintStyle: TextStyle(fontSize: context.bodyMedium, color: Colors.grey.shade500),
-          prefixIcon: Icon(Icons.search, size: context.iconSmall, color: Colors.grey.shade500),
-          suffixIcon: _searchQuery.isEmpty
-              ? null
-              : IconButton(
-                  icon: Icon(Icons.close, size: context.iconSmall, color: Colors.grey.shade500),
-                  onPressed: () {
-                    _searchController.clear();
-                    _onSearchChanged('');
-                  },
-                ),
-          border: InputBorder.none,
-          isDense: true,
-          contentPadding: EdgeInsets.symmetric(vertical: context.h(10)),
-        ),
-      ),
     );
   }
 
@@ -730,61 +709,201 @@ class _AkHotelResultsScreenState extends State<AkHotelResultsScreen> {
       );
     }
 
-    final searchedHotels = _applySearch(hotels);
+    // The sectioned layout below re-derives matched/rest separately (same
+    // _applyFilters pipeline `hotels` above already ran, just kept apart) so
+    // "Match" and "Near by" can be rendered as their own rows.
+    final matchedSection = _applyFilters(_matchedHotels);
+    final restSection = _applyFilters(_restHotels);
+    final recommendedSection = restSection.where((h) => h.rating == 5).toList();
 
-    if (searchedHotels.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: context.horizontalPadding,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.search_off, size: context.iconLarge * 2, color: Colors.grey.shade400),
-              SizedBox(height: context.gapLarge),
-              Text(
-                'No hotels match "${_searchController.text.trim()}"',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: context.titleLarge, fontWeight: FontWeight.w600, color: Colors.grey.shade800),
+    final sortedMatched = applyAkHotelSort(matchedSection, _sortOption);
+    final sortedRecommended = applyAkHotelSort(recommendedSection, _sortOption);
+    final sortedNearby = applyAkHotelSort(restSection, _sortOption);
+
+    // Same top-rated hotels already on screen, just laid out as a photo
+    // mosaic instead of a strip — never a separate/static data source.
+    final collectionHotels = <String, HotelUiModel>{};
+    for (final h in [...sortedMatched, ...sortedRecommended, ...sortedNearby]) {
+      if (h.image.isEmpty && h.images.isEmpty) continue;
+      collectionHotels.putIfAbsent(h.hotelCode, () => h);
+    }
+    final sortedCollections = collectionHotels.values.toList()
+      ..sort((a, b) => b.rating.compareTo(a.rating));
+
+    return Stack(
+      children: [
+        ListView(
+          controller: _scrollController,
+          physics: context.scrollPhysics,
+          padding: EdgeInsets.only(top: context.gapMedium, bottom: context.h(110)),
+          children: [
+            if (sortedMatched.isNotEmpty)
+              _buildSection(title: 'Match Result', hotels: sortedMatched, showViewAll: false)
+            // Keep showing "still looking" for as long as there's any real
+            // chance a match still turns up — not just while
+            // _autoLoadContentForMatch itself is actively paging. A hotel
+            // whose *name* already matched can already be sitting in
+            // _contentById/_curatedById waiting on Rate (which polls on its
+            // own schedule, independent of the content search and often
+            // takes far longer) — ending the skeleton the moment the
+            // content search gives up made it vanish and then have the
+            // real card pop in later, unannounced, once Rate finally priced
+            // it. Gated on _ratePollingActive rather than !_rateCompleted so
+            // this stops the moment Rate actually gives up polling (timeout
+            // or a transient failure), instead of shimmering forever any
+            // time Rate never reaches a literal "completed" status.
+            else if (_matchSearchInProgress || _ratePollingActive)
+              _buildMatchSkeletonSection(),
+            SizedBox(height: context.h(6)),
+            if (sortedNearby.isNotEmpty) _buildSection(title: 'Near by', hotels: sortedNearby),
+            SizedBox(height: context.h(6)),
+            if (sortedRecommended.isNotEmpty)
+              _buildSection(
+                title: 'Recommended Hotel',
+                hotels: sortedRecommended,
+                rowHeight: 85,
+                cardBuilder: (hotel) => AkHotelRecommendedCard(hotel: hotel, onTap: () => _navigateToDetail(hotel)),
               ),
-              SizedBox(height: context.gapSmall),
-              Text(
-                'Only hotels already loaded on this screen are searched here.',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: context.bodyMedium, color: Colors.grey.shade600),
-              ),
-            ],
+            SizedBox(height: context.h(6)),
+            AkHotelCollectionsSection(
+              hotels: sortedCollections.take(AkHotelCollectionsSection.minHotelsRequired).toList(),
+              onSelect: _navigateToDetail,
+            ),
+
+          ],
+        ),
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          child: AkHotelBottomBar(
+            sortActive: _sortOption != null,
+            filterActive: _isFilterApplied,
+            onMapTap: () => ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Map view coming soon'), duration: Duration(seconds: 2)),
+            ),
+            onSortTap: () => showAkHotelSortSheet(
+              context: context,
+              current: _sortOption,
+              onSelected: (option) => setState(() => _sortOption = option),
+            ),
+            onFilterTap: _openFilterScreen,
+            onAiTap: () => debugPrint('AI button tapped in AkHotelResultsScreen'),
           ),
         ),
-      );
-    }
+      ],
+    );
+  }
 
-    return ListView.builder(
-      controller: _scrollController,
-      physics: context.scrollPhysics,
-      padding: context.horizontalPadding.copyWith(
-        top: context.gapMedium,
-        bottom: context.gapLarge,
-      ),
-      // No "load more" spinner while a search is active — pagination keeps
-      // pulling more Content pages in the background regardless, but the
-      // spinner implied *this* filtered list would grow, which it may not.
-      itemCount: searchedHotels.length +
-          (_searchQuery.isEmpty && (_contentById.length < _contentTotal || !_rateCompleted) ? 1 : 0),
-      itemBuilder: (context, index) {
-        if (index >= searchedHotels.length) {
-          return Padding(
-            padding: EdgeInsets.symmetric(vertical: context.gapMedium),
-            child: const Center(
-              child: SizedBox(
-                height: 20,
-                width: 20,
-                child: CircularProgressIndicator(strokeWidth: 2, color: _blue),
-              ),
+  /// One "Title ... View all" row + its horizontal-scroll strip of
+  /// [AkHotelSectionCard]s. "View all" only shows up once there's actually
+  /// more to see than the strip's own preview.
+  Widget _buildSection({
+    required String title,
+    required List<HotelUiModel> hotels,
+    bool showViewAll = true,
+    double rowHeight = 240,
+    Widget Function(HotelUiModel hotel)? cardBuilder,
+  }) {
+    if (hotels.isEmpty) return const SizedBox.shrink();
+    final viewAllVisible = showViewAll && hotels.length > 4;
+    final buildCard = cardBuilder ?? (hotel) => AkHotelSectionCard(hotel: hotel, onTap: () => _navigateToDetail(hotel));
+
+    return Padding(
+      padding: EdgeInsets.only(bottom: context.gapMedium),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: context.gapLarge),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(fontSize: context.fs(18), fontWeight: FontWeight.w600, color: AppColors.navy),
+                ),
+                if (viewAllVisible)
+                  GestureDetector(
+                    onTap: () => _openViewAll(title, hotels),
+                    behavior: HitTestBehavior.opaque,
+                    child: Row(
+                      children: [
+                        Text(
+                          'View all',
+                          style: TextStyle(fontSize: context.fs(11), fontWeight: FontWeight.w600, color: AppColors.AppBlue),
+                        ),
+                        Icon(Icons.chevron_right_rounded, size: context.w(15), color: AppColors.AppBlue),
+                      ],
+                    ),
+                  ),
+              ],
             ),
-          );
-        }
-        return HotelCard(hotel: searchedHotels[index], onSelectRoom: () => _navigateToDetail(searchedHotels[index]));
-      },
+          ),
+          SizedBox(height: context.gapLarge),
+          SizedBox(
+            height: context.h(rowHeight),
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              padding: EdgeInsets.symmetric(horizontal: context.gapLarge),
+              itemCount: hotels.length,
+              separatorBuilder: (_, __) => SizedBox(width: context.gapMedium),
+              itemBuilder: (context, index) => buildCard(hotels[index]),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Same header + row shape as [_buildSection], but for the moment before
+  /// there's any real "Match" data yet — see [_autoLoadContentForMatch] and
+  /// [_matchSearchInProgress].
+  Widget _buildMatchSkeletonSection() {
+    return Padding(
+      padding: EdgeInsets.only(bottom: context.gapMedium),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: context.gapLarge),
+            child: Text(
+              'Match Result',
+              style: TextStyle(fontSize: context.fs(18), fontWeight: FontWeight.w600, color: AppColors.navy),
+            ),
+          ),
+          SizedBox(height: context.gapLarge),
+          SizedBox(
+            height: context.h(240),
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              physics: const NeverScrollableScrollPhysics(),
+              padding: EdgeInsets.symmetric(horizontal: context.gapLarge),
+              children: const [AkHotelSectionCardSkeleton()],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _openViewAll(String title, List<HotelUiModel> hotels) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AkHotelViewAllScreen(
+          title: title,
+          hotels: hotels,
+          onSelectHotel: _navigateToDetail,
+          locationName: _locationName,
+          checkIn: widget.checkIn,
+          checkOut: widget.checkOut,
+          adults: widget.adults,
+          children: widget.children,
+          roomCount: widget.rooms.length,
+        ),
+      ),
     );
   }
 }

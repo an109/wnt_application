@@ -1457,59 +1457,6 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
 
   // ------------------------------------------------------- SEARCH BUTTON
 
-  // Widget _buildSearchButton(BuildContext context) {
-  //   return Center(
-  //     child: SizedBox(
-  //       width: context.w(170),
-  //       height: context.h(44),
-  //       child: ElevatedButton(
-  //         style: ElevatedButton.styleFrom(
-  //           backgroundColor: AppColors.OrangeColor,
-  //           foregroundColor: Colors.white,
-  //           elevation: 6,
-  //           shadowColor: AppColors.OrangeColor.withOpacity(0.45),
-  //           shape: RoundedRectangleBorder(
-  //             borderRadius: BorderRadius.circular(context.r(30)),
-  //           ),
-  //           padding: EdgeInsets.symmetric(horizontal: context.w(8)),
-  //         ),
-  //         onPressed: _isSearching ? null : _onSearchPressed,
-  //         child: _isSearching
-  //             ? SizedBox(
-  //                 width: context.w(22),
-  //                 height: context.w(22),
-  //                 child: const CircularProgressIndicator(
-  //                   strokeWidth: 2,
-  //                   valueColor: AlwaysStoppedAnimation(Colors.white),
-  //                 ),
-  //               )
-  //             : FittedBox(
-  //                 fit: BoxFit.scaleDown,
-  //                 child: Row(
-  //                   mainAxisSize: MainAxisSize.min,
-  //                   mainAxisAlignment: MainAxisAlignment.center,
-  //                   children: [
-  //                     Text(
-  //                       'Search Hotel',
-  //                       style: TextStyle(
-  //                         fontSize: context.fs(14),
-  //                         fontWeight: FontWeight.w600,
-  //                       ),
-  //                     ),
-  //                     SizedBox(width: context.w(10)),
-  //                     Image.asset(
-  //                       'assets/NewIcons/arrowForward.png',
-  //                       width: context.w(9.54),
-  //                       height: context.w(13),
-  //                       color: const Color(0xFFFFFFFF),
-  //                     ),
-  //                   ],
-  //                 ),
-  //               ),
-  //       ),
-  //     ),
-  //   );
-  // }
   Widget _buildSearchButton(BuildContext context) {
     return Center(
       child: ShineBorderButton(
