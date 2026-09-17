@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:lottie/lottie.dart';
 import 'package:wander_nova/UI_helper/currency_converter.dart';
@@ -421,9 +422,9 @@ class _AkTicketConfirmationScreenState extends State<AkTicketConfirmationScreen>
           child: Text(
             'Payment Successful!',
             textAlign: TextAlign.center,
-            style: TextStyle(
+            style: GoogleFonts.pottaOne(
               fontSize: context.fs(24),
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w400,
               color: Colors.white,
               letterSpacing: -0.6,
             ),

@@ -325,22 +325,32 @@ class _AkHotelResultsScreenState extends State<AkHotelResultsScreen> {
   }
 
   /// Queues a one-shot Hotel Content fetch to backfill [item]'s missing
-  /// photo. Called from [_mergedHotels] for every hotel that's actually
-  /// about to render a card — curated or not — but is a cheap no-op the
-  /// instant it already has a heroImage/images, so it only ever fetches for
-  /// the ones that genuinely need it (which is *every* curatedHotels row,
-  /// see AkHotelContentItemModel.fromCuratedJson, and occasionally a plain
-  /// `hotels` row Content itself sent with no photo). It's never called for
-  /// rows that never make it onto the merged list, so this can't balloon
-  /// into fetching content for the much larger, mostly-unshown
-  /// curatedHotels list. Safe to call from a getter used during build: it
-  /// only ever mutates state, if at all, from the post-frame callback,
-  /// never synchronously.
+  /// photo — a cheap no-op the instant it already has a heroImage/images, so
+  /// it only ever fetches for the ones that genuinely need it (which is
+  /// *every* curatedHotels row, see AkHotelContentItemModel.fromCuratedJson,
+  /// and occasionally a plain `hotels` row Content itself sent with no
+  /// photo). Called from [_buildSection]'s itemBuilder, i.e. only for a
+  /// hotel whose card actually gets built (the visible carousel window plus
+  /// Flutter's own cache-ahead) — NOT from [_matchedHotels]/[_restHotels],
+  /// which run many times per build and would otherwise queue a Content
+  /// call for every photo-less hotel across every section (Match, Near by,
+  /// Recommended) the instant the screen renders, most of them still
+  /// off-screen. Safe to call during build either way: it only ever mutates
+  /// state, if at all, from the post-frame callback, never synchronously.
   void _scheduleImageBackfill(AkHotelContentItemEntity item) {
     if (item.heroImage.isNotEmpty || item.images.isNotEmpty) return;
     if (_backfilledImages.containsKey(item.id)) return;
     if (!_imageBackfillAttempted.add(item.id)) return;
     WidgetsBinding.instance.addPostFrameCallback((_) => _backfillHotelImage(item.id));
+  }
+
+  /// Looks up the raw Content entity behind a [HotelUiModel] (by its
+  /// [HotelUiModel.hotelCode], the same id both maps are keyed by) so
+  /// [_buildSection] can schedule a backfill per-card without needing its
+  /// own copy of the Content data.
+  void _scheduleImageBackfillForHotel(String hotelCode) {
+    final item = _curatedById[hotelCode] ?? _contentById[hotelCode];
+    if (item != null) _scheduleImageBackfill(item);
   }
 
   Future<void> _backfillHotelImage(String hotelId) async {
@@ -389,17 +399,17 @@ class _AkHotelResultsScreenState extends State<AkHotelResultsScreen> {
     for (final entry in _curatedById.entries) {
       if (!_matchesSearchedName(entry.value.name)) continue;
       final rate = _rateById[entry.key];
-      _scheduleImageBackfill(entry.value);
-      // Only the actual searched-for match is worth showing before it's
-      // priced; every other curated hotel waits for Rate like normal (see
-      // _restHotels).
+      // Backfill is scheduled lazily from _buildSection's itemBuilder now
+      // (only for cards actually built), not here — this getter runs many
+      // times per build (see _mergedHotels' callers), so scheduling it here
+      // fired a Content call for every matching hotel on every build,
+      // whether or not its card ever rendered.
       matched.add(rate == null ? _toPendingUiModel(entry.value) : _toUiModel(entry.value, rate));
     }
     for (final entry in _contentById.entries) {
       final rate = _rateById[entry.key];
       if (rate == null) continue;
       if (!_matchesSearchedName(entry.value.name)) continue;
-      _scheduleImageBackfill(entry.value);
       matched.add(_toUiModel(entry.value, rate));
     }
     return matched;
@@ -412,21 +422,12 @@ class _AkHotelResultsScreenState extends State<AkHotelResultsScreen> {
       if (_matchesSearchedName(entry.value.name)) continue;
       final rate = _rateById[entry.key];
       if (rate == null) continue;
-      // Every curated row that actually renders gets its own backfill
-      // attempt — curatedHotels never carries image data at all (see
-      // _scheduleImageBackfill's doc comment), so any of these left
-      // un-backfilled would show no photo, ever.
-      _scheduleImageBackfill(entry.value);
       rest.add(_toUiModel(entry.value, rate));
     }
     for (final entry in _contentById.entries) {
       final rate = _rateById[entry.key];
       if (rate == null) continue;
       if (_matchesSearchedName(entry.value.name)) continue;
-      // No-ops instantly for a hotel that already has a real heroImage —
-      // only the ones Content genuinely sent with none actually fetch
-      // anything, so this is cheap for the common case.
-      _scheduleImageBackfill(entry.value);
       rest.add(_toUiModel(entry.value, rate));
     }
     return rest;
@@ -849,7 +850,15 @@ class _AkHotelResultsScreenState extends State<AkHotelResultsScreen> {
               padding: EdgeInsets.symmetric(horizontal: context.gapLarge),
               itemCount: hotels.length,
               separatorBuilder: (_, __) => SizedBox(width: context.gapMedium),
-              itemBuilder: (context, index) => buildCard(hotels[index]),
+              itemBuilder: (context, index) {
+                final hotel = hotels[index];
+                // Only a card ListView.separated actually builds (visible +
+                // Flutter's own cache-ahead) ever queues a backfill — see
+                // _scheduleImageBackfill's doc comment for why this moved
+                // here instead of the _matchedHotels/_restHotels getters.
+                _scheduleImageBackfillForHotel(hotel.hotelCode);
+                return buildCard(hotel);
+              },
             ),
           ),
         ],

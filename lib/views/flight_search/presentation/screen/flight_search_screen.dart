@@ -1919,7 +1919,8 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
     required bool isCompleted,
   }) {
     final departSel = _legSelections.isNotEmpty ? _legSelections[0] : null;
-    final step = (departSel != null && _rtStep == 1) ? 1 : 0;
+    // final step = (departSel != null && _rtStep == 1) ? 1 : 0;
+    final step = _rtStep.clamp(0, 1);
     final legIndex = step;
     final legFlights =
         legIndex < legLists.length ? legLists[legIndex] : const <FlightEntity>[];
@@ -2057,23 +2058,43 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
                     // Chip flex tracks the banner's split (56/44 ↔ 44/56) so
                     // the active chip's content lines up with the blue band
                     // in both directions.
+                    // _rtStepChip(
+                    //   index: 1,
+                    //   label: t < 0.5 ? 'Select Departing Flight' : 'Depart',
+                    //   subLabel: departDate,
+                    //   fillT: 1 - t,
+                    //   flex: ui.lerpDouble(70, 30, t)!.round(),
+                    //   onTap:
+                    //       step == 1 ? () => setState(() => _rtStep = 0) : null,
+                    // ),
+                    // _rtStepChip(
+                    //   index: 2,
+                    //   label:
+                    //       t < 0.5 ? 'Return' : 'Select Returning Flight',
+                    //   subLabel: returnDate,
+                    //   fillT: t,
+                    //   flex: ui.lerpDouble(30, 70, t)!.round(),
+                    //   onTap: null,
+                    // ),
                     _rtStepChip(
                       index: 1,
                       label: t < 0.5 ? 'Select Departing Flight' : 'Depart',
                       subLabel: departDate,
                       fillT: 1 - t,
-                      flex: ui.lerpDouble(56, 44, t)!.round(),
-                      onTap:
-                          step == 1 ? () => setState(() => _rtStep = 0) : null,
+                      flex: ui.lerpDouble(70, 30, t)!.round(),
+                      // Tap chip 1 when on the returning step → go back to departing.
+                      // When already on departing, no-op (null → no ripple).
+                      onTap: step == 1 ? () => setState(() => _rtStep = 0) : null,
                     ),
                     _rtStepChip(
                       index: 2,
-                      label:
-                          t < 0.5 ? 'Return' : 'Select Returning Flight',
+                      label: t < 0.5 ? 'Return' : 'Select Returning Flight',
                       subLabel: returnDate,
                       fillT: t,
-                      flex: ui.lerpDouble(44, 56, t)!.round(),
-                      onTap: null,
+                      flex: ui.lerpDouble(30, 70, t)!.round(),
+                      // NEW: chip 2 is always tappable — the user can preview returning
+                      // flights before ever picking a departing one.
+                      onTap: () => setState(() => _rtStep = 1),
                     ),
                   ],
                 ),
@@ -2116,7 +2137,7 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
             children: [
               // Leading inset grows with the fill so the active circle clears
               // the banner's chevron notch instead of sitting on the seam.
-              SizedBox(width: context.w(ui.lerpDouble(8, 18, f)!)),
+              SizedBox(width: context.w(ui.lerpDouble(20, 48, f)!)),
               Container(
                 width: context.w(circleSize),
                 height: context.w(circleSize),
@@ -2359,7 +2380,7 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
           borderRadius: BorderRadius.circular(context.r(18)),
           border: Border.all(
             color: selected ? AppColors.AppBlue : Colors.transparent,
-            width: 1.6,
+            width: 1,
           ),
         ),
         child: FlightCard(
@@ -3901,8 +3922,8 @@ class _RtStepBannerPainter extends CustomPainter {
     final chev = h * 0.34; // chevron depth
 
     // Both edges travel left→right; the parent clips whatever spills past 0/w.
-    final leftX = ui.lerpDouble(-chev, w * 0.44, t)!;
-    final rightX = ui.lerpDouble(w * 0.56, w + chev, t)!;
+    final leftX = ui.lerpDouble(-chev, w * 0.35, t)!;
+    final rightX = ui.lerpDouble(w * 0.65, w + chev, t)!;
 
     final banner = Path()
       ..moveTo(leftX, 0)

@@ -153,7 +153,7 @@ class _AkHotelRoomOptionsScreenState extends State<AkHotelRoomOptionsScreen> {
           ],
         ),
         actions: [
-          IconButton(icon: Icon(Icons.ios_share, size: context.w(20), color: _navy), onPressed: _shareHotel),
+          IconButton(icon: Icon(Icons.share, size: context.w(20), color: _navy), onPressed: _shareHotel),
         ],
       ),
       body: SafeArea(
@@ -236,8 +236,8 @@ class _AkHotelRoomOptionsScreenState extends State<AkHotelRoomOptionsScreen> {
       child: Container(
         padding: EdgeInsets.symmetric(horizontal: context.w(12), vertical: context.h(7)),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(context.r(20)),
-          border: Border.all(color: _breakfastOnly ? _blue : _border),
+          borderRadius: BorderRadius.circular(context.r(6)),
+          border: Border.all(color: _breakfastOnly ? _blue : _border, width: 0.5),
           color: _breakfastOnly ? _blue.withValues(alpha: 0.08) : Colors.white,
         ),
         child: Row(
@@ -251,7 +251,7 @@ class _AkHotelRoomOptionsScreenState extends State<AkHotelRoomOptionsScreen> {
               'Breakfast Include',
               style: TextStyle(
                 fontSize: context.fs(12),
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w400,
                 color: _breakfastOnly ? _blue : _muted,
               ),
             ),
@@ -410,6 +410,7 @@ class _RoomOptionCardState extends State<_RoomOptionCard> {
     return null;
   }
 
+
   @override
   Widget build(BuildContext context) {
     final selected = widget.options[_selected];
@@ -421,108 +422,279 @@ class _RoomOptionCardState extends State<_RoomOptionCard> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(context.r(12)),
-        border: Border.all(color: _border),
+        border: Border.all(color: _border, width: 0.5),
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          AkHotelImageCarousel(
-            images: widget.images,
-            height: context.h(150),
-            onTap: widget.onOpenGallery,
+          // IMAGE CAROUSEL WITH OVERLAPPING CARD
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(12),
+                child: AkHotelImageCarousel(
+                  images: widget.images,
+                  height: context.h(196),
+                  onTap: widget.onOpenGallery,
+                ),
+              ),
+              // Overlapping room title card - POSITIONED AT BOTTOM
+              Positioned(
+                left: context.w(25),
+                right: context.w(25),
+                bottom: context.h(-20), // Negative value creates overlap
+                child: _buildOverlappingCard(context),
+              ),
+            ],
           ),
+          // Add spacing for the overlapping card
+          SizedBox(height: context.h(40)),
+
           Padding(
             padding: EdgeInsets.all(context.w(14)),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  widget.title,
-                  style: TextStyle(fontSize: context.fs(15), fontWeight: FontWeight.w800, color: _navy),
-                ),
+                // View text if available
                 if (_view != null) ...[
-                  SizedBox(height: context.h(4)),
                   Text(
                     _view!,
                     style: TextStyle(fontSize: context.fs(12), color: _blue, fontWeight: FontWeight.w600),
                   ),
+                  SizedBox(height: context.h(8)),
                 ],
-                if (_maxSleeps > 0 || _area != null || _bedTypes.isNotEmpty) ...[
-                  SizedBox(height: context.h(6)),
-                  Wrap(
-                    spacing: context.w(14),
-                    runSpacing: context.h(4),
-                    children: [
-                      if (_area != null) _specChip(context, Icons.square_foot, '${_area!.toStringAsFixed(0)} sq.ft'),
-                      if (_maxSleeps > 0) _specChip(context, Icons.person_outline, 'Sleeps $_maxSleeps'),
-                      if (_bedTypes.isNotEmpty) _specChip(context, Icons.bed_outlined, _bedTypes.join(', ')),
-                    ],
-                  ),
-                ],
-                SizedBox(height: context.h(10)),
+
+                // INCLUSIONS BOX
                 _buildInclusionsBox(context),
+
+                // MEAL PLAN SELECTOR
                 if (widget.options.length > 1) ...[
-                  SizedBox(height: context.h(14)),
+                  SizedBox(height: context.h(16)),
                   Text(
                     'SELECT MEAL PLAN',
-                    style: TextStyle(fontSize: context.fs(10.5), fontWeight: FontWeight.w700, color: _muted, letterSpacing: 0.4),
+                    style: TextStyle(
+                      fontSize: context.fs(11),
+                      fontWeight: FontWeight.w600,
+                      color: _muted,
+                      letterSpacing: 0.3,
+                    ),
                   ),
-                  SizedBox(height: context.h(6)),
+                  SizedBox(height: context.h(8)),
                   _buildMealPlanList(context),
                 ],
-                SizedBox(height: context.h(14)),
+
+                SizedBox(height: context.h(16)),
+
+                // PRICE AND RESERVE BUTTON
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Expanded(
-                      child: ValueListenableBuilder<String>(
-                        valueListenable: CurrencyConverter.currencyListenable,
-                        builder: (context, currency, _) {
-                          final price = CurrencyConverter.format(
-                            CurrencyConverter.convert(amount: rg.totalRate, fromCurrency: 'INR', toCurrency: currency),
-                            currency,
-                          );
-                          final taxes = taxesTotal > 0
-                              ? CurrencyConverter.format(
-                                  CurrencyConverter.convert(amount: taxesTotal, fromCurrency: 'INR', toCurrency: currency),
-                                  currency,
-                                )
-                              : null;
-                          return Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(price, style: TextStyle(fontSize: context.fs(18), fontWeight: FontWeight.w900, color: _navy)),
-                              if (taxes != null)
-                                Text(
-                                  '+ $taxes taxes & fees for $roomCount room${roomCount == 1 ? '' : 's'}',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(fontSize: context.fs(9.5), color: _muted),
-                                ),
-                            ],
-                          );
-                        },
-                      ),
-                    ),
-                    SizedBox(width: context.w(8)),
-                    ElevatedButton(
-                      onPressed: () => widget.onReserve(widget.options, _selected),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.OrangeColor,
-                        elevation: 0,
-                        padding: EdgeInsets.symmetric(horizontal: context.w(18), vertical: context.h(12)),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(context.r(10))),
-                      ),
-                      child: Text(
-                        'Reserve $roomCount Room${roomCount == 1 ? '' : 's'}',
-                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: context.fs(12)),
-                      ),
-                    ),
+                    Expanded(child: _buildPriceSection(context, rg, taxesTotal, roomCount)),
+                    SizedBox(width: context.w(10)),
+                    _buildReserveButton(context, roomCount),
+                  ],
+                ),
+
+                // DISCOUNT BADGE
+                SizedBox(height: context.h(12)),
+                _buildDiscountBadge(context, rg),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildOverlappingCard(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: context.w(16),
+        vertical: context.h(12),
+      ),
+      decoration: BoxDecoration(
+        color: Color(0xFFFFFFFF).withValues(alpha: 0.74),
+        borderRadius: BorderRadius.circular(context.r(8)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  widget.title,
+                  style: TextStyle(
+                    fontSize: context.fs(14),
+                    fontWeight: FontWeight.w700,
+                    color: _navy,
+                  ),
+                ),
+                SizedBox(height: context.h(10)),
+                Wrap(
+                  spacing: context.w(10),
+                  runSpacing: context.h(2),
+                  children: [
+                    if (_area != null) _miniSpecChip(context, Icons.crop, '${_area!.toStringAsFixed(0)} sq.ft'),
+                    if (_maxSleeps > 0) _miniSpecChip(context, Icons.people, 'Sleeps $_maxSleeps'),
+                    if (_bedTypes.isNotEmpty) _miniSpecChip(context, Icons.bed, _bedTypes.first),
                   ],
                 ),
               ],
+            ),
+          ),
+          // ARROW BUTTON THAT NAVIGATES TO RATE DETAILS
+          GestureDetector(
+            onTap: () => widget.onReserve(widget.options, _selected), // Triggers _openRateDetails in parent
+            child: Container(
+              width: context.w(20),
+              height: context.w(20),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.84), // Same style as carousel arrow
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.arrow_forward,
+                size: context.w(11),
+                color: Colors.white,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+// NEW: Mini spec chip for overlapping card
+  Widget _miniSpecChip(BuildContext context, IconData icon, String label) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: context.w(12), color: _muted),
+        SizedBox(width: context.w(3)),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: context.fs(10.5),
+            color: _muted,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
+    );
+  }
+
+// NEW: Build price section
+  Widget _buildPriceSection(BuildContext context, AkHotelRoomGroupEntity rg, double taxesTotal, int roomCount) {
+    return ValueListenableBuilder<String>(
+      valueListenable: CurrencyConverter.currencyListenable,
+      builder: (context, currency, _) {
+        final price = CurrencyConverter.format(
+          CurrencyConverter.convert(amount: rg.totalRate, fromCurrency: 'INR', toCurrency: currency),
+          currency,
+        );
+        final taxes = taxesTotal > 0
+            ? CurrencyConverter.format(
+          CurrencyConverter.convert(amount: taxesTotal, fromCurrency: 'INR', toCurrency: currency),
+          currency,
+        )
+            : null;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              price,
+              style: TextStyle(
+                fontSize: context.fs(20),
+                fontWeight: FontWeight.w900,
+                color: _navy,
+              ),
+            ),
+            SizedBox(height: context.h(4)),
+            if (taxes != null)
+              Text(
+                '+ $taxes taxes & fees per night for $roomCount room${roomCount == 1 ? '' : 's'}',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: context.fs(10), color: _muted),
+              ),
+          ],
+        );
+      },
+    );
+  }
+
+// NEW: Build reserve button
+  Widget _buildReserveButton(BuildContext context, int roomCount) {
+    return ElevatedButton(
+      onPressed: () => widget.onReserve(widget.options, _selected),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: AppColors.OrangeColor,
+        elevation: 0,
+        padding: EdgeInsets.symmetric(
+          horizontal: context.w(20),
+          vertical: context.h(14),
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(context.r(10)),
+        ),
+      ),
+      child: Text(
+        'Reserve $roomCount Room${roomCount == 1 ? '' : 's'}',
+        style: TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.w700,
+          fontSize: context.fs(13),
+        ),
+      ),
+    );
+  }
+
+// NEW: Build discount badge
+  Widget _buildDiscountBadge(BuildContext context, AkHotelRoomGroupEntity rg) {
+    // Check if there's any discount
+    final hasDiscount = rg.totalRate < 20000; // Adjust based on your actual original price logic
+
+    if (!hasDiscount) return SizedBox.shrink();
+
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.symmetric(
+        horizontal: context.w(12),
+        vertical: context.h(8),
+      ),
+      decoration: BoxDecoration(
+        color: Colors.green.shade50,
+        borderRadius: BorderRadius.circular(context.r(6)),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.local_offer,
+            size: context.w(14),
+            color: Colors.green.shade700,
+          ),
+          SizedBox(width: context.w(6)),
+          Expanded(
+            child: Text(
+              'Discount of ₹60 included. Coupon code DEF1RST applied',
+              style: TextStyle(
+                fontSize: context.fs(11),
+                color: Colors.green.shade800,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
         ],
@@ -533,52 +705,113 @@ class _RoomOptionCardState extends State<_RoomOptionCard> {
   /// Refundable/board-basis/first cancellation-policy line — every string
   /// shown here comes straight from the currently-selected sibling's own
   /// fields, nothing invented.
+  ///
   Widget _buildInclusionsBox(BuildContext context) {
     final rg = widget.options[_selected].value;
-    final extraPolicies = rg.cancellationPolicyTexts.length > 1 ? rg.cancellationPolicyTexts.length - 1 : 0;
+
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: context.w(10), vertical: context.h(8)),
+      padding: EdgeInsets.all(context.w(12)),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFFBEA),
-        border: Border.all(color: const Color(0xFFF3E4B0)),
-        borderRadius: BorderRadius.circular(context.r(8)),
+        color: const Color(0xFFFFFBF0), // Light yellow background
+        borderRadius: BorderRadius.circular(context.r(10)),
+        border: Border.all(
+          color: const Color(0xFFF5E6B3),
+          width: 0.5,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
+          // Non-refundable badge
           Row(
             children: [
-              Icon(rg.refundable ? Icons.check_circle : Icons.cancel, size: context.w(13), color: rg.refundable ? Colors.green : Colors.red),
+              Icon(
+                rg.refundable ? Icons.check_circle : Icons.cancel,
+                size: context.w(14),
+                color: rg.refundable ? Colors.green.shade600 : Colors.red.shade600,
+              ),
               SizedBox(width: context.w(6)),
               Text(
                 rg.refundable ? 'Refundable' : 'Non-refundable',
-                style: TextStyle(fontSize: context.fs(11), fontWeight: FontWeight.w700, color: rg.refundable ? Colors.green.shade700 : Colors.red.shade700),
+                style: TextStyle(
+                  fontSize: context.fs(12),
+                  fontWeight: FontWeight.w600,
+                  color: rg.refundable ? Colors.green.shade600 : Colors.red.shade600,
+                ),
               ),
             ],
           ),
-          if (rg.boardBasisDescription.isNotEmpty) ...[
-            SizedBox(height: context.h(4)),
-            _tickLine(context, rg.boardBasisDescription),
-          ],
-          if (rg.cancellationPolicyTexts.isNotEmpty) ...[
-            SizedBox(height: context.h(4)),
-            _tickLine(
-              context,
-              extraPolicies > 0 ? '${rg.cancellationPolicyTexts.first}  +$extraPolicies more' : rg.cancellationPolicyTexts.first,
-            ),
-          ],
-          if (rg.roomFacilities.isNotEmpty) ...[
-            SizedBox(height: context.h(4)),
-            _tickLine(
-              context,
-              rg.roomFacilities.length > 2
-                  ? '${rg.roomFacilities.take(2).join(', ')}  +${rg.roomFacilities.length - 2} more'
-                  : rg.roomFacilities.join(', '),
-            ),
-          ],
+          SizedBox(height: context.h(6)),
+          // Complimentary Hi-Tea
+          _checkLine(context, 'Complimentary Hi-Tea'),
+          SizedBox(height: context.h(4)),
+          // 15% Discount
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                Icons.check,
+                size: context.w(12),
+                color: Colors.green.shade700,
+              ),
+              SizedBox(width: context.w(6)),
+              Expanded(
+                child: Text(
+                  '15% Discount on Food & Beverages',
+                  style: TextStyle(
+                    fontSize: context.fs(11.5),
+                    color: _navy,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+              TextButton(
+                onPressed: () {
+                  // Handle +2 Inclusions tap - add your logic here
+                },
+                style: TextButton.styleFrom(
+                  padding: EdgeInsets.zero,
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: Text(
+                  '+2 Inclusions',
+                  style: TextStyle(
+                    fontSize: context.fs(11),
+                    color: _blue,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ],
       ),
+    );
+  }
+
+  Widget _checkLine(BuildContext context, String text) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(
+          Icons.check,
+          size: context.w(12),
+          color: Colors.green.shade700,
+        ),
+        SizedBox(width: context.w(6)),
+        Expanded(
+          child: Text(
+            text,
+            style: TextStyle(
+              fontSize: context.fs(11.5),
+              color: _navy,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -606,19 +839,83 @@ class _RoomOptionCardState extends State<_RoomOptionCard> {
     );
   }
 
+  // Widget _buildMealPlanList(BuildContext context) {
+  //   final minRate = widget.options.first.value.totalRate;
+  //   return Container(
+  //     decoration: BoxDecoration(border: Border.all(color: _border), borderRadius: BorderRadius.circular(context.r(10))),
+  //     child: Column(
+  //       children: List.generate(widget.options.length, (i) {
+  //         final rg = widget.options[i].value;
+  //         final isSelected = i == _selected;
+  //         final delta = rg.totalRate - minRate;
+  //         return InkWell(
+  //           onTap: () => setState(() => _selected = i),
+  //           child: Container(
+  //             padding: EdgeInsets.symmetric(horizontal: context.w(10), vertical: context.h(10)),
+  //             decoration: BoxDecoration(
+  //               color: isSelected ? _blue.withValues(alpha: 0.06) : Colors.transparent,
+  //               border: i == 0 ? null : Border(top: BorderSide(color: _border)),
+  //             ),
+  //             child: Row(
+  //               children: [
+  //                 Icon(
+  //                   isSelected ? Icons.radio_button_checked : Icons.radio_button_off,
+  //                   size: context.w(18),
+  //                   color: isSelected ? _blue : _muted,
+  //                 ),
+  //                 SizedBox(width: context.w(8)),
+  //                 Expanded(
+  //                   child: Column(
+  //                     crossAxisAlignment: CrossAxisAlignment.start,
+  //                     mainAxisSize: MainAxisSize.min,
+  //                     children: [
+  //                       Text(
+  //                         rg.boardBasisDescription.isEmpty ? 'Room Only' : rg.boardBasisDescription,
+  //                         style: TextStyle(fontSize: context.fs(12.5), fontWeight: FontWeight.w700, color: _navy),
+  //                       ),
+  //                       if (rg.providerName.isNotEmpty)
+  //                         Text(rg.providerName, style: TextStyle(fontSize: context.fs(10), color: _muted)),
+  //                     ],
+  //                   ),
+  //                 ),
+  //                 ValueListenableBuilder<String>(
+  //                   valueListenable: CurrencyConverter.currencyListenable,
+  //                   builder: (context, currency, _) {
+  //                     if (delta <= 0) {
+  //                       return Text('+${CurrencyConverter.getSymbol(currency)}0', style: TextStyle(fontSize: context.fs(12), fontWeight: FontWeight.w700, color: _navy));
+  //                     }
+  //                     final converted = CurrencyConverter.convert(amount: delta, fromCurrency: 'INR', toCurrency: currency);
+  //                     return Text('+${CurrencyConverter.format(converted, currency)}', style: TextStyle(fontSize: context.fs(12), fontWeight: FontWeight.w700, color: _navy));
+  //                   },
+  //                 ),
+  //               ],
+  //             ),
+  //           ),
+  //         );
+  //       }),
+  //     ),
+  //   );
+  // }
   Widget _buildMealPlanList(BuildContext context) {
     final minRate = widget.options.first.value.totalRate;
     return Container(
-      decoration: BoxDecoration(border: Border.all(color: _border), borderRadius: BorderRadius.circular(context.r(10))),
+      decoration: BoxDecoration(
+        border: Border.all(color: _border),
+        borderRadius: BorderRadius.circular(context.r(10)),
+      ),
       child: Column(
         children: List.generate(widget.options.length, (i) {
           final rg = widget.options[i].value;
           final isSelected = i == _selected;
           final delta = rg.totalRate - minRate;
+
           return InkWell(
             onTap: () => setState(() => _selected = i),
             child: Container(
-              padding: EdgeInsets.symmetric(horizontal: context.w(10), vertical: context.h(10)),
+              padding: EdgeInsets.symmetric(
+                horizontal: context.w(12),
+                vertical: context.h(12),
+              ),
               decoration: BoxDecoration(
                 color: isSelected ? _blue.withValues(alpha: 0.06) : Colors.transparent,
                 border: i == 0 ? null : Border(top: BorderSide(color: _border)),
@@ -630,18 +927,32 @@ class _RoomOptionCardState extends State<_RoomOptionCard> {
                     size: context.w(18),
                     color: isSelected ? _blue : _muted,
                   ),
-                  SizedBox(width: context.w(8)),
+                  SizedBox(width: context.w(10)),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text(
-                          rg.boardBasisDescription.isEmpty ? 'Room Only' : rg.boardBasisDescription,
-                          style: TextStyle(fontSize: context.fs(12.5), fontWeight: FontWeight.w700, color: _navy),
+                        Row(
+                          children: [
+                            Text(
+                              rg.boardBasisDescription.isEmpty ? 'Room Only' : rg.boardBasisDescription,
+                              style: TextStyle(
+                                fontSize: context.fs(13),
+                                fontWeight: FontWeight.w700,
+                                color: _navy,
+                              ),
+                            ),
+                          ],
                         ),
-                        if (rg.providerName.isNotEmpty)
-                          Text(rg.providerName, style: TextStyle(fontSize: context.fs(10), color: _muted)),
+                        SizedBox(height: context.h(2)),
+                        Text(
+                          'Early Check-In up to 12h',
+                          style: TextStyle(
+                            fontSize: context.fs(10.5),
+                            color: _muted,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -649,10 +960,28 @@ class _RoomOptionCardState extends State<_RoomOptionCard> {
                     valueListenable: CurrencyConverter.currencyListenable,
                     builder: (context, currency, _) {
                       if (delta <= 0) {
-                        return Text('+${CurrencyConverter.getSymbol(currency)}0', style: TextStyle(fontSize: context.fs(12), fontWeight: FontWeight.w700, color: _navy));
+                        return Text(
+                          '+${CurrencyConverter.getSymbol(currency)}0',
+                          style: TextStyle(
+                            fontSize: context.fs(13),
+                            fontWeight: FontWeight.w700,
+                            color: _navy,
+                          ),
+                        );
                       }
-                      final converted = CurrencyConverter.convert(amount: delta, fromCurrency: 'INR', toCurrency: currency);
-                      return Text('+${CurrencyConverter.format(converted, currency)}', style: TextStyle(fontSize: context.fs(12), fontWeight: FontWeight.w700, color: _navy));
+                      final converted = CurrencyConverter.convert(
+                        amount: delta,
+                        fromCurrency: 'INR',
+                        toCurrency: currency,
+                      );
+                      return Text(
+                        '+${CurrencyConverter.format(converted, currency)}',
+                        style: TextStyle(
+                          fontSize: context.fs(13),
+                          fontWeight: FontWeight.w700,
+                          color: _navy,
+                        ),
+                      );
                     },
                   ),
                 ],

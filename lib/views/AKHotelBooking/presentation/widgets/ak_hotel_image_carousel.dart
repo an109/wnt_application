@@ -84,7 +84,7 @@ class _AkHotelImageCarouselState extends State<AkHotelImageCarousel> {
             ),
             if (images.length > 1)
               Padding(
-                padding: EdgeInsets.only(bottom: context.h(8)),
+                padding: EdgeInsets.only(bottom: context.h(20)),
                 // Above ~8 photos, individual dots would overflow a narrow
                 // card regardless of dot size, so switch to a compact
                 // "index/total" pill instead of trying to fit them all.
@@ -117,18 +117,18 @@ class _AkHotelImageCarouselState extends State<AkHotelImageCarousel> {
                         ),
                       ),
               ),
-            if (widget.onTap != null)
-              Positioned(
-                right: context.w(8),
-                bottom: context.h(8),
-                child: Container(
-                  width: context.w(24),
-                  height: context.w(24),
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.4), shape: BoxShape.circle),
-                  child: Icon(Icons.arrow_forward, size: context.w(14), color: Colors.white),
-                ),
-              ),
+            // if (widget.onTap != null)
+            //   Positioned(
+            //     right: context.w(8),
+            //     bottom: context.h(8),
+            //     child: Container(
+            //       width: context.w(24),
+            //       height: context.w(24),
+            //       alignment: Alignment.center,
+            //       decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.84), shape: BoxShape.circle),
+            //       child: Icon(Icons.arrow_forward, size: context.w(14), color: Colors.white),
+            //     ),
+            //   ),
           ],
         ),
       ),

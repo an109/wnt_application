@@ -1,19 +1,23 @@
-import 'dart:ui' show ImageFilter;
-
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
+import 'package:wander_nova/core/resources/app_colours.dart';
 import 'package:wander_nova/core/utils/storage/shared_preference.dart';
 import 'package:wander_nova/injection_container.dart';
+import '../../../../common_widgets/fast_network_image_cache_manager.dart';
 import '../../../../core/error/data_state.dart';
 import '../../../AKHotelCreateItinerary/domain/entity/AKHotelCreateItinerary_entity.dart';
 import '../../../AKHotelCreateItinerary/domain/usecase/AKHotelCreateItinerary_usecase.dart';
+import '../../../AKHotelDetailContent/domain/entity/AKHotelDetailContent_entity.dart';
 import '../../../AKHotelPrice/domain/entity/AKHotelPrice_entity.dart';
 import '../../../AKHotelPrice/domain/usecase/AKHotelPrice_usecase.dart';
 import '../../../AKHotelRooms/domain/entity/AKHotelRooms_entity.dart';
 import '../../../AKHotelSearchInit/domain/entity/AKHotelSearchInit_entity.dart';
+import '../../../Profile/domain/entities/ProfileEntity.dart';
+import '../../../Profile/domain/usecase/get_profile_usecase.dart';
 import '../../../login/presentation/screen/login.dart';
+import '../widgets/ak_hotel_add_guest_sheet.dart';
 import 'ak_hotel_payment_screen.dart';
 
 class AkHotelPriceConfirmScreen extends StatefulWidget {
@@ -31,6 +35,11 @@ class AkHotelPriceConfirmScreen extends StatefulWidget {
   /// see the class doc for why this, not [roomGroup].occupancies, drives the
   /// guest forms and the itinerary's Rooms[].
   final List<AkHotelSearchInitRoomEntity> rooms;
+  /// The hotel's Content (star rating, address, gallery) already fetched by
+  /// [AkHotelDetailScreen] — optional and display-only (star rating, hero
+  /// image, address line on the summary card); null just hides those bits
+  /// rather than fabricating them.
+  final AkHotelDetailContentEntity? content;
 
   const AkHotelPriceConfirmScreen({
     super.key,
@@ -44,6 +53,7 @@ class AkHotelPriceConfirmScreen extends StatefulWidget {
     required this.roomGroup,
     required this.nationality,
     required this.rooms,
+    this.content,
   });
 
   @override
@@ -51,11 +61,12 @@ class AkHotelPriceConfirmScreen extends StatefulWidget {
 }
 
 class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
-  static const _blue = Color(0xFF1769F6);
-  static const _navy = Color(0xFF071638);
-  static const _pageBg = Color(0xFFF3F6FC);
-  static const _border = Color(0xFFE2E7F0);
-  static const _muted = Color(0xFF6B7280);
+  static const _blue = AppColors.AppBlue;
+  static const _navy = AppColors.black;
+  static const _pageBg = AppColors.white;
+  static const _border = AppColors.lightsubhead;
+  static const _muted = AppColors.subhead;
+  static const _accent = AppColors.OrangeColor;
 
   final _formKey = GlobalKey<FormState>();
 
@@ -78,6 +89,23 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
 
   bool _submitting = false;
   String? _submitError;
+
+  /// Cosmetic only — matches the agreement checkbox in the redesigned
+  /// layout but does not gate [_confirmBooking]; the booking flow's actual
+  /// terms are unchanged.
+  bool _agreedToTerms = false;
+
+  /// "I am booking for: Myself / Someone Else" — Myself pre-fills the lead
+  /// guest's fields from the signed-in user's own [ProfileEntity] (real
+  /// account data, fetched once and cached in [_profile]); Someone Else just
+  /// clears them back out for manual entry.
+  bool _bookingForSelf = true;
+  ProfileEntity? _profile;
+  bool _profileLoading = false;
+
+  /// Display-only selection for the phone code dropdown — cosmetic, see
+  /// [_labeledPhoneField].
+  String _leadPhoneCode = '+91';
 
   bool get _isLoggedIn => sl<PreferencesManager>().isLoggedIn();
 
@@ -121,6 +149,12 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
     super.initState();
     _buildGuests();
     _loadPrice();
+    // "Myself" is the default selection, so pre-fill the lead guest from the
+    // real signed-in profile as soon as the form exists — only when actually
+    // logged in, so there is nothing to fetch otherwise.
+    if (_isLoggedIn) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _applyBookingForSelf(true));
+    }
   }
 
   @override
@@ -170,6 +204,49 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
         _GuestInput(occupancyId: 1, paxType: 'A', isLead: true, title: 'Mr', age: 25),
       );
     }
+  }
+
+  /// Applies the "I am booking for" toggle to the lead guest's fields.
+  /// [self] = true fetches (once, then cached in [_profile]) and fills in
+  /// the signed-in user's own name/mobile/email; false clears those fields
+  /// back out for manual entry. No-ops quietly when not logged in — there is
+  /// no profile to fetch, and the existing login prompt already covers that.
+  Future<void> _applyBookingForSelf(bool self) async {
+    if (!mounted) return;
+    setState(() => _bookingForSelf = self);
+    final lead = _guests.isEmpty ? null : _guests.firstWhere((g) => g.isLead, orElse: () => _guests.first);
+    if (lead == null) return;
+
+    if (!self) {
+      lead.firstName.clear();
+      lead.lastName.clear();
+      lead.mobile?.clear();
+      lead.email?.clear();
+      setState(() {});
+      return;
+    }
+
+    if (!_isLoggedIn) return;
+
+    if (_profile == null && !_profileLoading) {
+      setState(() => _profileLoading = true);
+      final result = await sl<GetProfileUseCase>().call();
+      if (!mounted) return;
+      if (result is DataSuccess<ProfileEntity>) {
+        _profile = result.data;
+      }
+      setState(() => _profileLoading = false);
+    }
+
+    final profile = _profile;
+    if (profile == null || !mounted) return;
+    setState(() {
+      if (_titleItemsFor('A').contains(profile.title)) lead.title = profile.title;
+      lead.firstName.text = profile.firstName;
+      lead.lastName.text = profile.lastName;
+      lead.mobile?.text = profile.phoneNumber;
+      lead.email?.text = profile.email ?? '';
+    });
   }
 
   Future<void> _loadPrice() async {
@@ -346,6 +423,27 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
     setState(() => _submitting = false);
 
     if (result is DataSuccess<AkHotelCreateItineraryEntity> && result.data!.transactionId.isNotEmpty) {
+      final leadName = '${lead.firstName.text.trim()} ${lead.lastName.text.trim()}'.trim();
+      // Title is the only gender-adjacent field this form collects — "Mr" is
+      // the one clearly-male option, everything else (Mrs/Ms/child titles)
+      // maps to "F", same inference the guest form itself implies.
+      final genderLetter = lead.title == 'Mr' ? 'M' : 'F';
+      final paymentGuestsSummary = [
+        '${leadName.isEmpty ? 'Guest' : leadName}($genderLetter)',
+        '${_occupancies.length} Room${_occupancies.length == 1 ? '' : 's'}',
+        '$_adultCount Adult${_adultCount == 1 ? '' : 's'}',
+        if (_childCount > 0) '$_childCount Child${_childCount == 1 ? '' : 'ren'}',
+      ].join(', ');
+
+      final content = widget.content;
+      final leadPhone = (lead.mobile?.text.trim() ?? '').isEmpty
+          ? ''
+          : '$_leadPhoneCode ${lead.mobile!.text.trim()}';
+      // Sum of every priced room's baseRate — the pre-tax figure the
+      // confirmation screen's "Base Fare" line shows; taxes/fees there are
+      // derived as (amount actually paid − this), never fabricated.
+      final baseFare = _pricedRooms.isEmpty ? (priced.baseRate) : _pricedRooms.fold(0.0, (sum, r) => sum + r.baseRate);
+
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
@@ -356,6 +454,24 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
             checkIn: widget.checkIn,
             checkOut: widget.checkOut,
             searchTracingKey: widget.searchTracingKey,
+            hotelImage: _summaryImage,
+            checkInTime: content?.checkinBeginTime ?? '',
+            checkOutTime: content?.checkoutTime ?? '',
+            guestsSummary: paymentGuestsSummary,
+            hotelAddress: content?.addressLine1 ?? '',
+            hotelCity: content?.city ?? '',
+            hotelCountry: content?.country ?? '',
+            starRating: (content?.starRating ?? 0).round(),
+            reviewRating: content?.reviewRating ?? 0,
+            roomType: widget.roomGroup.roomName,
+            mealPlan: widget.roomGroup.boardBasisDescription,
+            roomsCount: _occupancies.length,
+            adultsCount: _adultCount,
+            childrenCount: _childCount,
+            baseFare: baseFare,
+            leadGuestName: leadName.isEmpty ? 'Guest' : leadName,
+            leadGuestEmail: leadEmail,
+            leadGuestPhone: leadPhone,
           ),
         ),
       );
@@ -389,24 +505,40 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
 
   String _prettyDate(String mmddyyyy) {
     try {
-      return DateFormat('EEE, dd MMM').format(DateFormat('MM/dd/yyyy').parseStrict(mmddyyyy));
+      return DateFormat('dd MMM yyyy, EEE').format(DateFormat('MM/dd/yyyy').parseStrict(mmddyyyy));
     } catch (_) {
       return mmddyyyy;
     }
   }
 
+  /// Nights between [widget.checkIn] and [widget.checkOut] — same
+  /// parse-and-diff the room rate details screen uses.
+  int get _nights {
+    try {
+      final inDate = DateFormat('MM/dd/yyyy').parseStrict(widget.checkIn);
+      final outDate = DateFormat('MM/dd/yyyy').parseStrict(widget.checkOut);
+      final diff = outDate.difference(inDate).inDays;
+      return diff > 0 ? diff : 0;
+    } catch (_) {
+      return 0;
+    }
+  }
+
   String get _guestsSummary {
-    final parts = <String>['$_adultCount Adult${_adultCount == 1 ? '' : 's'}'];
-    if (_childCount > 0) parts.add('$_childCount Child${_childCount == 1 ? '' : 'ren'}');
-    if (_occupancies.length > 1) parts.add('${_occupancies.length} Rooms');
-    return parts.join(' · ');
+    final childAges = <int>[for (final occ in _occupancies) ...occ.childAges];
+    final guestParts = <String>['$_adultCount Adult${_adultCount == 1 ? '' : 's'}'];
+    if (_childCount > 0) {
+      final agesText = childAges.isEmpty ? '' : ' (${childAges.map((a) => '${a}y').join(', ')})';
+      guestParts.add('$_childCount Child${_childCount == 1 ? '' : 'ren'}$agesText');
+    }
+    final roomsText = '${_occupancies.length} Room${_occupancies.length == 1 ? '' : 's'}';
+    return '${guestParts.join(', ')} • $roomsText';
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _pageBg,
-      extendBodyBehindAppBar: true,
+      backgroundColor: Colors.white,
       appBar: _buildAppBar(context),
       body: _pricing
           ? const Center(child: CircularProgressIndicator(color: _blue))
@@ -424,39 +556,23 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
   PreferredSizeWidget _buildAppBar(BuildContext context) {
     return AppBar(
       title: Text(
-        'Confirm Booking',
-        style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: context.fs(18)),
+        'Review Booking',
+        style: TextStyle(color: _navy, fontWeight: FontWeight.w600, fontSize: context.fs(16)),
       ),
       centerTitle: false,
-      backgroundColor: Colors.transparent,
-      elevation: 0,
-      systemOverlayStyle: SystemUiOverlayStyle.light,
-      iconTheme: const IconThemeData(color: Colors.white),
-      // Frosted-glass bar: content scrolls under it (extendBodyBehindAppBar),
-      // BackdropFilter blurs it, a translucent navy→blue gradient tints it.
-      flexibleSpace: ClipRect(
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-          child: Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [_navy.withValues(alpha: 0.62), _blue.withValues(alpha: 0.42)],
-              ),
-              border: Border(bottom: BorderSide(color: Colors.white.withValues(alpha: 0.12))),
-            ),
-          ),
-        ),
-      ),
+      backgroundColor: Colors.white,
+      elevation: 4,
+      scrolledUnderElevation: 4,
+      shadowColor: Colors.black.withValues(alpha: 0.15),
+      surfaceTintColor: Colors.transparent,
+      iconTheme: const IconThemeData(color: _navy),
     );
   }
 
   Widget _buildScrollBody(BuildContext context) {
-    final topInset = context.statusBarHeight + kToolbarHeight + context.h(12);
     return SingleChildScrollView(
       physics: context.scrollPhysics,
-      padding: EdgeInsets.fromLTRB(context.w(16), topInset, context.w(16), context.h(20)),
+      padding: EdgeInsets.fromLTRB(context.w(16), context.h(12), context.w(16), context.h(20)),
       child: Form(
         key: _formKey,
         child: Column(
@@ -471,7 +587,13 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
             if (!_isLoggedIn) _buildLoginPrompt(context),
             _sectionHeader(context, 'Guest Details', 'Enter each guest\'s name as on their government ID'),
             SizedBox(height: context.gapMedium),
+            _buildBookingForRow(context),
+            SizedBox(height: context.gapMedium),
             ..._buildGuestCards(context),
+            SizedBox(height: context.gapSmall),
+            _buildAddOtherGuestButton(context),
+            SizedBox(height: context.gapLarge),
+            _buildTermsRow(context),
           ],
         ),
       ),
@@ -496,16 +618,33 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
     );
   }
 
+  /// Hero image for the summary card: the hotel's own Content photo when
+  /// [widget.content] was supplied, falling back to this room's own photos
+  /// (same fallback order the room rate details screen uses) — empty only
+  /// when neither source has one, in which case a placeholder icon shows.
+  String get _summaryImage {
+    final hero = widget.content?.heroImage ?? '';
+    if (hero.isNotEmpty) return hero;
+    if (widget.roomGroup.images.isNotEmpty) return widget.roomGroup.images.first;
+    final contentImages = widget.content?.images ?? const <String>[];
+    return contentImages.isNotEmpty ? contentImages.first : '';
+  }
+
   Widget _buildSummaryCard(BuildContext context) {
+    final content = widget.content;
+    final starRating = (content?.starRating ?? 0).round().clamp(0, 5);
+    final addressParts = <String>[
+      if (content?.addressLine1.isNotEmpty == true) content!.addressLine1,
+      if (content?.city.isNotEmpty == true) content!.city,
+    ];
+    final image = _summaryImage;
+
     return Container(
       padding: EdgeInsets.all(context.w(14)),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(context.r(14)),
         border: Border.all(color: _border),
-        boxShadow: [
-          BoxShadow(color: _navy.withValues(alpha: 0.04), blurRadius: context.r(14), offset: Offset(0, context.h(6))),
-        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -513,123 +652,128 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                padding: EdgeInsets.all(context.w(9)),
-                decoration: BoxDecoration(
-                  color: _blue.withValues(alpha: 0.10),
-                  borderRadius: BorderRadius.circular(context.r(10)),
-                ),
-                child: Icon(Icons.apartment_rounded, color: _blue, size: context.w(20)),
-              ),
-              SizedBox(width: context.w(10)),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(widget.hotelName, style: TextStyle(fontSize: context.fs(15), fontWeight: FontWeight.w800, color: _navy)),
-                    SizedBox(height: context.h(3)),
                     Text(
-                      widget.roomGroup.roomName.isEmpty ? 'Room' : widget.roomGroup.roomName,
+                      widget.hotelName,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: context.fs(16), fontWeight: FontWeight.w800, color: _navy),
+                    ),
+                    if (starRating > 0) ...[
+                      SizedBox(height: context.h(5)),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          for (var i = 0; i < 5; i++)
+                            Icon(
+                              i < starRating ? Icons.star_rounded : Icons.star_border_rounded,
+                              size: context.w(14),
+                              // Filled stars up to the real rating are gold;
+                              // the remaining ones are a plain grey outline
+                              // instead of a fainter gold, so an unfilled
+                              // star doesn't read as "half-lit".
+                              color: i < starRating ? const Color(0xFFFFB020) : _border,
+                            ),
+                        ],
+                      ),
+                    ],
+                    SizedBox(height: context.h(5)),
+                    Text(
+                      addressParts.isNotEmpty
+                          ? addressParts.join(', ')
+                          : (widget.roomGroup.roomName.isEmpty ? 'Room' : widget.roomGroup.roomName),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(fontSize: context.fs(12), color: _muted),
                     ),
                   ],
                 ),
               ),
+              SizedBox(width: context.w(10)),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(context.r(10)),
+                child: image.isEmpty
+                    ? Container(
+                        width: context.w(76),
+                        height: context.w(76),
+                        color: _pageBg,
+                        child: Icon(Icons.apartment_rounded, color: _muted, size: context.w(24)),
+                      )
+                    : CachedNetworkImage(
+                        imageUrl: image,
+                        cacheManager: FastNetworkImageCacheManager.instance,
+                        width: context.w(76),
+                        height: context.w(76),
+                        fit: BoxFit.cover,
+                        memCacheWidth: 220,
+                        fadeInDuration: const Duration(milliseconds: 150),
+                        placeholder: (_, __) => Container(color: _pageBg),
+                        errorWidget: (_, __, ___) => Container(
+                          color: _pageBg,
+                          child: Icon(Icons.apartment_rounded, color: _muted, size: context.w(24)),
+                        ),
+                      ),
+              ),
             ],
           ),
           Divider(height: context.h(22), color: _border),
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(child: _summaryStat(context, 'CHECK-IN', _prettyDate(widget.checkIn))),
-              Container(width: 0.7, height: context.h(28), color: _border),
-              Expanded(child: _summaryStat(context, 'CHECK-OUT', _prettyDate(widget.checkOut))),
+              _nightsPill(context),
+              Expanded(child: _summaryStat(context, 'CHECK-OUT', _prettyDate(widget.checkOut), alignEnd: true)),
             ],
           ),
-          SizedBox(height: context.h(12)),
-          Container(
-            width: double.infinity,
-            padding: EdgeInsets.symmetric(horizontal: context.w(10), vertical: context.h(9)),
-            decoration: BoxDecoration(
-              color: _pageBg,
-              borderRadius: BorderRadius.circular(context.r(10)),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.people_alt_outlined, size: context.w(16), color: _muted),
-                SizedBox(width: context.w(8)),
-                Expanded(
-                  child: Text(
-                    _guestsSummary,
-                    style: TextStyle(fontSize: context.fs(12), color: _navy, fontWeight: FontWeight.w700),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Divider(height: context.h(24), color: _border),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Flexible(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text('Total payable', style: TextStyle(fontSize: context.fs(12), color: _muted, fontWeight: FontWeight.w600)),
-                    SizedBox(height: context.h(4)),
-                    _pricePill(context),
-                  ],
-                ),
-              ),
-              SizedBox(width: context.w(8)),
-              Flexible(
-                child: Text(
-                  _totalPayable.toStringAsFixed(2),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.end,
-                  style: TextStyle(fontSize: context.fs(21), fontWeight: FontWeight.w900, color: _navy),
-                ),
-              ),
-            ],
-          ),
+          Divider(height: context.h(22), color: _border),
+          _summaryStat(context, 'GUESTS & ROOMS', _guestsSummary, maxLines: 2),
         ],
       ),
     );
   }
 
-  Widget _summaryStat(BuildContext context, String label, String value) {
+  Widget _summaryStat(BuildContext context, String label, String value, {bool alignEnd = false, int maxLines = 1}) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: alignEnd ? CrossAxisAlignment.end : CrossAxisAlignment.start,
       children: [
         Text(label, style: TextStyle(fontSize: context.fs(9), color: _muted, fontWeight: FontWeight.w800, letterSpacing: 0.4)),
         SizedBox(height: context.h(3)),
         Text(
           value,
-          maxLines: 1,
+          maxLines: maxLines,
           overflow: TextOverflow.ellipsis,
+          textAlign: alignEnd ? TextAlign.end : TextAlign.start,
           style: TextStyle(fontSize: context.fs(12.5), color: _navy, fontWeight: FontWeight.w800),
         ),
       ],
     );
   }
 
-  Widget _pricePill(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: context.w(8), vertical: context.h(3)),
-      decoration: BoxDecoration(
-        color: const Color(0xFFE8F7EE),
-        borderRadius: BorderRadius.circular(context.r(20)),
-      ),
-      child: Row(
+  /// The small "N NIGHT(S)" pill between check-in/check-out, derived from
+  /// the real stay length ([_nights]) rather than a fixed label.
+  Widget _nightsPill(BuildContext context) {
+    final nights = _nights;
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: context.w(8)),
+      child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.verified_rounded, size: context.w(12), color: const Color(0xFF178A4C)),
-          SizedBox(width: context.w(4)),
-          Text(
-            'Price confirmed',
-            style: TextStyle(fontSize: context.fs(10), color: const Color(0xFF178A4C), fontWeight: FontWeight.w700),
+          Container(width: context.w(26), height: 2, color: _accent),
+          SizedBox(height: context.h(5)),
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: context.w(8), vertical: context.h(3)),
+            decoration: BoxDecoration(
+              color: _pageBg,
+              borderRadius: BorderRadius.circular(context.r(20)),
+              border: Border.all(color: _border),
+            ),
+            child: Text(
+              '$nights NIGHT${nights == 1 ? '' : 'S'}',
+              style: TextStyle(fontSize: context.fs(9), fontWeight: FontWeight.w800, color: _muted, letterSpacing: 0.3),
+            ),
           ),
         ],
       ),
@@ -699,6 +843,105 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
         ],
       ),
     );
+  }
+
+  /// "I am booking for: Myself / Someone Else" — sits above the guest cards
+  /// and drives [_applyBookingForSelf]. Hidden fields/data are never
+  /// fabricated: "Myself" pulls the real signed-in profile, nothing else.
+  Widget _buildBookingForRow(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: context.w(14), vertical: context.h(12)),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(context.r(14)),
+        border: Border.all(color: _border),
+      ),
+      child: Row(
+        children: [
+          Text('I am booking for', style: TextStyle(fontSize: context.fs(13), fontWeight: FontWeight.w700, color: _navy)),
+          SizedBox(width: context.w(18)),
+          _bookingForOption(context, 'Myself', true),
+          SizedBox(width: context.w(18)),
+          _bookingForOption(context, 'Someone Else', false),
+          if (_profileLoading) ...[
+            SizedBox(width: context.w(10)),
+            SizedBox(width: context.w(14), height: context.w(14), child: const CircularProgressIndicator(strokeWidth: 2, color: _blue)),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _bookingForOption(BuildContext context, String label, bool value) {
+    final selected = _bookingForSelf == value;
+    return InkWell(
+      onTap: () => _applyBookingForSelf(value),
+      borderRadius: BorderRadius.circular(context.r(8)),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            selected ? Icons.radio_button_checked_rounded : Icons.radio_button_unchecked_rounded,
+            size: context.w(18),
+            color: selected ? _accent : _border,
+          ),
+          SizedBox(width: context.w(6)),
+          Text(label, style: TextStyle(fontSize: context.fs(12.5), fontWeight: FontWeight.w600, color: _navy)),
+        ],
+      ),
+    );
+  }
+
+  /// Opens [AkHotelAddGuestSheet] (a real saved-guest book, backed by the
+  /// same traveller API the Dashboard uses) and drops any guests the
+  /// traveller ticked into the next empty guest slot of the matching
+  /// paxType. Does not add headcount — a pick with no empty slot left is
+  /// simply skipped, since the room's occupancy is fixed by what was priced.
+  Widget _buildAddOtherGuestButton(BuildContext context) {
+    return InkWell(
+      onTap: _openAddGuestSheet,
+      borderRadius: BorderRadius.circular(context.r(10)),
+      child: Padding(
+        padding: EdgeInsets.symmetric(vertical: context.h(8)),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.person_add_alt_1_rounded, size: context.w(18), color: _accent),
+            SizedBox(width: context.w(8)),
+            Text('Add Other Guest', style: TextStyle(fontSize: context.fs(13), fontWeight: FontWeight.w800, color: _accent)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openAddGuestSheet() async {
+    final picks = await AkHotelAddGuestSheet.show(context);
+    if (picks == null || picks.isEmpty || !mounted) return;
+
+    var applied = 0;
+    for (final pick in picks) {
+      final paxType = pick.isChild ? 'C' : 'A';
+      _GuestInput? slot;
+      for (final g in _guests) {
+        if (g.paxType == paxType && g.firstName.text.trim().isEmpty) {
+          slot = g;
+          break;
+        }
+      }
+      if (slot == null) continue;
+      if (_titleItemsFor(paxType).contains(pick.title)) slot.title = pick.title;
+      slot.firstName.text = pick.firstName;
+      slot.lastName.text = pick.lastName;
+      applied++;
+    }
+
+    setState(() {});
+    if (applied < picks.length) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Some guests had no empty slot left in this booking and were not added.')),
+      );
+    }
   }
 
   Widget _sectionHeader(BuildContext context, String title, String subtitle) {
@@ -798,7 +1041,7 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
               Expanded(
                 child: Text(label, style: TextStyle(fontSize: context.fs(14), fontWeight: FontWeight.w800, color: _navy)),
               ),
-              if (g.isLead) _tagChip(context, 'Lead guest', _blue),
+              if (g.isLead) _tagChip(context, 'Lead guest', _accent),
               if (isChild) _tagChip(context, 'Age ${g.age}', _muted),
             ],
           ),
@@ -807,49 +1050,52 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               SizedBox(
-                width: context.w(94),
-                child: DropdownButtonFormField<String>(
-                  value: g.title,
-                  isExpanded: true,
-                  decoration: _fieldDecoration(context, 'Title'),
-                  items: _titleItemsFor(g.paxType)
-                      .map((t) => DropdownMenuItem(value: t, child: Text(t)))
-                      .toList(),
-                  onChanged: (v) => setState(() => g.title = v ?? g.title),
+                width: context.w(76),
+                child: _labeledDropdown(
+                  context,
+                  'Title',
+                  g.title,
+                  _titleItemsFor(g.paxType),
+                  (v) => setState(() => g.title = v ?? g.title),
                 ),
               ),
-              SizedBox(width: context.w(10)),
+              SizedBox(width: context.w(8)),
               Expanded(
-                child: TextFormField(
+                child: _labeledField(
+                  context,
+                  'First Name',
                   controller: g.firstName,
                   textCapitalization: TextCapitalization.words,
-                  decoration: _fieldDecoration(context, 'First Name'),
+                  validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+                ),
+              ),
+              SizedBox(width: context.w(8)),
+              Expanded(
+                child: _labeledField(
+                  context,
+                  'Last Name',
+                  controller: g.lastName,
+                  textCapitalization: TextCapitalization.words,
                   validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
                 ),
               ),
             ],
           ),
-          SizedBox(height: context.gapMedium),
-          TextFormField(
-            controller: g.lastName,
-            textCapitalization: TextCapitalization.words,
-            decoration: _fieldDecoration(context, 'Last Name'),
-            validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
-          ),
           if (g.isLead) ...[
             SizedBox(height: context.gapMedium),
-            TextFormField(
-              controller: g.mobile,
-              keyboardType: TextInputType.phone,
-              decoration: _fieldDecoration(context, 'Mobile Number', icon: Icons.phone_outlined),
-              validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+            _labeledField(
+              context,
+              'Email ID',
+              controller: g.email!,
+              keyboardType: TextInputType.emailAddress,
+              icon: Icons.mail_outline_rounded,
+              validator: (v) => (v == null || !v.contains('@')) ? 'Enter a valid email' : null,
             ),
             SizedBox(height: context.gapMedium),
-            TextFormField(
-              controller: g.email,
-              keyboardType: TextInputType.emailAddress,
-              decoration: _fieldDecoration(context, 'Email', icon: Icons.mail_outline_rounded),
-              validator: (v) => (v == null || !v.contains('@')) ? 'Enter a valid email' : null,
+            _labeledPhoneField(
+              context,
+              controller: g.mobile!,
+              validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
             ),
             SizedBox(height: context.h(8)),
             Row(
@@ -887,23 +1133,146 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
   List<String> _titleItemsFor(String paxType) =>
       paxType == 'C' ? const ['Mstr', 'Miss'] : const ['Mr', 'Mrs', 'Ms'];
 
-  InputDecoration _fieldDecoration(BuildContext context, String label, {IconData? icon}) {
+  /// Floating-label decoration: the label sits inline until the field is
+  /// focused or filled, then floats above it — same Material behaviour as
+  /// the rest of the app's forms, instead of a separate static caption.
+  InputDecoration _boxedDecoration(BuildContext context, {required String label, IconData? icon}) {
     OutlineInputBorder border(Color color) => OutlineInputBorder(
           borderRadius: BorderRadius.circular(context.r(10)),
           borderSide: BorderSide(color: color),
         );
     return InputDecoration(
       labelText: label,
+      floatingLabelBehavior: FloatingLabelBehavior.auto,
       isDense: true,
       filled: true,
       fillColor: _pageBg,
       prefixIcon: icon != null ? Icon(icon, size: context.w(18), color: _muted) : null,
-      labelStyle: TextStyle(color: _muted, fontSize: context.fs(13)),
-      floatingLabelStyle: const TextStyle(color: _blue),
+      labelStyle: TextStyle(color: _muted, fontSize: context.fs(12.5)),
+      floatingLabelStyle: TextStyle(color: _blue, fontSize: context.fs(12)),
       contentPadding: EdgeInsets.symmetric(horizontal: context.w(12), vertical: context.h(14)),
       border: border(_border),
       enabledBorder: border(_border),
       focusedBorder: border(_blue),
+      errorBorder: border(Colors.red.shade300),
+      focusedErrorBorder: border(Colors.red.shade400),
+    );
+  }
+
+  Widget _labeledField(
+    BuildContext context,
+    String label, {
+    required TextEditingController controller,
+    String? Function(String?)? validator,
+    TextInputType? keyboardType,
+    TextCapitalization textCapitalization = TextCapitalization.none,
+    IconData? icon,
+  }) {
+    return TextFormField(
+      controller: controller,
+      keyboardType: keyboardType,
+      textCapitalization: textCapitalization,
+      style: TextStyle(fontSize: context.fs(13), color: _navy, fontWeight: FontWeight.w600),
+      decoration: _boxedDecoration(context, label: label, icon: icon),
+      validator: validator,
+    );
+  }
+
+  Widget _labeledDropdown(
+    BuildContext context,
+    String label,
+    String value,
+    List<String> items,
+    ValueChanged<String?> onChanged,
+  ) {
+    return DropdownButtonFormField<String>(
+      value: value,
+      isExpanded: true,
+      style: TextStyle(fontSize: context.fs(13), color: _navy, fontWeight: FontWeight.w600),
+      decoration: _boxedDecoration(context, label: label),
+      items: items.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
+      onChanged: onChanged,
+    );
+  }
+
+  /// Mobile number field as two fully separate boxed fields — a small code
+  /// dropdown (display-only, like [ProfilePhoneField] elsewhere in the app;
+  /// [AkHotelContactInfoEntity.countryCode] is always [widget.nationality],
+  /// not this) and the number itself with its own floating label — instead
+  /// of one merged box.
+  Widget _labeledPhoneField(
+    BuildContext context, {
+    required TextEditingController controller,
+    String? Function(String?)? validator,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: context.w(92),
+          child: DropdownButtonFormField<String>(
+            value: _leadPhoneCode,
+            isExpanded: true,
+            style: TextStyle(fontSize: context.fs(13), color: _navy, fontWeight: FontWeight.w700),
+            decoration: _boxedDecoration(context, label: 'Code'),
+            items: const [
+              DropdownMenuItem(value: '+91', child: Text('🇮🇳 +91')),
+              DropdownMenuItem(value: '+1', child: Text('🇺🇸 +1')),
+              DropdownMenuItem(value: '+44', child: Text('🇬🇧 +44')),
+            ],
+            onChanged: (v) => setState(() => _leadPhoneCode = v ?? _leadPhoneCode),
+          ),
+        ),
+        SizedBox(width: context.w(8)),
+        Expanded(
+          child: _labeledField(
+            context,
+            'Mobile Number',
+            controller: controller,
+            keyboardType: TextInputType.phone,
+            validator: validator,
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Static booking-agreement disclaimer, same non-interactive style the
+  /// login screen uses for its own Terms/Agreement copy — display only, does
+  /// not gate [_confirmBooking].
+  Widget _buildTermsRow(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: context.w(20),
+          height: context.w(20),
+          child: Checkbox(
+            value: _agreedToTerms,
+            onChanged: (v) => setState(() => _agreedToTerms = v ?? false),
+            activeColor: _accent,
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
+        ),
+        SizedBox(width: context.w(10)),
+        Expanded(
+          child: Padding(
+            padding: EdgeInsets.only(top: context.h(2)),
+            child: Text.rich(
+              TextSpan(
+                style: TextStyle(fontSize: context.fs(11), color: _muted, height: 1.4),
+                children: const [
+                  TextSpan(text: "By proceeding, I agree to Wander Nova's "),
+                  TextSpan(text: 'User Agreement', style: TextStyle(color: _blue, fontWeight: FontWeight.w700)),
+                  TextSpan(text: ', '),
+                  TextSpan(text: 'Terms of Service', style: TextStyle(color: _blue, fontWeight: FontWeight.w700)),
+                  TextSpan(text: ' and cancellation & property Booking Policies.'),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -933,45 +1302,62 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
           ],
           Row(
             children: [
-              Flexible(
+              // ── Price block: left side ──
+              Expanded(                       // takes whatever is left of the button
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Total', style: TextStyle(fontSize: context.fs(11), color: _muted, fontWeight: FontWeight.w700)),
-                    SizedBox(height: context.h(2)),
                     Text(
-                      _priced == null ? '—' : _totalPayable.toStringAsFixed(2),
+                      _priced == null ? '—' : '₹${_totalPayable.toStringAsFixed(0)}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(fontSize: context.fs(20), fontWeight: FontWeight.w900, color: _navy),
                     ),
+                    SizedBox(height: context.h(2)),
+                    Text(
+                      'Include taxes & fees',
+                      style: TextStyle(fontSize: context.fs(10.5), color: _muted, fontWeight: FontWeight.w600),
+                    ),
                   ],
                 ),
               ),
+
               SizedBox(width: context.w(14)),
-              Expanded(
-                child: SizedBox(
-                  height: context.buttonHeight + 8,
-                  child: ElevatedButton(
-                    onPressed: _submitting ? null : _confirmBooking,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _blue,
-                      disabledBackgroundColor: _blue.withValues(alpha: 0.5),
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(context.r(12))),
+
+              // ── Button: right side, fixed width ──
+              SizedBox(
+                width: context.w(149),        // 👈 fixed width keeps it on the right
+                height: context.h(44),
+                child: ElevatedButton(
+                  onPressed: _submitting ? null : _confirmBooking,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _accent,
+                    disabledBackgroundColor: _accent.withValues(alpha: 0.5),
+                    elevation: 0,
+                    padding: EdgeInsets.zero,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(context.r(12)),
                     ),
-                    child: _submitting
-                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                        : Text(
-                            _isLoggedIn ? 'Confirm Booking' : 'Log In to Book',
-                            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: context.bodyLarge),
-                          ),
+                  ),
+                  child: _submitting
+                      ? const SizedBox(
+                    width: 20, height: 20,
+                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                  )
+                      : Text(
+                    _isLoggedIn ? 'Continue' : 'Log-In to Book',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                      fontSize: context.fs(14),
+                    ),
                   ),
                 ),
               ),
             ],
-          ),
+          )
         ],
       ),
     );

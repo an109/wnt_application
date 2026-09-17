@@ -274,6 +274,7 @@ class _AkHotelDetailScreenState extends State<AkHotelDetailScreen> {
           roomGroup: roomGroup,
           nationality: widget.nationality,
           rooms: widget.rooms,
+          content: _content,
         ),
       ),
     );
