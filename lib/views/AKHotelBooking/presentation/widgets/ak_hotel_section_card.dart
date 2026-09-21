@@ -134,40 +134,77 @@ class _AkHotelSectionCardState extends State<AkHotelSectionCard> {
                         ),
                       ],
                     ),
-                    // Pushes the rating/price row all the way down to the
+                    // Pushes the rating/price rows all the way down to the
                     // bottom edge, no matter how much (or little) text sits
-                    // above it — that row's position stops depending on
+                    // above them — their position stops depending on
                     // content length this way.
                     const Spacer(),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        if (hotel.rating > 0)
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: List.generate(
-                              hotel.rating.clamp(0, 5),
-                              (_) => Icon(Icons.star_rounded, size: context.w(11), color: Colors.amber),
-                            ),
-                          ),
-                        const Spacer(),
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.baseline,
-                          textBaseline: TextBaseline.alphabetic,
-                          children: [
-                            Text(
-                              hotel.price,
-                              style: TextStyle(
-                                fontSize: context.fs(14),
-                                fontWeight: FontWeight.w900,
-                                color: AppColors.AppBlue,
+                    // Stars + guest review score, on its own row — sharing
+                    // one row with the price (as an earlier version of this
+                    // did) overflowed on the card's default 180dp width the
+                    // moment both a full star row AND a review count needed
+                    // to fit alongside a price; giving each its own row
+                    // removes that width contention entirely.
+                    if (hotel.rating > 0 || hotel.reviewCount > 0)
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (hotel.rating > 0)
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: List.generate(
+                                hotel.rating.clamp(0, 5),
+                                (_) => Icon(Icons.star_rounded, size: context.w(11), color: Colors.amber),
                               ),
                             ),
-                            Text(
-                              ' /night',
-                              style: TextStyle(fontSize: context.fs(6), color: _muted, fontWeight: FontWeight.w600),
+                          // Guest review score + how many it's averaged
+                          // over — real data from Content
+                          // (AkHotelContentItemEntity.reviewRating/
+                          // reviewCount), only shown once there's actually a
+                          // count to back it up.
+                          if (hotel.reviewCount > 0) ...[
+                            SizedBox(width: context.w(3)),
+                            Flexible(
+                              child: Text.rich(
+                                TextSpan(
+                                  children: [
+                                    TextSpan(
+                                      text: hotel.reviewRating.toStringAsFixed(1),
+                                      style: TextStyle(fontSize: context.fs(10), fontWeight: FontWeight.w800, color: _navy),
+                                    ),
+                                    TextSpan(
+                                      text: ' (${hotel.reviewCount})',
+                                      style: TextStyle(fontSize: context.fs(9), fontWeight: FontWeight.w500, color: _muted),
+                                    ),
+                                  ],
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
                           ],
+                        ],
+                      ),
+                    if (hotel.rating > 0 || hotel.reviewCount > 0) SizedBox(height: context.h(3)),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.baseline,
+                      textBaseline: TextBaseline.alphabetic,
+                      children: [
+                        Flexible(
+                          child: Text(
+                            hotel.price,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: context.fs(14),
+                              fontWeight: FontWeight.w900,
+                              color: AppColors.AppBlue,
+                            ),
+                          ),
+                        ),
+                        Text(
+                          ' /night',
+                          style: TextStyle(fontSize: context.fs(6), color: _muted, fontWeight: FontWeight.w600),
                         ),
                       ],
                     ),

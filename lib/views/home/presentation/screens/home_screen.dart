@@ -538,7 +538,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final topInset = MediaQuery.of(context).padding.top;
 
     return Container(
-      height: context.h(400), // Slightly taller for better gradient visibility
+      height: context.h(360), // Slightly taller for better gradient visibility
       child: Stack(
         children: [
           Positioned.fill(child: _buildHeroBackground(context, bannerUrl)),
@@ -546,6 +546,7 @@ class _HomeScreenState extends State<HomeScreen> {
             padding: EdgeInsets.fromLTRB(
               context.w(16),
               topInset + context.h(16),
+              // context.h(2),
               context.w(16),
               context.h(16),
             ),
@@ -554,7 +555,7 @@ class _HomeScreenState extends State<HomeScreen> {
               children: [
                 SizedBox(height: context.h(16)),
                 _buildTopBar(context),
-                SizedBox(height: context.h(74)),
+                SizedBox(height: context.h(44)),
                 Expanded(child: _buildServiceIconGrid(context)),
               ],
             ),
@@ -605,7 +606,7 @@ class _HomeScreenState extends State<HomeScreen> {
           right: 0,
           bottom: 0,
           child: Container(
-            height: context.h(154),
+            height: context.h(40),
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.bottomCenter,
@@ -616,7 +617,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   Colors.white.withOpacity(0.72),
                   Colors.white.withOpacity(0.38),
                   Colors.white.withOpacity(0.10),
-                  Colors.transparent,
+                  Colors.white.withOpacity(0.05),
+                  // Colors.transparent,
                 ],
                 stops: const [0.0, 0.20, 0.40, 0.60, 0.80, 1.0],
               ),
@@ -630,7 +632,7 @@ class _HomeScreenState extends State<HomeScreen> {
           right: 0,
           bottom: 0,
           child: Container(
-            height: context.h(100),
+            height: context.h(80),
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.bottomCenter,
@@ -641,24 +643,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   Colors.transparent,
                 ],
                 stops: const [0.0, 0.5, 1.0],
+                // stops: const [0.0, 0.5,],
               ),
-            ),
-          ),
-        ),
-
-        // Top scrim for text readability
-        DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Colors.black.withOpacity(0.20),
-                Colors.black.withOpacity(0.10),
-                Colors.transparent,
-                Colors.transparent,
-              ],
-              stops: const [0.0, 0.4, 0.7, 1.0],
             ),
           ),
         ),

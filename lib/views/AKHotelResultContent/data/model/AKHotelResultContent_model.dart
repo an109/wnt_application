@@ -114,7 +114,7 @@
 //   }
 // }
 
-
+import '../../../../core/utils/ak_hotel_review_parser.dart';
 import '../../domain/entity/AKHotelResultContent_entity.dart';
 
 // === UPDATED: Now takes full json for room extraction ===
@@ -203,7 +203,7 @@ class AkHotelContentItemModel extends AkHotelContentItemEntity {
 
   factory AkHotelContentItemModel.fromJson(Map<String, dynamic> json) {
     final geoCode = json['geoCode'] as Map<String, dynamic>?;
-    final userReview = json['userReview'] as Map<String, dynamic>?;
+    final review = parseAkHotelReview(json);
     return AkHotelContentItemModel(
       id: json['id']?.toString() ?? '',
       name: json['name']?.toString() ?? '',
@@ -215,8 +215,8 @@ class AkHotelContentItemModel extends AkHotelContentItemEntity {
       lat: (geoCode?['lat'] as num?)?.toDouble(),
       long: (geoCode?['long'] as num?)?.toDouble(),
       provider: json['provider']?.toString() ?? '',
-      reviewCount: (userReview?['count'] as num?)?.toInt() ?? 0,
-      reviewRating: (userReview?['rating'] as num?)?.toDouble() ?? 0.0,
+      reviewCount: review.count,
+      reviewRating: review.rating,
       isSoldOut: json['isSoldOut'] == true,
       chainName: json['chainName']?.toString() ?? '',
       countryCode: json['countryCode']?.toString() ?? '',

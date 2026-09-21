@@ -61,8 +61,15 @@ class AkHotelDetailScreen extends StatefulWidget {
   /// rather than re-derived from the Rooms API response.
   final List<AkHotelSearchInitRoomEntity> rooms;
 
+  /// Photos the results list already showed for this hotel (list Content
+  /// API). Detail Content can come back with no images for the same hotel —
+  /// its provider differs from the list's — so these are used instead of an
+  /// empty gallery when that happens.
+  final List<String> fallbackImages;
+
   const AkHotelDetailScreen({
     super.key,
+    this.fallbackImages = const [],
     required this.searchId,
     required this.searchTracingKey,
     required this.hotelId,
@@ -293,6 +300,7 @@ class _AkHotelDetailScreenState extends State<AkHotelDetailScreen> {
           adults: widget.adults,
           children: widget.children,
           content: _content,
+          fallbackImages: _images,
         ),
       ),
     );
@@ -361,9 +369,12 @@ class _AkHotelDetailScreenState extends State<AkHotelDetailScreen> {
 
   List<String> get _images {
     final c = _content;
-    if (c == null) return const [];
-    final all = <String>[if (c.heroImage.isNotEmpty) c.heroImage, ...c.images];
-    return all.toSet().toList();
+    final own = <String>[
+      if (c != null && c.heroImage.isNotEmpty) c.heroImage,
+      if (c != null) ...c.images,
+    ];
+    final all = own.isNotEmpty ? own : widget.fallbackImages;
+    return all.where((u) => u.isNotEmpty).toSet().toList();
   }
 
   @override

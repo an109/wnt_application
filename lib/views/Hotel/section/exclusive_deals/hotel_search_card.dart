@@ -758,6 +758,7 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
             children: totalChildren,
             nationality: _guestNationalityCode,
             rooms: rooms,
+            searchedByHotelName: _selectedLocation!.type.toLowerCase() == 'hotel',
           ),
         ),
       );
@@ -797,70 +798,60 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
   Widget _buildHeroForm(BuildContext context) {
     return Stack(
       children: [
-        // Positioned.fill(child: _buildHeroBackdrop(context)),
         Positioned(
           left: 0,
           right: 0,
-          top: -context.h(85),   // ← pull the top of the image up by 80
-          bottom: -12,
+          top: 0,
+          height: context.screenHeight * 0.50, // ← control the hero height here
           child: _buildHeroBackdrop(context),
         ),
-        // ====== BOTTOM MELTING GRADIENT ======
+// Layer 1: soft white "cloud" fade
         Positioned(
           left: 0,
           right: 0,
-          bottom: 0,
+          bottom: 33,
           child: Container(
-            height: context.h(60),
+            height: context.h(33),
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.bottomCenter,
                 end: Alignment.topCenter,
                 colors: [
                   Colors.white,
-                  Colors.white.withOpacity(0.90),
-                  Colors.white.withOpacity(0.60),
-                  Colors.white.withOpacity(0.35),
+                  Colors.white.withOpacity(0.92),
+                  Colors.white.withOpacity(0.72),
+                  Colors.white.withOpacity(0.38),
+                  Colors.white.withOpacity(0.10),
                   Colors.transparent,
                 ],
-                stops: const [0.0, 0.25, 0.50, 0.75, 1.0],
+                stops: const [0.0, 0.20, 0.40, 0.60, 0.80, 1.0],
               ),
             ),
           ),
         ),
-        // ====== HERO → WHITE "CLOUD" MELT LAYER ======
-        // The background photo dissolves into white as a soft, feathered haze
-        // (not a hard band) around the vertical middle of the "Search Hotel"
+
+// Layer 2: subtle depth overlay
         Positioned(
-          left: context.w(13),
-          right: context.w(13),
-          bottom: context.h(-2),
-          height: context.h(65),
-          child: IgnorePointer(
-            child: ImageFiltered(
-              imageFilter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      AppColors.white.withOpacity(0.0),
-                      AppColors.white.withOpacity(0.68),
-                      AppColors.white.withOpacity(0.76),
-                      AppColors.white,
-                    ],
-                    stops: const [
-                      0.00, 0.56, 0.60, 1.00,
-                    ],
-                  ),
-                ),
-                child: const SizedBox.expand(),
+          left: 0,
+          right: 0,
+          bottom: 33,
+          child: Container(
+            height: context.h(65),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.bottomCenter,
+                end: Alignment.topCenter,
+                colors: [
+                  Colors.white.withOpacity(0.5),
+                  Colors.white.withOpacity(0.10),
+                  Colors.transparent,
+                ],
+                stops: const [0.0, 0.5, 1.0],
               ),
             ),
           ),
         ),
-        // Foreground content
+
         Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -920,49 +911,8 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
         else
           fallback,
 
-        // Soft white gradient near the bottom for the "cloudy" merge.
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: 0,
-          child: Container(
-            height: context.h(154),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.bottomCenter,
-                end: Alignment.topCenter,
-                colors: [
-                  Colors.white,
-                  Colors.white.withOpacity(0.92),
-                  Colors.white.withOpacity(0.72),
-                  Colors.white.withOpacity(0.38),
-                  Colors.white.withOpacity(0.10),
-                  Colors.transparent,
-                ],
-                stops: const [0.0, 0.20, 0.40, 0.60, 0.80, 1.0],
-              ),
-            ),
-          ),
-        ),
 
-        // Top scrim so the white "Hotel" title stays readable — Figma
-        // layers a soft dark-to-clear wash over the top third of the photo
-        // rather than a hard band, so this fades across three stops instead
-        // of two.
-        DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Colors.black.withOpacity(0.30),
-                Colors.black.withOpacity(0.12),
-                Colors.black.withOpacity(0.0),
-              ],
-              stops: const [0.0, 0.16, 0.34],
-            ),
-          ),
-        ),
+
       ],
     );
   }

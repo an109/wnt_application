@@ -25,16 +25,19 @@ class AkHotelPriceConfirmScreen extends StatefulWidget {
   final String searchTracingKey;
   final String hotelId;
   final String hotelName;
+
   /// MM/DD/YYYY, as threaded from Search Init.
   final String checkIn;
   final String checkOut;
   final String recommendationId;
   final AkHotelRoomGroupEntity roomGroup;
   final String nationality;
+
   /// The exact per-room adults/children/childAges the user searched with —
   /// see the class doc for why this, not [roomGroup].occupancies, drives the
   /// guest forms and the itinerary's Rooms[].
   final List<AkHotelSearchInitRoomEntity> rooms;
+
   /// The hotel's Content (star rating, address, gallery) already fetched by
   /// [AkHotelDetailScreen] — optional and display-only (star rating, hero
   /// image, address line on the summary card); null just hides those bits
@@ -57,7 +60,8 @@ class AkHotelPriceConfirmScreen extends StatefulWidget {
   });
 
   @override
-  State<AkHotelPriceConfirmScreen> createState() => _AkHotelPriceConfirmScreenState();
+  State<AkHotelPriceConfirmScreen> createState() =>
+      _AkHotelPriceConfirmScreenState();
 }
 
 class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
@@ -78,6 +82,7 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
   bool _pricing = true;
   String? _priceError;
   AkHotelPricedRoomGroupEntity? _priced;
+
   /// Every room-group the Price API returned, in order. For a multi-room
   /// booking the vendor returns one entry per physical room — each with its
   /// own [AkHotelPricedRoomGroupEntity.occupancyId], which is the ID
@@ -95,10 +100,6 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
   /// terms are unchanged.
   bool _agreedToTerms = false;
 
-  /// "I am booking for: Myself / Someone Else" — Myself pre-fills the lead
-  /// guest's fields from the signed-in user's own [ProfileEntity] (real
-  /// account data, fetched once and cached in [_profile]); Someone Else just
-  /// clears them back out for manual entry.
   bool _bookingForSelf = true;
   ProfileEntity? _profile;
   bool _profileLoading = false;
@@ -118,7 +119,14 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
   /// practice since every entry point into this screen supplies it).
   List<AkHotelOccupancyEntity> get _occupancies {
     if (widget.rooms.isEmpty) {
-      return const [AkHotelOccupancyEntity(occupancyId: 1, numOfAdults: 1, numOfChildren: 0, childAges: [])];
+      return const [
+        AkHotelOccupancyEntity(
+          occupancyId: 1,
+          numOfAdults: 1,
+          numOfChildren: 0,
+          childAges: [],
+        ),
+      ];
     }
     return [
       for (var i = 0; i < widget.rooms.length; i++)
@@ -153,7 +161,9 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
     // real signed-in profile as soon as the form exists — only when actually
     // logged in, so there is nothing to fetch otherwise.
     if (_isLoggedIn) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _applyBookingForSelf(true));
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _applyBookingForSelf(true),
+      );
     }
   }
 
@@ -177,22 +187,26 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
       for (var a = 0; a < occ.numOfAdults; a++) {
         final isLead = !leadAssigned;
         if (isLead) leadAssigned = true;
-        _guests.add(_GuestInput(
-          occupancyId: roomIndex,
-          paxType: 'A',
-          isLead: isLead,
-          title: 'Mr',
-          age: 25,
-        ));
+        _guests.add(
+          _GuestInput(
+            occupancyId: roomIndex,
+            paxType: 'A',
+            isLead: isLead,
+            title: 'Mr',
+            age: 25,
+          ),
+        );
       }
       for (var c = 0; c < occ.numOfChildren; c++) {
-        _guests.add(_GuestInput(
-          occupancyId: roomIndex,
-          paxType: 'C',
-          isLead: false,
-          title: 'Mstr',
-          age: c < occ.childAges.length ? occ.childAges[c] : 5,
-        ));
+        _guests.add(
+          _GuestInput(
+            occupancyId: roomIndex,
+            paxType: 'C',
+            isLead: false,
+            title: 'Mstr',
+            age: c < occ.childAges.length ? occ.childAges[c] : 5,
+          ),
+        );
       }
     }
     // No adults anywhere (occupancies empty or, pathologically, child-only):
@@ -201,20 +215,23 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
     if (!leadAssigned) {
       _guests.insert(
         0,
-        _GuestInput(occupancyId: 1, paxType: 'A', isLead: true, title: 'Mr', age: 25),
+        _GuestInput(
+          occupancyId: 1,
+          paxType: 'A',
+          isLead: true,
+          title: 'Mr',
+          age: 25,
+        ),
       );
     }
   }
 
-  /// Applies the "I am booking for" toggle to the lead guest's fields.
-  /// [self] = true fetches (once, then cached in [_profile]) and fills in
-  /// the signed-in user's own name/mobile/email; false clears those fields
-  /// back out for manual entry. No-ops quietly when not logged in — there is
-  /// no profile to fetch, and the existing login prompt already covers that.
   Future<void> _applyBookingForSelf(bool self) async {
     if (!mounted) return;
     setState(() => _bookingForSelf = self);
-    final lead = _guests.isEmpty ? null : _guests.firstWhere((g) => g.isLead, orElse: () => _guests.first);
+    final lead = _guests.isEmpty
+        ? null
+        : _guests.firstWhere((g) => g.isLead, orElse: () => _guests.first);
     if (lead == null) return;
 
     if (!self) {
@@ -241,7 +258,8 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
     final profile = _profile;
     if (profile == null || !mounted) return;
     setState(() {
-      if (_titleItemsFor('A').contains(profile.title)) lead.title = profile.title;
+      if (_titleItemsFor('A').contains(profile.title))
+        lead.title = profile.title;
       lead.firstName.text = profile.firstName;
       lead.lastName.text = profile.lastName;
       lead.mobile?.text = profile.phoneNumber;
@@ -267,7 +285,8 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
 
     if (!mounted) return;
 
-    if (result is DataSuccess<AkHotelPriceEntity> && result.data!.roomGroups.isNotEmpty) {
+    if (result is DataSuccess<AkHotelPriceEntity> &&
+        result.data!.roomGroups.isNotEmpty) {
       setState(() {
         _pricedRooms = result.data!.roomGroups;
         _priced = _pricedRooms.first;
@@ -276,7 +295,8 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
     } else {
       setState(() {
         _pricing = false;
-        _priceError = 'Could not confirm the live price for this room. Please go back and try again.';
+        _priceError =
+            'Could not confirm the live price for this room. Please go back and try again.';
       });
     }
   }
@@ -299,7 +319,10 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
     if (adults > 0) {
       buffer.write('$adults:A:${List.filled(adults, '25').join(':')}|');
     }
-    final childAges = guests.where((g) => g.paxType == 'C').map((g) => g.age).toList();
+    final childAges = guests
+        .where((g) => g.paxType == 'C')
+        .map((g) => g.age)
+        .toList();
     if (childAges.isNotEmpty) {
       buffer.write('${childAges.length}:C:${childAges.join(':')}|');
     }
@@ -324,7 +347,9 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
         return FadeTransition(
           opacity: animation,
           child: ScaleTransition(
-            scale: Tween<double>(begin: 0.95, end: 1).animate(CurvedAnimation(parent: animation, curve: Curves.easeOut)),
+            scale: Tween<double>(begin: 0.95, end: 1).animate(
+              CurvedAnimation(parent: animation, curve: Curves.easeOut),
+            ),
             child: child,
           ),
         );
@@ -349,7 +374,10 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
       _submitError = null;
     });
 
-    final lead = _guests.firstWhere((g) => g.isLead, orElse: () => _guests.first);
+    final lead = _guests.firstWhere(
+      (g) => g.isLead,
+      orElse: () => _guests.first,
+    );
     final leadEmail = lead.email?.text.trim() ?? '';
 
     // One Rooms[] entry per occupancy; each carries its own guests + guest
@@ -367,27 +395,33 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
     var guestCounter = 0;
     for (var r = 0; r < _occupancies.length; r++) {
       final roomIndex = r + 1;
-      final occGuests = _guests.where((g) => g.occupancyId == roomIndex).toList();
+      final occGuests = _guests
+          .where((g) => g.occupancyId == roomIndex)
+          .toList();
       if (occGuests.isEmpty) continue;
       final roomPriced = r < _pricedRooms.length ? _pricedRooms[r] : priced;
-      final occupancyId = r < _pricedRooms.length ? roomPriced.occupancyId : roomIndex;
-      rooms.add(AkHotelItineraryRoomEntity(
-        roomId: roomPriced.roomId,
-        roomGroupId: roomPriced.id,
-        supplierName: roomPriced.providerName,
-        guestCode: _buildGuestCode(occupancyId, occGuests),
-        guests: [
-          for (final guest in occGuests)
-            AkHotelGuestEntity(
-              guestId: '${guestCounter++}',
-              title: guest.title,
-              firstName: guest.firstName.text.trim(),
-              lastName: guest.lastName.text.trim(),
-              paxType: guest.paxType,
-              email: leadEmail,
-            ),
-        ],
-      ));
+      final occupancyId = r < _pricedRooms.length
+          ? roomPriced.occupancyId
+          : roomIndex;
+      rooms.add(
+        AkHotelItineraryRoomEntity(
+          roomId: roomPriced.roomId,
+          roomGroupId: roomPriced.id,
+          supplierName: roomPriced.providerName,
+          guestCode: _buildGuestCode(occupancyId, occGuests),
+          guests: [
+            for (final guest in occGuests)
+              AkHotelGuestEntity(
+                guestId: '${guestCounter++}',
+                title: guest.title,
+                firstName: guest.firstName.text.trim(),
+                lastName: guest.lastName.text.trim(),
+                paxType: guest.paxType,
+                email: leadEmail,
+              ),
+          ],
+        ),
+      );
     }
 
     final checkInIso = _toIsoDate(widget.checkIn);
@@ -422,8 +456,10 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
     if (!mounted) return;
     setState(() => _submitting = false);
 
-    if (result is DataSuccess<AkHotelCreateItineraryEntity> && result.data!.transactionId.isNotEmpty) {
-      final leadName = '${lead.firstName.text.trim()} ${lead.lastName.text.trim()}'.trim();
+    if (result is DataSuccess<AkHotelCreateItineraryEntity> &&
+        result.data!.transactionId.isNotEmpty) {
+      final leadName =
+          '${lead.firstName.text.trim()} ${lead.lastName.text.trim()}'.trim();
       // Title is the only gender-adjacent field this form collects — "Mr" is
       // the one clearly-male option, everything else (Mrs/Ms/child titles)
       // maps to "F", same inference the guest form itself implies.
@@ -432,7 +468,8 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
         '${leadName.isEmpty ? 'Guest' : leadName}($genderLetter)',
         '${_occupancies.length} Room${_occupancies.length == 1 ? '' : 's'}',
         '$_adultCount Adult${_adultCount == 1 ? '' : 's'}',
-        if (_childCount > 0) '$_childCount Child${_childCount == 1 ? '' : 'ren'}',
+        if (_childCount > 0)
+          '$_childCount Child${_childCount == 1 ? '' : 'ren'}',
       ].join(', ');
 
       final content = widget.content;
@@ -442,7 +479,9 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
       // Sum of every priced room's baseRate — the pre-tax figure the
       // confirmation screen's "Base Fare" line shows; taxes/fees there are
       // derived as (amount actually paid − this), never fabricated.
-      final baseFare = _pricedRooms.isEmpty ? (priced.baseRate) : _pricedRooms.fold(0.0, (sum, r) => sum + r.baseRate);
+      final baseFare = _pricedRooms.isEmpty
+          ? (priced.baseRate)
+          : _pricedRooms.fold(0.0, (sum, r) => sum + r.baseRate);
 
       Navigator.pushReplacement(
         context,
@@ -486,9 +525,13 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
   /// available to diagnose which request shape the vendor rejected, since
   /// their multi-guest GuestCode format isn't documented (see
   /// [_buildGuestCode]).
-  String _extractItineraryError(DataState<AkHotelCreateItineraryEntity> result) {
+  String _extractItineraryError(
+    DataState<AkHotelCreateItineraryEntity> result,
+  ) {
     final data = result.error?.response?.data;
-    if (data is Map && data['error'] is String && (data['error'] as String).trim().isNotEmpty) {
+    if (data is Map &&
+        data['error'] is String &&
+        (data['error'] as String).trim().isNotEmpty) {
       return data['error'] as String;
     }
     return 'Could not create the booking itinerary. Please try again.';
@@ -505,7 +548,9 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
 
   String _prettyDate(String mmddyyyy) {
     try {
-      return DateFormat('dd MMM yyyy, EEE').format(DateFormat('MM/dd/yyyy').parseStrict(mmddyyyy));
+      return DateFormat(
+        'dd MMM yyyy, EEE',
+      ).format(DateFormat('MM/dd/yyyy').parseStrict(mmddyyyy));
     } catch (_) {
       return mmddyyyy;
     }
@@ -526,12 +571,19 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
 
   String get _guestsSummary {
     final childAges = <int>[for (final occ in _occupancies) ...occ.childAges];
-    final guestParts = <String>['$_adultCount Adult${_adultCount == 1 ? '' : 's'}'];
+    final guestParts = <String>[
+      '$_adultCount Adult${_adultCount == 1 ? '' : 's'}',
+    ];
     if (_childCount > 0) {
-      final agesText = childAges.isEmpty ? '' : ' (${childAges.map((a) => '${a}y').join(', ')})';
-      guestParts.add('$_childCount Child${_childCount == 1 ? '' : 'ren'}$agesText');
+      final agesText = childAges.isEmpty
+          ? ''
+          : ' (${childAges.map((a) => '${a}y').join(', ')})';
+      guestParts.add(
+        '$_childCount Child${_childCount == 1 ? '' : 'ren'}$agesText',
+      );
     }
-    final roomsText = '${_occupancies.length} Room${_occupancies.length == 1 ? '' : 's'}';
+    final roomsText =
+        '${_occupancies.length} Room${_occupancies.length == 1 ? '' : 's'}';
     return '${guestParts.join(', ')} • $roomsText';
   }
 
@@ -543,13 +595,13 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
       body: _pricing
           ? const Center(child: CircularProgressIndicator(color: _blue))
           : _priceError != null
-              ? _buildError(_priceError!, onRetry: _loadPrice)
-              : Column(
-                  children: [
-                    Expanded(child: _buildScrollBody(context)),
-                    _buildBottomBar(context),
-                  ],
-                ),
+          ? _buildError(_priceError!, onRetry: _loadPrice)
+          : Column(
+              children: [
+                Expanded(child: _buildScrollBody(context)),
+                _buildBottomBar(context),
+              ],
+            ),
     );
   }
 
@@ -557,7 +609,11 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
     return AppBar(
       title: Text(
         'Review Booking',
-        style: TextStyle(color: _navy, fontWeight: FontWeight.w600, fontSize: context.fs(16)),
+        style: TextStyle(
+          color: _navy,
+          fontWeight: FontWeight.w600,
+          fontSize: context.fs(16),
+        ),
       ),
       centerTitle: false,
       backgroundColor: Colors.white,
@@ -572,7 +628,12 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
   Widget _buildScrollBody(BuildContext context) {
     return SingleChildScrollView(
       physics: context.scrollPhysics,
-      padding: EdgeInsets.fromLTRB(context.w(16), context.h(12), context.w(16), context.h(20)),
+      padding: EdgeInsets.fromLTRB(
+        context.w(16),
+        context.h(12),
+        context.w(16),
+        context.h(20),
+      ),
       child: Form(
         key: _formKey,
         child: Column(
@@ -585,17 +646,131 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
               SizedBox(height: context.gapLarge),
             ],
             if (!_isLoggedIn) _buildLoginPrompt(context),
-            _sectionHeader(context, 'Guest Details', 'Enter each guest\'s name as on their government ID'),
-            SizedBox(height: context.gapMedium),
-            _buildBookingForRow(context),
-            SizedBox(height: context.gapMedium),
-            ..._buildGuestCards(context),
-            SizedBox(height: context.gapSmall),
-            _buildAddOtherGuestButton(context),
+            // _sectionHeader(context, 'Guest Details', 'Enter each guest\'s name as on their government ID'),
+            // SizedBox(height: context.gapMedium),
+            // _buildBookingForRow(context),
+            // SizedBox(height: context.gapMedium),
+            // ..._buildGuestCards(context),
+            // SizedBox(height: context.gapSmall),
+            // _buildAddOtherGuestButton(context),
+            _buildCompactGuestContainer(context),
             SizedBox(height: context.gapLarge),
             _buildTermsRow(context),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildCompactGuestContainer(BuildContext context) {
+    final leadGuest = _guests.firstWhere(
+      (g) => g.isLead,
+      orElse: () => _guests.first,
+    );
+
+    return Container(
+      padding: EdgeInsets.all(context.w(16)),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(context.r(14)),
+        border: Border.all(color: _border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // "I am booking for" section
+          _buildBookingForCompact(context),
+          SizedBox(height: context.h(20)),
+
+          // Title, First Name, Last Name in one row
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                width: context.w(80),
+                child: _labeledDropdown(
+                  context,
+                  'Title',
+                  leadGuest.title,
+                  _titleItemsFor(leadGuest.paxType),
+                  (v) => setState(() => leadGuest.title = v ?? leadGuest.title),
+                ),
+              ),
+              SizedBox(width: context.w(10)),
+              Expanded(
+                child: _labeledField(
+                  context,
+                  'First Name',
+                  controller: leadGuest.firstName,
+                  textCapitalization: TextCapitalization.words,
+                  validator: (v) =>
+                      (v == null || v.trim().isEmpty) ? 'Required' : null,
+                ),
+              ),
+              SizedBox(width: context.w(10)),
+              Expanded(
+                child: _labeledField(
+                  context,
+                  'Last Name',
+                  controller: leadGuest.lastName,
+                  textCapitalization: TextCapitalization.words,
+                  validator: (v) =>
+                      (v == null || v.trim().isEmpty) ? 'Required' : null,
+                ),
+              ),
+            ],
+          ),
+
+          SizedBox(height: context.h(16)),
+
+          // Email ID (optional)
+          _labeledField(
+            context,
+            'Email ID (optional)',
+            controller: leadGuest.email!,
+            keyboardType: TextInputType.emailAddress,
+            icon: Icons.mail_outline_rounded,
+            validator: (v) {
+              if (v == null || v.trim().isEmpty) return null;
+              if (!v.contains('@')) return 'Enter a valid email';
+              return null;
+            },
+          ),
+
+          SizedBox(height: context.h(16)),
+
+          // Phone Number
+          _labeledPhoneField(
+            context,
+            controller: leadGuest.mobile!,
+            validator: (v) =>
+                (v == null || v.trim().isEmpty) ? 'Required' : null,
+          ),
+
+          SizedBox(height: context.h(6)),
+
+          Row(
+            children: [
+              Icon(
+                Icons.info_outline_rounded,
+                size: context.w(13),
+                color: _muted,
+              ),
+              SizedBox(width: context.w(6)),
+              Expanded(
+                child: Text(
+                  'Booking confirmation and voucher will be sent here.',
+                  style: TextStyle(fontSize: context.fs(11), color: _muted),
+                ),
+              ),
+            ],
+          ),
+
+          SizedBox(height: context.h(20)),
+
+          // Add Other Guest Button
+          _buildAddOtherGuestButton(context),
+        ],
       ),
     );
   }
@@ -607,7 +782,11 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.error_outline, size: context.iconLarge * 2, color: Colors.grey.shade400),
+            Icon(
+              Icons.error_outline,
+              size: context.iconLarge * 2,
+              color: Colors.grey.shade400,
+            ),
             SizedBox(height: context.gapLarge),
             Text(message, textAlign: TextAlign.center),
             SizedBox(height: context.gapLarge),
@@ -618,6 +797,42 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
     );
   }
 
+  // Add this method to your _AkHotelPriceConfirmScreenState class
+  Widget _buildBookingForCompact(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'I am booking for',
+          style: TextStyle(
+            fontSize: context.fs(16),
+            fontWeight: FontWeight.w600,
+            color: _navy,
+          ),
+        ),
+        SizedBox(height: context.h(10)),
+        Row(
+          children: [
+            _bookingForOption(context, 'Myself', true),
+            SizedBox(width: context.w(16)),
+            _bookingForOption(context, 'Someone Else', false),
+            if (_profileLoading) ...[
+              SizedBox(width: context.w(10)),
+              SizedBox(
+                width: context.w(14),
+                height: context.w(14),
+                child: const CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: _blue,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ],
+    );
+  }
+
   /// Hero image for the summary card: the hotel's own Content photo when
   /// [widget.content] was supplied, falling back to this room's own photos
   /// (same fallback order the room rate details screen uses) — empty only
@@ -625,7 +840,8 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
   String get _summaryImage {
     final hero = widget.content?.heroImage ?? '';
     if (hero.isNotEmpty) return hero;
-    if (widget.roomGroup.images.isNotEmpty) return widget.roomGroup.images.first;
+    if (widget.roomGroup.images.isNotEmpty)
+      return widget.roomGroup.images.first;
     final contentImages = widget.content?.images ?? const <String>[];
     return contentImages.isNotEmpty ? contentImages.first : '';
   }
@@ -660,7 +876,11 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
                       widget.hotelName,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: context.fs(16), fontWeight: FontWeight.w800, color: _navy),
+                      style: TextStyle(
+                        fontSize: context.fs(16),
+                        fontWeight: FontWeight.w800,
+                        color: _navy,
+                      ),
                     ),
                     if (starRating > 0) ...[
                       SizedBox(height: context.h(5)),
@@ -669,13 +889,17 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
                         children: [
                           for (var i = 0; i < 5; i++)
                             Icon(
-                              i < starRating ? Icons.star_rounded : Icons.star_border_rounded,
+                              i < starRating
+                                  ? Icons.star_rounded
+                                  : Icons.star_border_rounded,
                               size: context.w(14),
                               // Filled stars up to the real rating are gold;
                               // the remaining ones are a plain grey outline
                               // instead of a fainter gold, so an unfilled
                               // star doesn't read as "half-lit".
-                              color: i < starRating ? const Color(0xFFFFB020) : _border,
+                              color: i < starRating
+                                  ? const Color(0xFFFFB020)
+                                  : _border,
                             ),
                         ],
                       ),
@@ -684,7 +908,9 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
                     Text(
                       addressParts.isNotEmpty
                           ? addressParts.join(', ')
-                          : (widget.roomGroup.roomName.isEmpty ? 'Room' : widget.roomGroup.roomName),
+                          : (widget.roomGroup.roomName.isEmpty
+                                ? 'Room'
+                                : widget.roomGroup.roomName),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(fontSize: context.fs(12), color: _muted),
@@ -700,7 +926,11 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
                         width: context.w(76),
                         height: context.w(76),
                         color: _pageBg,
-                        child: Icon(Icons.apartment_rounded, color: _muted, size: context.w(24)),
+                        child: Icon(
+                          Icons.apartment_rounded,
+                          color: _muted,
+                          size: context.w(24),
+                        ),
                       )
                     : CachedNetworkImage(
                         imageUrl: image,
@@ -713,7 +943,11 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
                         placeholder: (_, __) => Container(color: _pageBg),
                         errorWidget: (_, __, ___) => Container(
                           color: _pageBg,
-                          child: Icon(Icons.apartment_rounded, color: _muted, size: context.w(24)),
+                          child: Icon(
+                            Icons.apartment_rounded,
+                            color: _muted,
+                            size: context.w(24),
+                          ),
                         ),
                       ),
               ),
@@ -723,9 +957,22 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(child: _summaryStat(context, 'CHECK-IN', _prettyDate(widget.checkIn))),
+              Expanded(
+                child: _summaryStat(
+                  context,
+                  'CHECK-IN',
+                  _prettyDate(widget.checkIn),
+                ),
+              ),
               _nightsPill(context),
-              Expanded(child: _summaryStat(context, 'CHECK-OUT', _prettyDate(widget.checkOut), alignEnd: true)),
+              Expanded(
+                child: _summaryStat(
+                  context,
+                  'CHECK-OUT',
+                  _prettyDate(widget.checkOut),
+                  alignEnd: true,
+                ),
+              ),
             ],
           ),
           Divider(height: context.h(22), color: _border),
@@ -735,18 +982,38 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
     );
   }
 
-  Widget _summaryStat(BuildContext context, String label, String value, {bool alignEnd = false, int maxLines = 1}) {
+  Widget _summaryStat(
+    BuildContext context,
+    String label,
+    String value, {
+    bool alignEnd = false,
+    int maxLines = 1,
+  }) {
     return Column(
-      crossAxisAlignment: alignEnd ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+      crossAxisAlignment: alignEnd
+          ? CrossAxisAlignment.end
+          : CrossAxisAlignment.start,
       children: [
-        Text(label, style: TextStyle(fontSize: context.fs(9), color: _muted, fontWeight: FontWeight.w800, letterSpacing: 0.4)),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: context.fs(9),
+            color: _muted,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0.4,
+          ),
+        ),
         SizedBox(height: context.h(3)),
         Text(
           value,
           maxLines: maxLines,
           overflow: TextOverflow.ellipsis,
           textAlign: alignEnd ? TextAlign.end : TextAlign.start,
-          style: TextStyle(fontSize: context.fs(12.5), color: _navy, fontWeight: FontWeight.w800),
+          style: TextStyle(
+            fontSize: context.fs(12.5),
+            color: _navy,
+            fontWeight: FontWeight.w800,
+          ),
         ),
       ],
     );
@@ -764,7 +1031,10 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
           Container(width: context.w(26), height: 2, color: _accent),
           SizedBox(height: context.h(5)),
           Container(
-            padding: EdgeInsets.symmetric(horizontal: context.w(8), vertical: context.h(3)),
+            padding: EdgeInsets.symmetric(
+              horizontal: context.w(8),
+              vertical: context.h(3),
+            ),
             decoration: BoxDecoration(
               color: _pageBg,
               borderRadius: BorderRadius.circular(context.r(20)),
@@ -772,7 +1042,12 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
             ),
             child: Text(
               '$nights NIGHT${nights == 1 ? '' : 'S'}',
-              style: TextStyle(fontSize: context.fs(9), fontWeight: FontWeight.w800, color: _muted, letterSpacing: 0.3),
+              style: TextStyle(
+                fontSize: context.fs(9),
+                fontWeight: FontWeight.w800,
+                color: _muted,
+                letterSpacing: 0.3,
+              ),
             ),
           ),
         ],
@@ -793,14 +1068,22 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
         children: [
           Row(
             children: [
-              Icon(Icons.event_busy_outlined, size: context.w(16), color: _navy),
+              Icon(
+                Icons.event_busy_outlined,
+                size: context.w(16),
+                color: _navy,
+              ),
               SizedBox(width: context.w(8)),
               Flexible(
                 child: Text(
                   'Cancellation Schedule',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: context.fs(13), fontWeight: FontWeight.w800, color: _navy),
+                  style: TextStyle(
+                    fontSize: context.fs(13),
+                    fontWeight: FontWeight.w800,
+                    color: _navy,
+                  ),
                 ),
               ),
             ],
@@ -837,7 +1120,11 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
           Expanded(
             child: Text(
               'Hotel bookings require you to be logged in.',
-              style: TextStyle(fontSize: context.fs(12), color: const Color(0xFF9A3412), fontWeight: FontWeight.w600),
+              style: TextStyle(
+                fontSize: context.fs(12),
+                color: const Color(0xFF9A3412),
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
         ],
@@ -850,7 +1137,10 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
   /// fabricated: "Myself" pulls the real signed-in profile, nothing else.
   Widget _buildBookingForRow(BuildContext context) {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: context.w(14), vertical: context.h(12)),
+      padding: EdgeInsets.symmetric(
+        horizontal: context.w(14),
+        vertical: context.h(12),
+      ),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(context.r(14)),
@@ -858,14 +1148,28 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
       ),
       child: Row(
         children: [
-          Text('I am booking for', style: TextStyle(fontSize: context.fs(13), fontWeight: FontWeight.w700, color: _navy)),
+          Text(
+            'I am booking for',
+            style: TextStyle(
+              fontSize: context.fs(16),
+              fontWeight: FontWeight.w600,
+              color: _navy,
+            ),
+          ),
           SizedBox(width: context.w(18)),
           _bookingForOption(context, 'Myself', true),
           SizedBox(width: context.w(18)),
           _bookingForOption(context, 'Someone Else', false),
           if (_profileLoading) ...[
             SizedBox(width: context.w(10)),
-            SizedBox(width: context.w(14), height: context.w(14), child: const CircularProgressIndicator(strokeWidth: 2, color: _blue)),
+            SizedBox(
+              width: context.w(14),
+              height: context.w(14),
+              child: const CircularProgressIndicator(
+                strokeWidth: 2,
+                color: _blue,
+              ),
+            ),
           ],
         ],
       ),
@@ -881,12 +1185,21 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
-            selected ? Icons.radio_button_checked_rounded : Icons.radio_button_unchecked_rounded,
+            selected
+                ? Icons.radio_button_on_sharp
+                : Icons.radio_button_unchecked_rounded,
             size: context.w(18),
-            color: selected ? _accent : _border,
+            color: selected ? _blue : _border,
           ),
-          SizedBox(width: context.w(6)),
-          Text(label, style: TextStyle(fontSize: context.fs(12.5), fontWeight: FontWeight.w600, color: _navy)),
+          SizedBox(width: context.w(8)),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: context.fs(13),
+              fontWeight: FontWeight.w400,
+              color: selected ? _navy : _border,
+            ),
+          ),
         ],
       ),
     );
@@ -906,9 +1219,21 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.person_add_alt_1_rounded, size: context.w(18), color: _accent),
+            Icon(
+              Icons.add,
+              size: context.w(22),
+              color: _blue,
+            ),
             SizedBox(width: context.w(8)),
-            Text('Add Other Guest', style: TextStyle(fontSize: context.fs(13), fontWeight: FontWeight.w800, color: _accent)),
+            Text(
+              'Add Other Guest',
+              style: TextStyle(
+                fontSize: context.fs(13),
+                fontWeight: FontWeight.w600,
+                color: _blue,
+                letterSpacing: 0.3
+              ),
+            ),
           ],
         ),
       ),
@@ -939,7 +1264,11 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
     setState(() {});
     if (applied < picks.length) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Some guests had no empty slot left in this booking and were not added.')),
+        const SnackBar(
+          content: Text(
+            'Some guests had no empty slot left in this booking and were not added.',
+          ),
+        ),
       );
     }
   }
@@ -948,9 +1277,19 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: TextStyle(fontSize: context.fs(15), fontWeight: FontWeight.w800, color: _navy)),
+        Text(
+          title,
+          style: TextStyle(
+            fontSize: context.fs(15),
+            fontWeight: FontWeight.w800,
+            color: _navy,
+          ),
+        ),
         SizedBox(height: context.h(2)),
-        Text(subtitle, style: TextStyle(fontSize: context.fs(11.5), color: _muted)),
+        Text(
+          subtitle,
+          style: TextStyle(fontSize: context.fs(11.5), color: _muted),
+        ),
       ],
     );
   }
@@ -964,7 +1303,9 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
     final multiRoom = _occupancies.length > 1;
     for (var r = 0; r < _occupancies.length; r++) {
       final roomIndex = r + 1;
-      final roomGuests = _guests.where((g) => g.occupancyId == roomIndex).toList();
+      final roomGuests = _guests
+          .where((g) => g.occupancyId == roomIndex)
+          .toList();
       if (roomGuests.isEmpty) continue;
       if (multiRoom) {
         if (cards.isNotEmpty) cards.add(SizedBox(height: context.gapLarge));
@@ -984,7 +1325,8 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
           label = 'Child $childNo';
         }
         cards.add(_buildGuestCard(context, g, label));
-        if (i != roomGuests.length - 1) cards.add(SizedBox(height: context.gapMedium));
+        if (i != roomGuests.length - 1)
+          cards.add(SizedBox(height: context.gapMedium));
       }
     }
     return cards;
@@ -994,14 +1336,21 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
     return Row(
       children: [
         Container(
-          padding: EdgeInsets.symmetric(horizontal: context.w(10), vertical: context.h(5)),
+          padding: EdgeInsets.symmetric(
+            horizontal: context.w(10),
+            vertical: context.h(5),
+          ),
           decoration: BoxDecoration(
             color: _navy,
             borderRadius: BorderRadius.circular(context.r(8)),
           ),
           child: Text(
             'Room $roomIndex',
-            style: TextStyle(fontSize: context.fs(12), fontWeight: FontWeight.w800, color: Colors.white),
+            style: TextStyle(
+              fontSize: context.fs(12),
+              fontWeight: FontWeight.w800,
+              color: Colors.white,
+            ),
           ),
         ),
         SizedBox(width: context.w(8)),
@@ -1032,14 +1381,23 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
                   borderRadius: BorderRadius.circular(context.r(10)),
                 ),
                 child: Icon(
-                  isChild ? Icons.child_care_rounded : Icons.person_outline_rounded,
+                  isChild
+                      ? Icons.child_care_rounded
+                      : Icons.person_outline_rounded,
                   color: _blue,
                   size: context.w(19),
                 ),
               ),
               SizedBox(width: context.w(10)),
               Expanded(
-                child: Text(label, style: TextStyle(fontSize: context.fs(14), fontWeight: FontWeight.w800, color: _navy)),
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: context.fs(14),
+                    fontWeight: FontWeight.w800,
+                    color: _navy,
+                  ),
+                ),
               ),
               if (g.isLead) _tagChip(context, 'Lead guest', _accent),
               if (isChild) _tagChip(context, 'Age ${g.age}', _muted),
@@ -1066,7 +1424,8 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
                   'First Name',
                   controller: g.firstName,
                   textCapitalization: TextCapitalization.words,
-                  validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+                  validator: (v) =>
+                      (v == null || v.trim().isEmpty) ? 'Required' : null,
                 ),
               ),
               SizedBox(width: context.w(8)),
@@ -1076,7 +1435,8 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
                   'Last Name',
                   controller: g.lastName,
                   textCapitalization: TextCapitalization.words,
-                  validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+                  validator: (v) =>
+                      (v == null || v.trim().isEmpty) ? 'Required' : null,
                 ),
               ),
             ],
@@ -1089,18 +1449,25 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
               controller: g.email!,
               keyboardType: TextInputType.emailAddress,
               icon: Icons.mail_outline_rounded,
-              validator: (v) => (v == null || !v.contains('@')) ? 'Enter a valid email' : null,
+              validator: (v) => (v == null || !v.contains('@'))
+                  ? 'Enter a valid email'
+                  : null,
             ),
             SizedBox(height: context.gapMedium),
             _labeledPhoneField(
               context,
               controller: g.mobile!,
-              validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+              validator: (v) =>
+                  (v == null || v.trim().isEmpty) ? 'Required' : null,
             ),
             SizedBox(height: context.h(8)),
             Row(
               children: [
-                Icon(Icons.info_outline_rounded, size: context.w(13), color: _muted),
+                Icon(
+                  Icons.info_outline_rounded,
+                  size: context.w(13),
+                  color: _muted,
+                ),
                 SizedBox(width: context.w(6)),
                 Expanded(
                   child: Text(
@@ -1118,14 +1485,21 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
 
   Widget _tagChip(BuildContext context, String text, Color color) {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: context.w(8), vertical: context.h(3)),
+      padding: EdgeInsets.symmetric(
+        horizontal: context.w(8),
+        vertical: context.h(3),
+      ),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(context.r(20)),
       ),
       child: Text(
         text,
-        style: TextStyle(fontSize: context.fs(10), color: color, fontWeight: FontWeight.w700),
+        style: TextStyle(
+          fontSize: context.fs(10),
+          color: color,
+          fontWeight: FontWeight.w700,
+        ),
       ),
     );
   }
@@ -1136,21 +1510,32 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
   /// Floating-label decoration: the label sits inline until the field is
   /// focused or filled, then floats above it — same Material behaviour as
   /// the rest of the app's forms, instead of a separate static caption.
-  InputDecoration _boxedDecoration(BuildContext context, {required String label, IconData? icon}) {
+  InputDecoration _boxedDecoration(
+      BuildContext context, {
+        required String label,
+        IconData? icon,
+        bool floatLabel = true,   // ← NEW
+      }) {
     OutlineInputBorder border(Color color) => OutlineInputBorder(
-          borderRadius: BorderRadius.circular(context.r(10)),
-          borderSide: BorderSide(color: color),
-        );
+      borderRadius: BorderRadius.circular(context.r(8)),
+      borderSide: BorderSide(color: color, width: context.w(0.35)),
+    );
     return InputDecoration(
       labelText: label,
-      floatingLabelBehavior: FloatingLabelBehavior.auto,
+      floatingLabelBehavior:
+      floatLabel ? FloatingLabelBehavior.auto : FloatingLabelBehavior.never,  // ← CHANGED
       isDense: true,
       filled: true,
       fillColor: _pageBg,
-      prefixIcon: icon != null ? Icon(icon, size: context.w(18), color: _muted) : null,
+      prefixIcon: icon != null
+          ? Icon(icon, size: context.w(18), color: _muted)
+          : null,
       labelStyle: TextStyle(color: _muted, fontSize: context.fs(12.5)),
-      floatingLabelStyle: TextStyle(color: _blue, fontSize: context.fs(12)),
-      contentPadding: EdgeInsets.symmetric(horizontal: context.w(12), vertical: context.h(14)),
+      floatingLabelStyle: TextStyle(color: _muted, fontSize: context.fs(12)),
+      contentPadding: EdgeInsets.symmetric(
+        horizontal: context.w(12),
+        vertical: context.h(14),
+      ),
       border: border(_border),
       enabledBorder: border(_border),
       focusedBorder: border(_blue),
@@ -1160,20 +1545,30 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
   }
 
   Widget _labeledField(
-    BuildContext context,
-    String label, {
-    required TextEditingController controller,
-    String? Function(String?)? validator,
-    TextInputType? keyboardType,
-    TextCapitalization textCapitalization = TextCapitalization.none,
-    IconData? icon,
-  }) {
+      BuildContext context,
+      String label, {
+        required TextEditingController controller,
+        String? Function(String?)? validator,
+        TextInputType? keyboardType,
+        TextCapitalization textCapitalization = TextCapitalization.none,
+        IconData? icon,
+        bool floatLabel = true,   // ← NEW
+      }) {
     return TextFormField(
       controller: controller,
       keyboardType: keyboardType,
       textCapitalization: textCapitalization,
-      style: TextStyle(fontSize: context.fs(13), color: _navy, fontWeight: FontWeight.w600),
-      decoration: _boxedDecoration(context, label: label, icon: icon),
+      style: TextStyle(
+        fontSize: context.fs(13),
+        color: _navy,
+        fontWeight: FontWeight.w600,
+      ),
+      decoration: _boxedDecoration(
+        context,
+        label: label,
+        icon: icon,
+        floatLabel: floatLabel,   // ← pass it through
+      ),
       validator: validator,
     );
   }
@@ -1188,23 +1583,24 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
     return DropdownButtonFormField<String>(
       value: value,
       isExpanded: true,
-      style: TextStyle(fontSize: context.fs(13), color: _navy, fontWeight: FontWeight.w600),
+      style: TextStyle(
+        fontSize: context.fs(13),
+        color: _navy,
+        fontWeight: FontWeight.w600,
+      ),
       decoration: _boxedDecoration(context, label: label),
-      items: items.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
+      items: items
+          .map((t) => DropdownMenuItem(value: t, child: Text(t)))
+          .toList(),
       onChanged: onChanged,
     );
   }
 
-  /// Mobile number field as two fully separate boxed fields — a small code
-  /// dropdown (display-only, like [ProfilePhoneField] elsewhere in the app;
-  /// [AkHotelContactInfoEntity.countryCode] is always [widget.nationality],
-  /// not this) and the number itself with its own floating label — instead
-  /// of one merged box.
   Widget _labeledPhoneField(
-    BuildContext context, {
-    required TextEditingController controller,
-    String? Function(String?)? validator,
-  }) {
+      BuildContext context, {
+        required TextEditingController controller,
+        String? Function(String?)? validator,
+      }) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1213,14 +1609,23 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
           child: DropdownButtonFormField<String>(
             value: _leadPhoneCode,
             isExpanded: true,
-            style: TextStyle(fontSize: context.fs(13), color: _navy, fontWeight: FontWeight.w700),
-            decoration: _boxedDecoration(context, label: 'Code'),
+            style: TextStyle(
+              fontSize: context.fs(13),
+              color: _navy,
+              fontWeight: FontWeight.w700,
+            ),
+            decoration: _boxedDecoration(
+              context,
+              label: 'Code',
+              floatLabel: false,   // ← NEW
+            ),
             items: const [
               DropdownMenuItem(value: '+91', child: Text('🇮🇳 +91')),
               DropdownMenuItem(value: '+1', child: Text('🇺🇸 +1')),
               DropdownMenuItem(value: '+44', child: Text('🇬🇧 +44')),
             ],
-            onChanged: (v) => setState(() => _leadPhoneCode = v ?? _leadPhoneCode),
+            onChanged: (v) =>
+                setState(() => _leadPhoneCode = v ?? _leadPhoneCode),
           ),
         ),
         SizedBox(width: context.w(8)),
@@ -1231,6 +1636,7 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
             controller: controller,
             keyboardType: TextInputType.phone,
             validator: validator,
+            floatLabel: false,   // ← NEW
           ),
         ),
       ],
@@ -1260,13 +1666,25 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
             padding: EdgeInsets.only(top: context.h(2)),
             child: Text.rich(
               TextSpan(
-                style: TextStyle(fontSize: context.fs(11), color: _muted, height: 1.4),
+                style: TextStyle(
+                  fontSize: context.fs(11),
+                  color: _muted,
+                  height: 1.4,
+                ),
                 children: const [
                   TextSpan(text: "By proceeding, I agree to Wander Nova's "),
-                  TextSpan(text: 'User Agreement', style: TextStyle(color: _blue, fontWeight: FontWeight.w700)),
+                  TextSpan(
+                    text: 'User Agreement',
+                    style: TextStyle(color: _blue, fontWeight: FontWeight.w700),
+                  ),
                   TextSpan(text: ', '),
-                  TextSpan(text: 'Terms of Service', style: TextStyle(color: _blue, fontWeight: FontWeight.w700)),
-                  TextSpan(text: ' and cancellation & property Booking Policies.'),
+                  TextSpan(
+                    text: 'Terms of Service',
+                    style: TextStyle(color: _blue, fontWeight: FontWeight.w700),
+                  ),
+                  TextSpan(
+                    text: ' and cancellation & property Booking Policies.',
+                  ),
                 ],
               ),
             ),
@@ -1278,11 +1696,20 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
 
   Widget _buildBottomBar(BuildContext context) {
     return Container(
-      padding: EdgeInsets.fromLTRB(context.w(16), context.h(12), context.w(16), context.bottomBarHeight + context.h(12)),
+      padding: EdgeInsets.fromLTRB(
+        context.w(16),
+        context.h(12),
+        context.w(16),
+        context.bottomBarHeight + context.h(12),
+      ),
       decoration: BoxDecoration(
         color: Colors.white,
         boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: context.r(16), offset: Offset(0, -context.h(4))),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: context.r(16),
+            offset: Offset(0, -context.h(4)),
+          ),
         ],
       ),
       child: Column(
@@ -1291,10 +1718,20 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
           if (_submitError != null) ...[
             Row(
               children: [
-                Icon(Icons.error_outline, size: context.w(16), color: Colors.red.shade400),
+                Icon(
+                  Icons.error_outline,
+                  size: context.w(16),
+                  color: Colors.red.shade400,
+                ),
                 SizedBox(width: context.w(8)),
                 Expanded(
-                  child: Text(_submitError!, style: TextStyle(color: Colors.red.shade400, fontSize: context.fs(12))),
+                  child: Text(
+                    _submitError!,
+                    style: TextStyle(
+                      color: Colors.red.shade400,
+                      fontSize: context.fs(12),
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -1303,21 +1740,32 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
           Row(
             children: [
               // ── Price block: left side ──
-              Expanded(                       // takes whatever is left of the button
+              Expanded(
+                // takes whatever is left of the button
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      _priced == null ? '—' : '₹${_totalPayable.toStringAsFixed(0)}',
+                      _priced == null
+                          ? '—'
+                          : '₹${_totalPayable.toStringAsFixed(0)}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: context.fs(20), fontWeight: FontWeight.w900, color: _navy),
+                      style: TextStyle(
+                        fontSize: context.fs(20),
+                        fontWeight: FontWeight.w900,
+                        color: _navy,
+                      ),
                     ),
                     SizedBox(height: context.h(2)),
                     Text(
                       'Include taxes & fees',
-                      style: TextStyle(fontSize: context.fs(10.5), color: _muted, fontWeight: FontWeight.w600),
+                      style: TextStyle(
+                        fontSize: context.fs(10.5),
+                        color: _muted,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ],
                 ),
@@ -1327,7 +1775,7 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
 
               // ── Button: right side, fixed width ──
               SizedBox(
-                width: context.w(149),        // 👈 fixed width keeps it on the right
+                width: context.w(149), // 👈 fixed width keeps it on the right
                 height: context.h(44),
                 child: ElevatedButton(
                   onPressed: _submitting ? null : _confirmBooking,
@@ -1342,22 +1790,26 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
                   ),
                   child: _submitting
                       ? const SizedBox(
-                    width: 20, height: 20,
-                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                  )
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
                       : Text(
-                    _isLoggedIn ? 'Continue' : 'Log-In to Book',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w600,
-                      fontSize: context.fs(14),
-                    ),
-                  ),
+                          _isLoggedIn ? 'Continue' : 'Log-In to Book',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                            fontSize: context.fs(14),
+                          ),
+                        ),
                 ),
               ),
             ],
-          )
+          ),
         ],
       ),
     );
@@ -1389,8 +1841,8 @@ class _GuestInput {
     required this.isLead,
     required this.age,
     required this.title,
-  })  : mobile = isLead ? TextEditingController() : null,
-        email = isLead ? TextEditingController() : null;
+  }) : mobile = isLead ? TextEditingController() : null,
+       email = isLead ? TextEditingController() : null;
 
   void dispose() {
     firstName.dispose();

@@ -1,19 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
-import 'package:wander_nova/views/Transport/sections/why_book.dart';
+// WhyBookTransportSection doesn't match the redesigned Figma's section right
+// below the search card (a multi-city promo banner there instead) — see the
+// commented-out SliverToBoxAdapter below.
+// import 'package:wander_nova/views/Transport/sections/why_book.dart';
+import 'package:wander_nova/views/Transport/sections/transport_static_sections.dart';
 
 import '../../../common_widgets/custom_bottom_nav.dart';
 import '../../../common_widgets/custom_drawer.dart';
-import '../../../common_widgets/logo.dart';
 
+import '../../../core/resources/app_colours.dart';
 import '../../../injection_container.dart';
 import '../../ExclusiveDeals/presentation/bloc/exclusive_deals_bloc.dart';
-import '../../ExclusiveDeals/presentation/screen/T_exclusiveDeals.dart';
 import '../../MainApi/presentation/bloc/general_setting_bloc.dart';
 import '../../MainApi/presentation/bloc/general_settings_event.dart';
 import '../../home/presentation/screen_sections/about_company_section.dart';
 import '../../home/presentation/screen_sections/service_info_section.dart';
+import '../../home/presentation/screens/deals.dart';
 import '../../travel_stories/presentation/screen/travel_stories.dart';
 import '../../home/presentation/screen_sections/faq/FAQ_section.dart';
 import '../../flight_popularDestination/presentation/screen/popular_destination.dart';
@@ -40,71 +44,47 @@ class _TransportBookingScreenState extends State<TransportBookingScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       drawer: const CustomDrawer(),
-
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        title: const WanderNovaLogo(scaleFactor: 0.6),
-        actions: [
-          Padding(
-            padding: EdgeInsets.all(context.w(8)),
-            child: Image.asset(
-              "assets/images/wander_logo.png",
-              height: 35,
-            ),
-          ),
-        ],
-      ),
+      extendBodyBehindAppBar: true,
 
       body: Container(
-        color: const Color(0xFFF3F6FC),
+        color: AppColors.white,
         child: CustomScrollView(
           physics: context.scrollPhysics,
           slivers: [
+            // Full-bleed: no padding/margin so the hero image spans the
+            // whole screen width, same as SearchCard on the flight screen.
             SliverToBoxAdapter(
-              child: Container(
-                width: double.infinity,
-                padding: EdgeInsets.fromLTRB(
-                  context.w(10),
-                  context.h(5),
-                  context.w(10),
-                  context.h(8),
-                ),
-                decoration: const BoxDecoration(color: Color(0xFFF3F6FC)),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    TransportBookingCard(
-                      isOneWay: isOneWay,
-                      selectedDate: selectedDate,
-                      selectedTime: selectedTime,
-                      onTripTypeChanged: (value) {
-                        setState(() {
-                          isOneWay = value;
-                        });
-                      },
-                      onDateChanged: (date) {
-                        setState(() {
-                          selectedDate = date;
-                        });
-                      },
-                      onTimeChanged: (time) {
-                        setState(() {
-                          selectedTime = time;
-                        });
-                      },
-                    ),
-                  ],
-                ),
+              child: TransportBookingCard(
+                isOneWay: isOneWay,
+                selectedDate: selectedDate,
+                selectedTime: selectedTime,
+                onTripTypeChanged: (value) {
+                  setState(() {
+                    isOneWay = value;
+                  });
+                },
+                onDateChanged: (date) {
+                  setState(() {
+                    selectedDate = date;
+                  });
+                },
+                onTimeChanged: (time) {
+                  setState(() {
+                    selectedTime = time;
+                  });
+                },
               ),
             ),
 
-            const SliverToBoxAdapter(child: WhyBookTransportSection()),
+            // const SliverToBoxAdapter(child: WhyBookTransportSection()),
+            const SliverToBoxAdapter(child: TransportMultiCityPromoSection()),
+            const SliverToBoxAdapter(child: TransportWhatsNewSection()),
+            const SliverToBoxAdapter(child: TransportOffersSection()),
 
             SliverToBoxAdapter(
               child: BlocProvider<ExclusiveDealsBloc>(
                 create: (context) => sl<ExclusiveDealsBloc>(),
-                child: const TransportExclusiveDealsSection(),
+                child: const DealsSection(),
               ),
             ),
 
@@ -143,7 +123,7 @@ class _TransportBookingScreenState extends State<TransportBookingScreen> {
         ),
       ),
 
-      bottomNavigationBar: const CustomBottomNav(currentIndex: 4),
+      // bottomNavigationBar: const CustomBottomNav(currentIndex: 4),
     );
   }
 }

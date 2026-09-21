@@ -15,6 +15,7 @@ import 'package:wander_nova/core/resources/app_colours.dart';
 class FlightCard extends StatelessWidget {
   final String airlineName;
   final String flightNumber;
+  final bool isSelected;
 
   /// Widget shown inside the navy logo tile (e.g. a network airline logo or
   /// a fallback icon). Sized/clipped by the tile itself.
@@ -60,13 +61,17 @@ class FlightCard extends StatelessWidget {
     this.stopsLabel = 'Non stop',
     this.perLabel = '/adult',
     this.footer,
+    this.isSelected = false,
   });
 
-  static const Color _navy = Color(0xFF1E1E5A);
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    // return Container(
+    //   width: double.infinity,
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeInOut,
       width: double.infinity,
       padding: EdgeInsets.symmetric(
         horizontal: context.w(18),
@@ -75,7 +80,11 @@ class FlightCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(context.r(18)),
-        border: Border.all(color: const Color(0xFFEDEEF1), width: 1),
+        // border: Border.all(color: const Color(0xFFEDEEF1), width: 0.5),
+        border: Border.all(
+          color: isSelected ? AppColors.AppBlue : const Color(0xFFEDEEF1),
+          width: isSelected ? 1 : 0.5,
+        ),
         boxShadow: [
           BoxShadow(
             color: const Color(0xFF1E1E5A).withValues(alpha: 0.05),

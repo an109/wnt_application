@@ -41,9 +41,9 @@ class _AkHotelImageCarouselState extends State<AkHotelImageCarousel> {
           height: widget.height,
           width: double.infinity,
           decoration: BoxDecoration(
+            color: Colors.grey.shade200,
             borderRadius: BorderRadius.circular(12),
           ),
-          color: Colors.grey.shade200,
           alignment: Alignment.center,
           child: Icon(Icons.hotel, size: context.w(36), color: Colors.grey.shade400),
         ),

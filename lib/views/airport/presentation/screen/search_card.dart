@@ -542,54 +542,56 @@ class _SearchCardState extends State<SearchCard> {
             right: 0,
             top: 0,
             child: Container(
-              height: context.screenHeight * 0.75, // Adjust this value
+              height: context.screenHeight * 0.53,
               child: _buildHeroBackdrop(context),
             ),
           ),
-          // ====== BOTTOM MELTING GRADIENT ======
-          // This creates smooth transition so the next section merges with white
+          // ====== CLOUD EFFECT ======
+
+// Layer 1: soft white "cloud" fade
           Positioned(
             left: 0,
             right: 0,
             bottom: 0,
             child: Container(
-              height: context.h(100),
+              height: context.h(35), // was h(40) — scaled up for taller hero
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.bottomCenter,
                   end: Alignment.topCenter,
                   colors: [
                     Colors.white,
-                    Colors.white.withOpacity(0.90),
-                    Colors.white.withOpacity(0.60),
-                    Colors.white.withOpacity(0.35),
-                    Colors.transparent,
+                    Colors.white.withOpacity(0.92),
+                    Colors.white.withOpacity(0.72),
+                    Colors.white.withOpacity(0.38),
+                    Colors.white.withOpacity(0.10),
+                    Colors.white.withOpacity(0.05),
                   ],
-                  stops: const [0.0, 0.25, 0.50, 0.75, 1.0],
+                  stops: const [0.0, 0.20, 0.40, 0.60, 0.80, 1.0],
                 ),
               ),
             ),
           ),
 
+// Layer 2: subtle depth overlay
           Positioned(
             left: 0,
             right: 0,
             bottom: 0,
-            height: context.h(170), // Keep as is or increase to 180
-            child: DecoratedBox(
+            child: Container(
+              height: context.h(65), // was h(80) — scaled up for taller hero
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
+                  begin: Alignment.bottomCenter,
+                  end: Alignment.topCenter,
                   colors: [
-                    _kPageBg.withOpacity(0.0),
-                    _kPageBg.withOpacity(0.45),
-                    _kPageBg,
+                    Colors.white.withOpacity(0.3),
+                    Colors.white.withOpacity(0.10),
+                    Colors.transparent,
                   ],
-                  stops: const [0.0, 0.55, 1.0],
+                  stops: const [0.0, 0.5, 1.0],
                 ),
               ),
-              child: const SizedBox.expand(),
             ),
           ),
           // Foreground content
@@ -714,14 +716,14 @@ class _SearchCardState extends State<SearchCard> {
         else
           fallback,
 
-        // ====== LAYER GRADIENT EFFECT (NO BLUR) - Same as HomeScreen ======
+        // ====== LAYER GRADIENT EFFECT (NO BLUR) ======
         // Layer 1: Soft white gradient that creates the "cloudy" look
         Positioned(
           left: 0,
           right: 0,
           bottom: 0,
           child: Container(
-            height: context.h(50),
+            height: context.h(40),
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.bottomCenter,
@@ -732,9 +734,10 @@ class _SearchCardState extends State<SearchCard> {
                   Colors.white.withOpacity(0.72),
                   Colors.white.withOpacity(0.38),
                   Colors.white.withOpacity(0.10),
-                  Colors.transparent,
+                  Colors.white.withOpacity(0.05),
+                  // Colors.transparent,
                 ],
-                stops: const [0.0, 0.0, 0.50, 0.70, 0.80, 1.0],
+                stops: const [0.0, 0.20, 0.40, 0.60, 0.80, 1.0],
               ),
             ),
           ),
@@ -746,36 +749,24 @@ class _SearchCardState extends State<SearchCard> {
           right: 0,
           bottom: 0,
           child: Container(
-            height: context.h(50),
+            height: context.h(80),
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.bottomCenter,
                 end: Alignment.topCenter,
                 colors: [
-                  Colors.white.withOpacity(0.2),
+                  Colors.white.withOpacity(0.3),
                   Colors.white.withOpacity(0.10),
                   Colors.transparent,
                 ],
-                stops: const [0.0, 0.7, 1.0],
+                stops: const [0.0, 0.5, 1.0],
+                // stops: const [0.0, 0.5,],
               ),
             ),
           ),
         ),
 
-        // Soft scrim so the white "Flight" title stays readable on any hero.
-        DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Colors.black.withOpacity(0.22),
-                Colors.black.withOpacity(0.0),
-              ],
-              stops: const [0.0, 0.3],
-            ),
-          ),
-        ),
+
       ],
     );
   }
@@ -1161,7 +1152,7 @@ class _SearchCardState extends State<SearchCard> {
               height: context.w(18),
               child: Checkbox(
                 value: isSpecialFare,
-                activeColor: AppColors.blue,
+                activeColor: AppColors.AppBlue,
                 materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 visualDensity: VisualDensity.compact,
                 onChanged: (val) =>
@@ -1592,7 +1583,7 @@ class _SearchCardState extends State<SearchCard> {
   Widget _buildSearchButton() {
     // Shrink the inner content by the shine's thickness so the outer pill
     // (shine + button) still measures exactly 150×42, matching your vector.
-    const double shineWidth = 2.5;
+    const double shineWidth = 2;
 
     return Center(
       child: ShineBorderButton(

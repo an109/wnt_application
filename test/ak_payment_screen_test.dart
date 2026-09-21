@@ -70,9 +70,10 @@ void main() {
     await pump(tester);
     expect(tester.takeException(), isNull);
 
-    // Working methods kept.
+    // Working methods kept. The old single "Razorpay" tile (Standard
+    // Checkout) was retired in favour of Custom Checkout method screens.
     expect(find.text('My Wallet'), findsOneWidget);
-    expect(find.text('Razorpay'), findsOneWidget);
+    expect(find.text('Razorpay'), findsNothing);
     // GooglePay + UPI, plus the promo strip above their shared card.
     expect(find.text('GooglePay'), findsOneWidget);
     expect(find.text('UPI Options'), findsOneWidget);
@@ -110,10 +111,10 @@ void main() {
     expect(find.text('Fare'), findsNothing);
   });
 
-  testWidgets('static "other" cards do not select on tap', (tester) async {
+  testWidgets('Pay Later stays static (needs separate Razorpay approval)', (tester) async {
     await pump(tester);
 
-    await tester.tap(find.text('Credit & Debit Cards'));
+    await tester.tap(find.text('Pay Later'));
     await tester.pump(const Duration(milliseconds: 200));
 
     // No selection highlight / check icon appeared, no processing spinner.

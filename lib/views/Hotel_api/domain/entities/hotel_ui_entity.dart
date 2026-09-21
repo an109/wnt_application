@@ -24,6 +24,14 @@ class HotelUiModel {
   final String cityName;
   final String countryName;
 
+  /// Guest review score (e.g. 4.0) and how many reviews it's averaged over
+  /// (e.g. 307) — distinct from [rating] (the hotel's own star
+  /// classification). Default 0 for callers that don't have this (e.g. the
+  /// older TBO [fromEntity] factory below), in which case cards simply
+  /// don't show a count rather than fabricating one.
+  final double reviewRating;
+  final int reviewCount;
+
   HotelUiModel({
     required this.image,
     required this.hotelName,
@@ -44,6 +52,8 @@ class HotelUiModel {
     required this.facilities,
     required this.cityName,
     required this.countryName,
+    this.reviewRating = 0,
+    this.reviewCount = 0,
   });
 
   // factory HotelUiModel.fromEntity(HotelEntity entity) {

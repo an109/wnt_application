@@ -2,7 +2,10 @@ import 'dart:async';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
-import 'package:razorpay_flutter/razorpay_flutter.dart';
+// Standard Checkout (razorpay_flutter) is retired for this screen in favour
+// of Razorpay Custom Checkout below — kept commented, not deleted, per the
+// migration notes.
+// import 'package:razorpay_flutter/razorpay_flutter.dart';
 import 'package:wander_nova/UI_helper/currency_converter.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import 'package:wander_nova/core/constants/urls.dart';
@@ -17,6 +20,12 @@ import 'package:wander_nova/views/AKRetrieveBooking/domain/entity/AKRetrieveBook
 import 'package:wander_nova/views/AKRetrieveBooking/domain/usecase/AKRetrieveBooking_usecase.dart';
 import 'package:wander_nova/views/AKStartPay/domain/entity/AKStartPay_entity.dart';
 import 'package:wander_nova/views/AKStartPay/domain/usecase/AKStartPay_usecase.dart';
+import 'package:wander_nova/views/flight_payment/data/razorpay_custom_checkout_service.dart';
+import 'package:wander_nova/views/flight_payment/presentation/screen/ak_card_payment_screen.dart';
+import 'package:wander_nova/views/flight_payment/presentation/screen/ak_custom_checkout_args.dart';
+import 'package:wander_nova/views/flight_payment/presentation/screen/ak_netbanking_payment_screen.dart';
+import 'package:wander_nova/views/flight_payment/presentation/screen/ak_upi_payment_screen.dart';
+import 'package:wander_nova/views/flight_payment/presentation/screen/ak_wallet_provider_payment_screen.dart';
 import 'package:wander_nova/views/flight_search/presentation/screen/booking_screen.dart';
 import 'package:wander_nova/views/flight_search/presentation/screen/seat_addons_screen.dart';
 import 'package:wander_nova/views/flight_ticket/presentation/screen/ak_ticket_confirmation_screen.dart';
@@ -109,7 +118,15 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
   Duration _timeLeft = _holdDuration;
   bool get _expired => _timeLeft <= Duration.zero;
 
-  late final Razorpay _razorpay;
+  // late final Razorpay _razorpay; // Standard Checkout — retired, see below.
+
+  /// Set once the first Razorpay Custom Checkout attempt creates an order,
+  /// then reused by every method screen (card/UPI/netbanking/wallet) — an
+  /// order must be created exactly once and ties to one successful payment
+  /// (doc step 1.3), so this is intentionally memoized rather than
+  /// re-created per tile tap.
+  String? _razorpayOrderId;
+  String? _razorpayKeyId;
 
   bool _processing = false;
   String _statusMessage = '';
@@ -175,10 +192,12 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
   @override
   void initState() {
     super.initState();
-    _razorpay = Razorpay();
-    _razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, _handleRazorpaySuccess);
-    _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _handleRazorpayError);
-    _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleRazorpayExternalWallet);
+    // Standard Checkout wiring — retired in favour of Razorpay Custom
+    // Checkout (see _startCardCheckout / _startUpiCheckout / etc. below).
+    // _razorpay = Razorpay();
+    // _razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, _handleRazorpaySuccess);
+    // _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _handleRazorpayError);
+    // _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleRazorpayExternalWallet);
 
     _holdTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (!mounted) return;
@@ -191,13 +210,14 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
   @override
   void dispose() {
     _holdTimer?.cancel();
-    _razorpay.clear();
+    // _razorpay.clear();
     super.dispose();
   }
 
-  /// Routes payment to the flow matching [_selectedPaymentMethod]:
-  ///   wallet    → wallet-balance check then StartPay directly
-  ///   razorpay  → Razorpay native checkout
+  /// Routes payment to the flow matching [_selectedPaymentMethod]. Only
+  /// 'wallet' (WanderNova wallet balance) still runs through this — every
+  /// Razorpay Custom Checkout method (card/UPI/netbanking/wallet-provider)
+  /// is launched directly from its own tile via _startCardCheckout() etc.
   Future<void> _processPayment() async {
     if (_selectedPaymentMethod == null) {
       setState(() => _errorMessage = 'Please select a payment method');
@@ -207,7 +227,6 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
       await _payWithWallet();
       return;
     }
-    await _initiatePayment();
   }
 
   /// Pays from the wallet if its balance covers the total. There is no debit
@@ -257,22 +276,113 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
     }
   }
 
-  Future<void> _initiatePayment() async {
+  // ---- Standard Checkout (retired) ----
+  // Future<void> _initiatePayment() async {
+  //   if (_sessionId.isEmpty) {
+  //     setState(() => _errorMessage = 'Booking session expired. Please start over.');
+  //     return;
+  //   }
+  //
+  //   setState(() {
+  //     _processing = true;
+  //     _errorMessage = null;
+  //     _statusMessage = 'Opening secure payment...';
+  //   });
+  //
+  //   try {
+  //     final dio = sl<DioClient>().instance;
+  //     final response = await dio.post(
+  //       Urls.razorpayCreateOrder,
+  //       data: {
+  //         'amount': _totalChargeInInr,
+  //         'currency': 'INR',
+  //         'reference_id': _sanitizedOrderId(_sessionId),
+  //       },
+  //     );
+  //
+  //     final orderId = response.data['order_id'] as String?;
+  //     final keyId = response.data['key_id'] as String?;
+  //
+  //     if (!mounted) return;
+  //     setState(() => _processing = false);
+  //
+  //     final firstName = (widget.leadPassenger['firstName'] ?? '').toString();
+  //     final lastName = (widget.leadPassenger['lastName'] ?? '').toString();
+  //     final email = (widget.leadPassenger['email'] ?? '').toString();
+  //     final phone = (widget.leadPassenger['mobileNumber'] ?? '').toString();
+  //
+  //     _razorpay.open({
+  //       'key': keyId ?? '',
+  //       'amount': (_totalChargeInInr * 100).toInt(),
+  //       'currency': 'INR',
+  //       'name': 'WanderNova',
+  //       'description': 'Flight ${widget.route.from} → ${widget.route.to}',
+  //       'order_id': orderId ?? '',
+  //       'prefill': {
+  //         'name': '$firstName $lastName'.trim(),
+  //         'email': email,
+  //         'contact': phone,
+  //       },
+  //       'theme': {'color': '#1769F6'},
+  //     });
+  //   } on DioException catch (e) {
+  //     if (!mounted) return;
+  //     setState(() {
+  //       _processing = false;
+  //       _errorMessage = 'Could not create payment order. Please try again.';
+  //     });
+  //   } catch (e) {
+  //     if (!mounted) return;
+  //     setState(() {
+  //       _processing = false;
+  //       _errorMessage = 'Could not start payment: $e';
+  //     });
+  //   }
+  // }
+  //
+  // void _handleRazorpaySuccess(PaymentSuccessResponse response) async {
+  //   await _verifyAndConfirmBooking(
+  //     paymentId: response.paymentId,
+  //     orderId: response.orderId,
+  //     signature: response.signature,
+  //   );
+  // }
+  //
+  // void _handleRazorpayError(PaymentFailureResponse response) {
+  //   if (!mounted) return;
+  //   setState(() {
+  //     _processing = false;
+  //     _errorMessage = 'Payment failed: ${response.message ?? 'Please try again.'}';
+  //   });
+  // }
+  //
+  // void _handleRazorpayExternalWallet(ExternalWalletResponse response) {}
+
+  // ---- Razorpay Custom Checkout ----
+
+  /// Creates the Razorpay order the first time the customer taps ANY
+  /// Custom Checkout method, and reuses it afterwards — an order is created
+  /// exactly once per payment attempt (doc step 1.3: "Payments made without
+  /// an order_id ... will be automatically refunded"), so switching between
+  /// method screens (e.g. Card → back → UPI) must never create a second one.
+  /// reference_id equals session_id so StartPay's payment guard can match
+  /// the paid transaction to this booking session, same as the old flow.
+  Future<bool> _ensureRazorpayOrder() async {
+    if (_razorpayOrderId != null && _razorpayKeyId != null) return true;
+
     if (_sessionId.isEmpty) {
       setState(() => _errorMessage = 'Booking session expired. Please start over.');
-      return;
+      return false;
     }
 
     setState(() {
       _processing = true;
       _errorMessage = null;
-      _statusMessage = 'Opening secure payment...';
+      _statusMessage = 'Preparing payment...';
     });
 
     try {
       final dio = sl<DioClient>().instance;
-      // reference_id must equal session_id so StartPay's payment guard can
-      // match the paid transaction to this booking session.
       final response = await dio.post(
         Urls.razorpayCreateOrder,
         data: {
@@ -284,52 +394,106 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
 
       final orderId = response.data['order_id'] as String?;
       final keyId = response.data['key_id'] as String?;
-      print("Razorpay Key: $keyId");
 
-      if (!mounted) return;
-      setState(() => _processing = false);
+      if (!mounted) return false;
 
-      final firstName = (widget.leadPassenger['firstName'] ?? '').toString();
-      final lastName = (widget.leadPassenger['lastName'] ?? '').toString();
-      final email = (widget.leadPassenger['email'] ?? '').toString();
-      final phone = (widget.leadPassenger['mobileNumber'] ?? '').toString();
+      if (orderId == null || keyId == null) {
+        setState(() {
+          _processing = false;
+          _errorMessage = 'Could not create payment order. Please try again.';
+        });
+        return false;
+      }
 
-      _razorpay.open({
-        'key': keyId ?? '',
-        'amount': (_totalChargeInInr * 100).toInt(),
-        'currency': 'INR',
-        'name': 'WanderNova',
-        'description': 'Flight ${widget.route.from} → ${widget.route.to}',
-        'order_id': orderId ?? '',
-        'prefill': {
-          'name': '$firstName $lastName'.trim(),
-          'email': email,
-          'contact': phone,
-        },
-        'theme': {'color': '#1769F6'},
+      setState(() {
+        _processing = false;
+        _razorpayOrderId = orderId;
+        _razorpayKeyId = keyId;
       });
+      return true;
     } on DioException catch (e) {
-      if (!mounted) return;
+      if (!mounted) return false;
       setState(() {
         _processing = false;
         _errorMessage = 'Could not create payment order. Please try again.';
       });
       print('Razorpay order error: ${e.message}');
+      return false;
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted) return false;
       setState(() {
         _processing = false;
-          _errorMessage = 'Could not start payment: $e';
+        _errorMessage = 'Could not start payment: $e';
       });
+      return false;
     }
   }
 
-  void _handleRazorpaySuccess(PaymentSuccessResponse response) async {
+  /// Ensures the order exists, then pushes [screenBuilder] with everything
+  /// it needs to submit a charge against that order. A non-null result means
+  /// the method screen collected a successful charge; a null result means
+  /// the customer backed out (that screen already showed its own error for
+  /// a failed attempt, so nothing further is needed here).
+  Future<void> _openCustomCheckoutScreen(
+    Widget Function(AkCustomCheckoutArgs args) screenBuilder,
+  ) async {
+    if (_expired || _processing) return;
+
+    final ready = await _ensureRazorpayOrder();
+    if (!ready || !mounted) return;
+
+    final firstName = (widget.leadPassenger['firstName'] ?? '').toString();
+    final lastName = (widget.leadPassenger['lastName'] ?? '').toString();
+
+    final args = AkCustomCheckoutArgs(
+      keyId: _razorpayKeyId!,
+      orderId: _razorpayOrderId!,
+      amountInInr: _totalChargeInInr,
+      name: '$firstName $lastName'.trim(),
+      email: (widget.leadPassenger['email'] ?? '').toString(),
+      contact: (widget.leadPassenger['mobileNumber'] ?? '').toString(),
+      description: 'Flight ${widget.route.from} → ${widget.route.to}',
+    );
+
+    final result = await Navigator.push<RazorpayCustomPaymentResult>(
+      context,
+      MaterialPageRoute(builder: (_) => screenBuilder(args)),
+    );
+
+    if (result == null || !mounted) return;
+    await _verifyAndConfirmBooking(
+      paymentId: result.paymentId,
+      orderId: result.orderId,
+      signature: result.signature,
+    );
+  }
+
+  void _startCardCheckout() =>
+      _openCustomCheckoutScreen((args) => AkCardPaymentScreen(args: args));
+
+  void _startUpiCheckout() =>
+      _openCustomCheckoutScreen((args) => AkUpiPaymentScreen(args: args));
+
+  void _startNetbankingCheckout() =>
+      _openCustomCheckoutScreen((args) => AkNetbankingPaymentScreen(args: args));
+
+  void _startWalletProviderCheckout() =>
+      _openCustomCheckoutScreen((args) => AkWalletProviderPaymentScreen(args: args));
+
+  /// Shared by every Custom Checkout method screen: verifies the signature
+  /// server-side (unchanged endpoint/contract from the old Standard
+  /// Checkout flow), then continues exactly as before — StartPay, retrieve
+  /// booking, Trip Secure, navigate to the ticket screen.
+  Future<void> _verifyAndConfirmBooking({
+    required String? paymentId,
+    required String? orderId,
+    required String? signature,
+  }) async {
     setState(() {
       _processing = true;
       _statusMessage = 'Verifying payment...';
       _errorMessage = null;
-      _transactionId = response.paymentId;
+      _transactionId = paymentId;
     });
 
     try {
@@ -337,9 +501,9 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
       final verifyResponse = await dio.post(
         Urls.razorpayVerify,
         data: {
-          'razorpay_order_id': response.orderId,
-          'razorpay_payment_id': response.paymentId,
-          'razorpay_signature': response.signature,
+          'razorpay_order_id': orderId,
+          'razorpay_payment_id': paymentId,
+          'razorpay_signature': signature,
           'reference_id': _sanitizedOrderId(_sessionId),
         },
       );
@@ -362,18 +526,6 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
       });
       print('Razorpay verify error: ${e.message}');
     }
-  }
-
-  void _handleRazorpayError(PaymentFailureResponse response) {
-    if (!mounted) return;
-    setState(() {
-      _processing = false;
-      _errorMessage = 'Payment failed: ${response.message ?? 'Please try again.'}';
-    });
-  }
-
-  void _handleRazorpayExternalWallet(ExternalWalletResponse response) {
-    print('Razorpay external wallet: ${response.walletName}');
   }
 
   /// The Razorpay order's reference_id must equal the Akbar session_id so
@@ -636,25 +788,31 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
                           subtitle: 'Pay using your wallet balance',
                         ),
                       ]),
-                      _optionCard(context, children: [
-                        _optionRow(
-                          context,
-                          tileId: 'razorpay',
-                          method: 'razorpay',
-                          icon: Icons.payment_rounded,
-                          iconColor: const Color(0xFF2F80ED),
-                          iconBg: const Color(0xFFEFF6FF),
-                          title: 'Razorpay',
-                          subtitle: 'Cards, UPI, Net Banking, Wallets',
-                        ),
-                      ]),
+                      // The old single "Razorpay" tile (Standard Checkout,
+                      // its own hosted method picker) is retired — every
+                      // method below now opens WanderNova's own Custom
+                      // Checkout screen for that method directly.
+                      // _optionCard(context, children: [
+                      //   _optionRow(
+                      //     context,
+                      //     tileId: 'razorpay',
+                      //     method: 'razorpay',
+                      //     icon: Icons.payment_rounded,
+                      //     iconColor: const Color(0xFF2F80ED),
+                      //     iconBg: const Color(0xFFEFF6FF),
+                      //     title: 'Razorpay',
+                      //     subtitle: 'Cards, UPI, Net Banking, Wallets',
+                      //   ),
+                      // ]),
                       _promoStrip(context, 'Get extra discount on UPI of Rs 32'),
                       // GooglePay + UPI Options — one card, no divider between.
+                      // Both open the Custom Checkout UPI screen (GPay is a
+                      // UPI-intent payment under Razorpay's 'upi' method).
                       _optionCard(context, children: [
                         _optionRow(
                           context,
                           tileId: 'gpay',
-                          method: 'razorpay',
+                          onTapOverride: _startUpiCheckout,
                           // icon: Icons.g_mobiledata_rounded,
                           iconAsset: 'assets/NewIcons/gpay.png',
                           iconColor: const Color(0xFF4285F4),
@@ -665,7 +823,7 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
                         _optionRow(
                           context,
                           tileId: 'upi',
-                          method: 'razorpay',
+                          onTapOverride: _startUpiCheckout,
                           // icon: Icons.qr_code_2_rounded,
                           iconAsset: 'assets/NewIcons/upi.png',
                           // iconColor: const Color(0xFF5F259F),
@@ -677,15 +835,15 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
                       SizedBox(height: context.h(12)),
                       _sectionLabel(context, 'Other Payment Options'),
                       SizedBox(height: context.h(12)),
-                      // Static for now — render like the real cards but don't
-                      // select or route anything. Payment handling is added
-                      // later. Credit & Debit is its own card; Net Banking /
-                      // Pay Later / Gift Cards share one card, no dividers.
+                      // Card / Net Banking / Gift Cards & e-Wallets now open
+                      // their own Custom Checkout screens. Pay Later stays
+                      // static — it needs separate Razorpay approval and
+                      // isn't confirmed enabled on this account.
                       _optionCard(context, children: [
                         _optionRow(
                           context,
                           tileId: 'card',
-                          interactive: false,
+                          onTapOverride: _startCardCheckout,
                           iconAsset: 'assets/NewIcons/credit.png',
                           iconBg: const Color(0xFFEFF6FF),
                           title: 'Credit & Debit Cards',
@@ -696,7 +854,7 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
                         _optionRow(
                           context,
                           tileId: 'netbanking',
-                          interactive: false,
+                          onTapOverride: _startNetbankingCheckout,
                           iconAsset: 'assets/NewIcons/net_banking.png',
                           iconBg: const Color(0xFFF5F3FF),
                           title: 'Net Banking',
@@ -715,7 +873,7 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
                         _optionRow(
                           context,
                           tileId: 'giftcard',
-                          interactive: false,
+                          onTapOverride: _startWalletProviderCheckout,
                           iconAsset: 'assets/NewIcons/wallet.png',
                           iconBg: const Color(0xFFFFFBEB),
                           title: 'Gift Cards & e-Wallets',
@@ -1263,12 +1421,14 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
 
   /// One payment option ROW — no card chrome of its own, so it can be the
   /// sole child of a card or stacked with siblings inside a shared card.
-  /// One tap on an interactive row selects the method and immediately kicks
-  /// off [_processPayment] (there is no separate Pay button any more).
+  /// One tap on an interactive row either runs [_processPayment] (wallet)
+  /// or its own [onTapOverride] (every Custom Checkout method), with no
+  /// separate Pay button on this screen.
   Widget _optionRow(
       BuildContext context, {
         required String tileId,
-        String? method, // 'wallet' | 'razorpay' — what _processPayment runs
+        String? method, // 'wallet' — what _processPayment runs
+        VoidCallback? onTapOverride, // Custom Checkout methods route here instead
         IconData? icon,
         String? iconAsset,
         Color iconColor = Colors.transparent,
@@ -1361,13 +1521,13 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
       ),
     );
 
-    if (!interactive || method == null) return content;
+    if (!interactive || (method == null && onTapOverride == null)) return content;
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: (_expired || _processing)
           ? null
-          : () => _payWith(method, tileId),
+          : (onTapOverride ?? () => _payWith(method!, tileId)),
       child: content,
     );
   }

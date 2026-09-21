@@ -132,6 +132,7 @@ class _HotelRecentSearchesSectionState
               children: totalChildren,
               nationality: 'IN',
               rooms: rooms,
+              searchedByHotelName: location.type.toLowerCase() == 'hotel',
             ),
           ),
         );

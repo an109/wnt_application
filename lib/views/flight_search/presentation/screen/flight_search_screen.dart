@@ -2055,27 +2055,6 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
                 padding: const EdgeInsets.fromLTRB(0, 8, 0, 8),
                 child: Row(
                   children: [
-                    // Chip flex tracks the banner's split (56/44 ↔ 44/56) so
-                    // the active chip's content lines up with the blue band
-                    // in both directions.
-                    // _rtStepChip(
-                    //   index: 1,
-                    //   label: t < 0.5 ? 'Select Departing Flight' : 'Depart',
-                    //   subLabel: departDate,
-                    //   fillT: 1 - t,
-                    //   flex: ui.lerpDouble(70, 30, t)!.round(),
-                    //   onTap:
-                    //       step == 1 ? () => setState(() => _rtStep = 0) : null,
-                    // ),
-                    // _rtStepChip(
-                    //   index: 2,
-                    //   label:
-                    //       t < 0.5 ? 'Return' : 'Select Returning Flight',
-                    //   subLabel: returnDate,
-                    //   fillT: t,
-                    //   flex: ui.lerpDouble(30, 70, t)!.round(),
-                    //   onTap: null,
-                    // ),
                     _rtStepChip(
                       index: 1,
                       label: t < 0.5 ? 'Select Departing Flight' : 'Depart',
@@ -2382,7 +2361,18 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
             color: selected ? AppColors.AppBlue : Colors.transparent,
             width: 1,
           ),
+          boxShadow: selected
+              ? [
+            BoxShadow(
+              color: AppColors.black.withValues(alpha: 0.12),
+              blurRadius: context.w(12),
+              spreadRadius: 0,
+              offset: Offset(0, context.h(4)),
+            ),
+          ]
+              : null,
         ),
+
         child: FlightCard(
           airlineName: flight.airlineName ?? 'Airline',
           flightNumber: _displayFlightNo(flight, codeOverride: airlineCode),

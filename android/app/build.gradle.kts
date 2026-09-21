@@ -63,3 +63,9 @@ flutter {
     source = "../.."
 }
 
+dependencies {
+    // Native bridge for Razorpay's Android Custom Checkout SDK, wired up in
+    // MainActivity.kt for the flight payment flow. No iOS equivalent exists.
+    implementation("com.razorpay:customui:3.9.22")
+}
+

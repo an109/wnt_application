@@ -38,8 +38,12 @@ class AkHotelRoomOptionsScreen extends StatefulWidget {
   final int children;
   final AkHotelDetailContentEntity? content;
 
+  /// Hotel gallery to use when [content] has no images of its own.
+  final List<String> fallbackImages;
+
   const AkHotelRoomOptionsScreen({
     super.key,
+    this.fallbackImages = const [],
     required this.hotelName,
     required this.roomsFuture,
     required this.onSelectRoom,
@@ -64,9 +68,12 @@ class _AkHotelRoomOptionsScreenState extends State<AkHotelRoomOptionsScreen> {
 
   List<String> get _images {
     final c = widget.content;
-    if (c == null) return const [];
-    final all = <String>[if (c.heroImage.isNotEmpty) c.heroImage, ...c.images];
-    return all.toSet().toList();
+    final own = <String>[
+      if (c != null && c.heroImage.isNotEmpty) c.heroImage,
+      if (c != null) ...c.images,
+    ];
+    final all = own.isNotEmpty ? own : widget.fallbackImages;
+    return all.where((u) => u.isNotEmpty).toSet().toList();
   }
 
   /// This room's own photos (from every sibling rate option's `room.images`

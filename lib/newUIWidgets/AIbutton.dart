@@ -43,17 +43,30 @@ class _AIFloatingButtonState extends State<AIFloatingButton>
   @override
   void initState() {
     super.initState();
+    _pulseController = AnimationController(
+      duration: const Duration(milliseconds: 1500),
+      vsync: this,
+    );
+    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.1).animate(
+      CurvedAnimation(
+        parent: _pulseController,
+        curve: Curves.easeInOut,
+      ),
+    );
     if (widget.showPulseAnimation) {
-      _pulseController = AnimationController(
-        duration: const Duration(milliseconds: 1500),
-        vsync: this,
-      )..repeat(reverse: true);
-      _pulseAnimation = Tween<double>(begin: 1.0, end: 1.1).animate(
-        CurvedAnimation(
-          parent: _pulseController,
-          curve: Curves.easeInOut,
-        ),
-      );
+      _pulseController.repeat(reverse: true);
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant AIFloatingButton oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.showPulseAnimation == oldWidget.showPulseAnimation) return;
+    if (widget.showPulseAnimation) {
+      _pulseController.repeat(reverse: true);
+    } else {
+      _pulseController.stop();
+      _pulseController.value = 0;
     }
   }
 

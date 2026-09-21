@@ -48,6 +48,13 @@ class AkHotelResultsScreen extends StatefulWidget {
   /// to reverse-engineer how the Rooms API echoes/collapses occupancy).
   final List<AkHotelSearchInitRoomEntity> rooms;
 
+  /// True only when the user actually searched for a specific hotel by
+  /// name (Autosuggest's `type: "hotel"` — see [AkHotelLocationEntity]),
+  /// not a city/region/area. Drives whether the "Match Result" section
+  /// (and its loading skeleton) shows at all — a plain location search has
+  /// no "hotel you searched for" to match against.
+  final bool searchedByHotelName;
+
   const AkHotelResultsScreen({
     super.key,
     required this.searchId,
@@ -59,6 +66,7 @@ class AkHotelResultsScreen extends StatefulWidget {
     required this.children,
     required this.nationality,
     required this.rooms,
+    required this.searchedByHotelName,
   });
 
   @override
@@ -120,6 +128,11 @@ class _AkHotelResultsScreenState extends State<AkHotelResultsScreen> {
   // section isn't just silently absent while it's still being looked for.
   bool _matchSearchInProgress = false;
 
+  // Anchors the full Near by vertical list (always rendered below the
+  // Collections section — see _buildNearbyExpandedList) so "Near by"'s
+  // "View more" can scroll straight to it instead of navigating away.
+  final GlobalKey _nearbyExpandedKey = GlobalKey();
+
   static const _maxAutoContentPages = 12;
 
   @override
@@ -132,7 +145,12 @@ class _AkHotelResultsScreenState extends State<AkHotelResultsScreen> {
     // handful of short rows barely scrolls at all. All Content pagination
     // now happens proactively, right after search, bounded, and once —
     // never re-triggered by scrolling.
-    _autoLoadContentUntilMerged().then((_) => _autoLoadContentForMatch());
+    // Only worth hunting for a match at all when the user actually searched
+    // for a specific hotel by name — a plain location search never shows
+    // the Match section, so there's nothing to find here for it.
+    _autoLoadContentUntilMerged().then((_) {
+      if (widget.searchedByHotelName) _autoLoadContentForMatch();
+    });
     _pollRate();
     CurrencyConverter.currencyListenable.addListener(_onCurrencyChanged);
   }
@@ -157,8 +175,10 @@ class _AkHotelResultsScreenState extends State<AkHotelResultsScreen> {
       _ratePollCount = 0;
     });
     if (_contentById.isEmpty) {
-      _autoLoadContentUntilMerged().then((_) => _autoLoadContentForMatch());
-    } else if (_matchedHotels.isEmpty) {
+      _autoLoadContentUntilMerged().then((_) {
+        if (widget.searchedByHotelName) _autoLoadContentForMatch();
+      });
+    } else if (widget.searchedByHotelName && _matchedHotels.isEmpty) {
       _autoLoadContentForMatch();
     }
     if (!_rateCompleted) _pollRate();
@@ -202,6 +222,9 @@ class _AkHotelResultsScreenState extends State<AkHotelResultsScreen> {
   /// city, not a specific property) have no match at all, so this must not
   /// keep paging forever hunting for one that was never coming.
   Future<void> _autoLoadContentForMatch() async {
+    // The first pass bails out silently if the screen was popped mid-fetch,
+    // and its `.then` still lands here — don't touch state once disposed.
+    if (!mounted) return;
     if (_matchedHotels.isNotEmpty) return; // nothing to look for
     setState(() => _matchSearchInProgress = true);
     try {
@@ -223,7 +246,7 @@ class _AkHotelResultsScreenState extends State<AkHotelResultsScreen> {
   }
 
   Future<void> _loadNextContentPage() async {
-    if (_contentLoading) return;
+    if (!mounted || _contentLoading) return;
     setState(() => _contentLoading = true);
 
     final offset = _contentById.isEmpty ? -1 : _contentById.length;
@@ -264,6 +287,7 @@ class _AkHotelResultsScreenState extends State<AkHotelResultsScreen> {
   }
 
   Future<void> _pollRate() async {
+    if (!mounted) return;
     setState(() => _ratePollingActive = true);
     while (mounted && !_rateCompleted && _ratePollCount < _maxRatePolls) {
       _ratePollCount++;
@@ -531,6 +555,8 @@ class _AkHotelResultsScreenState extends State<AkHotelResultsScreen> {
         currentCurrency,
       ),
       rating: c.starRating.round().clamp(0, 5),
+      reviewRating: c.reviewRating,
+      reviewCount: c.reviewCount,
       roomInfo: '',
       description: '',
       images: c.images,
@@ -560,6 +586,8 @@ class _AkHotelResultsScreenState extends State<AkHotelResultsScreen> {
       numericPrice: 0,
       taxes: '',
       rating: c.starRating.round().clamp(0, 5),
+      reviewRating: c.reviewRating,
+      reviewCount: c.reviewCount,
       roomInfo: '',
       description: '',
       images: c.images,
@@ -600,6 +628,10 @@ class _AkHotelResultsScreenState extends State<AkHotelResultsScreen> {
           children: widget.children,
           nationality: widget.nationality,
           rooms: widget.rooms,
+          fallbackImages: [
+            if (hotel.image.isNotEmpty) hotel.image,
+            ...hotel.images,
+          ],
         ),
       ),
     );
@@ -738,25 +770,40 @@ class _AkHotelResultsScreenState extends State<AkHotelResultsScreen> {
           physics: context.scrollPhysics,
           padding: EdgeInsets.only(top: context.gapMedium, bottom: context.h(110)),
           children: [
-            if (sortedMatched.isNotEmpty)
-              _buildSection(title: 'Match Result', hotels: sortedMatched, showViewAll: false)
-            // Keep showing "still looking" for as long as there's any real
-            // chance a match still turns up — not just while
-            // _autoLoadContentForMatch itself is actively paging. A hotel
-            // whose *name* already matched can already be sitting in
-            // _contentById/_curatedById waiting on Rate (which polls on its
-            // own schedule, independent of the content search and often
-            // takes far longer) — ending the skeleton the moment the
-            // content search gives up made it vanish and then have the
-            // real card pop in later, unannounced, once Rate finally priced
-            // it. Gated on _ratePollingActive rather than !_rateCompleted so
-            // this stops the moment Rate actually gives up polling (timeout
-            // or a transient failure), instead of shimmering forever any
-            // time Rate never reaches a literal "completed" status.
-            else if (_matchSearchInProgress || _ratePollingActive)
-              _buildMatchSkeletonSection(),
-            SizedBox(height: context.h(6)),
-            if (sortedNearby.isNotEmpty) _buildSection(title: 'Near by', hotels: sortedNearby),
+            // Match Result only ever means something for a property-style
+            // search ("Zostel Kochi") — a plain city/location search has no
+            // "hotel you searched for" to match against, so neither the
+            // section nor its loading skeleton show at all for one.
+            if (widget.searchedByHotelName) ...[
+              if (sortedMatched.isNotEmpty)
+                _buildSection(title: 'Match Result', hotels: sortedMatched, showViewAll: false)
+              // Keep showing "still looking" for as long as there's any real
+              // chance a match still turns up — not just while
+              // _autoLoadContentForMatch itself is actively paging. A hotel
+              // whose *name* already matched can already be sitting in
+              // _contentById/_curatedById waiting on Rate (which polls on its
+              // own schedule, independent of the content search and often
+              // takes far longer) — ending the skeleton the moment the
+              // content search gives up made it vanish and then have the
+              // real card pop in later, unannounced, once Rate finally priced
+              // it. Gated on _ratePollingActive rather than !_rateCompleted so
+              // this stops the moment Rate actually gives up polling (timeout
+              // or a transient failure), instead of shimmering forever any
+              // time Rate never reaches a literal "completed" status.
+              else if (_matchSearchInProgress || _ratePollingActive)
+                _buildMatchSkeletonSection(),
+              SizedBox(height: context.h(6)),
+            ],
+            if (sortedNearby.isNotEmpty)
+              _buildSection(
+                title: 'Near by',
+                hotels: sortedNearby,
+                // "View more" scrolls down to the full list that's already
+                // rendered below Collections (see _buildNearbyExpandedList)
+                // instead of navigating to a separate screen.
+                onViewAll: () => _scrollToNearbyExpandedList(),
+                viewAllLabel: 'View more',
+              ),
             SizedBox(height: context.h(6)),
             if (sortedRecommended.isNotEmpty)
               _buildSection(
@@ -770,7 +817,7 @@ class _AkHotelResultsScreenState extends State<AkHotelResultsScreen> {
               hotels: sortedCollections.take(AkHotelCollectionsSection.minHotelsRequired).toList(),
               onSelect: _navigateToDetail,
             ),
-
+            if (sortedNearby.isNotEmpty) _buildNearbyExpandedList(sortedNearby),
           ],
         ),
         Positioned(
@@ -798,13 +845,17 @@ class _AkHotelResultsScreenState extends State<AkHotelResultsScreen> {
 
   /// One "Title ... View all" row + its horizontal-scroll strip of
   /// [AkHotelSectionCard]s. "View all" only shows up once there's actually
-  /// more to see than the strip's own preview.
+  /// more to see than the strip's own preview. Defaults to navigating into
+  /// [AkHotelViewAllScreen]; pass [onViewAll] (as "Near by" does) to do
+  /// something else instead, e.g. expand inline on this same screen.
   Widget _buildSection({
     required String title,
     required List<HotelUiModel> hotels,
     bool showViewAll = true,
     double rowHeight = 240,
     Widget Function(HotelUiModel hotel)? cardBuilder,
+    VoidCallback? onViewAll,
+    String viewAllLabel = 'View all',
   }) {
     if (hotels.isEmpty) return const SizedBox.shrink();
     final viewAllVisible = showViewAll && hotels.length > 4;
@@ -820,18 +871,23 @@ class _AkHotelResultsScreenState extends State<AkHotelResultsScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  title,
-                  style: TextStyle(fontSize: context.fs(18), fontWeight: FontWeight.w600, color: AppColors.navy),
+                Flexible(
+                  child: Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: context.fs(18), fontWeight: FontWeight.w600, color: AppColors.navy),
+                  ),
                 ),
                 if (viewAllVisible)
                   GestureDetector(
-                    onTap: () => _openViewAll(title, hotels),
+                    onTap: onViewAll ?? () => _openViewAll(title, hotels),
                     behavior: HitTestBehavior.opaque,
                     child: Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          'View all',
+                          viewAllLabel,
                           style: TextStyle(fontSize: context.fs(11), fontWeight: FontWeight.w600, color: AppColors.AppBlue),
                         ),
                         Icon(Icons.chevron_right_rounded, size: context.w(15), color: AppColors.AppBlue),
@@ -863,6 +919,63 @@ class _AkHotelResultsScreenState extends State<AkHotelResultsScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  /// "Near by"'s View all, expanded — every near-by hotel as a full-width
+  /// vertical list under the Collections section, instead of navigating
+  /// into [AkHotelViewAllScreen]. Rendered as a plain [Column]: the page's
+  /// own outer [ListView] already provides the vertical scroll, so this
+  /// doesn't need (and must not have) a scrollable of its own.
+  Widget _buildNearbyExpandedList(List<HotelUiModel> hotels) {
+    return Padding(
+      key: _nearbyExpandedKey,
+      padding: EdgeInsets.fromLTRB(context.gapLarge, context.h(6), context.gapLarge, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'All Near by Hotels',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(fontSize: context.fs(18), fontWeight: FontWeight.w600, color: AppColors.navy),
+          ),
+          SizedBox(height: context.gapLarge),
+          for (final hotel in hotels) ...[
+            Builder(builder: (context) {
+              // Only a card that's actually about to render should queue an
+              // image backfill — matches _buildSection's itemBuilder.
+              _scheduleImageBackfillForHotel(hotel.hotelCode);
+              // AkHotelSectionCard bottom-anchors its rating/price row with
+              // Expanded, which needs a bounded height from its parent — the
+              // horizontal strip and the View All grid both already supply
+              // that (SizedBox/grid cell); a plain vertical Column doesn't,
+              // so it must be given one explicitly here or the card's
+              // internal Expanded has nothing bounded to expand into.
+              return SizedBox(
+                height: context.h(340),
+                width: double.infinity,
+                child: AkHotelSectionCard(hotel: hotel, onTap: () => _navigateToDetail(hotel), width: null),
+              );
+            }),
+            SizedBox(height: context.gapMedium),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// "Near by"'s "View more" — slides the page down until the full list
+  /// (already rendered below Collections) comes into view, rather than
+  /// toggling anything or navigating away.
+  void _scrollToNearbyExpandedList() {
+    final target = _nearbyExpandedKey.currentContext;
+    if (target == null) return;
+    Scrollable.ensureVisible(
+      target,
+      duration: const Duration(milliseconds: 450),
+      curve: Curves.easeInOut,
+      alignment: 0,
     );
   }
 

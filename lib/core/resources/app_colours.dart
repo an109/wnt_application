@@ -15,7 +15,7 @@ class AppColors {
   static const divider = Color(0xFFE0E0E0);
   static const shadow = Color(0x1A000000);
   static const OrangeColor = Color(0xFFFF6600);
-  static const blue = Color(0xff1663F7);
+  static const lightblue = Color(0xFFBAE6FD);
   static const orange = Color(0xffF97316);
   static const navy = Color(0xff07163B);
   static const muted = Color(0xff6B7280);

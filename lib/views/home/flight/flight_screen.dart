@@ -39,26 +39,26 @@ class FlightScreen extends StatelessWidget {
                     children: [
                       const SearchCard(),
 
-                      // Figma: Rectangle 35
-                      // Fill: #FFFFFF
-                      // Layer Blur: 16
-                      Positioned(
-                        left: 0,
-                        right: 0,
-                        bottom: -context.h(25),
-                        child: ImageFiltered(
-                          imageFilter: ImageFilter.blur(
-                            sigmaX: 16,
-                            sigmaY: 16,
-                          ),
-                          child: Container(
-                            height: context.h(40),
-                            decoration: const BoxDecoration(
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
-                      ),
+                      // // Figma: Rectangle 35
+                      // // Fill: #FFFFFF
+                      // // Layer Blur: 16
+                      // Positioned(
+                      //   left: 0,
+                      //   right: 0,
+                      //   bottom: -context.h(25),
+                      //   child: ImageFiltered(
+                      //     imageFilter: ImageFilter.blur(
+                      //       sigmaX: 16,
+                      //       sigmaY: 16,
+                      //     ),
+                      //     child: Container(
+                      //       height: context.h(40),
+                      //       decoration: const BoxDecoration(
+                      //         color: Colors.white,
+                      //       ),
+                      //     ),
+                      //   ),
+                      // ),
                     ],
                   ),
                 ),

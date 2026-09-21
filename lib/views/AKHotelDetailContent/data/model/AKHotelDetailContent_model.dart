@@ -1,3 +1,4 @@
+import '../../../../core/utils/ak_hotel_review_parser.dart';
 import '../../domain/entity/AKHotelDetailContent_entity.dart';
 
 /// This backend doesn't consistently type its numbers — the same field
@@ -81,14 +82,14 @@ class AkHotelDetailContentModel extends AkHotelDetailContentEntity {
     final checkinInfo = hotel['checkinInfo'] as Map<String, dynamic>? ?? {};
     final checkoutInfo = hotel['checkoutInfo'] as Map<String, dynamic>? ?? {};
     final rawSpecialInstructions = checkinInfo['specialInstructions'] as List<dynamic>? ?? [];
-    final userReview = hotel['userReview'] as Map<String, dynamic>?;
+    final review = parseAkHotelReview(hotel);
 
     return AkHotelDetailContentModel(
       id: hotel['id']?.toString() ?? '',
       name: hotel['name']?.toString() ?? '',
       starRating: _toDouble(hotel['starRating']) ?? 0.0,
-      reviewRating: _toDouble(userReview?['rating']) ?? 0.0,
-      reviewCount: (userReview?['count'] as num?)?.toInt() ?? 0,
+      reviewRating: review.rating,
+      reviewCount: review.count,
       addressLine1: (address['line1'] ?? '').toString(),
       city: (address['city'] ?? '').toString(),
       state: (address['state'] ?? '').toString(),
