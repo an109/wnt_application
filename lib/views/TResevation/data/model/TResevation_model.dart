@@ -37,6 +37,8 @@ class TransportReservationModel {
   final String notes;
   final String flightNumber;
   final String airline;
+  final String returnFlightNumber;
+  final String returnAirline;
   final String? couponCode;
   final List<ExtraPaxInfoModel>? extraPaxInfo;
 
@@ -77,6 +79,8 @@ class TransportReservationModel {
     this.notes = '',
     this.flightNumber = '',
     this.airline = '',
+    this.returnFlightNumber = '',
+    this.returnAirline = '',
     this.couponCode,
     this.extraPaxInfo,
   });
@@ -126,6 +130,8 @@ class TransportReservationModel {
       notes: json['notes'] ?? '',
       flightNumber: json['flight_number'] ?? '',
       airline: json['airline'] ?? '',
+      returnFlightNumber: json['return_flight_number'] ?? '',
+      returnAirline: json['return_airline'] ?? '',
       couponCode: json['coupon_code'],
       extraPaxInfo: (json['extra_pax_info'] as List<dynamic>?)
           ?.map((e) => ExtraPaxInfoModel.fromJson(e))
@@ -171,6 +177,8 @@ class TransportReservationModel {
       'notes': notes,
       'flight_number': flightNumber,
       'airline': airline,
+      if (returnFlightNumber.isNotEmpty) 'return_flight_number': returnFlightNumber,
+      if (returnAirline.isNotEmpty) 'return_airline': returnAirline,
       if (couponCode != null) 'coupon_code': couponCode,
       if (extraPaxInfo != null)
         'extra_pax_info': extraPaxInfo!.map((e) => e.toJson()).toList(),
@@ -216,6 +224,8 @@ class TransportReservationModel {
       notes: notes,
       flightNumber: flightNumber,
       airline: airline,
+      returnFlightNumber: returnFlightNumber,
+      returnAirline: returnAirline,
       couponCode: couponCode,
       extraPaxInfo: extraPaxInfo?.map((e) => e.toEntity()).toList(),
     );

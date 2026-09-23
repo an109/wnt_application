@@ -29,6 +29,10 @@ Future<Map<String, dynamic>> _send({
   List<String> amenities = const [],
   double discount = 0,
   String? coupon,
+  String tripType = 'one_way',
+  String tripReturnPickupDatetime = '',
+  String returnFlightNumber = '',
+  String returnAirline = '',
 }) async {
   final api = _CapturingApi();
   await TransportReservationRepositoryImpl(api).createReservation(
@@ -54,7 +58,8 @@ Future<Map<String, dynamic>> _send({
     tripStartAddress: 'A',
     tripEndAddress: 'B',
     tripPickupDatetime: '2026-09-17T10:00:00',
-    tripType: 'one_way',
+    tripReturnPickupDatetime: tripReturnPickupDatetime,
+    tripType: tripType,
     vehicleName: 'Standard',
     providerName: 'KiwiTaxi',
     paidVia: 'razorpay',
@@ -64,6 +69,8 @@ Future<Map<String, dynamic>> _send({
     razorpayPaymentId: '',
     flightNumber: 'AI101',
     airline: 'AI',
+    returnFlightNumber: returnFlightNumber,
+    returnAirline: returnAirline,
     couponCode: coupon,
   );
   return api.sent!;
@@ -101,5 +108,39 @@ void main() {
   test('phone: a bare national number keeps the legacy 91 prefix', () async {
     final body = await _send(phone: '9876543212');
     expect(body['phone_number'], '919876543212');
+  });
+
+  test('round trip: return datetime is sent to the reservation API', () async {
+    final body = await _send(
+      phone: '+919876543212',
+      tripType: 'round_trip',
+      tripReturnPickupDatetime: '2026-09-20T18:30:00',
+    );
+    expect(body['trip_type'], 'round_trip');
+    expect(body['trip_return_pickup_datetime'], '2026-09-20T18:30:00');
+  });
+
+  test('one way: no trip_return_pickup_datetime key sent', () async {
+    final body = await _send(phone: '+919876543212');
+    expect(body['trip_type'], 'one_way');
+    expect(body.containsKey('trip_return_pickup_datetime'), isFalse);
+  });
+
+  test('round trip: return flight details are sent to the reservation API', () async {
+    final body = await _send(
+      phone: '+919876543212',
+      tripType: 'round_trip',
+      tripReturnPickupDatetime: '2026-09-20T18:30:00',
+      returnFlightNumber: 'AI202',
+      returnAirline: 'AI',
+    );
+    expect(body['return_flight_number'], 'AI202');
+    expect(body['return_airline'], 'AI');
+  });
+
+  test('one way: no return flight keys sent', () async {
+    final body = await _send(phone: '+919876543212');
+    expect(body.containsKey('return_flight_number'), isFalse);
+    expect(body.containsKey('return_airline'), isFalse);
   });
 }

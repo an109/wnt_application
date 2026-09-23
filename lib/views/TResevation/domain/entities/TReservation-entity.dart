@@ -38,6 +38,10 @@ class TransportReservationEntity extends Equatable {
   final String notes;
   final String flightNumber;
   final String airline;
+  // Mozio requires these on the reservation whenever it's a round trip
+  // (the driver/return leg needs to track the return flight too).
+  final String returnFlightNumber;
+  final String returnAirline;
   final String? couponCode;
   final List<ExtraPaxInfoEntity>? extraPaxInfo;
 
@@ -83,6 +87,8 @@ class TransportReservationEntity extends Equatable {
     this.notes = '',
     this.flightNumber = '',
     this.airline = '',
+    this.returnFlightNumber = '',
+    this.returnAirline = '',
     this.couponCode,
     this.extraPaxInfo,
     this.status = '',
@@ -100,6 +106,7 @@ class TransportReservationEntity extends Equatable {
     tripReturnPickupDatetimePretty, tripType, vehicleName, providerName,
     paidVia, paymentGateway, paymentReferenceId, razorpayOrderId,
     razorpayPaymentId, specialInstructions, notes, flightNumber, airline,
+    returnFlightNumber, returnAirline,
     couponCode, extraPaxInfo, status, confirmationNumber,
   ];
 }

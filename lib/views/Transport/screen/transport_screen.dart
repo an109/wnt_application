@@ -77,8 +77,8 @@ class _TransportBookingScreenState extends State<TransportBookingScreen> {
             ),
 
             // const SliverToBoxAdapter(child: WhyBookTransportSection()),
-            const SliverToBoxAdapter(child: TransportMultiCityPromoSection()),
-            const SliverToBoxAdapter(child: TransportWhatsNewSection()),
+            // const SliverToBoxAdapter(child: TransportMultiCityPromoSection()),
+            // const SliverToBoxAdapter(child: TransportWhatsNewSection()),
             const SliverToBoxAdapter(child: TransportOffersSection()),
 
             SliverToBoxAdapter(

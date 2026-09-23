@@ -32,6 +32,10 @@ class TpollSearchResultsPage extends StatefulWidget {
   final DateTime? returnDate;
   final TimeOfDay? returnTime;
 
+  /// Outstation transfers don't need flight tracking, so the booking screen
+  /// keeps the Flight Information section optional for them.
+  final bool isOutstation;
+
   const TpollSearchResultsPage({
     super.key,
     required this.searchId,
@@ -43,6 +47,7 @@ class TpollSearchResultsPage extends StatefulWidget {
     this.isOneWay = true,
     this.returnDate,
     this.returnTime,
+    this.isOutstation = false,
   });
 
   @override
@@ -861,6 +866,9 @@ class _TpollSearchResultsPageState extends State<TpollSearchResultsPage> {
             endAddress: widget.endAddress,
             pickupDate: widget.pickupDate,
             isOneWay: widget.isOneWay,
+            returnDate: widget.returnDate,
+            returnTime: widget.returnTime,
+            isOutstation: widget.isOutstation,
           ),
         ),
       );

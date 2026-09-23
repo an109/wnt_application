@@ -139,15 +139,6 @@ class _AkHotelResultsScreenState extends State<AkHotelResultsScreen> {
   void initState() {
     super.initState();
     _locationName = widget.locationName;
-    // Sections are horizontal carousels now, not one long vertical list, so
-    // "scrolled near the bottom" no longer means "needs more data" — it kept
-    // firing almost continuously (see the removed _onScroll) because a
-    // handful of short rows barely scrolls at all. All Content pagination
-    // now happens proactively, right after search, bounded, and once —
-    // never re-triggered by scrolling.
-    // Only worth hunting for a match at all when the user actually searched
-    // for a specific hotel by name — a plain location search never shows
-    // the Match section, so there's nothing to find here for it.
     _autoLoadContentUntilMerged().then((_) {
       if (widget.searchedByHotelName) _autoLoadContentForMatch();
     });

@@ -105,11 +105,40 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen> {
               : widget.reservation.paidVia.trim(),
       };
 
+  /// When the payment actually went through — captured the moment this
+  /// screen opened, since the reservation response has no payment timestamp
+  /// of its own.
   String get _bookingDateLabel =>
       DateFormat('d MMM\'yy | hh:mma').format(_bookedAt);
 
-  String get _tripTypeLabel =>
-      widget.reservation.tripType == 'round_trip' ? 'Round Trip' : 'One Way';
+  bool get _isRoundTrip => widget.reservation.tripType == 'round_trip';
+
+  String get _tripTypeLabel => _isRoundTrip ? 'Round Trip' : 'One Way';
+
+  /// The actual trip pickup date/time the customer booked — same field for
+  /// both one-way and round trip (the outbound leg).
+  ///
+  /// UNVERIFIED: [TransportReservationEntity.tripPickupDatetime] is built as
+  /// an ISO string from whatever DateTime the earlier screens constructed;
+  /// the outbound value is parsed from the search API's own pickup_datetime
+  /// (often UTC-tagged), while the round-trip return value is built locally
+  /// (never UTC-tagged) — `.toLocal()` below is the least-wrong common
+  /// handling until that inconsistency is confirmed against the backend.
+  String get _pickupDateLabel {
+    final d = DateTime.tryParse(widget.reservation.tripPickupDatetime);
+    if (d == null) return '';
+    return DateFormat('d MMM\'yy | hh:mma').format(d.toLocal());
+  }
+
+  /// The return leg's date/time — only meaningful (and only shown) for a
+  /// round trip.
+  String get _returnDateLabel {
+    final raw = widget.reservation.tripReturnPickupDatetime;
+    if (raw.isEmpty) return '';
+    final d = DateTime.tryParse(raw);
+    if (d == null) return '';
+    return DateFormat('d MMM\'yy | hh:mma').format(d.toLocal());
+  }
 
   String get _currency => widget.reservation.displayCurrency.isNotEmpty
       ? widget.reservation.displayCurrency
@@ -840,29 +869,32 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen> {
   Widget _bookingSummaryCard(BuildContext context) {
     final tiles = <Widget>[
       if (_paymentMethodLabel.isNotEmpty)
-        Expanded(
-          child: _tile(
-            context,
-            label: 'PAYMENT METHOD',
-            value: _paymentMethodLabel,
-            pngAsset: 'assets/NewIcons/paymethod.png',
-          ),
-        ),
-      if (_paymentMethodLabel.isNotEmpty)
-        Container(
-          width: 0.7,
-          height: context.h(40),
-          color: _stroke.withValues(alpha: 0.4),
-          margin: EdgeInsets.symmetric(horizontal: context.w(12)),
-        ),
-      Expanded(
-        child: _tile(
+        _tile(
           context,
-          label: 'BOOKING DATE & Time',
-          value: _bookingDateLabel,
-          pngAsset: 'assets/NewIcons/TCalender.png',
+          label: 'PAYMENT METHOD',
+          value: _paymentMethodLabel,
+          pngAsset: 'assets/NewIcons/paymethod.png',
         ),
+      _tile(
+        context,
+        label: 'PAYMENT DATE & TIME',
+        value: _bookingDateLabel,
+        pngAsset: 'assets/NewIcons/TCalender.png',
       ),
+      if (_pickupDateLabel.isNotEmpty)
+        _tile(
+          context,
+          label: _isRoundTrip ? 'PICKUP DATE & TIME' : 'TRIP DATE & TIME',
+          value: _pickupDateLabel,
+          pngAsset: 'assets/NewIcons/departureCalendar.png',
+        ),
+      if (_isRoundTrip && _returnDateLabel.isNotEmpty)
+        _tile(
+          context,
+          label: 'RETURN DATE & TIME',
+          value: _returnDateLabel,
+          pngAsset: 'assets/NewIcons/ReturnCalendar.png',
+        ),
     ];
 
     return Container(
@@ -922,9 +954,21 @@ class _BookingConfirmationScreenState extends State<BookingConfirmationScreen> {
               color: const Color(0xFFF1F5F9),
               borderRadius: BorderRadius.circular(context.r(10)),
             ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: tiles,
+            // Wrap, not a fixed Row — up to 4 tiles now (payment method,
+            // payment time, pickup time, and return time for round trips),
+            // laid out 2-per-row so it never overflows.
+            child: LayoutBuilder(
+              builder: (context, c) {
+                final gap = context.w(14);
+                final w = (c.maxWidth - gap) / 2;
+                return Wrap(
+                  spacing: gap,
+                  runSpacing: context.h(14),
+                  children: [
+                    for (final t in tiles) SizedBox(width: w, child: t),
+                  ],
+                );
+              },
             ),
           ),
         ],

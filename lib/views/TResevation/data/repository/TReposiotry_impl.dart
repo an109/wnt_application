@@ -40,6 +40,8 @@ class TransportReservationRepositoryImpl implements TransportReservationReposito
     required String tripStartAddress,
     required String tripEndAddress,
     required String tripPickupDatetime,
+    String tripReturnPickupDatetime = '',
+    String tripReturnPickupDatetimePretty = '',
     required String tripType,
     required String vehicleName,
     required String providerName,
@@ -52,6 +54,8 @@ class TransportReservationRepositoryImpl implements TransportReservationReposito
     String? notes,
     String? flightNumber,
     String? airline,
+    String? returnFlightNumber,
+    String? returnAirline,
     String? couponCode,
     List<ExtraPaxInfoEntity>? extraPaxInfo,
   }) async {
@@ -85,6 +89,8 @@ class TransportReservationRepositoryImpl implements TransportReservationReposito
         'trip_start_address': tripStartAddress,
         'trip_end_address': tripEndAddress,
         'trip_pickup_datetime': tripPickupDatetime,
+        if (tripReturnPickupDatetime.isNotEmpty)
+          'trip_return_pickup_datetime': tripReturnPickupDatetime,
         'trip_type': tripType,
         'vehicle_name': vehicleName,
         'provider_name': providerName,
@@ -98,6 +104,13 @@ class TransportReservationRepositoryImpl implements TransportReservationReposito
         if (notes != null) 'notes': notes,
         if (flightNumber != null) 'flight_number': flightNumber,
         if (airline != null) 'airline': airline,
+        // Mozio requires these on a round-trip reservation (return leg
+        // needs its own flight to track), same as flight_number/airline do
+        // for the outbound leg.
+        if (returnFlightNumber != null && returnFlightNumber.isNotEmpty)
+          'return_flight_number': returnFlightNumber,
+        if (returnAirline != null && returnAirline.isNotEmpty)
+          'return_airline': returnAirline,
         if (couponCode != null) 'coupon_code': couponCode,
         if (extraPaxInfo != null)
           'extra_pax_info': extraPaxInfo.map((e) => {
@@ -151,6 +164,8 @@ class TransportReservationRepositoryImpl implements TransportReservationReposito
         tripEndAddress: tripEndAddress,
         tripPickupDatetime: tripPickupDatetime,
         tripPickupDatetimePretty: '',
+        tripReturnPickupDatetime: tripReturnPickupDatetime,
+        tripReturnPickupDatetimePretty: tripReturnPickupDatetimePretty,
         tripType: tripType,
         vehicleName: vehicleName,
         providerName: providerName,
@@ -163,6 +178,8 @@ class TransportReservationRepositoryImpl implements TransportReservationReposito
         notes: notes ?? '',
         flightNumber: flightNumber ?? '',
         airline: airline ?? '',
+        returnFlightNumber: returnFlightNumber ?? '',
+        returnAirline: returnAirline ?? '',
         couponCode: couponCode,
         extraPaxInfo: extraPaxInfo,
         status: status,

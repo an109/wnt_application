@@ -22,6 +22,8 @@ abstract class TransportReservationRepository {
     required String tripStartAddress,
     required String tripEndAddress,
     required String tripPickupDatetime,
+    String tripReturnPickupDatetime = '',
+    String tripReturnPickupDatetimePretty = '',
     required String tripType,
     required String vehicleName,
     required String providerName,
@@ -34,6 +36,8 @@ abstract class TransportReservationRepository {
     String? notes,
     String? flightNumber,
     String? airline,
+    String? returnFlightNumber,
+    String? returnAirline,
     String? couponCode,
     List<ExtraPaxInfoEntity>? extraPaxInfo,
   });

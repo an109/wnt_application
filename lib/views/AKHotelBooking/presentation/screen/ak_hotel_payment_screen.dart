@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:razorpay_flutter/razorpay_flutter.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import 'package:wander_nova/core/constants/urls.dart';
 import 'package:wander_nova/core/network/dio_client.dart';
@@ -14,6 +13,12 @@ import '../../../AKHotelRetrieveBooking/domain/entity/AKHotelRetrieveBooking_ent
 import '../../../AKHotelRetrieveBooking/domain/usecase/AKHotelRetrieveBooking_usecase.dart';
 import '../../../AKHotelStartPay/domain/entity/AKHotelStartPay_entity.dart';
 import '../../../AKHotelStartPay/domain/usecase/AKHotelStartPay_usecase.dart';
+import '../../../flight_payment/data/razorpay_custom_checkout_service.dart';
+import '../../../flight_payment/presentation/screen/ak_card_payment_screen.dart';
+import '../../../flight_payment/presentation/screen/ak_custom_checkout_args.dart';
+import '../../../flight_payment/presentation/screen/ak_netbanking_payment_screen.dart';
+import '../../../flight_payment/presentation/screen/ak_upi_payment_screen.dart';
+import '../../../flight_payment/presentation/screen/ak_wallet_provider_payment_screen.dart';
 import '../../../wallet/data/data_source/wallet_api_service.dart';
 import 'ak_hotel_booking_confirmed_screen.dart';
 
@@ -25,10 +30,13 @@ import 'ak_hotel_booking_confirmed_screen.dart';
 /// (not retried blindly) — a timeout is resolved by reading the truth back
 /// via RetrieveBooking, not by calling StartPay again.
 ///
-/// UI mirrors [AkFlightPaymentScreen]'s option-card layout (one-tap rows,
-/// no separate "Pay Now" button) — Wallet and Razorpay are the only two
-/// rows actually wired up; EMI/GooglePay/UPI/Credit&Debit/Net Banking/Pay
-/// Later/Gift Cards render as static placeholders pending real integration.
+/// UI mirrors [AkFlightPaymentScreen]'s option-card layout (one-tap rows, no
+/// separate "Pay Now" button) — Wallet uses the wallet-balance flow, and
+/// every Razorpay Custom Checkout method (card/UPI/netbanking/wallet
+/// provider) opens its own checkout screen directly, same native Android
+/// SDK bridge [AkFlightPaymentScreen] uses. EMI and Pay Later stay static
+/// placeholders — EMI has no checkout screen of its own yet, and Pay Later
+/// needs separate Razorpay account approval.
 class AkHotelPaymentScreen extends StatefulWidget {
   final String transactionId;
   final double netAmount;
@@ -104,7 +112,6 @@ class _AkHotelPaymentScreenState extends State<AkHotelPaymentScreen> {
   static const _ink = Color(0xFF0F172A);
   static const _offer = Color(0xFF16A34A);
 
-  late final Razorpay _razorpay;
   bool _processing = false;
   String _statusMessage = '';
   String? _errorMessage;
@@ -112,6 +119,14 @@ class _AkHotelPaymentScreenState extends State<AkHotelPaymentScreen> {
 
   // Only the tapped card shows the brief selected highlight.
   String? _selectedTileId;
+
+  // ---- Razorpay Custom Checkout (native Android SDK bridge, same as
+  // AkFlightPaymentScreen) ----
+  /// Set once the first Custom Checkout attempt creates an order, then
+  /// reused by every method screen — an order must be created exactly once
+  /// per payment attempt.
+  String? _razorpayOrderId;
+  String? _razorpayKeyId;
 
   /// Checkout hold — same 15-minute UI guard [AkFlightPaymentScreen] uses.
   /// Purely local: it never cancels anything itself, just stops the
@@ -126,11 +141,6 @@ class _AkHotelPaymentScreenState extends State<AkHotelPaymentScreen> {
   @override
   void initState() {
     super.initState();
-    _razorpay = Razorpay();
-    _razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, _handleRazorpaySuccess);
-    _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _handleRazorpayError);
-    _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleRazorpayExternalWallet);
-
     _holdTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (!mounted) return;
       final next = _timeLeft - const Duration(seconds: 1);
@@ -142,7 +152,6 @@ class _AkHotelPaymentScreenState extends State<AkHotelPaymentScreen> {
   @override
   void dispose() {
     _holdTimer?.cancel();
-    _razorpay.clear();
     super.dispose();
   }
 
@@ -151,11 +160,12 @@ class _AkHotelPaymentScreenState extends State<AkHotelPaymentScreen> {
       setState(() => _errorMessage = 'Please select a payment method');
       return;
     }
+    // Wallet uses the wallet-balance flow; every Custom Checkout method
+    // (card/UPI/netbanking/wallet provider) is launched straight from its
+    // own tile — see _startCardCheckout() etc. below.
     if (_selectedPaymentMethod == 'wallet') {
       await _payWithWallet();
-      return;
     }
-    await _initiatePayment();
   }
 
   Future<void> _payWithWallet() async {
@@ -191,17 +201,23 @@ class _AkHotelPaymentScreenState extends State<AkHotelPaymentScreen> {
     }
   }
 
-  Future<void> _initiatePayment() async {
+  /// Creates the Razorpay order the first time the customer taps ANY Custom
+  /// Checkout method, and reuses it afterwards — an order must be created
+  /// exactly once per payment attempt, so switching between method screens
+  /// (e.g. Card → back → UPI) must never create a second one. reference_id
+  /// equals the itinerary TransactionID so hotel StartPay's payment guard
+  /// can look up this exact paid transaction, same as before.
+  Future<bool> _ensureRazorpayOrder() async {
+    if (_razorpayOrderId != null && _razorpayKeyId != null) return true;
+
     setState(() {
       _processing = true;
       _errorMessage = null;
-      _statusMessage = 'Opening secure payment...';
+      _statusMessage = 'Preparing payment...';
     });
 
     try {
       final dio = sl<DioClient>().instance;
-      // reference_id must equal the itinerary TransactionID so hotel
-      // StartPay's payment guard can look up this exact paid transaction.
       final response = await dio.post(
         Urls.razorpayCreateOrder,
         data: {
@@ -213,37 +229,96 @@ class _AkHotelPaymentScreenState extends State<AkHotelPaymentScreen> {
 
       final orderId = response.data['order_id'] as String?;
       final keyId = response.data['key_id'] as String?;
-      print("Razorpay Key: $keyId");
 
-      if (!mounted) return;
-      setState(() => _processing = false);
+      if (!mounted) return false;
 
-      _razorpay.open({
-        'key': keyId ?? '',
-        'amount': (widget.netAmount * 100).toInt(),
-        'currency': 'INR',
-        'name': 'WanderNova',
-        'description': 'Hotel booking: ${widget.hotelName}',
-        'order_id': orderId ?? '',
-        'theme': {'color': '#1769F6'},
+      if (orderId == null || keyId == null) {
+        setState(() {
+          _processing = false;
+          _errorMessage = 'Could not create payment order. Please try again.';
+        });
+        return false;
+      }
+
+      setState(() {
+        _processing = false;
+        _razorpayOrderId = orderId;
+        _razorpayKeyId = keyId;
       });
+      return true;
     } on DioException catch (e) {
-      if (!mounted) return;
+      if (!mounted) return false;
       setState(() {
         _processing = false;
         _errorMessage = 'Could not create payment order. Please try again.';
       });
       print('Hotel Razorpay order error: ${e.message}');
+      return false;
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted) return false;
       setState(() {
         _processing = false;
         _errorMessage = 'Could not start payment: $e';
       });
+      return false;
     }
   }
 
-  void _handleRazorpaySuccess(PaymentSuccessResponse response) async {
+  /// Ensures the order exists, then pushes [screenBuilder] with everything
+  /// it needs to submit a charge against that order — same pattern as
+  /// [AkFlightPaymentScreen._openCustomCheckoutScreen]. A non-null result
+  /// means the method screen collected a successful charge.
+  Future<void> _openCustomCheckoutScreen(
+    Widget Function(AkCustomCheckoutArgs args) screenBuilder,
+  ) async {
+    if (_expired || _processing) return;
+
+    final ready = await _ensureRazorpayOrder();
+    if (!ready || !mounted) return;
+
+    final args = AkCustomCheckoutArgs(
+      keyId: _razorpayKeyId!,
+      orderId: _razorpayOrderId!,
+      amountInInr: widget.netAmount,
+      name: widget.leadGuestName,
+      email: widget.leadGuestEmail,
+      contact: widget.leadGuestPhone,
+      description: 'Hotel booking: ${widget.hotelName}',
+    );
+
+    final result = await Navigator.push<RazorpayCustomPaymentResult>(
+      context,
+      MaterialPageRoute(builder: (_) => screenBuilder(args)),
+    );
+
+    if (result == null || !mounted) return;
+    await _verifyAndConfirmBooking(
+      paymentId: result.paymentId,
+      orderId: result.orderId,
+      signature: result.signature,
+    );
+  }
+
+  void _startCardCheckout() =>
+      _openCustomCheckoutScreen((args) => AkCardPaymentScreen(args: args));
+
+  void _startUpiCheckout() =>
+      _openCustomCheckoutScreen((args) => AkUpiPaymentScreen(args: args));
+
+  void _startNetbankingCheckout() =>
+      _openCustomCheckoutScreen((args) => AkNetbankingPaymentScreen(args: args));
+
+  void _startWalletProviderCheckout() =>
+      _openCustomCheckoutScreen((args) => AkWalletProviderPaymentScreen(args: args));
+
+  /// Verifies the signature server-side, then continues exactly as before —
+  /// StartPay with paymentReference == the itinerary TransactionID (not the
+  /// raw Razorpay payment id — StartPay's guard looks up by reference_id).
+  Future<void> _verifyAndConfirmBooking({
+    required String? paymentId,
+    required String? orderId,
+    required String? signature,
+  }) async {
     setState(() {
       _processing = true;
       _statusMessage = 'Verifying payment...';
@@ -255,9 +330,9 @@ class _AkHotelPaymentScreenState extends State<AkHotelPaymentScreen> {
       final verifyResponse = await dio.post(
         Urls.razorpayVerify,
         data: {
-          'razorpay_order_id': response.orderId,
-          'razorpay_payment_id': response.paymentId,
-          'razorpay_signature': response.signature,
+          'razorpay_order_id': orderId,
+          'razorpay_payment_id': paymentId,
+          'razorpay_signature': signature,
           'reference_id': widget.transactionId,
         },
       );
@@ -280,18 +355,6 @@ class _AkHotelPaymentScreenState extends State<AkHotelPaymentScreen> {
       });
       print('Hotel Razorpay verify error: ${e.message}');
     }
-  }
-
-  void _handleRazorpayError(PaymentFailureResponse response) {
-    if (!mounted) return;
-    setState(() {
-      _processing = false;
-      _errorMessage = 'Payment failed: ${response.message ?? 'Please try again.'}';
-    });
-  }
-
-  void _handleRazorpayExternalWallet(ExternalWalletResponse response) {
-    print('Hotel Razorpay external wallet: ${response.walletName}');
   }
 
   Future<void> _runStartPay({required String gateway, required String paymentReference}) async {
@@ -446,18 +509,6 @@ class _AkHotelPaymentScreenState extends State<AkHotelPaymentScreen> {
                           subtitle: 'Pay using your wallet balance',
                         ),
                       ]),
-                      _optionCard(context, children: [
-                        _optionRow(
-                          context,
-                          tileId: 'razorpay',
-                          method: 'razorpay',
-                          icon: Icons.payment_rounded,
-                          iconColor: const Color(0xFF2F80ED),
-                          iconBg: const Color(0xFFEFF6FF),
-                          title: 'Razorpay',
-                          subtitle: 'Cards, UPI, Net Banking, Wallets',
-                        ),
-                      ]),
                       _promoStrip(context, 'Get an additional Rs 300 off with HDFCEMI on 6 month EMI.'),
                       _optionCard(context, children: [
                         _optionRow(
@@ -474,11 +525,14 @@ class _AkHotelPaymentScreenState extends State<AkHotelPaymentScreen> {
                         ),
                       ]),
                       _promoStrip(context, 'Get extra discount on UPI of Rs 32'),
+                      // GooglePay + UPI Options — one card, no divider between.
+                      // Both open the Custom Checkout UPI screen (GPay is a
+                      // UPI-intent payment under Razorpay's 'upi' method).
                       _optionCard(context, children: [
                         _optionRow(
                           context,
                           tileId: 'gpay',
-                          interactive: false,
+                          onTapOverride: _startUpiCheckout,
                           iconAsset: 'assets/NewIcons/gpay.png',
                           iconBg: const Color(0xFFEFF6FF),
                           title: 'GooglePay',
@@ -487,7 +541,7 @@ class _AkHotelPaymentScreenState extends State<AkHotelPaymentScreen> {
                         _optionRow(
                           context,
                           tileId: 'upi',
-                          interactive: false,
+                          onTapOverride: _startUpiCheckout,
                           iconAsset: 'assets/NewIcons/upi.png',
                           iconBg: const Color(0xFFF3E8FF),
                           title: 'UPI Options',
@@ -497,13 +551,15 @@ class _AkHotelPaymentScreenState extends State<AkHotelPaymentScreen> {
                       SizedBox(height: context.h(12)),
                       _sectionLabel(context, 'Other Payment Options'),
                       SizedBox(height: context.h(12)),
-                      // Static for now — render like the real cards but don't
-                      // select or route anything, per the UI-only request.
+                      // Card / Net Banking / Gift Cards & e-Wallets each open
+                      // their own Custom Checkout screens. Pay Later stays
+                      // static — it needs separate Razorpay approval and
+                      // isn't confirmed enabled on this account.
                       _optionCard(context, children: [
                         _optionRow(
                           context,
                           tileId: 'card',
-                          interactive: false,
+                          onTapOverride: _startCardCheckout,
                           iconAsset: 'assets/NewIcons/credit.png',
                           iconBg: const Color(0xFFEFF6FF),
                           title: 'Credit & Debit Cards',
@@ -514,7 +570,7 @@ class _AkHotelPaymentScreenState extends State<AkHotelPaymentScreen> {
                         _optionRow(
                           context,
                           tileId: 'netbanking',
-                          interactive: false,
+                          onTapOverride: _startNetbankingCheckout,
                           iconAsset: 'assets/NewIcons/net_banking.png',
                           iconBg: const Color(0xFFF5F3FF),
                           title: 'Net Banking',
@@ -528,16 +584,16 @@ class _AkHotelPaymentScreenState extends State<AkHotelPaymentScreen> {
                           iconAsset: 'assets/NewIcons/pay_later.png',
                           iconBg: const Color(0xFFECFEFF),
                           title: 'Pay Later',
-                          subtitle: 'LazyPay, Amazon',
+                          subtitle: 'LazyPay, Simpl, ICICI PayLater and more',
                         ),
                         _optionRow(
                           context,
                           tileId: 'giftcard',
-                          interactive: false,
+                          onTapOverride: _startWalletProviderCheckout,
                           iconAsset: 'assets/NewIcons/wallet.png',
                           iconBg: const Color(0xFFFFFBEB),
-                          title: 'Gift Cards & e-wallets',
-                          subtitle: 'WNT Gift cards & Amazon Pay',
+                          title: 'Gift Cards & e-Wallets',
+                          subtitle: 'Paytm, PhonePe, Amazon Pay and more',
                         ),
                       ]),
                     ],
@@ -731,7 +787,8 @@ class _AkHotelPaymentScreenState extends State<AkHotelPaymentScreen> {
   Widget _optionRow(
     BuildContext context, {
     required String tileId,
-    String? method, // 'wallet' | 'razorpay' — what _processPayment runs
+    String? method, // 'wallet' — what _processPayment runs
+    VoidCallback? onTapOverride, // Custom Checkout methods route here instead
     IconData? icon,
     String? iconAsset,
     Color iconColor = Colors.transparent,
@@ -805,11 +862,13 @@ class _AkHotelPaymentScreenState extends State<AkHotelPaymentScreen> {
       ),
     );
 
-    if (!interactive || method == null) return content;
+    if (!interactive || (method == null && onTapOverride == null)) return content;
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: (_expired || _processing) ? null : () => _payWith(method, tileId),
+      onTap: (_expired || _processing)
+          ? null
+          : (onTapOverride ?? () => _payWith(method!, tileId)),
       child: content,
     );
   }

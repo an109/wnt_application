@@ -40,6 +40,16 @@ class TPollBookingScreen extends StatefulWidget {
   final String resultId;
   final bool isOneWay;
 
+  /// Round-trip return date/time chosen on the search screen — the search
+  /// result itself carries no return info, so this is the only place it
+  /// survives to be handed on to payment.
+  final DateTime? returnDate;
+  final TimeOfDay? returnTime;
+
+  /// Outstation transfers don't need flight tracking, so the Flight
+  /// Information section is shown but not required before payment.
+  final bool isOutstation;
+
   const TPollBookingScreen({
     super.key,
     required this.result,
@@ -50,6 +60,9 @@ class TPollBookingScreen extends StatefulWidget {
     required this.searchId,
     required this.resultId,
     this.isOneWay = true,
+    this.returnDate,
+    this.returnTime,
+    this.isOutstation = false,
   });
 
   @override
@@ -82,6 +95,12 @@ class _TPollBookingScreenState extends State<TPollBookingScreen> {
   final _airlineCodeController = TextEditingController();
   bool _flightNumberError = false;
   bool _airlineError = false;
+
+  // ── return flight details (Mozio needs these too on a round trip) ──
+  final _returnFlightNumberController = TextEditingController();
+  final _returnAirlineCodeController = TextEditingController();
+  bool _returnFlightNumberError = false;
+  bool _returnAirlineError = false;
 
   // ── coupon ──
   final _promoCodeController = TextEditingController();
@@ -141,6 +160,8 @@ class _TPollBookingScreenState extends State<TPollBookingScreen> {
     _phoneController.dispose();
     _flightNumberController.dispose();
     _airlineCodeController.dispose();
+    _returnFlightNumberController.dispose();
+    _returnAirlineCodeController.dispose();
     _promoCodeController.dispose();
     super.dispose();
   }
@@ -301,6 +322,16 @@ class _TPollBookingScreenState extends State<TPollBookingScreen> {
   String _trim(double v) => v.toStringAsFixed(2)
       .replaceFirst(RegExp(r'0+$'), '')
       .replaceFirst(RegExp(r'\.$'), '');
+
+  /// Combines the round-trip return date + time chosen on the search screen
+  /// into a single [DateTime] for the payment screen. Null for one-way, or
+  /// if the search screen never received a return date.
+  DateTime? get _returnDateTime {
+    if (widget.isOneWay || widget.returnDate == null) return null;
+    final d = widget.returnDate!;
+    final t = widget.returnTime ?? TimeOfDay.fromDateTime(_pickupDateTime);
+    return DateTime(d.year, d.month, d.day, t.hour, t.minute);
+  }
 
   // ─────────────────────────────────────────────────────────────── build
   @override
@@ -1117,7 +1148,9 @@ class _TPollBookingScreenState extends State<TPollBookingScreen> {
     );
   }
 
-  /// Bordered field with a small caption inside the box (Figma traveller form).
+  /// Bordered field whose label floats above the border, cutting into it at
+  /// the top-left corner (standard Material outline field), rather than
+  /// sitting inside the box.
   Widget _boxField(
     BuildContext context, {
     required String label,
@@ -1129,51 +1162,37 @@ class _TPollBookingScreenState extends State<TPollBookingScreen> {
     List<TextInputFormatter>? formatters,
     required VoidCallback onChanged,
   }) {
-    return Container(
-      height: context.h(50),
-      padding: EdgeInsets.symmetric(horizontal: context.w(12)),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(context.r(8)),
-        border: Border.all(
-            color: hasError ? _errorRed : _stroke, width: hasError ? 1.2 : 1),
-      ),
-      child: Row(
-        children: [
-          if (icon != null) ...[
-            Icon(icon, size: context.w(16), color: const Color(0xffB0B6BE)),
-            SizedBox(width: context.w(10)),
-          ],
-          Expanded(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                        fontSize: context.fs(8),
-                        color: hasError ? _errorRed : _muted)),
-                TextField(
-                  controller: controller,
-                  keyboardType: keyboard,
-                  textCapitalization: capitalization,
-                  inputFormatters: formatters,
-                  onChanged: (_) => onChanged(),
-                  style: TextStyle(
-                      fontSize: context.fs(12),
-                      fontWeight: FontWeight.w600,
-                      color: _ink),
-                  decoration: const InputDecoration(
-                    isDense: true,
-                    border: InputBorder.none,
-                    contentPadding: EdgeInsets.only(top: 2),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
+    final borderColor = hasError ? _errorRed : _stroke;
+    final labelColor = hasError ? _errorRed : _muted;
+    OutlineInputBorder outline(Color color, double width) => OutlineInputBorder(
+          borderRadius: BorderRadius.circular(context.r(8)),
+          borderSide: BorderSide(color: color, width: width),
+        );
+    return TextField(
+      controller: controller,
+      keyboardType: keyboard,
+      textCapitalization: capitalization,
+      inputFormatters: formatters,
+      onChanged: (_) => onChanged(),
+      style: TextStyle(
+          fontSize: context.fs(12), fontWeight: FontWeight.w600, color: _ink),
+      decoration: InputDecoration(
+        isDense: true,
+        labelText: label,
+        floatingLabelBehavior: FloatingLabelBehavior.always,
+        labelStyle: TextStyle(fontSize: context.fs(11), color: labelColor),
+        floatingLabelStyle: TextStyle(fontSize: context.fs(10), color: labelColor),
+        prefixIcon: icon == null
+            ? null
+            : Icon(icon, size: context.w(16), color: const Color(0xffB0B6BE)),
+        prefixIconConstraints:
+            BoxConstraints(minWidth: context.w(34), minHeight: 0),
+        contentPadding: EdgeInsets.symmetric(
+            horizontal: context.w(12), vertical: context.h(14)),
+        border: outline(borderColor, hasError ? 1.2 : 1),
+        enabledBorder: outline(borderColor, hasError ? 1.2 : 1),
+        focusedBorder:
+            outline(hasError ? _errorRed : AppColors.AppBlue, 1.4),
       ),
     );
   }
@@ -1204,7 +1223,9 @@ class _TPollBookingScreenState extends State<TPollBookingScreen> {
       key: _flightKey,
       icon: Icons.flight_takeoff_rounded,
       iconColor: AppColors.AppBlue,
-      title: 'Flight Information',
+      title: widget.isOutstation
+          ? 'Flight Information (Optional)'
+          : 'Flight Information',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1236,6 +1257,45 @@ class _TPollBookingScreenState extends State<TPollBookingScreen> {
               ),
             ],
           ),
+          if (!widget.isOneWay) ...[
+            SizedBox(height: context.h(16)),
+            const Divider(height: 1, thickness: 1, color: Color(0xffECEEF1)),
+            SizedBox(height: context.h(12)),
+            Text(
+              'Return Flight',
+              style: TextStyle(
+                fontSize: context.fs(11),
+                fontWeight: FontWeight.w600,
+                color: _ink,
+              ),
+            ),
+            SizedBox(height: context.h(10)),
+            Row(
+              children: [
+                Expanded(
+                  child: _boxField(context,
+                      label: 'Return Flight Number',
+                      controller: _returnFlightNumberController,
+                      icon: Icons.confirmation_number_outlined,
+                      capitalization: TextCapitalization.characters,
+                      hasError: _returnFlightNumberError,
+                      onChanged: () =>
+                          setState(() => _returnFlightNumberError = false)),
+                ),
+                SizedBox(width: context.w(12)),
+                Expanded(
+                  child: _boxField(context,
+                      label: 'Return Airline Code',
+                      controller: _returnAirlineCodeController,
+                      icon: Icons.flight_rounded,
+                      capitalization: TextCapitalization.characters,
+                      hasError: _returnAirlineError,
+                      onChanged: () =>
+                          setState(() => _returnAirlineError = false)),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );
@@ -1766,8 +1826,19 @@ class _TPollBookingScreenState extends State<TPollBookingScreen> {
 
   void _validateAndProceed() {
     final travellerOk = _validateTraveller();
-    _flightNumberError = _flightNumberController.text.trim().isEmpty;
-    _airlineError = _airlineCodeController.text.trim().isEmpty;
+    // Outstation transfers don't need flight tracking, so the section stays
+    // optional there; airport transfers still require it.
+    _flightNumberError = !widget.isOutstation &&
+        _flightNumberController.text.trim().isEmpty;
+    _airlineError =
+        !widget.isOutstation && _airlineCodeController.text.trim().isEmpty;
+    // Mozio also requires the return leg's flight details on a round trip
+    // (same optionality rule as the outbound fields).
+    final needsReturnFlight = !widget.isOutstation && !widget.isOneWay;
+    _returnFlightNumberError =
+        needsReturnFlight && _returnFlightNumberController.text.trim().isEmpty;
+    _returnAirlineError =
+        needsReturnFlight && _returnAirlineCodeController.text.trim().isEmpty;
 
     setState(() {
       if (!travellerOk) _editingTraveller = true;
@@ -1778,7 +1849,10 @@ class _TPollBookingScreenState extends State<TPollBookingScreen> {
           .addPostFrameCallback((_) => _scrollTo(_travellerKey));
       return;
     }
-    if (_flightNumberError || _airlineError) {
+    if (_flightNumberError ||
+        _airlineError ||
+        _returnFlightNumberError ||
+        _returnAirlineError) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _scrollTo(_flightKey));
       return;
     }
@@ -1809,6 +1883,8 @@ class _TPollBookingScreenState extends State<TPollBookingScreen> {
               ? widget.endAddress
               : widget.searchData.endLocation.city,
           pickupDate: _pickupDateTime,
+          isOneWay: widget.isOneWay,
+          returnDate: _returnDateTime,
           passengers: math.max(1, widget.searchData.numPassengers),
           // The payment screen charges and records in INR.
           baseFare: _baseFareIn('INR'),
@@ -1829,6 +1905,12 @@ class _TPollBookingScreenState extends State<TPollBookingScreen> {
           userId: _userId,
           flightNumber: _flightNumberController.text.trim().toUpperCase(),
           airline: _airlineCodeController.text.trim().toUpperCase(),
+          returnFlightNumber: widget.isOneWay
+              ? ''
+              : _returnFlightNumberController.text.trim().toUpperCase(),
+          returnAirline: widget.isOneWay
+              ? ''
+              : _returnAirlineCodeController.text.trim().toUpperCase(),
           vehicleImageUrl: _r.vehicleImageUrl,
           passengerGender: _gender,
         ),

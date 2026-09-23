@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:math' show pi;
 import 'dart:ui';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -21,9 +22,10 @@ import '../widget/TransferCalender.dart';
 import 'T_location_search_screen.dart';
 import 'package:wander_nova/newUIWidgets/shine.dart';
 
-/// Which transfer product the customer is booking. Purely a UI selector for
-/// now (Figma "Outstation / Airport" pill) — [TransportSearchBloc] doesn't
-/// distinguish between the two yet, so this doesn't change what's searched.
+/// Which transfer product the customer is booking (Figma "Outstation /
+/// Airport" pill). [TransportSearchBloc] doesn't distinguish between the two
+/// when searching, but the choice is passed on to the booking screen so it
+/// knows flight details aren't needed for an outstation transfer.
 enum _TransferService { outstation, airport }
 
 class TransportBookingCard extends StatefulWidget {
@@ -1420,6 +1422,7 @@ class _TransportBookingCardState extends State<TransportBookingCard> {
             isOneWay: widget.isOneWay,
             returnDate: _returnDate,
             returnTime: _returnTime,
+            isOutstation: _service == _TransferService.outstation,
           ),
         );
         if (widget.editMode) {
@@ -1436,14 +1439,34 @@ class _TransportBookingCardState extends State<TransportBookingCard> {
         if (mounted) setState(() => _isSearching = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              'Search failed: ${state.dataState.error?.message ?? 'Please try again'}',
-            ),
+            content: Text(_friendlySearchError(state.dataState.error)),
             backgroundColor: Colors.red,
           ),
         );
       }
     });
+  }
+
+  /// The server sends a friendly message inside the response body (e.g.
+  /// `{"error":"...","details":{"field":[{"message":"...","user_message":"..."}]}}`)
+  /// — surface that instead of the DioException's own status-code dump.
+  String _friendlySearchError(DioException? error) {
+    final data = error?.response?.data;
+    if (data is Map) {
+      final details = data['details'];
+      if (details is Map) {
+        for (final v in details.values) {
+          if (v is List && v.isNotEmpty && v.first is Map) {
+            final first = v.first as Map;
+            final msg = first['user_message'] ?? first['message'];
+            if (msg is String && msg.isNotEmpty) return msg;
+          }
+        }
+      }
+      final err = data['error'];
+      if (err is String && err.isNotEmpty) return err;
+    }
+    return error?.message ?? 'Please try again';
   }
 
   // ------------------------------------------------------- TRAVELLERS SHEET

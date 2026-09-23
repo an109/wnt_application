@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
-import 'package:razorpay_flutter/razorpay_flutter.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import 'package:wander_nova/core/resources/app_colours.dart';
 
@@ -11,6 +10,12 @@ import '../../../../core/constants/urls.dart';
 import '../../../../core/network/dio_client.dart';
 import '../../../../core/utils/storage/shared_preference.dart';
 import '../../../../injection_container.dart' as di;
+import '../../../flight_payment/data/razorpay_custom_checkout_service.dart';
+import '../../../flight_payment/presentation/screen/ak_card_payment_screen.dart';
+import '../../../flight_payment/presentation/screen/ak_custom_checkout_args.dart';
+import '../../../flight_payment/presentation/screen/ak_netbanking_payment_screen.dart';
+import '../../../flight_payment/presentation/screen/ak_upi_payment_screen.dart';
+import '../../../flight_payment/presentation/screen/ak_wallet_provider_payment_screen.dart';
 import '../../../wallet/data/data_source/wallet_api_service.dart';
 import '../../../../core/error/data_state.dart';
 import '../../domain/entities/TReservation-entity.dart';
@@ -28,6 +33,12 @@ class PaymentScreen extends StatefulWidget {
   final String dropoffLocation;
   final DateTime pickupDate;
   final int passengers;
+
+  /// Trip type and return date/time as chosen on the search/booking
+  /// screens — this screen no longer lets the user change them, it just
+  /// carries what was already decided through to the reservation.
+  final bool isOneWay;
+  final DateTime? returnDate;
   final double baseFare;
   final double totalAmount;
   final String passengerName;
@@ -39,6 +50,11 @@ class PaymentScreen extends StatefulWidget {
   /// `airline` and `flight_number` on every reservation.
   final String flightNumber;
   final String airline;
+
+  /// Return-leg flight details — Mozio also requires these whenever the
+  /// booking is a round trip (blank for one-way).
+  final String returnFlightNumber;
+  final String returnAirline;
 
   /// Supplier add-ons the customer ticked on the booking screen (amenity
   /// keys), the coupon they applied, and the amounts — all in INR, which is
@@ -66,6 +82,8 @@ class PaymentScreen extends StatefulWidget {
     required this.dropoffLocation,
     required this.pickupDate,
     required this.passengers,
+    this.isOneWay = true,
+    this.returnDate,
     required this.baseFare,
     required this.totalAmount,
     required this.passengerName,
@@ -74,6 +92,8 @@ class PaymentScreen extends StatefulWidget {
     required this.userId,
     required this.flightNumber,
     required this.airline,
+    this.returnFlightNumber = '',
+    this.returnAirline = '',
     this.optionalAmenityKeys = const [],
     this.addOnsAmount = 0,
     this.discountAmount = 0,
@@ -96,7 +116,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
   String? _selectedPaymentMethod;
   String? _selectedTileId;
-  late final Razorpay _razorpay;
   bool _isProcessing = false;
   String _statusMessage = 'Processing your payment...';
 
@@ -105,6 +124,16 @@ class _PaymentScreenState extends State<PaymentScreen> {
   DateTime? _returnDate; // required when _tripType == 'round_trip'
 
   static const _successGreen = Color(0xff10B981);
+
+  // ---- Razorpay Custom Checkout (native Android SDK bridge, same as
+  // AkFlightPaymentScreen) ----
+
+  /// Set once the first Custom Checkout attempt creates an order, then
+  /// reused by every method screen (card/UPI/netbanking/wallet provider) —
+  /// an order must be created exactly once and ties to one successful
+  /// payment, so this is memoized rather than re-created per tile tap.
+  String? _razorpayOrderId;
+  String? _razorpayKeyId;
 
   /// Cosmetic checkout-hold countdown (Figma header) — purely visual, never
   /// blocks payment. Matches the 15-minute hold shown on the Ak flight
@@ -118,10 +147,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
   @override
   void initState() {
     super.initState();
-    _razorpay = Razorpay();
-    _razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, _handleRazorpaySuccess);
-    _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _handleRazorpayError);
-    _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleRazorpayExternalWallet);
+    _tripType = widget.isOneWay ? 'one_way' : 'round_trip';
+    _returnDate = widget.returnDate;
     _holdTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (!mounted) {
         timer.cancel();
@@ -138,7 +165,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
   @override
   void dispose() {
     _holdTimer?.cancel();
-    _razorpay.clear();
     super.dispose();
   }
 
@@ -210,6 +236,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
       // non-blank on every reservation.
       flightNumber: widget.flightNumber,
       airline: widget.airline,
+      // Mozio also requires the return leg's flight details on a round trip.
+      returnFlightNumber: _tripType == 'round_trip' ? widget.returnFlightNumber : '',
+      returnAirline: _tripType == 'round_trip' ? widget.returnAirline : '',
       couponCode: widget.couponCode,
       extraPaxInfo: null,
     );
@@ -250,6 +279,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
         tripStartAddress: entity.tripStartAddress,
         tripEndAddress: entity.tripEndAddress,
         tripPickupDatetime: entity.tripPickupDatetime,
+        tripReturnPickupDatetime: entity.tripReturnPickupDatetime,
+        tripReturnPickupDatetimePretty: entity.tripReturnPickupDatetimePretty,
         tripType: entity.tripType,
         vehicleName: entity.vehicleName,
         providerName: entity.providerName,
@@ -262,6 +293,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
         notes: entity.notes,
         flightNumber: entity.flightNumber,
         airline: entity.airline,
+        returnFlightNumber: entity.returnFlightNumber,
+        returnAirline: entity.returnAirline,
         couponCode: entity.couponCode,
         extraPaxInfo: entity.extraPaxInfo,
       );
@@ -339,8 +372,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
                     SizedBox(height: context.h(16)),
                     _rideDetailCard(context, includePassenger: true),
                     SizedBox(height: context.h(20)),
-                    _buildTripTypeSection(),
-                    SizedBox(height: context.h(20)),
+                    // _buildTripTypeSection(),
+                    // SizedBox(height: context.h(20)),
                     if (_isProcessing) ...[
                       _processingCard(context),
                     ] else ...[
@@ -360,13 +393,15 @@ class _PaymentScreenState extends State<PaymentScreen> {
                         ),
                       ]),
                       _promoStrip(context, 'Get extra discount on UPI of Rs 32'),
+                      // GooglePay + UPI Options — one card, no divider between.
+                      // Both open the Custom Checkout UPI screen (GPay is a
+                      // UPI-intent payment under Razorpay's 'upi' method).
                       _optionCard(context, children: [
                         _optionRow(
                           context,
                           tileId: 'gpay',
-                          method: 'razorpay',
-                          icon: Icons.g_mobiledata_rounded,
-                          iconColor: const Color(0xFF4285F4),
+                          onTapOverride: _startUpiCheckout,
+                          iconAsset: 'assets/NewIcons/gpay.png',
                           iconBg: const Color(0xFFEFF6FF),
                           title: 'GooglePay',
                           subtitle: 'Pay with GooglePay',
@@ -374,9 +409,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
                         _optionRow(
                           context,
                           tileId: 'upi',
-                          method: 'razorpay',
-                          icon: Icons.qr_code_2_rounded,
-                          iconColor: const Color(0xFF5F259F),
+                          onTapOverride: _startUpiCheckout,
+                          iconAsset: 'assets/NewIcons/upi.png',
                           iconBg: const Color(0xFFF3E8FF),
                           title: 'UPI Options',
                           subtitle: 'Pay Directly From Your Bank Account',
@@ -385,13 +419,16 @@ class _PaymentScreenState extends State<PaymentScreen> {
                       SizedBox(height: context.h(12)),
                       _sectionLabel(context, 'Other Payment Options'),
                       SizedBox(height: context.h(12)),
+                      // Card / Net Banking / Gift Cards & e-Wallets each open
+                      // their own Custom Checkout screens. Pay Later stays
+                      // static — it needs separate Razorpay approval and
+                      // isn't confirmed enabled on this account.
                       _optionCard(context, children: [
                         _optionRow(
                           context,
                           tileId: 'card',
-                          method: 'razorpay',
-                          icon: Icons.credit_card_rounded,
-                          iconColor: _pri,
+                          onTapOverride: _startCardCheckout,
+                          iconAsset: 'assets/NewIcons/credit.png',
                           iconBg: const Color(0xFFEFF6FF),
                           title: 'Credit & Debit Cards',
                           subtitle: 'Visa, Mastercard, Amex, Rupay and more',
@@ -401,9 +438,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
                         _optionRow(
                           context,
                           tileId: 'netbanking',
-                          method: 'razorpay',
-                          icon: Icons.account_balance_rounded,
-                          iconColor: const Color(0xFF7C5CE6),
+                          onTapOverride: _startNetbankingCheckout,
+                          iconAsset: 'assets/NewIcons/net_banking.png',
                           iconBg: const Color(0xFFF5F3FF),
                           title: 'Net Banking',
                           subtitle: '40+ Banks available',
@@ -413,21 +449,19 @@ class _PaymentScreenState extends State<PaymentScreen> {
                           context,
                           tileId: 'paylater',
                           interactive: false,
-                          icon: Icons.access_time_rounded,
-                          iconColor: const Color(0xFF0891B2),
+                          iconAsset: 'assets/NewIcons/pay_later.png',
                           iconBg: const Color(0xFFECFEFF),
                           title: 'Pay Later',
-                          subtitle: 'Lazypay, Amazon',
+                          subtitle: 'LazyPay, Simpl, ICICI PayLater and more',
                         ),
                         _optionRow(
                           context,
                           tileId: 'giftcard',
-                          method: 'razorpay',
-                          icon: Icons.account_balance_wallet_outlined,
-                          iconColor: const Color(0xFFB45309),
+                          onTapOverride: _startWalletProviderCheckout,
+                          iconAsset: 'assets/NewIcons/wallet.png',
                           iconBg: const Color(0xFFFFFBEB),
-                          title: 'Gift Cards & e-wallets',
-                          subtitle: 'WNT Gift cards & Amazon Pay',
+                          title: 'Gift Cards & e-Wallets',
+                          subtitle: 'Paytm, PhonePe, Amazon Pay and more',
                         ),
                       ]),
                     ],
@@ -1242,8 +1276,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
   Widget _optionRow(
     BuildContext context, {
     required String tileId,
-    String? method,
+    String? method, // 'wallet' — what _processPayment runs
+    VoidCallback? onTapOverride, // Custom Checkout methods route here instead
     IconData? icon,
+    String? iconAsset,
     Color iconColor = Colors.transparent,
     Color iconBg = const Color(0xFFF1F5F9),
     required String title,
@@ -1260,13 +1296,15 @@ class _PaymentScreenState extends State<PaymentScreen> {
       color: isSelected ? _pri.withValues(alpha: 0.05) : Colors.white,
       child: Row(
         children: [
-          Container(
-            width: context.w(34),
-            height: context.w(34),
-            alignment: Alignment.center,
-            decoration: BoxDecoration(color: iconBg, borderRadius: BorderRadius.circular(context.r(8))),
-            child: Icon(icon, size: context.w(18), color: iconColor == Colors.transparent ? _ink : iconColor),
-          ),
+          iconAsset != null
+              ? Image.asset(iconAsset, width: context.w(34), height: context.w(34))
+              : Container(
+                  width: context.w(34),
+                  height: context.w(34),
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(color: iconBg, borderRadius: BorderRadius.circular(context.r(8))),
+                  child: Icon(icon, size: context.w(18), color: iconColor == Colors.transparent ? _ink : iconColor),
+                ),
           SizedBox(width: context.w(14)),
           Expanded(
             child: Column(
@@ -1325,17 +1363,18 @@ class _PaymentScreenState extends State<PaymentScreen> {
       ),
     );
 
-    if (!interactive || method == null) return content;
+    if (!interactive || (method == null && onTapOverride == null)) return content;
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: _isProcessing ? null : () => _payWith(method, tileId),
+      onTap: _isProcessing ? null : (onTapOverride ?? () => _payWith(method!, tileId)),
       child: content,
     );
   }
 
   /// One-tap: remember the method, then run the existing payment routing —
-  /// no behaviour change to wallet / Razorpay themselves.
+  /// only 'wallet' still uses this; every Custom Checkout method routes via
+  /// its own [onTapOverride] instead.
   void _payWith(String method, String tileId) {
     if (_isProcessing) return;
     if (_tripType == 'round_trip' && _returnDate == null) {
@@ -1440,16 +1479,14 @@ class _PaymentScreenState extends State<PaymentScreen> {
   }
 
   // ============================================================
-  // ----- Razorpay flow -----
+  // ----- Razorpay Custom Checkout (same native Android SDK bridge as
+  // AkFlightPaymentScreen) -----
   // ============================================================
   Future<void> _processPayment() async {
-    print('=== PAYMENT SCREEN: Processing payment method ===');
-
     if (_selectedPaymentMethod == null) {
-      print('ERROR: No payment method selected');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Please select a payment method'),
+          content: const Text('Please select a payment method'),
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -1470,58 +1507,73 @@ class _PaymentScreenState extends State<PaymentScreen> {
       return;
     }
 
-    // Wallet uses the wallet-balance flow; all other methods go via Razorpay.
+    // Wallet uses the wallet-balance flow; every Custom Checkout method
+    // (card/UPI/netbanking/wallet provider) is launched straight from its
+    // own tile — see _startCardCheckout() etc. below.
     if (_selectedPaymentMethod == 'wallet') {
       await _payWithWallet();
-      return;
     }
-
-    await _initiateRazorpayPayment();
   }
 
-  Future<void> _initiateRazorpayPayment() async {
+  /// The Razorpay order's reference_id, so a payment can be matched back to
+  /// this booking attempt — deterministic per search+result so retries
+  /// reuse the same reference instead of a fresh timestamp each time.
+  String get _orderReferenceId {
+    final raw = 'transport_${widget.searchId}_${widget.resultId}';
+    final sanitized = raw.replaceAll(RegExp(r'[^a-zA-Z0-9\-]'), '_');
+    return sanitized.length > 40 ? sanitized.substring(0, 40) : sanitized;
+  }
+
+  /// Creates the Razorpay order the first time the customer taps ANY Custom
+  /// Checkout method, and reuses it afterwards — an order must be created
+  /// exactly once per payment attempt, so switching between method screens
+  /// (e.g. Card → back → UPI) must never create a second one.
+  Future<bool> _ensureRazorpayOrder() async {
+    if (_razorpayOrderId != null && _razorpayKeyId != null) return true;
+
     setState(() {
       _isProcessing = true;
-      _statusMessage = 'Starting your payment...';
+      _statusMessage = 'Preparing payment...';
     });
 
     try {
       // Total is shown in INR on this screen; send a 2-decimal amount.
       final amount = double.parse(widget.totalAmount.toStringAsFixed(2));
-
       final dio = di.sl<DioClient>().instance;
       final response = await dio.post(
         Urls.razorpayCreateOrder,
         data: {
           'amount': amount,
           'currency': 'INR',
-          'reference_id': 'transport_${DateTime.now().millisecondsSinceEpoch}',
+          'reference_id': _orderReferenceId,
         },
       );
 
-      final orderId = response.data['order_id'];
-      final keyId = response.data['key_id'];
-      print("Razorpay Key: $keyId");
+      final orderId = response.data['order_id'] as String?;
+      final keyId = response.data['key_id'] as String?;
 
-      final options = {
-        'key': keyId,
-        'amount': (amount * 100).toInt(),
-        'currency': 'INR',
-        'name': 'WanderNova',
-        'description': 'Transport: ${widget.vehicleName}',
-        'order_id': orderId,
-        'prefill': {
-          'name': widget.passengerName,
-          'email': widget.passengerEmail,
-          'contact': widget.passengerPhone,
-        },
-        'theme': {'color': '#1663F7'},
-      };
+      if (!mounted) return false;
 
-      if (!mounted) return;
-      _razorpay.open(options);
+      if (orderId == null || keyId == null) {
+        setState(() => _isProcessing = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not create payment order. Please try again.'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        return false;
+      }
+
+      setState(() {
+        _isProcessing = false;
+        _razorpayOrderId = orderId;
+        _razorpayKeyId = keyId;
+      });
+      return true;
     } on DioException catch (e) {
-      if (!mounted) return;
+      if (!mounted) return false;
       setState(() => _isProcessing = false);
       print('Razorpay order error: ${e.message}');
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1531,8 +1583,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
           behavior: SnackBarBehavior.floating,
         ),
       );
+      return false;
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted) return false;
       setState(() => _isProcessing = false);
       print('Razorpay checkout error: $e');
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1542,39 +1595,110 @@ class _PaymentScreenState extends State<PaymentScreen> {
           behavior: SnackBarBehavior.floating,
         ),
       );
+      return false;
     }
   }
 
-  void _handleRazorpaySuccess(PaymentSuccessResponse response) {
-    print('Transport payment success: ${response.paymentId}');
-    if (mounted) setState(() => _statusMessage = 'Confirming your booking...');
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('Payment successful!'),
-        backgroundColor: _successGreen,
-        behavior: SnackBarBehavior.floating,
-      ),
+  /// Ensures the order exists, then pushes [screenBuilder] with everything
+  /// it needs to submit a charge against that order — same pattern as
+  /// [AkFlightPaymentScreen._openCustomCheckoutScreen]. A non-null result
+  /// means the method screen collected a successful charge.
+  Future<void> _openCustomCheckoutScreen(
+    Widget Function(AkCustomCheckoutArgs args) screenBuilder,
+  ) async {
+    if (_isProcessing) return;
+
+    final ready = await _ensureRazorpayOrder();
+    if (!ready || !mounted) return;
+
+    final args = AkCustomCheckoutArgs(
+      keyId: _razorpayKeyId!,
+      orderId: _razorpayOrderId!,
+      amountInInr: widget.totalAmount,
+      name: widget.passengerName,
+      email: widget.passengerEmail,
+      contact: widget.passengerPhone,
+      description: 'Transport: ${widget.vehicleName}',
     );
-    // Payment done → now record the booking via the reservation API.
-    _createReservation(response.paymentId ?? '').whenComplete(() {
-      if (mounted) setState(() => _isProcessing = false);
+
+    final result = await Navigator.push<RazorpayCustomPaymentResult>(
+      context,
+      MaterialPageRoute(builder: (_) => screenBuilder(args)),
+    );
+
+    if (result == null || !mounted) return;
+    await _verifyAndConfirmBooking(
+      paymentId: result.paymentId,
+      orderId: result.orderId,
+      signature: result.signature,
+    );
+  }
+
+  void _startCardCheckout() =>
+      _openCustomCheckoutScreen((args) => AkCardPaymentScreen(args: args));
+
+  void _startUpiCheckout() =>
+      _openCustomCheckoutScreen((args) => AkUpiPaymentScreen(args: args));
+
+  void _startNetbankingCheckout() =>
+      _openCustomCheckoutScreen((args) => AkNetbankingPaymentScreen(args: args));
+
+  void _startWalletProviderCheckout() =>
+      _openCustomCheckoutScreen((args) => AkWalletProviderPaymentScreen(args: args));
+
+  /// Verifies the signature server-side, then records the booking via the
+  /// reservation API — same contract [_createReservation] already uses for
+  /// the wallet path.
+  Future<void> _verifyAndConfirmBooking({
+    required String? paymentId,
+    required String? orderId,
+    required String? signature,
+  }) async {
+    setState(() {
+      _isProcessing = true;
+      _statusMessage = 'Verifying payment...';
     });
-  }
 
-  void _handleRazorpayError(PaymentFailureResponse response) {
-    if (!mounted) return;
-    setState(() => _isProcessing = false);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Payment failed: ${response.message ?? 'Please try again.'}'),
-        backgroundColor: Colors.red,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-  }
+    try {
+      final dio = di.sl<DioClient>().instance;
+      final verifyResponse = await dio.post(
+        Urls.razorpayVerify,
+        data: {
+          'razorpay_order_id': orderId,
+          'razorpay_payment_id': paymentId,
+          'razorpay_signature': signature,
+          'reference_id': _orderReferenceId,
+        },
+      );
 
-  void _handleRazorpayExternalWallet(ExternalWalletResponse response) {
-    print('Razorpay external wallet: ${response.walletName}');
+      if (!mounted) return;
+
+      if (verifyResponse.data['success'] == true) {
+        setState(() => _statusMessage = 'Confirming your booking...');
+        await _createReservation(paymentId ?? '');
+        if (mounted) setState(() => _isProcessing = false);
+      } else {
+        setState(() => _isProcessing = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Payment verification failed. Please contact support.'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } on DioException catch (e) {
+      if (!mounted) return;
+      setState(() => _isProcessing = false);
+      print('Razorpay verify error: ${e.message}');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not verify payment. Please contact support.'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   String _formatDateTime(DateTime date) {
