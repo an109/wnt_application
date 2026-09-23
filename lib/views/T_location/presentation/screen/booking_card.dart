@@ -16,7 +16,6 @@ import '../../../TPoll_Search/presentation/screen/TPollSearch_Screen.dart';
 import '../../../T_Search/presentation/bloc/T_SearchBloc.dart';
 import '../../../T_Search/presentation/bloc/T_SearchEvent.dart';
 import '../../../T_Search/presentation/bloc/T_SearchState.dart';
-import '../../../home/flight/flight_calendar_screen.dart';
 import '../../domain/entities/T_locationEntity.dart';
 import '../widget/TransferCalender.dart';
 import 'T_location_search_screen.dart';
@@ -38,6 +37,16 @@ class TransportBookingCard extends StatefulWidget {
   final ValueChanged<T_locationEntity>? onPickupSelected;
   final ValueChanged<T_locationEntity>? onDropoffSelected;
 
+  /// Edit-search mode (used inside the results screen's top drawer): no hero
+  /// image, dark header "Edit Your Search", full-width MODIFY SEARCH button,
+  /// and a successful search replaces the results screen instead of stacking
+  /// another one on top of it.
+  final bool editMode;
+  final DateTime? initialPickupDate;
+  final DateTime? initialReturnDate;
+  final TimeOfDay? initialReturnTime;
+  final int? initialPassengerCount;
+
   const TransportBookingCard({
     super.key,
     required this.isOneWay,
@@ -48,6 +57,11 @@ class TransportBookingCard extends StatefulWidget {
     required this.onTimeChanged,
     this.onPickupSelected,
     this.onDropoffSelected,
+    this.editMode = false,
+    this.initialPickupDate,
+    this.initialReturnDate,
+    this.initialReturnTime,
+    this.initialPassengerCount,
   });
 
   @override
@@ -79,9 +93,14 @@ class _TransportBookingCardState extends State<TransportBookingCard> {
   @override
   void initState() {
     super.initState();
-    _pickupDate = widget.selectedDate.add(const Duration(days: 1));
-    _returnDate = widget.selectedDate.add(const Duration(days: 1));
-    _returnTime = widget.selectedTime;
+    _pickupDate = widget.initialPickupDate ??
+        widget.selectedDate.add(const Duration(days: 1));
+    _returnDate = widget.initialReturnDate ??
+        widget.selectedDate.add(const Duration(days: 1));
+    _returnTime = widget.initialReturnTime ?? widget.selectedTime;
+    if (widget.initialPassengerCount != null) {
+      _passengerCount = widget.initialPassengerCount!;
+    }
     // Prefill pickup/drop-off/travellers from the user's last transport search.
     _loadLastSearch();
   }
@@ -204,6 +223,7 @@ class _TransportBookingCardState extends State<TransportBookingCard> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.editMode) return _buildEditLayout(context);
     return Stack(
       children: [
         // Full-bleed hero image, same architecture as the flight SearchCard's
@@ -252,6 +272,30 @@ class _TransportBookingCardState extends State<TransportBookingCard> {
     );
   }
 
+  /// Same form as below, without the hero backdrop (results-screen edit
+  /// drawer).
+  Widget _buildEditLayout(BuildContext context) {
+    EdgeInsets side() => EdgeInsets.symmetric(horizontal: context.w(14));
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(height: context.statusBarHeight + context.h(10)),
+        _buildTopBar(context),
+        SizedBox(height: context.h(18)),
+        Padding(padding: side(), child: _buildServiceToggle(context)),
+        SizedBox(height: context.h(14)),
+        Padding(padding: side(), child: _buildTripTypeRow(context)),
+        SizedBox(height: context.h(14)),
+        Padding(padding: side(), child: _buildLocationsCard(context)),
+        SizedBox(height: context.h(14)),
+        Padding(padding: side(), child: _buildDateTravellersCard(context)),
+        SizedBox(height: context.h(20)),
+        _buildSearchButton(context),
+        SizedBox(height: context.h(24)),
+      ],
+    );
+  }
+
   // ------------------------------------------------------------ HERO IMAGE
 
   Widget _buildHeroBackdrop(BuildContext context) {
@@ -294,11 +338,11 @@ class _TransportBookingCardState extends State<TransportBookingCard> {
                 end: Alignment.topCenter,
                 colors: [
                   Colors.white,
-                  Colors.white.withOpacity(0.92),
-                  Colors.white.withOpacity(0.72),
-                  Colors.white.withOpacity(0.38),
-                  Colors.white.withOpacity(0.10),
-                  Colors.white.withOpacity(0.05),
+                  Colors.white.withValues(alpha: 0.92),
+                  Colors.white.withValues(alpha:0.72),
+                  Colors.white.withValues(alpha:0.38),
+                  Colors.white.withValues(alpha:0.10),
+                  Colors.white.withValues(alpha:0.05),
                   // Colors.transparent,
                 ],
                 stops: const [0.0, 0.20, 0.40, 0.60, 0.80, 1.0],
@@ -319,8 +363,8 @@ class _TransportBookingCardState extends State<TransportBookingCard> {
                 begin: Alignment.bottomCenter,
                 end: Alignment.topCenter,
                 colors: [
-                  Colors.white.withOpacity(0.3),
-                  Colors.white.withOpacity(0.10),
+                  Colors.white.withValues(alpha:0.3),
+                  Colors.white.withValues(alpha:0.10),
                   Colors.transparent,
                 ],
                 stops: const [0.0, 0.5, 1.0],
@@ -349,23 +393,25 @@ class _TransportBookingCardState extends State<TransportBookingCard> {
               'assets/NewIcons/arrowBack.png',
               width: context.w(17),
               height: context.w(17),
-              color: Colors.white,
+              color: widget.editMode ? AppColors.black : Colors.white,
             ),
           ),
           SizedBox(width: context.w(14)),
           Text(
-            'Transfer',
+            widget.editMode ? 'Edit Your Search' : 'Transfer',
             style: TextStyle(
-              fontSize: context.fs(20),
+              fontSize: context.fs(widget.editMode ? 16 : 20),
               fontWeight: FontWeight.w600,
-              color: Colors.white,
-              shadows: [
-                Shadow(
-                  color: Colors.black.withValues(alpha: 0.25),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
+              color: widget.editMode ? AppColors.black : Colors.white,
+              shadows: widget.editMode
+                  ? null
+                  : [
+                      Shadow(
+                        color: Colors.black.withValues(alpha: 0.25),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
             ),
           ),
         ],
@@ -379,6 +425,41 @@ class _TransportBookingCardState extends State<TransportBookingCard> {
   /// state only, see [_TransferService].
   Widget _buildServiceToggle(BuildContext context) {
     final radius = BorderRadius.circular(context.r(30));
+    final row = Row(
+      children: [
+        Expanded(
+          child: _serviceButton(
+            context,
+            iconAsset: 'assets/NewIcons/flip.png',
+            label: 'Outstation',
+            selected: _service == _TransferService.outstation,
+            onTap: () => setState(() => _service = _TransferService.outstation),
+          ),
+        ),
+        Expanded(
+          child: _serviceButton(
+            context,
+            icon: Icons.flight_rounded,
+            label: 'Airport',
+            selected: _service == _TransferService.airport,
+            onTap: () => setState(() => _service = _TransferService.airport),
+          ),
+        ),
+      ],
+    );
+
+    // Edit drawer sits on plain white, so no blur — a flat light-grey pill.
+    if (widget.editMode) {
+      return Container(
+        padding: EdgeInsets.all(context.w(4)),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF3F3F4),
+          borderRadius: radius,
+        ),
+        child: row,
+      );
+    }
+
     return ClipRRect(
       borderRadius: radius,
       child: BackdropFilter(
@@ -389,30 +470,7 @@ class _TransportBookingCardState extends State<TransportBookingCard> {
             color: Colors.white.withValues(alpha: 0.28),
             borderRadius: radius,
           ),
-          child: Row(
-            children: [
-              Expanded(
-                child: _serviceButton(
-                  context,
-                  iconAsset: 'assets/NewIcons/flip.png',
-                  label: 'Outstation',
-                  selected: _service == _TransferService.outstation,
-                  onTap: () =>
-                      setState(() => _service = _TransferService.outstation),
-                ),
-              ),
-              Expanded(
-                child: _serviceButton(
-                  context,
-                  icon: Icons.flight_rounded,
-                  label: 'Airport',
-                  selected: _service == _TransferService.airport,
-                  onTap: () =>
-                      setState(() => _service = _TransferService.airport),
-                ),
-              ),
-            ],
-          ),
+          child: row,
         ),
       ),
     );
@@ -426,7 +484,8 @@ class _TransportBookingCardState extends State<TransportBookingCard> {
     required bool selected,
     required VoidCallback onTap,
   }) {
-    final tint = selected ? AppColors.AppBlue : AppColors.white;
+    final idle = widget.editMode ? AppColors.subhead : AppColors.white;
+    final tint = selected ? AppColors.AppBlue : idle;
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
@@ -465,7 +524,7 @@ class _TransportBookingCardState extends State<TransportBookingCard> {
               style: TextStyle(
                 fontSize: context.fs(14),
                 fontWeight: FontWeight.w600,
-                color: selected ? AppColors.AppBlue : Colors.white,
+                color: selected ? AppColors.AppBlue : idle,
               ),
             ),
           ],
@@ -1186,6 +1245,7 @@ class _TransportBookingCardState extends State<TransportBookingCard> {
   /// on tap, in [_performSearch]) rather than greying out, matching that
   /// widget's own behaviour.
   Widget _buildSearchButton(BuildContext context) {
+    if (widget.editMode) return _buildModifyButton(context);
     const double shineWidth = 1.7;
 
     return Center(
@@ -1248,6 +1308,57 @@ class _TransportBookingCardState extends State<TransportBookingCard> {
     );
   }
 
+  /// Edit drawer: flat full-width orange "MODIFY SEARCH →" (Figma).
+  Widget _buildModifyButton(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: context.w(14)),
+      child: SizedBox(
+        width: double.infinity,
+        height: context.h(48),
+        child: ElevatedButton(
+          onPressed: _isSearching ? null : _performSearch,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.OrangeColor,
+            foregroundColor: Colors.white,
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(context.r(8)),
+            ),
+          ),
+          child: _isSearching
+              ? SizedBox(
+                  width: context.w(22),
+                  height: context.w(22),
+                  child: const CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation(Colors.white),
+                  ),
+                )
+              : Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'MODIFY SEARCH',
+                      style: TextStyle(
+                        fontSize: context.fs(14),
+                        fontWeight: FontWeight.w500,
+                        letterSpacing: 0.3,
+                      ),
+                    ),
+                    SizedBox(width: context.w(10)),
+                    Image.asset(
+                      'assets/NewIcons/arrowForward.png',
+                      width: context.w(9.54),
+                      height: context.w(13),
+                      color: Colors.white,
+                    ),
+                  ],
+                ),
+        ),
+      ),
+    );
+  }
+
   void _performSearch() async {
     if (_selectedPickup == null || _selectedDropoff == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1298,18 +1409,28 @@ class _TransportBookingCardState extends State<TransportBookingCard> {
         final searchId = state.transportSearch.local.searchId;
         subscription?.cancel();
         if (mounted) setState(() => _isSearching = false);
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => TpollSearchResultsPage(
-              searchId: searchId,
-              startAddress: startAddress,
-              endAddress: endAddress,
-              pickupDate: _pickupDate,
-              numPassengers: _passengerCount,
-            ),
+        final resultsRoute = MaterialPageRoute(
+          builder: (context) => TpollSearchResultsPage(
+            searchId: searchId,
+            startAddress: startAddress,
+            endAddress: endAddress,
+            pickupDate: _pickupDate,
+            numPassengers: _passengerCount,
+            pickupTime: widget.selectedTime,
+            isOneWay: widget.isOneWay,
+            returnDate: _returnDate,
+            returnTime: _returnTime,
           ),
         );
+        if (widget.editMode) {
+          // Close the edit drawer, then swap the old results page for the new
+          // search (so Back returns to the search form, not the old results).
+          final nav = Navigator.of(context);
+          nav.pop();
+          nav.pushReplacement(resultsRoute);
+        } else {
+          Navigator.push(context, resultsRoute);
+        }
       } else if (state is TransportSearchFailed) {
         subscription?.cancel();
         if (mounted) setState(() => _isSearching = false);

@@ -278,6 +278,18 @@ class StepDetailsModel extends Equatable {
   final List<AmenityModel> amenities;
   final bool bookable;
 
+  /// Smallest notice (hours before pickup) at which the supplier's
+  /// cancellation policy refunds 100%. Null when no full-refund tier exists.
+  final int? freeCancellationHours;
+
+  /// Supplier's waiting-time policy: free minutes, then a per-minute charge.
+  final int? waitMinutesIncluded;
+  final String? waitingMinuteAmount;
+  final String? waitingMinuteCurrency;
+
+  /// Whether the supplier says it needs flight details for this ride.
+  final bool flightInfoRequired;
+
   const StepDetailsModel({
     required this.description,
     required this.vehicle,
@@ -287,9 +299,18 @@ class StepDetailsModel extends Equatable {
     required this.departureDatetime,
     required this.amenities,
     required this.bookable,
+    this.freeCancellationHours,
+    this.waitMinutesIncluded,
+    this.waitingMinuteAmount,
+    this.waitingMinuteCurrency,
+    this.flightInfoRequired = false,
   });
 
   factory StepDetailsModel.fromJson(Map<String, dynamic> json) {
+    final waitTime = json['wait_time'];
+    final waitMap = waitTime is Map ? waitTime : const {};
+    final perMinute = _parsePerMinutePrice(waitMap['waiting_minute_price']);
+
     return StepDetailsModel(
       description: json['description'] ?? '',
       vehicle: VehicleModel.fromJson(json['vehicle'] ?? {}),
@@ -302,7 +323,45 @@ class StepDetailsModel extends Equatable {
           .toList() ??
           [],
       bookable: json['bookable'] ?? false,
+      freeCancellationHours: _parseFreeCancellationHours(json['cancellation']),
+      waitMinutesIncluded: (waitMap['minutes_included'] as num?)?.toInt(),
+      waitingMinuteAmount: perMinute?.$1,
+      waitingMinuteCurrency: perMinute?.$2,
+      flightInfoRequired: json['flight_info_required'] == true,
     );
+  }
+
+  /// `waiting_minute_price` isn't strictly typed by the supplier: it can be a
+  /// {value, currency} object or a bare number/string. Returns (amount,
+  /// currency?) or null when there's nothing usable.
+  static (String, String?)? _parsePerMinutePrice(dynamic raw) {
+    if (raw is Map) {
+      final v = raw['value'] ?? raw['amount'];
+      if (v == null || double.tryParse('$v') == null) return null;
+      final c = raw['currency'];
+      return ('$v', c is String && c.isNotEmpty ? c : null);
+    }
+    if (raw is num || raw is String) {
+      return double.tryParse('$raw') == null ? null : ('$raw', null);
+    }
+    return null;
+  }
+
+  static int? _parseFreeCancellationHours(dynamic cancellation) {
+    if (cancellation is! Map) return null;
+    final policy = cancellation['policy'];
+    if (policy is! List) return null;
+    int? best;
+    for (final tier in policy) {
+      if (tier is! Map) continue;
+      final refund = tier['refund_percent'];
+      final notice = tier['notice'];
+      if (refund is num && refund >= 100 && notice is num) {
+        final hours = notice.toInt();
+        if (best == null || hours < best) best = hours;
+      }
+    }
+    return best;
   }
 
   @override
@@ -315,6 +374,11 @@ class StepDetailsModel extends Equatable {
     departureDatetime,
     amenities,
     bookable,
+    freeCancellationHours,
+    waitMinutesIncluded,
+    waitingMinuteAmount,
+    waitingMinuteCurrency,
+    flightInfoRequired,
   ];
 }
 
@@ -447,6 +511,10 @@ class AmenityModel extends Equatable {
   final bool chargeable;
   final PriceInfoModel? price;
 
+  /// True for add-ons Wander Nova's own backend injects (e.g. SMS
+  /// notifications). They are not supplier (Mozio) amenities.
+  final bool internal;
+
   const AmenityModel({
     required this.key,
     required this.name,
@@ -454,6 +522,7 @@ class AmenityModel extends Equatable {
     required this.included,
     required this.chargeable,
     this.price,
+    this.internal = false,
   });
 
   factory AmenityModel.fromJson(Map<String, dynamic> json) {
@@ -466,11 +535,12 @@ class AmenityModel extends Equatable {
       price: json['price'] != null && (json['price'] as Map).isNotEmpty
           ? PriceInfoModel.fromJson(json['price'])
           : null,
+      internal: json['internal'] == true,
     );
   }
 
   @override
-  List<Object?> get props => [key, name, description, included, chargeable, price];
+  List<Object?> get props => [key, name, description, included, chargeable, price, internal];
 }
 
 class LocationInfoModel extends Equatable {

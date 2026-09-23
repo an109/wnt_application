@@ -4,12 +4,17 @@ import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import '../../../../UI_helper/currency_converter.dart';
 import '../../../../UI_helper/navigation_queue.dart';
 import '../../../../core/utils/storage/shared_preference.dart';
+import '../../../../core/resources/app_colours.dart';
 import '../../../../injection_container.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_state.dart';
 import '../../../login/presentation/screen/login.dart';
 import '../../domain/entities/TPollSearchEntity.dart';
 
+/// Transport search-result card (Figma "Transport results").
+///
+/// Every value shown is read from the API result — nothing is hardcoded. A
+/// row/label is simply omitted when the API didn't return the field.
 class TpollVehicleCard extends StatelessWidget {
   final SearchResultEntity result;
   final String currencySymbol;
@@ -18,15 +23,17 @@ class TpollVehicleCard extends StatelessWidget {
   final String searchId;
   final String? formattedPrice;
   final Map<String, String>? formattedAmenityPrices;
-  final String? formattedWaitingPrice;
 
-  final Map<String, dynamic>? stepDetails;
-
-  // Design constants matching website
-  static const _primaryBlue = Color(0xff1663F7);
-  static const _primaryOrange = Color(0xffF97316);
-  static const _darkNavy = Color(0xff0D1B3D);
-  static const _successGreen = Color(0xff10B981);
+  static const _border = Color(0xffE3E5E8);
+  static const _panelBg = Color(0xffF0F4F9);
+  static const _bulletText = Color(0xff4F4F4F);
+  static const _acColor = Color(0xffF97316);
+  static const _bagColor = Color(0xffE5383B);
+  static const _labelGradient = LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [Color(0xff7AD3F7), AppColors.AppBlue],
+  );
 
   const TpollVehicleCard({
     super.key,
@@ -34,157 +41,171 @@ class TpollVehicleCard extends StatelessWidget {
     required this.currencySymbol,
     required this.currencyCode,
     required this.onTap,
-    this.stepDetails,
     required this.searchId,
     this.formattedPrice,
     this.formattedAmenityPrices,
-    this.formattedWaitingPrice
   });
 
+  // ── derived from the API result ─────────────────────────────────────────
+  String get _title {
+    final makeModel = [result.vehicleMake, result.vehicleModel]
+        .whereType<String>()
+        .where((s) => s.isNotEmpty)
+        .join(' ');
+    if (makeModel.isNotEmpty) return makeModel;
+    if (result.vehicleName.isNotEmpty) return result.vehicleName;
+    return result.providerName;
+  }
+
+  AmenityEntity? get _smsAmenity {
+    for (final a in result.amenities) {
+      if (a.key == 'sms_notifications') return a;
+    }
+    return null;
+  }
+
+  bool get _hasAirConditioning => result.amenities.any((a) {
+        if (!a.included) return false;
+        final s = '${a.key} ${a.name}'.toLowerCase();
+        return s.contains('air_con') ||
+            s.contains('air con') ||
+            s.contains('aircon') ||
+            s.contains('a/c');
+      });
+
+  List<String> get _bullets {
+    final items = <String>[];
+
+    final hours = result.freeCancellationHours;
+    if (hours != null) {
+      items.add(hours > 0
+          ? 'Free cancellation up to $hours hrs'
+          : 'Free cancellation');
+    }
+    if (result.tollsIncluded) items.add('Tolls included');
+
+    final sms = _smsAmenity;
+    if (sms != null) {
+      final hasPrice = sms.price != null && sms.price!.value.isNotEmpty;
+      final price = hasPrice
+          ? (formattedAmenityPrices?[sms.key] ??
+              formattedAmenityPrices?[sms.name] ??
+              '$currencySymbol${sms.price!.value}')
+          : null;
+      items.add(price != null ? 'SMS notification $price' : 'SMS notification');
+    }
+    return items;
+  }
+
+  void _handleTap(BuildContext context) {
+    final isLoggedIn = sl<AuthBloc>().state is AuthAuthenticated ||
+        sl<PreferencesManager>().isLoggedIn();
+
+    if (isLoggedIn) {
+      onTap();
+      return;
+    }
+
+    // The booking screen needs a signed-in user: park the navigation, show
+    // the login popup, and LoginSuccessScreen resumes it once login succeeds.
+    NavigationQueueService().setPendingNavigation(onTap);
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'Login',
+      barrierColor: Colors.black.withValues(alpha: 0.15),
+      transitionDuration: const Duration(milliseconds: 300),
+      pageBuilder: (_, __, ___) => const LoginSignupScreen(),
+      transitionBuilder: (_, animation, __, child) {
+        return FadeTransition(
+          opacity: animation,
+          child: ScaleTransition(
+            scale: Tween<double>(begin: 0.95, end: 1).animate(
+              CurvedAnimation(parent: animation, curve: Curves.easeOut),
+            ),
+            child: child,
+          ),
+        );
+      },
+    ).then((_) {
+      // Dismissed without logging in → drop the parked navigation so it can't
+      // fire later. After a successful login it was already consumed, so this
+      // is a no-op.
+      NavigationQueueService().clear();
+    });
+  }
+
+  // ── build ───────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
-    final displayPrice =
-        formattedPrice ??
-        '${CurrencyConverter.getSymbol(currencyCode)}${result.totalPriceAmount}';
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        margin: EdgeInsets.only(bottom: context.hp(1.5)),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: result.bookable
-              ? Border.all(color: _primaryOrange.withOpacity(0.25), width: 1.5)
-              : Border.all(color: Colors.grey.shade200),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ── Top badges row ─────────────────────────────
-            _buildTopBadgesRow(context),
+    final radius = BorderRadius.circular(context.r(10));
 
-            Padding(
-              padding: EdgeInsets.fromLTRB(
-                context.wp(4),
-                0,
-                context.wp(4),
-                context.hp(1.5),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // ── Main content: image + details ──────────
-                  _buildMainContent(context),
-                  SizedBox(height: context.hp(1.5)),
-
-                  // ── Amenities chips ────────────────────────
-                  if (result.amenities.isNotEmpty)
-                    _buildAmenitiesSection(context),
-
-                  SizedBox(height: context.hp(1.5)),
-
-                  // ── Divider ────────────────────────────────
-                  Divider(color: Colors.grey.shade100, height: 1),
-                  SizedBox(height: context.hp(1.5)),
-
-                  // ── Trust signals row ──────────────────────
-                  _buildTrustSignals(context),
-
-                  SizedBox(height: context.hp(1.5)),
-
-                  // ── Price + Book button ────────────────────
-                  _buildPriceAndBookRow(context),
-                ],
+    return Opacity(
+      opacity: result.bookable ? 1 : 0.55,
+      child: GestureDetector(
+        onTap: result.bookable ? () => _handleTap(context) : null,
+        child: Container(
+          margin: EdgeInsets.only(bottom: context.h(20)),
+          decoration: BoxDecoration(
+            color: AppColors.white,
+            borderRadius: radius,
+            border: Border.all(color: _border),
+          ),
+          child: ClipRRect(
+            borderRadius: radius,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: context.h(96)),
+              child: IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _buildImagePanel(context),
+                    Expanded(child: _buildDetails(context)),
+                  ],
+                ),
               ),
             ),
-          ],
+          ),
         ),
       ),
     );
   }
 
-  /// Top colored strip with category badge + optional "Bookable" tag
-  Widget _buildTopBadgesRow(BuildContext context) {
-    final categoryColor = _getCategoryColor(result.vehicleType);
+  Widget _buildImagePanel(BuildContext context) {
+    final label = result.vehicleType;
+    final labelH = context.h(18);
 
     return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: context.wp(4),
-        vertical: context.hp(0.8),
-      ),
-      decoration: BoxDecoration(
-        color: categoryColor.withOpacity(0.06),
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-      ),
-      child: Row(
+      width: context.w(98),
+      color: _panelBg,
+      child: Stack(
         children: [
-          // Vehicle type badge
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-            decoration: BoxDecoration(
-              color: categoryColor.withOpacity(0.12),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: categoryColor.withOpacity(0.3)),
-            ),
-            child: Text(
-              result.vehicleType, // ← From API: "Sedan", "Bus", etc.
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                color: categoryColor,
-                letterSpacing: 0.3,
-              ),
+          Positioned.fill(
+            bottom: label.isNotEmpty ? labelH : 0,
+            child: Padding(
+              padding: EdgeInsets.all(context.w(6)),
+              child: _buildVehicleImage(context),
             ),
           ),
-          const SizedBox(width: 8),
-          // Vehicle name sub-badge (FROM API)
-          if (result.vehicleName?.isNotEmpty == true)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade100,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey.shade200),
-              ),
-              child: Text(
-                result.vehicleName!, // ← "Standard", "Luxury", etc.
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.black,
-                ),
-              ),
-            ),
-          const Spacer(),
-          // Bookable star badge
-          if (result.bookable)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(
-                color: _primaryOrange,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.star, size: 11, color: Colors.white),
-                  const SizedBox(width: 3),
-                  Text(
-                    'Bookable',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
-                    ),
+          if (label.isNotEmpty)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              height: labelH,
+              child: Container(
+                alignment: Alignment.center,
+                decoration: const BoxDecoration(gradient: _labelGradient),
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: context.fs(11),
+                    fontWeight: FontWeight.w500,
+                    color: Colors.white,
                   ),
-                ],
+                ),
               ),
             ),
         ],
@@ -192,571 +213,253 @@ class TpollVehicleCard extends StatelessWidget {
     );
   }
 
-  /// Vehicle image on left, details on right
-  Widget _buildMainContent(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Vehicle image
-        Container(
-          width: context.wp(28),
-          height: context.hp(13),
-          decoration: BoxDecoration(
-            color: Colors.grey.shade100,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: _buildVehicleImage(context),
-          ),
-        ),
-        SizedBox(width: context.wp(4)),
-        // Details column
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Provider row: logo + name + rating
-              _buildProviderRow(context),
-              SizedBox(height: context.hp(0.6)),
-              // Capacity chips
-              _buildCapacityRow(context),
-              SizedBox(height: context.hp(0.8)),
-              // Travel time estimate (from step details)
-              _buildTravelTimeRow(context),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildProviderRow(BuildContext context) {
-    // Real rating from the API response — null when the provider didn't
-    // send one, never a fabricated placeholder.
-    final rating = result.rating?.toDouble();
-    final ratingCount = result.ratingCount ?? 0;
-
-    // Get vehicle make and model — real values from the API response.
-    final vehicleFullName = [
-      result.vehicleMake ?? '',
-      result.vehicleModel ?? '',
-    ].where((s) => s.isNotEmpty).join(' ');
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Provider name + rating row
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                result.providerName,
-                style: TextStyle(
-                  fontSize: context.titleSmall,
-                  fontWeight: FontWeight.w700,
-                  color: _darkNavy,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            // Rating badge - only rendered when the API actually returned a
-            // rating. No fabricated placeholder when it didn't.
-            if (rating != null)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: Colors.amber.shade50,
-                  borderRadius: BorderRadius.circular(4),
-                  border: Border.all(color: Colors.amber.shade200),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.star, size: 11, color: Colors.amber.shade600),
-                    const SizedBox(width: 2),
-                    Text(
-                      rating.toStringAsFixed(1), // Dynamic rating
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.amber.shade700,
-                      ),
-                    ),
-                    if (ratingCount > 0) ...[
-                      const SizedBox(width: 2),
-                      Text(
-                        '($ratingCount)',
-                        style: TextStyle(
-                          fontSize: 9,
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-          ],
-        ),
-        SizedBox(height: context.hp(0.3)),
-        // Vehicle make + model (like website: "Standard Volkswagen Bora")
-        if (vehicleFullName.isNotEmpty)
-          Text(
-            '${result.vehicleName} $vehicleFullName'.trim(),
-            style: TextStyle(
-              fontSize: context.bodySmall,
-              color: Colors.grey.shade600,
-              fontWeight: FontWeight.w500,
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-      ],
-    );
-  }
-
-  Widget _buildCapacityRow(BuildContext context) {
-    return Wrap(
-      spacing: context.wp(3),
-      runSpacing: 4,
-      children: [
-        _iconLabel(
-          context,
-          icon: Icons.person_outline,
-          label: 'Up to ${result.maxPassengers} pax',
-        ),
-        _iconLabel(
-          context,
-          icon: Icons.luggage_outlined,
-          label: '${result.maxBags} bags',
-        ),
-      ],
-    );
-  }
-
-  Widget _buildTravelTimeRow(BuildContext context) {
-    // Real travel time from the API's main step. The API has no wait-time /
-    // flight-info fields wired up on this endpoint, so those badges are not
-    // shown rather than being filled with made-up numbers.
-    final time = result.travelTimeMinutes;
-    if (time == null || time <= 0) return const SizedBox.shrink();
-
-    return Wrap(
-      spacing: context.wp(3),
-      runSpacing: 4,
-      children: [
-        _iconLabel(
-          context,
-          icon: Icons.access_time_outlined,
-          label: '$time min',
-          color: Colors.grey.shade500,
-        ),
-      ],
-    );
-  }
-
-  Widget _iconLabel(
-    BuildContext context, {
-    required IconData icon,
-    required String label,
-    Color? color,
-  }) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 13, color: color ?? Colors.grey.shade600),
-        const SizedBox(width: 3),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            color: color ?? Colors.grey.shade600,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ],
-    );
-  }
-
-  /// Amenities chips
-
-  Widget _buildAmenitiesSection(BuildContext context) {
-    final included = result.amenities.where((a) => a.included).take(3).toList();
-    final chargeable = result.amenities
-        .where((a) => a.chargeable && !a.included)
-        .take(2)
-        .toList();
-    final allToShow = [...included, ...chargeable];
-
-    if (allToShow.isEmpty) return const SizedBox.shrink();
-
-    return Wrap(
-      spacing: 6,
-      runSpacing: 6,
-      children: allToShow.map((amenity) {
-        final isIncluded = amenity.included;
-        final hasPrice = amenity.price != null && (amenity.price?.value?.isNotEmpty ?? false);
-
-        // Get formatted price if available, otherwise use original
-        String? displayPrice;
-        if (hasPrice && formattedAmenityPrices != null) {
-          // Try to get formatted price from the map using amenity key or name
-          displayPrice = formattedAmenityPrices![amenity.key] ??
-              formattedAmenityPrices![amenity.name] ??
-              amenity.price?.value;
-        } else if (hasPrice) {
-          displayPrice = amenity.price?.value;
-        }
-
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(
-            color: isIncluded
-                ? _primaryBlue.withOpacity(0.08)
-                : Colors.grey.shade100,
-            borderRadius: BorderRadius.circular(4),
-            border: isIncluded ? null : Border.all(color: Colors.grey.shade300),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (isIncluded) ...[
-                const Icon(Icons.check, size: 11, color: _primaryBlue),
-                const SizedBox(width: 3),
-              ],
-              Text(
-                isIncluded
-                    ? amenity.name
-                    : displayPrice != null
-                    ? '${amenity.name}  $displayPrice'
-                    : '${amenity.name}  $currencySymbol${amenity.price?.value ?? '0'}',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: isIncluded ? FontWeight.w600 : FontWeight.w400,
-                  color: isIncluded ? _primaryBlue : Colors.grey.shade600,
-                ),
-              ),
-            ],
-          ),
-        );
-      }).toList(),
-    );
-  }
-
-  /// Trust signals: Free cancellation, No hidden fees, SMS notifications etc.
-  Widget _buildTrustSignals(BuildContext context) {
-    // Get cancellation policy from stepDetails
-    final cancellation = stepDetails?['cancellation'];
-    final cancellationPolicy = cancellation?['policy'] as List?;
-    final freeCancellationHours = cancellationPolicy?.isNotEmpty == true
-        ? cancellationPolicy!.first['notice']
-        : null;
-
-    return Wrap(
-      spacing: context.wp(4),
-      runSpacing: 4,
-      children: [
-        // Free cancellation with hours
-        _trustItem(
-          icon: Icons.cancel_outlined,
-          label: freeCancellationHours != null
-              ? 'Free cancellation up to $freeCancellationHours hours'
-              : 'Free cancellation',
-          color: _successGreen,
-        ),
-        _trustItem(
-          icon: Icons.visibility_off_outlined,
-          label: 'No hidden fees',
-          color: _successGreen,
-        ),
-        // SMS with price
-        _buildSmsWithPrice(context),
-      ],
-    );
-  }
-
-  // Widget _buildSmsWithPrice(BuildContext context) {
-  //   // Find SMS notification amenity
-  //   final smsAmenity = result.amenities.firstWhere(
-  //     (a) => a.key == 'sms_notifications',
-  //     orElse: () => result.amenities.first,
-  //   );
-  //
-  //   //  Fixed: Check if price exists and access value properly
-  //   final hasSmsPrice =
-  //       smsAmenity.price != null && smsAmenity.price!.value.isNotEmpty;
-  //   final smsPrice = hasSmsPrice ? smsAmenity.price!.value : '1.99';
-  //
-  //   return Row(
-  //     mainAxisSize: MainAxisSize.min,
-  //     children: [
-  //       Icon(Icons.sms_outlined, size: 13, color: Colors.grey.shade600),
-  //       const SizedBox(width: 4),
-  //       Text(
-  //         hasSmsPrice
-  //             ? 'SMS notifications $currencySymbol$smsPrice'
-  //             : 'SMS notifications',
-  //         style: TextStyle(
-  //           fontSize: 12,
-  //           color: Colors.grey.shade600,
-  //           fontWeight: FontWeight.w500,
-  //         ),
-  //       ),
-  //     ],
-  //   );
-  // }
-  Widget _buildSmsWithPrice(BuildContext context) {
-    // Find SMS notification amenity
-    final smsAmenity = result.amenities.firstWhere(
-          (a) => a.key == 'sms_notifications',
-      orElse: () => result.amenities.first,
-    );
-
-    final hasSmsPrice = smsAmenity.price != null && smsAmenity.price!.value.isNotEmpty;
-
-    // Get formatted price if available
-    String smsPriceDisplay;
-    if (hasSmsPrice && formattedAmenityPrices != null) {
-      smsPriceDisplay = formattedAmenityPrices![smsAmenity.key] ??
-          formattedAmenityPrices![smsAmenity.name] ??
-          smsAmenity.price!.value;
-    } else if (hasSmsPrice) {
-      smsPriceDisplay = smsAmenity.price!.value;
-    } else {
-      smsPriceDisplay = '1.99';
-    }
-
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(Icons.sms_outlined, size: 13, color: Colors.grey.shade600),
-        const SizedBox(width: 4),
-        Text(
-          hasSmsPrice
-              ? 'SMS notifications $smsPriceDisplay'
-              : 'SMS notifications',
-          style: TextStyle(
-            fontSize: 12,
-            color: Colors.grey.shade600,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _trustItem({
-    required IconData icon,
-    required String label,
-    required Color color,
-  }) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 13, color: color),
-        const SizedBox(width: 4),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            color: color,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ],
-    );
-  }
-
-  /// Price display + Book Now button
-  Widget _buildPriceAndBookRow(BuildContext context) {
-    print(' DEBUG: Original totalPriceAmount = "${result.totalPriceAmount}"');
-    print(' DEBUG: Original currencyCode = "$currencyCode"');
-    print(' DEBUG: formattedPrice from parent = "$formattedPrice"');
-
-    // Get user's preferred currency
-    final prefs = sl<PreferencesManager>();
-    final preferredCurrency = prefs.getPreferredCurrency() ?? 'USD';
-    print(' DEBUG: Preferred currency = "$preferredCurrency"');
-
-    // USE the formattedPrice passed from parent - this already has the converted price with symbol
-    final displayPriceText = formattedPrice ??
-        '${CurrencyConverter.getSymbol(currencyCode)}${result.totalPriceAmount}';
-
-    print(' DEBUG: Final display price = "$displayPriceText"');
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        // Price block
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            //  FIXED: Use displayPriceText instead of hardcoding USD
-            Text(
-              displayPriceText,  // This now shows converted price (INR ₹10,020)
-              style:  TextStyle(
-                fontSize: context.fs(24),
-                fontWeight: FontWeight.w800,
-                color: _darkNavy,
-                height: 1.1,
-              ),
-            ),
-            Text(
-              'per trip',
-              style: TextStyle(
-                fontSize: 11,
-                color: Colors.grey.shade500,
-              ),
-            ),
-          ],
-        ),
-        const Spacer(),
-        // Book Now button (keep your existing code - it's fine)
-        SizedBox(
-          height: 44,
-          child: ElevatedButton(
-            onPressed: result.bookable ? () {
-              print('BOOK NOW TAPPED');
-              print('Search ID: $searchId');
-              print('Result ID: ${result.resultId}');
-
-              final authState = sl<AuthBloc>().state;
-              final isLoggedIn = authState is AuthAuthenticated && authState.user != null;
-
-              if (isLoggedIn) {
-                print('User already logged in, proceeding directly');
-                onTap();
-              } else {
-                print('User not logged in, showing login popup');
-                onTap();
-                // NavigationQueueService().setPendingNavigation(() {
-                //   print('Executing pending navigation after login');
-                //   Future.delayed(const Duration(milliseconds: 300), () {
-                //     if (context.mounted) {
-                //       onTap();
-                //     }
-                //   });
-                // });
-
-                showGeneralDialog(
-                  context: context,
-                  barrierDismissible: true,
-                  barrierLabel: "Login",
-                  barrierColor: Colors.black.withOpacity(0.15),
-                  transitionDuration: const Duration(milliseconds: 300),
-                  pageBuilder: (_, __, ___) {
-                    return const LoginSignupScreen();
-                  },
-                  transitionBuilder: (_, animation, __, child) {
-                    return FadeTransition(
-                      opacity: animation,
-                      child: ScaleTransition(
-                        scale: Tween<double>(begin: 0.95, end: 1).animate(
-                          CurvedAnimation(
-                            parent: animation,
-                            curve: Curves.easeOut,
-                          ),
-                        ),
-                        child: child,
-                      ),
-                    );
-                  },
-                );
-              }
-            } : null,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: result.bookable ? _primaryOrange : Colors.grey.shade300,
-              foregroundColor: Colors.white,
-              elevation: 0,
-              padding: EdgeInsets.symmetric(horizontal: context.wp(6)),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  result.bookable ? 'Book Now' : 'Unavailable',
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                if (result.bookable) ...[
-                  const SizedBox(width: 6),
-                  const Icon(Icons.arrow_forward, size: 16),
-                ],
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
   Widget _buildVehicleImage(BuildContext context) {
-    if (result.vehicleImageUrl.isEmpty) {
-      return Container(
-        color: Colors.grey.shade100,
-        child: Center(
-          child: Icon(
-            Icons.directions_car,
-            size: context.iconLarge,
-            color: Colors.grey.shade300,
-          ),
-        ),
-      );
-    }
+    final fallback = Center(
+      child: Icon(
+        Icons.directions_car,
+        size: context.w(34),
+        color: Colors.grey.shade300,
+      ),
+    );
+    if (result.vehicleImageUrl.isEmpty) return fallback;
 
     return CachedNetworkImage(
       imageUrl: result.vehicleImageUrl,
       fit: BoxFit.contain,
-      placeholder: (context, url) => Container(
-        color: Colors.grey.shade100,
-        child: Center(
-          child: SizedBox(
-            width: 18,
-            height: 18,
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
-              color: _primaryOrange,
-            ),
+      placeholder: (_, __) => Center(
+        child: SizedBox(
+          width: context.w(16),
+          height: context.w(16),
+          child: const CircularProgressIndicator(
+            strokeWidth: 2,
+            color: AppColors.AppBlue,
           ),
         ),
       ),
-      errorWidget: (context, url, error) => Container(
-        color: Colors.grey.shade100,
-        child: Center(
-          child: Icon(
-            Icons.directions_car,
-            size: context.iconLarge,
-            color: Colors.grey.shade300,
+      errorWidget: (_, __, ___) => fallback,
+    );
+  }
+
+  Widget _buildDetails(BuildContext context) {
+    final bullets = _bullets;
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        context.w(10),
+        context.h(8),
+        context.w(10),
+        context.h(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Text(
+                  _title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: context.fs(14),
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.black,
+                  ),
+                ),
+              ),
+              _buildRating(context),
+            ],
           ),
-        ),
+          if (bullets.isNotEmpty) ...[
+            SizedBox(height: context.h(4)),
+            Wrap(
+              spacing: context.w(8),
+              runSpacing: context.h(2),
+              children: bullets.map((b) => _bullet(context, b)).toList(),
+            ),
+          ],
+          const Spacer(),
+          SizedBox(height: context.h(6)),
+          CustomPaint(
+            size: Size(double.infinity, 1),
+            painter: _DashedLinePainter(color: AppColors.lightsubhead),
+          ),
+          SizedBox(height: context.h(6)),
+          _buildBottomRow(context),
+        ],
       ),
     );
   }
 
-  Color _getCategoryColor(String vehicleType) {
-    switch (vehicleType.toLowerCase()) {
-      case 'private car':
-      case 'sedan':
-        return _primaryBlue;
-      case 'shared shuttle':
-        return const Color(0xff8B5CF6);
-      case 'bus':
-      case 'bus / coach':
-        return _successGreen;
-      case 'minivan':
-      case 'suv':
-      case 'minivan / suv':
-        return const Color(0xffF59E0B);
-      case 'premium':
-        return const Color(0xffDC2626);
-      default:
-        return Colors.grey.shade600;
+  Widget _bullet(BuildContext context, String text) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: context.w(4),
+          height: context.w(4),
+          decoration: const BoxDecoration(
+            color: _bulletText,
+            shape: BoxShape.circle,
+          ),
+        ),
+        SizedBox(width: context.w(4)),
+        Flexible(
+          child: Text(
+            text,
+            style: TextStyle(
+              fontSize: context.fs(8),
+              color: _bulletText,
+              height: 1.2,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRating(BuildContext context) {
+    final rating = result.rating?.toDouble();
+    if (rating == null || rating <= 0) return const SizedBox.shrink();
+    final count = result.ratingCount ?? 0;
+    final stars = rating.round().clamp(1, 5);
+
+    return Padding(
+      padding: EdgeInsets.only(left: context.w(6), top: context.h(2)),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (var i = 0; i < stars; i++)
+            Icon(Icons.star_rounded,
+                size: context.w(9), color: const Color(0xffFFC107)),
+          SizedBox(width: context.w(2)),
+          Text(
+            rating.toStringAsFixed(1),
+            style: TextStyle(
+              fontSize: context.fs(8),
+              fontWeight: FontWeight.w700,
+              color: AppColors.black,
+            ),
+          ),
+          if (count > 0)
+            Text(
+              '($count)',
+              style: TextStyle(
+                fontSize: context.fs(6),
+                color: AppColors.grey,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBottomRow(BuildContext context) {
+    final features = <Widget>[];
+
+    void addFeature(Widget w) {
+      if (features.isNotEmpty) {
+        features.add(Container(
+          width: 1,
+          height: context.h(12),
+          margin: EdgeInsets.symmetric(horizontal: context.w(7)),
+          color: const Color(0xffD9D9D9),
+        ));
+      }
+      features.add(w);
+    }
+
+    if (_hasAirConditioning) {
+      addFeature(_feature(context, Icons.ac_unit_rounded, 'AC', _acColor));
+    }
+    if (result.maxPassengers > 0) {
+      addFeature(_feature(context, Icons.person_rounded,
+          '${result.maxPassengers}', AppColors.AppBlue));
+    }
+    if (result.maxBags > 0) {
+      addFeature(_feature(
+          context, Icons.luggage_rounded, '${result.maxBags}', _bagColor));
+    }
+
+    final price = formattedPrice ??
+        '${CurrencyConverter.getSymbol(currencyCode)}${result.totalPriceAmount}';
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Expanded(
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Row(mainAxisSize: MainAxisSize.min, children: features),
+            ),
+          ),
+        ),
+        SizedBox(width: context.w(6)),
+        Text.rich(
+          TextSpan(
+            children: [
+              TextSpan(
+                text: price,
+                style: TextStyle(
+                  fontSize: context.fs(17),
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.AppBlue,
+                ),
+              ),
+              TextSpan(
+                text: ' /trip',
+                style: TextStyle(
+                  fontSize: context.fs(9),
+                  color: AppColors.grey,
+                ),
+              ),
+            ],
+          ),
+          maxLines: 1,
+        ),
+      ],
+    );
+  }
+
+  Widget _feature(
+      BuildContext context, IconData icon, String label, Color color) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: context.w(11), color: color),
+        SizedBox(width: context.w(3)),
+        Text(
+          label,
+          style: TextStyle(fontSize: context.fs(10), color: color),
+        ),
+      ],
+    );
+  }
+}
+
+class _DashedLinePainter extends CustomPainter {
+  final Color color;
+  const _DashedLinePainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 1;
+    const dash = 3.0;
+    const gap = 3.0;
+    var x = 0.0;
+    while (x < size.width) {
+      final end = x + dash > size.width ? size.width : x + dash;
+      canvas.drawLine(Offset(x, 0), Offset(end, 0), paint);
+      x += dash + gap;
     }
   }
+
+  @override
+  bool shouldRepaint(_DashedLinePainter old) => old.color != color;
 }

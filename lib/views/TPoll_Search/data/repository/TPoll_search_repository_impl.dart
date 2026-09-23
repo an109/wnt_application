@@ -84,6 +84,7 @@ class TpollSearchRepositoryImpl implements TpollSearchRepository {
                 currency: amenityModel.price!.currency,
               )
                   : null,
+              internal: amenityModel.internal,
             );
           }).toList() ?? [];
 
@@ -110,6 +111,12 @@ class TpollSearchRepositoryImpl implements TpollSearchRepository {
             vehicleMake: vehicle.make.isNotEmpty ? vehicle.make : null,
             vehicleModel: vehicle.model.isNotEmpty ? vehicle.model : null,
             travelTimeMinutes: mainStep?.details.time,
+            tollsIncluded: mainStep?.details.price.tollsIncluded ?? false,
+            freeCancellationHours: mainStep?.details.freeCancellationHours,
+            waitMinutesIncluded: mainStep?.details.waitMinutesIncluded,
+            waitingMinuteAmount: mainStep?.details.waitingMinuteAmount,
+            waitingMinuteCurrency: mainStep?.details.waitingMinuteCurrency,
+            flightInfoRequired: mainStep?.details.flightInfoRequired ?? false,
           );
         }).toList(),
         startLocation: LocationInfoEntity(

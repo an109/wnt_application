@@ -1,9 +1,12 @@
+import 'dart:async';
+
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:razorpay_flutter/razorpay_flutter.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
+import 'package:wander_nova/core/resources/app_colours.dart';
 
-import '../../../../common_widgets/logo.dart';
 import '../../../../core/constants/urls.dart';
 import '../../../../core/network/dio_client.dart';
 import '../../../../core/utils/storage/shared_preference.dart';
@@ -37,6 +40,21 @@ class PaymentScreen extends StatefulWidget {
   final String flightNumber;
   final String airline;
 
+  /// Supplier add-ons the customer ticked on the booking screen (amenity
+  /// keys), the coupon they applied, and the amounts — all in INR, which is
+  /// what this screen charges in. [totalAmount] already includes add-ons and
+  /// is net of [discountAmount].
+  final List<String> optionalAmenityKeys;
+  final double addOnsAmount;
+  final double discountAmount;
+  final String? couponCode;
+
+  /// Purely cosmetic (Figma ride-summary card): the vehicle photo and the
+  /// passenger's gender initial. Both optional — the card falls back to a
+  /// generic car icon / no gender suffix when not supplied.
+  final String vehicleImageUrl;
+  final String? passengerGender;
+
   const PaymentScreen({
     super.key,
     required this.resultId,
@@ -56,6 +74,12 @@ class PaymentScreen extends StatefulWidget {
     required this.userId,
     required this.flightNumber,
     required this.airline,
+    this.optionalAmenityKeys = const [],
+    this.addOnsAmount = 0,
+    this.discountAmount = 0,
+    this.couponCode,
+    this.vehicleImageUrl = '',
+    this.passengerGender,
   });
 
   @override
@@ -63,20 +87,33 @@ class PaymentScreen extends StatefulWidget {
 }
 
 class _PaymentScreenState extends State<PaymentScreen> {
+  // ---- Figma tokens (same palette as AkFlightPaymentScreen) ----
+  static const _pri = AppColors.AppBlue;
+  static const _muted = AppColors.subhead;
+  static const _stroke = Color(0xFFE6E8EC);
+  static const _ink = Color(0xFF0F172A);
+  static const _offer = Color(0xFF16A34A);
+
   String? _selectedPaymentMethod;
+  String? _selectedTileId;
   late final Razorpay _razorpay;
   bool _isProcessing = false;
+  String _statusMessage = 'Processing your payment...';
 
   // Trip type chosen by the user — drives TransportReservationEntity.tripType.
   String _tripType = 'one_way'; // 'one_way' | 'round_trip'
   DateTime? _returnDate; // required when _tripType == 'round_trip'
 
-  // Color constants
-  static const _primaryBlue = Color(0xff1663F7);
-  static const _primaryOrange = Color(0xffF97316);
-  static const _darkNavy = Color(0xff0D1B3D);
   static const _successGreen = Color(0xff10B981);
-  static const _lightGreen = Color(0xffECFDF5);
+
+  /// Cosmetic checkout-hold countdown (Figma header) — purely visual, never
+  /// blocks payment. Matches the 15-minute hold shown on the Ak flight
+  /// payment screen, without adopting its expiry-gating behaviour here.
+  static const _holdDuration = Duration(minutes: 15);
+  Timer? _holdTimer;
+  Duration _timeLeft = _holdDuration;
+  String get _minutes => _timeLeft.inMinutes.toString().padLeft(2, '0');
+  String get _seconds => (_timeLeft.inSeconds % 60).toString().padLeft(2, '0');
 
   @override
   void initState() {
@@ -85,10 +122,22 @@ class _PaymentScreenState extends State<PaymentScreen> {
     _razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, _handleRazorpaySuccess);
     _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _handleRazorpayError);
     _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleRazorpayExternalWallet);
+    _holdTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      if (_timeLeft.inSeconds <= 0) {
+        timer.cancel();
+        return;
+      }
+      setState(() => _timeLeft -= const Duration(seconds: 1));
+    });
   }
 
   @override
   void dispose() {
+    _holdTimer?.cancel();
     _razorpay.clear();
     super.dispose();
   }
@@ -100,8 +149,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
     final firstName = nameParts[0];
     final lastName = nameParts.length > 1 ? nameParts.sublist(1).join(' ') : '';
 
-    // Get selected amenities from booking screen (you'll need to pass these)
-    final optionalAmenities = <String>[];
+    // Add-ons chosen on the booking screen, plus the existing payment marker.
+    final optionalAmenities = <String>[...widget.optionalAmenityKeys];
     if (_selectedPaymentMethod == 'razorpay') {
       optionalAmenities.add('razorpay_payment');
     }
@@ -132,7 +181,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
       displayTotalPrice: widget.totalAmount,
       displayBasePrice: widget.baseFare,
       displayRideBasePrice: widget.baseFare,
-      displayDiscountAmount: 0.00,
+      displayDiscountAmount: widget.discountAmount,
       optionalAmenities: optionalAmenities,
       userId: widget.userId ?? 123,
       guestReference: null,
@@ -161,7 +210,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
       // non-blank on every reservation.
       flightNumber: widget.flightNumber,
       airline: widget.airline,
-      couponCode: null,
+      couponCode: widget.couponCode,
       extraPaxInfo: null,
     );
 
@@ -263,53 +312,452 @@ class _PaymentScreenState extends State<PaymentScreen> {
     }
   }
 
+  // ==================================================================
+  // BUILD
+  // ==================================================================
   @override
   Widget build(BuildContext context) {
     print('PAYMENT SCREEN BUILD CALLED');
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFFFF),
-      appBar: AppBar(
-        title: const WanderNovaLogo(scaleFactor: 0.6),
-        backgroundColor: Colors.white,
-        actions: [
-          Padding(
-            padding: EdgeInsets.all(context.w(8)),
-            child: Image.asset("assets/images/wander_logo.png", height: 35),
-          )
-        ],
-      ),
-      // Remove BlocConsumer - just render UI directly
-      body: SingleChildScrollView(
+      backgroundColor: Colors.white,
+      body: SafeArea(
         child: Column(
           children: [
-            _buildTripDetailsSection(),
-            const SizedBox(height: 16),
-            _buildTripTypeSection(),
-            const SizedBox(height: 16),
-            _buildPaymentMethodSection(),
-            const SizedBox(height: 100),
+            _header(context),
+            Divider(height: 1, color: _stroke),
+            Expanded(
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(
+                    parent: AlwaysScrollableScrollPhysics()),
+                padding: EdgeInsets.fromLTRB(
+                    context.w(16), context.h(18), context.w(16), context.h(32)),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _totalDue(context),
+                    SizedBox(height: context.h(16)),
+                    _rideDetailCard(context, includePassenger: true),
+                    SizedBox(height: context.h(20)),
+                    _buildTripTypeSection(),
+                    SizedBox(height: context.h(20)),
+                    if (_isProcessing) ...[
+                      _processingCard(context),
+                    ] else ...[
+                      _sectionLabel(context, 'Suggested options'),
+                      SizedBox(height: context.h(12)),
+                      _emiPromoCard(context),
+                      _optionCard(context, children: [
+                        _optionRow(
+                          context,
+                          tileId: 'wallet',
+                          method: 'wallet',
+                          icon: Icons.account_balance_wallet_rounded,
+                          iconColor: const Color(0xFF16A34A),
+                          iconBg: const Color(0xFFECFDF5),
+                          title: 'My Wallet',
+                          subtitle: 'Pay using your wallet balance',
+                        ),
+                      ]),
+                      _promoStrip(context, 'Get extra discount on UPI of Rs 32'),
+                      _optionCard(context, children: [
+                        _optionRow(
+                          context,
+                          tileId: 'gpay',
+                          method: 'razorpay',
+                          icon: Icons.g_mobiledata_rounded,
+                          iconColor: const Color(0xFF4285F4),
+                          iconBg: const Color(0xFFEFF6FF),
+                          title: 'GooglePay',
+                          subtitle: 'Pay with GooglePay',
+                        ),
+                        _optionRow(
+                          context,
+                          tileId: 'upi',
+                          method: 'razorpay',
+                          icon: Icons.qr_code_2_rounded,
+                          iconColor: const Color(0xFF5F259F),
+                          iconBg: const Color(0xFFF3E8FF),
+                          title: 'UPI Options',
+                          subtitle: 'Pay Directly From Your Bank Account',
+                        ),
+                      ]),
+                      SizedBox(height: context.h(12)),
+                      _sectionLabel(context, 'Other Payment Options'),
+                      SizedBox(height: context.h(12)),
+                      _optionCard(context, children: [
+                        _optionRow(
+                          context,
+                          tileId: 'card',
+                          method: 'razorpay',
+                          icon: Icons.credit_card_rounded,
+                          iconColor: _pri,
+                          iconBg: const Color(0xFFEFF6FF),
+                          title: 'Credit & Debit Cards',
+                          subtitle: 'Visa, Mastercard, Amex, Rupay and more',
+                        ),
+                      ]),
+                      _optionCard(context, children: [
+                        _optionRow(
+                          context,
+                          tileId: 'netbanking',
+                          method: 'razorpay',
+                          icon: Icons.account_balance_rounded,
+                          iconColor: const Color(0xFF7C5CE6),
+                          iconBg: const Color(0xFFF5F3FF),
+                          title: 'Net Banking',
+                          subtitle: '40+ Banks available',
+                          tag: 'Fingerprint/Face ID',
+                        ),
+                        _optionRow(
+                          context,
+                          tileId: 'paylater',
+                          interactive: false,
+                          icon: Icons.access_time_rounded,
+                          iconColor: const Color(0xFF0891B2),
+                          iconBg: const Color(0xFFECFEFF),
+                          title: 'Pay Later',
+                          subtitle: 'Lazypay, Amazon',
+                        ),
+                        _optionRow(
+                          context,
+                          tileId: 'giftcard',
+                          method: 'razorpay',
+                          icon: Icons.account_balance_wallet_outlined,
+                          iconColor: const Color(0xFFB45309),
+                          iconBg: const Color(0xFFFFFBEB),
+                          title: 'Gift Cards & e-wallets',
+                          subtitle: 'WNT Gift cards & Amazon Pay',
+                        ),
+                      ]),
+                    ],
+                  ],
+                ),
+              ),
+            ),
           ],
         ),
       ),
-      bottomNavigationBar: _buildBottomBar(),
     );
   }
 
-
-  Widget _buildTripDetailsSection() {
-    return Container(
-      margin: EdgeInsets.symmetric(
-        horizontal: context.wp(4),
-        vertical: context.hp(2),
+  // ==================== HEADER ====================
+  Widget _header(BuildContext context) {
+    return Padding(
+      padding:
+          EdgeInsets.symmetric(horizontal: context.w(16), vertical: context.h(12)),
+      child: Row(
+        children: [
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: _isProcessing ? null : () => Navigator.of(context).maybePop(),
+            child: Icon(Icons.arrow_back_rounded, size: context.w(22), color: Colors.black),
+          ),
+          SizedBox(width: context.w(15)),
+          Expanded(
+            child: Text(
+              'Payment',
+              style: TextStyle(
+                fontSize: context.fs(20),
+                fontWeight: FontWeight.w600,
+                color: Colors.black,
+              ),
+            ),
+          ),
+          Icon(Icons.timer, size: context.w(16), color: _pri),
+          SizedBox(width: context.w(4)),
+          Text(
+            '$_minutes:$_seconds',
+            style: TextStyle(
+              fontSize: context.fs(14),
+              fontWeight: FontWeight.w600,
+              color: _pri,
+            ),
+          ),
+        ],
       ),
-      padding: EdgeInsets.all(context.wp(4)),
+    );
+  }
+
+  // ==================== TOTAL DUE ====================
+  Widget _totalDue(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => _showFareTopSheet(context),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              'Total Due',
+              style: TextStyle(
+                fontSize: context.fs(22),
+                fontWeight: FontWeight.w700,
+                color: Colors.black,
+              ),
+            ),
+          ),
+          Text(
+            '₹ ${_amount(widget.totalAmount)}',
+            style: TextStyle(
+              fontSize: context.fs(22),
+              fontWeight: FontWeight.w800,
+              color: Colors.black,
+            ),
+          ),
+          SizedBox(width: context.w(4)),
+          Icon(Icons.keyboard_arrow_down_rounded, size: context.w(22), color: _pri),
+        ],
+      ),
+    );
+  }
+
+  String _amount(double v) {
+    final s = v.toStringAsFixed(v.truncateToDouble() == v ? 0 : 2);
+    final parts = s.split('.');
+    final whole =
+        parts[0].replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (_) => ',');
+    return parts.length > 1 ? '$whole.${parts[1]}' : whole;
+  }
+
+  /// Fare breakup as a drawer that slides down from the TOP, mirroring
+  /// [AkFlightPaymentScreen._showFareTopSheet] exactly (same gradient,
+  /// corners, close affordance and dismiss behaviour).
+  Future<void> _showFareTopSheet(BuildContext context) {
+    return showGeneralDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'Fare breakup',
+      barrierColor: Colors.black.withValues(alpha: 0.45),
+      transitionDuration: const Duration(milliseconds: 240),
+      pageBuilder: (ctx, _, __) =>
+          Align(alignment: Alignment.topCenter, child: _fareTopSheet(ctx)),
+      transitionBuilder: (ctx, anim, _, child) {
+        final curved = CurvedAnimation(parent: anim, curve: Curves.easeOutCubic);
+        return SlideTransition(
+          position: Tween<Offset>(begin: const Offset(0, -1), end: Offset.zero)
+              .animate(curved),
+          child: child,
+        );
+      },
+    );
+  }
+
+  Widget _fareTopSheet(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Material(
+          color: Colors.transparent,
+          child: Container(
+            width: double.infinity,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Color(0xFFFFFFFF), Color(0xFF80DAFF)],
+              ),
+              borderRadius: BorderRadius.only(
+                bottomLeft: Radius.circular(context.r(24)),
+                bottomRight: Radius.circular(context.r(24)),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.12),
+                  blurRadius: 16,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: SafeArea(
+              bottom: false,
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(
+                    context.w(16), context.h(24), context.w(16), context.h(24)),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => Navigator.of(context).maybePop(),
+                      child: Column(
+                        children: [
+                          Row(
+                            children: [
+                              GestureDetector(
+                                behavior: HitTestBehavior.opaque,
+                                onTap: () => Navigator.of(context).maybePop(),
+                                child: Icon(Icons.arrow_back_rounded,
+                                    size: context.w(20), color: Colors.black),
+                              ),
+                              SizedBox(width: context.w(15)),
+                              Expanded(
+                                child: Text(
+                                  'Payment',
+                                  style: TextStyle(
+                                    fontSize: context.fs(20),
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.black,
+                                  ),
+                                ),
+                              ),
+                              Icon(Icons.timer, size: context.w(16), color: _pri),
+                              SizedBox(width: context.w(4)),
+                              Text(
+                                '$_minutes:$_seconds',
+                                style: TextStyle(
+                                  fontSize: context.fs(14),
+                                  fontWeight: FontWeight.w600,
+                                  color: _pri,
+                                ),
+                              ),
+                            ],
+                          ),
+                          SizedBox(height: context.h(24)),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  'Total Due',
+                                  style: TextStyle(
+                                    fontSize: context.fs(22),
+                                    fontWeight: FontWeight.w800,
+                                    color: _ink,
+                                  ),
+                                ),
+                              ),
+                              Text(
+                                '₹ ${_amount(widget.totalAmount)}',
+                                style: TextStyle(
+                                  fontSize: context.fs(22),
+                                  fontWeight: FontWeight.w800,
+                                  color: _ink,
+                                ),
+                              ),
+                              SizedBox(width: context.w(4)),
+                              Icon(Icons.keyboard_arrow_up_rounded,
+                                  size: context.w(22), color: _pri),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    SizedBox(height: context.h(14)),
+                    _fareLine(context, 'Fare', '₹${_amount(widget.baseFare)}'),
+                    if (widget.addOnsAmount > 0) ...[
+                      SizedBox(height: context.h(14)),
+                      _fareLine(context, 'Add-ons', '+ ₹${_amount(widget.addOnsAmount)}'),
+                    ],
+                    if (widget.discountAmount > 0) ...[
+                      SizedBox(height: context.h(14)),
+                      _fareLine(
+                        context,
+                        widget.couponCode != null && widget.couponCode!.isNotEmpty
+                            ? 'Discount (${widget.couponCode})'
+                            : 'Discount',
+                        '- ₹${_amount(widget.discountAmount)}',
+                      ),
+                    ],
+                    SizedBox(height: context.h(14)),
+                    Align(
+                      alignment: Alignment.center,
+                      child: Container(
+                        padding: EdgeInsets.symmetric(
+                            horizontal: context.w(10), vertical: context.h(3)),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(context.r(999)),
+                          border: Border.all(color: _pri),
+                        ),
+                        child: Text(
+                          _tripType == 'round_trip' ? 'Airport Round Trip' : 'Airport One Way',
+                          style: TextStyle(
+                            fontSize: context.fs(9),
+                            fontWeight: FontWeight.w700,
+                            color: _pri,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: context.h(14)),
+                    _rideDetailCard(context, includePassenger: false),
+                    SizedBox(height: context.h(14)),
+                    _locationBreakdown(context),
+                    SizedBox(height: context.h(14)),
+                    _passengerCard(context),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+        SizedBox(height: context.h(12)),
+        GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => Navigator.of(context).maybePop(),
+          child: Container(
+            width: context.w(38),
+            height: context.w(38),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.18),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: Icon(Icons.close_rounded, size: context.w(20), color: _ink),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _fareLine(BuildContext context, String label, String amount) {
+    return Row(
+      children: [
+        Text(
+          label,
+          style: TextStyle(color: _ink, fontSize: context.fs(13), fontWeight: FontWeight.w500),
+        ),
+        Expanded(
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: context.w(8)),
+            child: Container(height: 0.6, color: AppColors.lightsubhead),
+          ),
+        ),
+        Text(
+          amount,
+          style: TextStyle(color: _ink, fontSize: context.fs(13), fontWeight: FontWeight.w700),
+        ),
+      ],
+    );
+  }
+
+  // ==================== RIDE DETAIL CARD ====================
+  /// "Delhi Airport ⇄ Gurgaon" card — car photo, route, vehicle-type badge,
+  /// pickup/drop lines, and (in the collapsed main-body view only) the
+  /// passenger name. Reused, unchanged, inside the expanded fare sheet, just
+  /// without the passenger row (that becomes its own [_passengerCard] there).
+  Widget _rideDetailCard(BuildContext context, {required bool includePassenger}) {
+    final dropOn = _tripType == 'round_trip' ? _returnDate : null;
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(context.w(12)),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(context.borderRadius),
+        borderRadius: BorderRadius.circular(context.r(12)),
+        border: Border.all(color: _stroke),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -318,146 +766,226 @@ class _PaymentScreenState extends State<PaymentScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                padding: EdgeInsets.all(context.wp(2)),
+                width: context.w(48),
+                height: context.w(48),
+                alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: _primaryBlue.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
+                  color: const Color(0xFFF4F5F7),
+                  borderRadius: BorderRadius.circular(context.r(10)),
                 ),
-                child: Icon(
-                  Icons.directions_car,
-                  color: _primaryBlue,
-                  size: context.iconMedium,
-                ),
+                child: widget.vehicleImageUrl.isEmpty
+                    ? Icon(Icons.directions_car_rounded,
+                        size: context.w(26), color: Colors.grey.shade400)
+                    : ClipRRect(
+                        borderRadius: BorderRadius.circular(context.r(10)),
+                        child: CachedNetworkImage(
+                          imageUrl: widget.vehicleImageUrl,
+                          fit: BoxFit.contain,
+                          errorWidget: (_, __, ___) => Icon(Icons.directions_car_rounded,
+                              size: context.w(26), color: Colors.grey.shade400),
+                        ),
+                      ),
               ),
-              SizedBox(width: context.wp(3)),
+              SizedBox(width: context.w(12)),
               Expanded(
-                child: Column(
+                child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Transport Booking',
-                      style: TextStyle(
-                        fontSize: context.titleMedium,
-                        fontWeight: FontWeight.w700,
-                        color: _darkNavy,
+                    Expanded(
+                      child: Wrap(
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          Text(widget.pickupLocation,
+                              style: TextStyle(
+                                  fontSize: context.fs(13),
+                                  fontWeight: FontWeight.w700,
+                                  color: _ink)),
+                          Padding(
+                            padding: EdgeInsets.symmetric(horizontal: context.w(6)),
+                            child: Icon(Icons.swap_horiz_rounded,
+                                size: context.w(15), color: _pri),
+                          ),
+                          Text(widget.dropoffLocation,
+                              style: TextStyle(
+                                  fontSize: context.fs(13),
+                                  fontWeight: FontWeight.w700,
+                                  color: _ink)),
+                        ],
                       ),
                     ),
-                    Text(
-                      '${widget.vehicleType} • ${widget.providerName}',
-                      style: TextStyle(
-                        fontSize: context.bodySmall,
-                        color: Colors.grey.shade600,
-                      ),
-                    ),
+                    if (widget.vehicleType.isNotEmpty) ...[
+                      SizedBox(width: context.w(8)),
+                      _vehicleTypeBadge(context),
+                    ],
                   ],
                 ),
               ),
             ],
           ),
-
-          SizedBox(height: context.hp(2)),
-
-          // Pickup and Drop-off
-          Row(
-            children: [
-              Expanded(
-                child: _buildInfoCard(
-                  title: 'PICKUP',
-                  value: widget.pickupLocation,
-                  icon: Icons.location_on,
-                ),
+          SizedBox(height: context.h(10)),
+          Divider(height: 1, color: _stroke),
+          SizedBox(height: context.h(10)),
+          _bulletDateLine(context, 'Pickup on', widget.pickupDate),
+          if (dropOn != null) ...[
+            SizedBox(height: context.h(4)),
+            _bulletDateLine(context, 'Drop on', dropOn),
+          ],
+          if (includePassenger) ...[
+            SizedBox(height: context.h(10)),
+            Divider(height: 1, color: _stroke),
+            SizedBox(height: context.h(8)),
+            Text(
+              _passengerLine,
+              style: TextStyle(
+                fontSize: context.fs(11),
+                fontWeight: FontWeight.w600,
+                color: _muted,
+                letterSpacing: 0.3,
               ),
-              SizedBox(width: context.wp(3)),
-              Expanded(
-                child: _buildInfoCard(
-                  title: 'DROP-OFF',
-                  value: widget.dropoffLocation,
-                  icon: Icons.location_on,
-                ),
-              ),
-            ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  String get _passengerLine {
+    final gender = (widget.passengerGender ?? '').trim();
+    final gi = gender.isNotEmpty ? ' (${gender[0].toUpperCase()})' : '';
+    return '${widget.passengerName.toUpperCase()}$gi';
+  }
+
+  Widget _vehicleTypeBadge(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: context.w(10), vertical: context.h(4)),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(context.r(20)),
+        gradient: const LinearGradient(colors: [Color(0xff7AD3F7), AppColors.AppBlue]),
+      ),
+      child: Text(
+        widget.vehicleType.toUpperCase(),
+        style: TextStyle(fontSize: context.fs(9), fontWeight: FontWeight.w600, color: Colors.white),
+      ),
+    );
+  }
+
+  Widget _bulletDateLine(BuildContext context, String label, DateTime date) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: EdgeInsets.only(top: context.h(5)),
+          child: Container(
+            width: context.w(4),
+            height: context.w(4),
+            decoration: BoxDecoration(color: _muted, shape: BoxShape.circle),
           ),
-
-          SizedBox(height: context.hp(2)),
-
-          // Date and Passengers
-          Row(
-            children: [
-              Expanded(
-                child: _buildInfoCard(
-                  title: 'DATE & TIME',
-                  value: _formatDateTime(widget.pickupDate),
-                  icon: Icons.calendar_today,
+        ),
+        SizedBox(width: context.w(6)),
+        Expanded(
+          child: Text.rich(
+            TextSpan(
+              children: [
+                TextSpan(
+                  text: '$label: ',
+                  style: TextStyle(fontSize: context.fs(11), color: _muted),
                 ),
-              ),
-              SizedBox(width: context.wp(3)),
-              Expanded(
-                child: _buildInfoCard(
-                  title: 'PASSENGERS',
-                  value: '${widget.passengers}',
-                  icon: Icons.person,
+                TextSpan(
+                  text: _formatDateTime(date),
+                  style: TextStyle(
+                      fontSize: context.fs(11), color: _ink, fontWeight: FontWeight.w600),
                 ),
-              ),
-            ],
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// "Start & return to / Travel to" (round trip) or "Pickup / Drop" (one
+  /// way) location breakdown inside the expanded sheet — same connector
+  /// asset [TransportBookingCard] uses for its own trip-type rows.
+  Widget _locationBreakdown(BuildContext context) {
+    final isRoundTrip = _tripType == 'round_trip';
+    final startLabel = isRoundTrip ? 'Start & return to:' : 'Pickup:';
+    final endLabel = isRoundTrip ? 'Travel to:' : 'Drop:';
+    final connectorAsset =
+        isRoundTrip ? 'assets/Newimage/Rlocate.png' : 'assets/Newimage/locate.png';
+
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Image.asset(connectorAsset, width: context.w(22), fit: BoxFit.fill),
+          SizedBox(width: context.w(10)),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(startLabel,
+                    style: TextStyle(fontSize: context.fs(11), fontWeight: FontWeight.w700, color: _ink)),
+                SizedBox(height: context.h(2)),
+                Text(widget.pickupLocation,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: context.fs(11), color: _muted)),
+                SizedBox(height: context.h(14)),
+                Text(endLabel,
+                    style: TextStyle(fontSize: context.fs(11), fontWeight: FontWeight.w700, color: _ink)),
+                SizedBox(height: context.h(2)),
+                Text(widget.dropoffLocation,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: context.fs(11), color: _muted)),
+              ],
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildInfoCard({
-    required String title,
-    required String value,
-    required IconData icon,
-  }) {
+  /// Passenger card inside the fare drawer — "ANJLI SINGH (F)" + email/phone.
+  Widget _passengerCard(BuildContext context) {
+    final contact = [
+      if (widget.passengerEmail.isNotEmpty) widget.passengerEmail,
+      if (widget.passengerPhone.isNotEmpty) widget.passengerPhone,
+    ].join(' I ');
+
     return Container(
-      padding: EdgeInsets.all(context.wp(3)),
+      width: double.infinity,
+      padding: EdgeInsets.all(context.w(12)),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFFFFF),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey.shade200),
+        borderRadius: BorderRadius.circular(context.r(12)),
+        border: Border.all(color: Colors.white, width: 0.8),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Row(
-            children: [
-              Icon(
-                icon,
-                size: 14,
-                color: Colors.grey.shade500,
-              ),
-              SizedBox(width: 4),
-              Text(
-                title,
-                style: TextStyle(
-                  fontSize: context.labelSmall,
-                  color: Colors.grey.shade500,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: 4),
           Text(
-            value,
-            style: TextStyle(
-              fontSize: context.bodyMedium,
-              color: _darkNavy,
-              fontWeight: FontWeight.w600,
-            ),
-            maxLines: 2,
+            _passengerLine.isEmpty ? 'Guest' : _passengerLine,
+            maxLines: 1,
             overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+                fontSize: context.fs(13), fontWeight: FontWeight.w800, color: _ink, letterSpacing: 0.3),
           ),
+          if (contact.isNotEmpty) ...[
+            SizedBox(height: context.h(3)),
+            Text(contact, style: TextStyle(fontSize: context.fs(11), color: _muted)),
+          ],
         ],
       ),
     );
   }
 
+  // ==================== TRIP TYPE (unchanged behaviour, restyled) ====================
   Future<void> _pickReturnDateTime() async {
     final base = _returnDate ??
         widget.pickupDate.add(const Duration(hours: 2));
@@ -490,34 +1018,20 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
   Widget _buildTripTypeSection() {
     return Container(
-      margin: EdgeInsets.symmetric(
-        horizontal: context.wp(4),
-        vertical: context.hp(2),
-      ),
-      padding: EdgeInsets.all(context.wp(4)),
+      padding: EdgeInsets.all(context.w(14)),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(context.borderRadius),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(context.r(12)),
+        border: Border.all(color: _stroke),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             'Trip Type',
-            style: TextStyle(
-              fontSize: context.titleMedium,
-              fontWeight: FontWeight.w700,
-              color: _darkNavy,
-            ),
+            style: TextStyle(fontSize: context.fs(14), fontWeight: FontWeight.w700, color: _ink),
           ),
-          SizedBox(height: context.hp(1.5)),
+          SizedBox(height: context.h(10)),
           Row(
             children: [
               Expanded(
@@ -527,7 +1041,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                   value: 'one_way',
                 ),
               ),
-              SizedBox(width: context.wp(3)),
+              SizedBox(width: context.w(10)),
               Expanded(
                 child: _buildTripTypeOption(
                   label: 'Round Trip',
@@ -538,60 +1052,45 @@ class _PaymentScreenState extends State<PaymentScreen> {
             ],
           ),
           if (_tripType == 'round_trip') ...[
-            SizedBox(height: context.hp(2)),
+            SizedBox(height: context.h(14)),
             Text(
               'RETURN PICKUP',
               style: TextStyle(
-                fontSize: context.labelSmall,
+                fontSize: context.fs(10),
                 fontWeight: FontWeight.w700,
-                color: Colors.grey.shade500,
+                color: _muted,
                 letterSpacing: 0.5,
               ),
             ),
-            SizedBox(height: context.hp(1)),
+            SizedBox(height: context.h(8)),
             InkWell(
               onTap: _pickReturnDateTime,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(context.r(8)),
               child: Container(
-                padding: EdgeInsets.all(context.wp(3)),
+                padding: EdgeInsets.all(context.w(12)),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFFFFFF),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(context.r(8)),
                   border: Border.all(
-                    color: _returnDate == null
-                        ? Colors.grey.shade300
-                        : _primaryBlue,
+                    color: _returnDate == null ? _stroke : _pri,
                   ),
                 ),
                 child: Row(
                   children: [
-                    Icon(
-                      Icons.calendar_today,
-                      size: context.iconSmall,
-                      color: _primaryBlue,
-                    ),
-                    SizedBox(width: context.wp(3)),
+                    Icon(Icons.calendar_today, size: context.w(15), color: _pri),
+                    SizedBox(width: context.w(10)),
                     Expanded(
                       child: Text(
                         _returnDate == null
                             ? 'Select return date & time'
                             : _formatDateTime(_returnDate!),
                         style: TextStyle(
-                          fontSize: context.bodyMedium,
-                          color: _returnDate == null
-                              ? Colors.grey.shade500
-                              : _darkNavy,
-                          fontWeight: _returnDate == null
-                              ? FontWeight.w400
-                              : FontWeight.w600,
+                          fontSize: context.fs(13),
+                          color: _returnDate == null ? _muted : _ink,
+                          fontWeight: _returnDate == null ? FontWeight.w400 : FontWeight.w600,
                         ),
                       ),
                     ),
-                    Icon(
-                      Icons.chevron_right,
-                      size: context.iconSmall,
-                      color: Colors.grey.shade400,
-                    ),
+                    Icon(Icons.chevron_right, size: context.w(16), color: _muted),
                   ],
                 ),
               ),
@@ -616,30 +1115,26 @@ class _PaymentScreenState extends State<PaymentScreen> {
         });
       },
       child: Container(
-        padding: EdgeInsets.symmetric(vertical: context.hp(1.5)),
+        padding: EdgeInsets.symmetric(vertical: context.h(10)),
         decoration: BoxDecoration(
-          color: isSelected ? _primaryBlue.withOpacity(0.05) : Colors.grey.shade50,
-          borderRadius: BorderRadius.circular(8),
+          color: isSelected ? _pri.withValues(alpha: 0.05) : Colors.grey.shade50,
+          borderRadius: BorderRadius.circular(context.r(8)),
           border: Border.all(
-            color: isSelected ? _primaryBlue : Colors.grey.shade200,
-            width: isSelected ? 2 : 1,
+            color: isSelected ? _pri : _stroke,
+            width: isSelected ? 1.5 : 1,
           ),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              icon,
-              size: context.iconSmall,
-              color: isSelected ? _primaryBlue : Colors.grey.shade600,
-            ),
-            SizedBox(width: context.wp(2)),
+            Icon(icon, size: context.w(14), color: isSelected ? _pri : Colors.grey.shade600),
+            SizedBox(width: context.w(6)),
             Text(
               label,
               style: TextStyle(
-                fontSize: context.bodyMedium,
+                fontSize: context.fs(13),
                 fontWeight: FontWeight.w600,
-                color: isSelected ? _primaryBlue : _darkNavy,
+                color: isSelected ? _pri : _ink,
               ),
             ),
           ],
@@ -648,470 +1143,236 @@ class _PaymentScreenState extends State<PaymentScreen> {
     );
   }
 
-  Widget _buildPaymentMethodSection() {
+  // ==================== OPTIONS ====================
+  Widget _sectionLabel(BuildContext context, String text) => Text(
+        text,
+        style: TextStyle(fontSize: context.fs(16), fontWeight: FontWeight.w600, color: Colors.black),
+      );
+
+  Widget _emiPromoCard(BuildContext context) {
     return Container(
-      margin: EdgeInsets.symmetric(
-        horizontal: context.wp(4),
-        vertical: context.hp(2),
-      ),
-      padding: EdgeInsets.all(context.wp(4)),
+      width: double.infinity,
+      margin: EdgeInsets.only(bottom: context.h(0)),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(context.borderRadius),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(context.r(12)),
+        border: Border.all(color: _stroke),
       ),
+      clipBehavior: Clip.antiAlias,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header
-          Row(
-            children: [
-              Text(
-                'Choose Payment Method',
-                style: TextStyle(
-                  fontSize: context.titleMedium,
-                  fontWeight: FontWeight.w700,
-                  color: _darkNavy,
-                ),
-              ),
-              const Spacer(),
-              Row(
-                children: [
-                  Icon(
-                    Icons.lock_outline,
-                    size: 14,
-                    color: _successGreen,
-                  ),
-                  SizedBox(width: 4),
-                  Text(
-                    'SSL Secured',
-                    style: TextStyle(
-                      fontSize: context.labelSmall,
-                      color: _successGreen,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          SizedBox(height: 4),
-          Text(
-            '100% secure & encrypted payments',
-            style: TextStyle(
-              fontSize: context.bodySmall,
-              color: Colors.grey.shade600,
-            ),
-          ),
-
-          SizedBox(height: context.hp(2)),
-
-          // Payment Methods List
-          _buildPaymentMethodsList(),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPaymentMethodsList() {
-    final paymentMethods = [
-      {
-        'id': 'wallet',
-        'name': 'My Wallet',
-        'subtitle': 'Bal: 0 INR',
-        'icon': Icons.account_balance_wallet,
-      },
-      {
-        'id': 'razorpay',
-        'name': 'Razorpay',
-        'subtitle': 'Cards, UPI, Net Banking, Wallets',
-        'icon': Icons.payment,
-      },
-    ];
-
-    return Column(
-      children: paymentMethods.map((method) {
-        final isSelected = _selectedPaymentMethod == method['id'];
-        return GestureDetector(
-          onTap: () {
-            setState(() {
-              // Toggle selection - deselect if already selected
-              if (isSelected) {
-                _selectedPaymentMethod = null;
-              } else {
-                _selectedPaymentMethod = method['id'] as String;
-              }
-            });
-          },
-          child: Container(
-            margin: const EdgeInsets.only(bottom: 8),
-            padding: EdgeInsets.all(context.wp(3)),
-            decoration: BoxDecoration(
-              color: isSelected
-                  ? (method['id'] == 'wallet' ? _lightGreen : _primaryBlue.withOpacity(0.05))
-                  : Colors.grey.shade50,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color: isSelected
-                    ? (method['id'] == 'wallet' ? _successGreen : _primaryBlue)
-                    : Colors.grey.shade200,
-                width: isSelected ? 2 : 1,
-              ),
-            ),
+          Container(
+            width: double.infinity,
+            padding: EdgeInsets.symmetric(horizontal: context.w(14), vertical: context.h(12)),
+            color: _offer.withValues(alpha: 0.06),
             child: Row(
               children: [
-                Icon(
-                  method['icon'] as IconData,
-                  size: context.iconMedium,
-                  color: isSelected
-                      ? (method['id'] == 'wallet' ? _successGreen : _primaryBlue)
-                      : Colors.grey.shade600,
-                ),
-                SizedBox(width: context.wp(3)),
+                Icon(Icons.percent_rounded, size: context.w(16), color: _offer),
+                SizedBox(width: context.w(10)),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Text(
-                            method['name'] as String,
-                            style: TextStyle(
-                              fontSize: context.bodyMedium,
-                              fontWeight: FontWeight.w600,
-                              color: _darkNavy,
-                            ),
-                          ),
-                          if (isSelected) ...[
-                            const Spacer(),
-                            Icon(
-                              Icons.check_circle,
-                              color: method['id'] == 'wallet'
-                                  ? _successGreen
-                                  : _primaryBlue,
-                              size: 20,
-                            ),
-                          ],
-                        ],
-                      ),
-                      Text(
-                        method['subtitle'] as String,
-                        style: TextStyle(
-                          fontSize: context.labelSmall,
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
-                    ],
+                  child: Text(
+                    'Get an additional Rs 300 off with HDFCEMI on 6 month EMI.',
+                    style: TextStyle(
+                        fontSize: context.fs(12), fontWeight: FontWeight.w600, color: _ink, height: 1.35),
                   ),
                 ),
               ],
             ),
           ),
-        );
-      }).toList(),
-    );
-  }
-
-  Widget _buildBottomBar() {
-    return Container(
-      padding: EdgeInsets.all(context.wp(4)),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, -2),
+          _optionRow(
+            context,
+            tileId: 'emi',
+            interactive: false,
+            icon: Icons.calendar_view_week_rounded,
+            iconColor: _pri,
+            iconBg: const Color(0xFFEFF6FF),
+            title: 'EMI',
+            subtitle: 'Credit/Debit Card & Cardless EMI available',
+            tag: 'NO COST EMI',
+            tagColor: _pri,
           ),
         ],
       ),
-      child: SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Fare Summary
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Base fare',
-                  style: TextStyle(
-                    fontSize: context.bodyMedium,
-                    color: Colors.grey.shade600,
-                  ),
-                ),
-                Text(
-                  'INR ${widget.baseFare.toStringAsFixed(2)}',
-                  style: TextStyle(
-                    fontSize: context.bodyMedium,
-                    color: Colors.grey.shade700,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Total',
-                  style: TextStyle(
-                    fontSize: context.titleMedium,
-                    fontWeight: FontWeight.w700,
-                    color: _darkNavy,
-                  ),
-                ),
-                Text(
-                  'INR ${widget.totalAmount.toStringAsFixed(2)}',
-                  style: TextStyle(
-                    fontSize: context.titleMedium,
-                    fontWeight: FontWeight.w800,
-                    color: _darkNavy,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
+    );
+  }
 
-            // Passenger Info
-            Container(
-              padding: EdgeInsets.all(context.wp(3)),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade50,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.person_outline,
-                        size: 16,
-                        color: Colors.grey.shade600,
-                      ),
-                      SizedBox(width: 4),
-                      Text(
-                        'Passenger',
-                        style: TextStyle(
-                          fontSize: context.bodyMedium,
-                          fontWeight: FontWeight.w600,
-                          color: _darkNavy,
-                        ),
-                      ),
-                    ],
-                  ),
-                  SizedBox(height: 8),
-                  Text(
-                    widget.passengerName,
-                    style: TextStyle(
-                      fontSize: context.bodySmall,
-                      color: _darkNavy,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  Text(
-                    widget.passengerEmail,
-                    style: TextStyle(
-                      fontSize: context.labelSmall,
-                      color: Colors.grey.shade600,
-                    ),
-                  ),
-                  Text(
-                    widget.passengerPhone,
-                    style: TextStyle(
-                      fontSize: context.labelSmall,
-                      color: Colors.grey.shade600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+  Widget _optionCard(BuildContext context, {required List<Widget> children}) {
+    return Container(
+      width: double.infinity,
+      margin: EdgeInsets.only(bottom: context.h(12)),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(context.r(12)),
+        border: Border.all(color: _stroke),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(children: children),
+    );
+  }
 
-            const SizedBox(height: 16),
-
-            // Scan & Pay Button
-            SizedBox(
-              width: double.infinity,
-              height: context.buttonHeight,
-              child: ElevatedButton(
-                onPressed: (_selectedPaymentMethod != null && !_isProcessing)
-                    ? _processPayment
-                    : null,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor:
-                      (_selectedPaymentMethod != null && !_isProcessing)
-                      ? _primaryOrange
-                      : Colors.grey.shade300,
-                  foregroundColor: Colors.white,
-                  elevation: 0,
-                  disabledBackgroundColor: Colors.grey.shade300,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                child: _isProcessing
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation(Colors.white),
-                        ),
-                      )
-                    : Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            _getPaymentIcon(),
-                            size: context.iconMedium,
-                          ),
-                          SizedBox(width: context.wp(2)),
-                          Text(
-                            _getButtonText(),
-                            style: TextStyle(
-                              fontSize: context.bodyLarge,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ],
-                      ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Total payable amount: INR ${widget.totalAmount.toStringAsFixed(2)}',
+  Widget _promoStrip(BuildContext context, String text) {
+    return Container(
+      width: double.infinity,
+      margin: EdgeInsets.only(bottom: context.h(12)),
+      padding: EdgeInsets.symmetric(horizontal: context.w(14), vertical: context.h(12)),
+      decoration: BoxDecoration(
+        color: _offer.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(context.r(12)),
+        border: Border.all(color: _offer.withValues(alpha: 0.18)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.discount_rounded, size: context.w(18), color: _offer),
+          SizedBox(width: context.w(10)),
+          Expanded(
+            child: Text(
+              text,
               style: TextStyle(
-                fontSize: context.bodySmall,
-                color: Colors.grey.shade600,
-                fontWeight: FontWeight.w600,
-              ),
+                  fontSize: context.fs(12.5), fontWeight: FontWeight.w600, color: _ink, height: 1.35),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
-  IconData _getPaymentIcon() {
-    switch (_selectedPaymentMethod) {
-      case 'wallet':
-        return Icons.account_balance_wallet;
-      case 'razorpay':
-        return Icons.payment;
-      default:
-        return Icons.payment;
-    }
+  /// One payment option ROW. Tapping an interactive row selects the method
+  /// and starts payment immediately — no separate Pay button on this screen,
+  /// same one-tap pattern [AkFlightPaymentScreen] uses.
+  Widget _optionRow(
+    BuildContext context, {
+    required String tileId,
+    String? method,
+    IconData? icon,
+    Color iconColor = Colors.transparent,
+    Color iconBg = const Color(0xFFF1F5F9),
+    required String title,
+    required String subtitle,
+    String? tag,
+    Color tagColor = _offer,
+    bool interactive = true,
+  }) {
+    final isSelected = interactive && _selectedTileId == tileId;
+
+    final content = AnimatedContainer(
+      duration: const Duration(milliseconds: 150),
+      padding: EdgeInsets.symmetric(horizontal: context.w(14), vertical: context.h(14)),
+      color: isSelected ? _pri.withValues(alpha: 0.05) : Colors.white,
+      child: Row(
+        children: [
+          Container(
+            width: context.w(34),
+            height: context.w(34),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(color: iconBg, borderRadius: BorderRadius.circular(context.r(8))),
+            child: Icon(icon, size: context.w(18), color: iconColor == Colors.transparent ? _ink : iconColor),
+          ),
+          SizedBox(width: context.w(14)),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: context.fs(15), fontWeight: FontWeight.w700, color: _ink),
+                      ),
+                    ),
+                    if (tag != null) ...[
+                      SizedBox(width: context.w(6)),
+                      Flexible(
+                        child: Container(
+                          padding: EdgeInsets.symmetric(horizontal: context.w(6), vertical: context.h(2)),
+                          decoration: BoxDecoration(
+                            color: tagColor.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(context.r(4)),
+                          ),
+                          child: Text(
+                            tag,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                                fontSize: context.fs(9), fontWeight: FontWeight.w800, color: tagColor, letterSpacing: 0.3),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+                SizedBox(height: context.h(3)),
+                Text(
+                  subtitle,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: context.fs(12), color: _muted),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(width: context.w(8)),
+          if (interactive)
+            Icon(
+              isSelected ? Icons.check_circle_rounded : Icons.chevron_right_rounded,
+              size: context.w(22),
+              color: isSelected ? _pri : AppColors.AppBlue,
+            ),
+        ],
+      ),
+    );
+
+    if (!interactive || method == null) return content;
+
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: _isProcessing ? null : () => _payWith(method, tileId),
+      child: content,
+    );
   }
 
-  String _getButtonText() {
-    switch (_selectedPaymentMethod) {
-      case 'wallet':
-        return 'Pay with Wallet';
-      case 'razorpay':
-        return 'Pay with Razorpay';
-      default:
-        return 'Select a payment method';
+  /// One-tap: remember the method, then run the existing payment routing —
+  /// no behaviour change to wallet / Razorpay themselves.
+  void _payWith(String method, String tileId) {
+    if (_isProcessing) return;
+    if (_tripType == 'round_trip' && _returnDate == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please select a return date & time for your round trip'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
     }
+    setState(() {
+      _selectedTileId = tileId;
+      _selectedPaymentMethod = method;
+    });
+    _processPayment();
   }
 
+  // ==================== STATUS ====================
+  Widget _processingCard(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: context.h(48)),
+      child: Column(
+        children: [
+          const CircularProgressIndicator(color: _pri),
+          SizedBox(height: context.h(16)),
+          Text(
+            _statusMessage,
+            textAlign: TextAlign.center,
+            style: TextStyle(color: _muted, fontSize: context.fs(13)),
+          ),
+        ],
+      ),
+    );
+  }
 
-  // void _processPayment() {
-  //   print('=== PROCESS PAYMENT CLICKED ===');
-  //
-  //   if (_selectedPaymentMethod == null) {
-  //     print('ERROR: No payment method selected');
-  //     ScaffoldMessenger.of(context).showSnackBar(
-  //       SnackBar(
-  //         content: Text('Please select a payment method'),
-  //         backgroundColor: Colors.red,
-  //         behavior: SnackBarBehavior.floating,
-  //         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-  //       ),
-  //     );
-  //     return;
-  //   }
-  //
-  //   print('Payment method selected: $_selectedPaymentMethod');
-  //
-  //   try {
-  //     final bloc = context.read<TransportReservationBloc>();
-  //     print('BLoC instance retrieved: ${bloc.runtimeType}');
-  //
-  //     final reservationEntity = _buildReservationEntity();
-  //
-  //     print('=== DISPATCHING CREATE RESERVATION EVENT ===');
-  //     print('Search ID: ${reservationEntity.searchId}');
-  //     print('Result ID: ${reservationEntity.resultId}');
-  //     print('User ID: ${reservationEntity.userId}');
-  //     print('Customer: ${reservationEntity.firstName} ${reservationEntity.customerInfo.lastName}');
-  //     print('Email: ${reservationEntity.email}');
-  //     print('Phone: ${reservationEntity.phoneNumber}');
-  //     print('Trip: ${reservationEntity.tripStartAddress} → ${reservationEntity.tripEndAddress}');
-  //     print('Pickup: ${reservationEntity.tripPickupDatetime}');
-  //     print('Vehicle: ${reservationEntity.vehicleName} (${reservationEntity.providerName})');
-  //     print('Total: ${reservationEntity.displayTotalPrice} ${reservationEntity.displayCurrency}');
-  //     print('Payment: ${reservationEntity.paidVia} via ${reservationEntity.paymentGateway}');
-  //
-  //     bloc.add(
-  //       CreateTransportReservationEvent(
-  //         searchId: reservationEntity.searchId,
-  //         resultId: reservationEntity.resultId,
-  //         firstName: reservationEntity.firstName,
-  //         email: reservationEntity.email,
-  //         phoneNumber: reservationEntity.phoneNumber,
-  //         customerInfo: reservationEntity.customerInfo,
-  //         passengers: reservationEntity.passengers,
-  //         numPassengers: reservationEntity.numPassengers,
-  //         currency: reservationEntity.currency,
-  //         selectedCurrency: reservationEntity.selectedCurrency,
-  //         displayCurrency: reservationEntity.displayCurrency,
-  //         displayTotalPrice: reservationEntity.displayTotalPrice,
-  //         displayBasePrice: reservationEntity.displayBasePrice,
-  //         displayRideBasePrice: reservationEntity.displayRideBasePrice,
-  //         displayDiscountAmount: reservationEntity.displayDiscountAmount,
-  //         optionalAmenities: reservationEntity.optionalAmenities,
-  //         tripStartAddress: reservationEntity.tripStartAddress,
-  //         tripEndAddress: reservationEntity.tripEndAddress,
-  //         tripPickupDatetime: reservationEntity.tripPickupDatetime,
-  //         tripType: reservationEntity.tripType,
-  //         vehicleName: reservationEntity.vehicleName,
-  //         providerName: reservationEntity.providerName,
-  //         paidVia: reservationEntity.paidVia,
-  //         paymentGateway: reservationEntity.paymentGateway,
-  //         paymentReferenceId: reservationEntity.paymentReferenceId,
-  //         razorpayOrderId: reservationEntity.razorpayOrderId,
-  //         razorpayPaymentId: reservationEntity.razorpayPaymentId,
-  //         specialInstructions: reservationEntity.specialInstructions,
-  //         notes: reservationEntity.notes,
-  //         flightNumber: reservationEntity.flightNumber,
-  //         airline: reservationEntity.airline,
-  //         couponCode: reservationEntity.couponCode,
-  //         extraPaxInfo: reservationEntity.extraPaxInfo,
-  //       ),
-  //     );
-  //
-  //     print('✓ Event dispatched successfully');
-  //
-  //   } catch (e, stack) {
-  //     print('✗ ERROR in _processPayment: $e');
-  //     print('Stack trace: $stack');
-  //     ScaffoldMessenger.of(context).showSnackBar(
-  //       SnackBar(
-  //         content: Text('Error: $e'),
-  //         backgroundColor: Colors.red,
-  //         behavior: SnackBarBehavior.floating,
-  //       ),
-  //     );
-  //   }
-  // }
   /// Pays from the wallet if its balance covers the total (uses
   /// [Urls.walletBalance]). There is no debit endpoint, so a sufficient
   /// balance is treated as a successful payment.
@@ -1128,7 +1389,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
       return;
     }
 
-    setState(() => _isProcessing = true);
+    setState(() {
+      _isProcessing = true;
+      _statusMessage = 'Checking your wallet balance...';
+    });
     try {
       final response = await di.sl<WalletApiService>().getWalletBalance();
       final data = (response.data as Map).cast<String, dynamic>();
@@ -1136,9 +1400,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
       final balance = double.tryParse('${wallet['balance'] ?? 0}') ?? 0;
 
       if (!mounted) return;
-      setState(() => _isProcessing = false);
 
       if (balance >= widget.totalAmount) {
+        setState(() => _statusMessage = 'Processing your payment...');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: const Text('Payment successful from wallet!'),
@@ -1148,7 +1412,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
         );
         // Wallet paid → record the booking via the reservation API.
         await _createReservation('WALLET${DateTime.now().millisecondsSinceEpoch}');
+        if (mounted) setState(() => _isProcessing = false);
       } else {
+        setState(() => _isProcessing = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -1214,7 +1480,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
   }
 
   Future<void> _initiateRazorpayPayment() async {
-    setState(() => _isProcessing = true);
+    setState(() {
+      _isProcessing = true;
+      _statusMessage = 'Starting your payment...';
+    });
 
     try {
       // Total is shown in INR on this screen; send a 2-decimal amount.
@@ -1250,7 +1519,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
       };
 
       if (!mounted) return;
-      setState(() => _isProcessing = false);
       _razorpay.open(options);
     } on DioException catch (e) {
       if (!mounted) return;
@@ -1279,6 +1547,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
   void _handleRazorpaySuccess(PaymentSuccessResponse response) {
     print('Transport payment success: ${response.paymentId}');
+    if (mounted) setState(() => _statusMessage = 'Confirming your booking...');
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: const Text('Payment successful!'),
@@ -1287,7 +1556,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
       ),
     );
     // Payment done → now record the booking via the reservation API.
-    _createReservation(response.paymentId ?? '');
+    _createReservation(response.paymentId ?? '').whenComplete(() {
+      if (mounted) setState(() => _isProcessing = false);
+    });
   }
 
   void _handleRazorpayError(PaymentFailureResponse response) {

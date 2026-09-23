@@ -9,6 +9,11 @@ class TpollSearchEntity extends Equatable {
     required this.search,
   });
 
+  TpollSearchEntity copyWith({bool? moreComing}) => TpollSearchEntity(
+        success: success,
+        search: search.copyWith(moreComing: moreComing),
+      );
+
   @override
   List<Object?> get props => [success, search];
 }
@@ -37,6 +42,19 @@ class SearchDataEntity extends Equatable {
     required this.expiresIn,
     required this.moreComing,
   });
+
+  SearchDataEntity copyWith({bool? moreComing}) => SearchDataEntity(
+        numPassengers: numPassengers,
+        pickupDatetime: pickupDatetime,
+        flightDatetime: flightDatetime,
+        searchId: searchId,
+        results: results,
+        startLocation: startLocation,
+        endLocation: endLocation,
+        currencyInfo: currencyInfo,
+        expiresIn: expiresIn,
+        moreComing: moreComing ?? this.moreComing,
+      );
 
   @override
   List<Object?> get props => [
@@ -73,6 +91,17 @@ class SearchResultEntity extends Equatable {
   final String? vehicleMake;
   final String? vehicleModel;
   final int? travelTimeMinutes;
+  final bool tollsIncluded;
+  // Hours of notice for a 100% refund; null when the supplier has no
+  // full-refund tier (so the card must not claim "free cancellation").
+  final int? freeCancellationHours;
+  // Waiting-time policy (free minutes, then a per-minute charge). Null when
+  // the supplier didn't send it. The amount is in [waitingMinuteCurrency]
+  // (falls back to the result's own currency when the supplier omits it).
+  final int? waitMinutesIncluded;
+  final String? waitingMinuteAmount;
+  final String? waitingMinuteCurrency;
+  final bool flightInfoRequired;
 
   const SearchResultEntity({
     required this.resultId,
@@ -92,6 +121,12 @@ class SearchResultEntity extends Equatable {
     this.vehicleMake,
     this.vehicleModel,
     this.travelTimeMinutes,
+    this.tollsIncluded = false,
+    this.freeCancellationHours,
+    this.waitMinutesIncluded,
+    this.waitingMinuteAmount,
+    this.waitingMinuteCurrency,
+    this.flightInfoRequired = false,
   });
 
   @override
@@ -113,6 +148,12 @@ class SearchResultEntity extends Equatable {
     vehicleMake,
     vehicleModel,
     travelTimeMinutes,
+    tollsIncluded,
+    freeCancellationHours,
+    waitMinutesIncluded,
+    waitingMinuteAmount,
+    waitingMinuteCurrency,
+    flightInfoRequired,
   ];
 }
 
@@ -152,6 +193,10 @@ class AmenityEntity extends Equatable {
   final bool chargeable;
   final PriceInfoEntity? price;
 
+  /// Add-on created by Wander Nova's backend rather than the supplier — must
+  /// not be sent to the supplier in `optional_amenities`.
+  final bool internal;
+
   const AmenityEntity({
     required this.key,
     required this.name,
@@ -159,10 +204,11 @@ class AmenityEntity extends Equatable {
     required this.included,
     required this.chargeable,
     this.price,
+    this.internal = false,
   });
 
   @override
-  List<Object?> get props => [key, name,description, included, chargeable, price];
+  List<Object?> get props => [key, name,description, included, chargeable, price, internal];
 }
 
 class PriceInfoEntity extends Equatable {

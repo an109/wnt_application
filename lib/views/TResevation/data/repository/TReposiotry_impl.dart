@@ -10,6 +10,15 @@ class TransportReservationRepositoryImpl implements TransportReservationReposito
 
   TransportReservationRepositoryImpl(this.apiService);
 
+  /// Wire format for phone numbers is digits with the country code, no `+`
+  /// (e.g. `919876543212`). The booking screen now passes an international
+  /// number (`+91…`); a bare national number is treated as Indian, as before.
+  static String _wirePhone(String raw) {
+    final s = raw.trim();
+    if (s.startsWith('+')) return s.replaceAll(RegExp(r'\D'), '');
+    return '91$s';
+  }
+
   @override
   Future<DataState<TransportReservationEntity>> createReservation({
     required String searchId,
@@ -52,12 +61,12 @@ class TransportReservationRepositoryImpl implements TransportReservationReposito
         'result_id': resultId,
         'first_name': firstName,
         'email': email,
-        'phone_number': '91${phoneNumber}',
+        'phone_number': _wirePhone(phoneNumber),
         'customer_info': {
           'first_name': customerInfo.firstName,
           'last_name': customerInfo.lastName,
           'email': customerInfo.email,
-          'phone_number': '91${customerInfo.phoneNumber}',
+          'phone_number': _wirePhone(customerInfo.phoneNumber),
         },
         'passengers': passengers.map((p) => {
           'first_name': p.firstName,
