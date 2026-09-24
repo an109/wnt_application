@@ -23,6 +23,7 @@ class PreferencesManager {
 
   static const String _lastSearchKey = 'last_search_data';
   static const String _searchHistoryKey = 'search_history';
+  static const String _recentlyViewedHotelsKey = 'recently_viewed_hotels';
 
   // Token methods
   String? getToken() {
@@ -123,6 +124,55 @@ class PreferencesManager {
 
   Future<void> clearSearchHistory() async {
     await _prefs.remove(_searchHistoryStorageKey());
+  }
+
+  // ============ Recently Viewed Hotels ============
+  // Distinct from search history above: this tracks individual hotels the
+  // user actually opened the details of, not the searches they ran. Scoped
+  // per logged-in user the same way search history is.
+  String _recentlyViewedHotelsStorageKey() {
+    final userId = getUserId();
+    return userId != null
+        ? '${_recentlyViewedHotelsKey}_$userId'
+        : _recentlyViewedHotelsKey;
+  }
+
+  /// Records a hotel the user opened the details of. Moves an existing
+  /// entry (matched by `hotelCode`) to the front instead of duplicating it,
+  /// and keeps only the most recent 10.
+  Future<void> addRecentlyViewedHotel(Map<String, dynamic> hotel) async {
+    final key = _recentlyViewedHotelsStorageKey();
+    List<String> viewed = _prefs.getStringList(key) ?? [];
+    final code = hotel['hotelCode']?.toString() ?? '';
+
+    if (code.isNotEmpty) {
+      viewed.removeWhere((item) {
+        try {
+          final decoded = jsonDecode(item) as Map<String, dynamic>;
+          return decoded['hotelCode']?.toString() == code;
+        } catch (e) {
+          return false;
+        }
+      });
+    }
+
+    viewed.insert(0, jsonEncode(hotel));
+    if (viewed.length > 10) {
+      viewed = viewed.sublist(0, 10);
+    }
+
+    await _prefs.setStringList(key, viewed);
+  }
+
+  List<Map<String, dynamic>> getRecentlyViewedHotels() {
+    final viewed = _prefs.getStringList(_recentlyViewedHotelsStorageKey()) ?? [];
+    return viewed.map((item) {
+      try {
+        return jsonDecode(item) as Map<String, dynamic>;
+      } catch (e) {
+        return <String, dynamic>{};
+      }
+    }).where((item) => item.isNotEmpty).toList();
   }
 
   // ============ GENERIC METHODS ============

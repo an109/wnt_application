@@ -126,6 +126,7 @@ class _HotelRecentSearchesSectionState
               searchId: data.searchId,
               searchTracingKey: data.searchTracingKey,
               locationName: location.fullName,
+              location: location,
               checkIn: checkInFormatted,
               checkOut: checkOutFormatted,
               adults: totalAdults,

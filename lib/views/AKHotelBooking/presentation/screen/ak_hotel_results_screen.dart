@@ -6,6 +6,7 @@ import '../../../../common_widgets/custom_bottom_nav.dart';
 import '../../../../common_widgets/hotel_loading_indicator.dart';
 import '../../../../core/error/data_state.dart';
 import '../../../../core/resources/app_colours.dart';
+import '../../../../core/utils/storage/shared_preference.dart';
 import '../../../Hotel_api/domain/entities/hotel_ui_entity.dart';
 import '../../../AKHotelDetailContent/domain/entity/AKHotelDetailContent_entity.dart';
 import '../../../AKHotelDetailContent/domain/usecase/AKHotelDetailContent_usecase.dart';
@@ -13,6 +14,7 @@ import '../../../AKHotelResultContent/domain/entity/AKHotelResultContent_entity.
 import '../../../AKHotelResultContent/domain/usecase/AKHotelResultContent_usecase.dart';
 import '../../../AKHotelResultRate/domain/entity/AKHotelResultRate_entity.dart';
 import '../../../AKHotelResultRate/domain/usecase/AKHotelResultRate_usecase.dart';
+import '../../../AKHotelAutosuggest/domain/entity/AKHotelAutosuggest_entity.dart';
 import '../../../AKHotelSearchInit/domain/entity/AKHotelSearchInit_entity.dart';
 import '../widgets/ak_hotel_bottom_bar.dart';
 import '../widgets/ak_hotel_client_filters.dart';
@@ -37,6 +39,11 @@ class AkHotelResultsScreen extends StatefulWidget {
   final String searchId;
   final String searchTracingKey;
   final String locationName;
+  /// The exact Autosuggest location the user picked to reach this screen —
+  /// kept (not just [locationName]) so a "Recently Viewed" hotel from this
+  /// search can later re-run a fresh Search Init for the same destination
+  /// (see [_recordRecentlyViewed]) without re-resolving it by name.
+  final AkHotelLocationEntity location;
   final String checkIn;
   final String checkOut;
   final int adults;
@@ -60,6 +67,7 @@ class AkHotelResultsScreen extends StatefulWidget {
     required this.searchId,
     required this.searchTracingKey,
     required this.locationName,
+    required this.location,
     required this.checkIn,
     required this.checkOut,
     required this.adults,
@@ -604,6 +612,7 @@ class _AkHotelResultsScreenState extends State<AkHotelResultsScreen> {
       );
       return;
     }
+    _recordRecentlyViewed(hotel);
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -626,6 +635,43 @@ class _AkHotelResultsScreenState extends State<AkHotelResultsScreen> {
         ),
       ),
     );
+  }
+
+  /// Fire-and-forget local write powering the Hotel home screen's real
+  /// "Recently Viewed" section — never blocks or affects navigation. Also
+  /// carries enough of the original destination + occupancy (never the
+  /// dates — those are always re-picked fresh) for
+  /// `HotelRecentlyViewedSection` to re-run a brand new Search Init for the
+  /// same place when this hotel is tapped again later, instead of just
+  /// telling the user to search again themselves.
+  void _recordRecentlyViewed(HotelUiModel hotel) {
+    sl<PreferencesManager>().addRecentlyViewedHotel({
+      'hotelCode': hotel.hotelCode,
+      'hotelName': hotel.hotelName,
+      'image': hotel.image,
+      'images': hotel.images,
+      'address': hotel.address,
+      'cityName': hotel.cityName,
+      'price': hotel.price,
+      'rating': hotel.rating,
+      'reviewRating': hotel.reviewRating,
+      'reviewCount': hotel.reviewCount,
+      'location': {
+        'id': widget.location.id,
+        'name': widget.location.name,
+        'fullName': widget.location.fullName,
+        'type': widget.location.type,
+        'state': widget.location.state,
+        'country': widget.location.country,
+        'referenceId': widget.location.referenceId,
+        'lat': widget.location.lat,
+        'long': widget.location.long,
+      },
+      'nationality': widget.nationality,
+      'rooms': widget.rooms
+          .map((r) => {'adults': r.adults, 'children': r.children, 'childAges': r.childAges})
+          .toList(),
+    });
   }
 
   @override
@@ -746,13 +792,30 @@ class _AkHotelResultsScreenState extends State<AkHotelResultsScreen> {
 
     // Same top-rated hotels already on screen, just laid out as a photo
     // mosaic instead of a strip — never a separate/static data source.
+    // Sorted by rating *before* filtering for a photo (rather than after) so
+    // the backfill below can prioritise the actual best candidates.
+    final collectionCandidates = [...sortedMatched, ...sortedRecommended, ...sortedNearby]
+      ..sort((a, b) => b.rating.compareTo(a.rating));
+    // A hotel only gets its photo backfilled (see _scheduleImageBackfill) once
+    // some *other* section's card happens to render it — e.g. "Near by"'s
+    // horizontal strip only builds the cards currently scrolled into view.
+    // A photo-less top candidate that never happens to be scrolled to would
+    // otherwise sit excluded from Collections forever, even once every other
+    // section has loaded. Proactively requesting it here for the best few
+    // candidates (well above minHotelsRequired, so a few empty backfills
+    // still leave enough) is what actually makes Collections show up
+    // reliably instead of only when the pool of other cards coincidentally
+    // includes 4 already-photographed hotels.
+    const collectionCandidatePool = 12;
+    for (final h in collectionCandidates.take(collectionCandidatePool)) {
+      _scheduleImageBackfillForHotel(h.hotelCode);
+    }
     final collectionHotels = <String, HotelUiModel>{};
-    for (final h in [...sortedMatched, ...sortedRecommended, ...sortedNearby]) {
+    for (final h in collectionCandidates) {
       if (h.image.isEmpty && h.images.isEmpty) continue;
       collectionHotels.putIfAbsent(h.hotelCode, () => h);
     }
-    final sortedCollections = collectionHotels.values.toList()
-      ..sort((a, b) => b.rating.compareTo(a.rating));
+    final sortedCollections = collectionHotels.values.toList();
 
     return Stack(
       children: [

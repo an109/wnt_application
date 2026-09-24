@@ -20,7 +20,15 @@ import '../bloc/AKHotelAutosuggest_state.dart';
 class HotelDestinationSearchScreen extends StatefulWidget {
   final AkHotelLocationEntity? initialLocation;
 
-  const HotelDestinationSearchScreen({super.key, this.initialLocation});
+  /// A place name to prefill and immediately search for — used by the
+  /// "Near me" button, which reverse-geocodes the device's current position
+  /// to a city/locality name and opens straight into real suggestions for
+  /// it, rather than picking a destination on the user's behalf (the
+  /// Autosuggest API only takes a text term, so this is the closest thing to
+  /// a "nearby" search it supports).
+  final String? initialQuery;
+
+  const HotelDestinationSearchScreen({super.key, this.initialLocation, this.initialQuery});
 
   @override
   State<HotelDestinationSearchScreen> createState() =>
@@ -52,6 +60,11 @@ class _HotelDestinationSearchScreenState
   void initState() {
     super.initState();
     _bloc = sl<AkHotelAutosuggestBloc>();
+    final initialQuery = widget.initialQuery?.trim() ?? '';
+    if (initialQuery.isNotEmpty) {
+      _controller.text = initialQuery;
+      _bloc.add(SearchAkHotelLocationsEvent(initialQuery));
+    }
   }
 
   @override

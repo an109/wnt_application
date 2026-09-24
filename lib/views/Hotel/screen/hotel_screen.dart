@@ -11,6 +11,7 @@ import '../../../hotelUIwidget/hotel_recent_searches_section.dart';
 import '../../../hotelUIwidget/hotel_recently_viewed_section.dart';
 import '../../ExclusiveDeals/presentation/bloc/exclusive_deals_bloc.dart';
 
+import '../../flight_popularDestination/presentation/screen/popular_destination.dart';
 import '../../home/presentation/screens/deals.dart';
 import '../section/exclusive_deals/hotel_search_card.dart';
 
@@ -25,7 +26,14 @@ class HotelBookingScreen extends StatefulWidget {
 class _HotelBookingScreenState extends State<HotelBookingScreen> {
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return BlocProvider<ExclusiveDealsBloc>(
+      // Lifted above the whole screen (not just DealsSection) so
+      // HotelCollectionsSection and HotelLuxePackagesSection can reuse the
+      // same already-fetched real hotel deals instead of issuing their own
+      // API calls — DealsSection's own dispatch below still fires exactly
+      // once, they just listen to the same bloc instance.
+      create: (context) => sl<ExclusiveDealsBloc>(),
+      child: Scaffold(
       backgroundColor: Colors.white,
       drawer: const CustomDrawer(),
       extendBodyBehindAppBar: true,
@@ -69,14 +77,14 @@ class _HotelBookingScreenState extends State<HotelBookingScreen> {
               SliverToBoxAdapter(child: SizedBox(height: context.h(24))),
 
             /// EXCLUSIVE DEALS / AD BANNER SECTION
-            SliverToBoxAdapter(
-              child: BlocProvider<ExclusiveDealsBloc>(
-                create: (context) => sl<ExclusiveDealsBloc>(),
-                child: const DealsSection(),
-              ),
+            const SliverToBoxAdapter(
+              child: DealsSection(),
             ),
 
 
+              SliverToBoxAdapter(child: SizedBox(height: context.h(24))),
+
+            const SliverToBoxAdapter(child: PopularDestinations()),
               SliverToBoxAdapter(child: SizedBox(height: context.h(24))),
 
               /// LUXE - BEST PACKAGES SECTION (Figma 137:1117)
@@ -146,6 +154,7 @@ class _HotelBookingScreenState extends State<HotelBookingScreen> {
       ]
       ),
 
+      ),
     );
   }
 }

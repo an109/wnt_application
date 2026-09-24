@@ -3,6 +3,8 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:geocoding/geocoding.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
@@ -43,6 +45,7 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
   DateTime? _checkOutDate;
   AkHotelLocationEntity? _selectedLocation;
   bool _isSearching = false;
+  bool _locatingNearMe = false;
 
   /// Guest nationality is resolved internally (defaults to India / 'IN').
   /// It is not shown in the UI and will later be set based on the user's IP.
@@ -752,6 +755,7 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
             searchId: data.searchId,
             searchTracingKey: data.searchTracingKey,
             locationName: _selectedLocation!.fullName,
+            location: _selectedLocation!,
             checkIn: checkInFormatted,
             checkOut: checkOutFormatted,
             adults: totalAdults,
@@ -1092,16 +1096,68 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
 
   /// Full-screen destination picker — same pattern the flight SearchCard uses
   /// for From / To. Returns the picked [AkHotelLocationEntity].
-  Future<void> _openDestinationSearch() async {
+  Future<void> _openDestinationSearch({String? initialQuery}) async {
     final result = await Navigator.of(context).push<AkHotelLocationEntity>(
       MaterialPageRoute(
         builder: (_) => HotelDestinationSearchScreen(
           initialLocation: _selectedLocation,
+          initialQuery: initialQuery,
         ),
       ),
     );
     if (result == null || !mounted) return;
     setState(() => _selectedLocation = result);
+  }
+
+  /// "Near me" — reverse-geocodes the device's current position to a
+  /// city/locality name and opens the destination picker already searching
+  /// for it, so the user still confirms and taps Search themselves (the
+  /// Autosuggest API only takes a text term, so there's no true "search
+  /// hotels near these coordinates" to run automatically). Same
+  /// permission/service-check flow as `TLocationSearchScreen._useCurrentLocation`.
+  Future<void> _useNearMe() async {
+    if (_locatingNearMe) return;
+    setState(() => _locatingNearMe = true);
+    try {
+      if (!await Geolocator.isLocationServiceEnabled()) {
+        throw 'Location services are turned off.';
+      }
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
+        throw 'Location permission was denied.';
+      }
+
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+      );
+
+      String? place;
+      try {
+        final placemarks = await placemarkFromCoordinates(position.latitude, position.longitude);
+        if (placemarks.isNotEmpty) {
+          final p = placemarks.first;
+          place = [p.locality, p.subAdministrativeArea, p.administrativeArea]
+              .firstWhere((s) => (s ?? '').trim().isNotEmpty, orElse: () => null);
+        }
+      } catch (_) {
+        // Handled below via the null check — reverse geocoding failing just
+        // means there's nothing to prefill the search with.
+      }
+
+      if (!mounted) return;
+      if (place == null || place.trim().isEmpty) {
+        throw 'Could not determine your current city.';
+      }
+      await _openDestinationSearch(initialQuery: place);
+    } catch (e) {
+      if (!mounted) return;
+      _snack(e is String ? e : 'Could not detect your location.');
+    } finally {
+      if (mounted) setState(() => _locatingNearMe = false);
+    }
   }
 
   Widget _buildDestinationCard(BuildContext context) {
@@ -1178,7 +1234,7 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
 
   Widget _nearMeButton(BuildContext context) {
     return GestureDetector(
-      onTap: () => _snack('Nearby search coming soon'),
+      onTap: _locatingNearMe ? null : _useNearMe,
       behavior: HitTestBehavior.opaque,
       child: Container(
         padding: EdgeInsets.all(8),
@@ -1189,8 +1245,17 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.my_location,
-                size: context.w(14), color: AppColors.OrangeColor),
+            _locatingNearMe
+                ? SizedBox(
+                    width: context.w(14),
+                    height: context.w(14),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation(AppColors.OrangeColor),
+                    ),
+                  )
+                : Icon(Icons.my_location,
+                    size: context.w(14), color: AppColors.OrangeColor),
             SizedBox(width: context.w(8)),
             Text(
               'Near me',
