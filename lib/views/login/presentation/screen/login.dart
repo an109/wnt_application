@@ -660,15 +660,17 @@ class _LoginSignupScreenState extends State<LoginSignupScreen> {
                                           isLoading: _isGoogleLoading,
                                         ),
                                       ),
-                                      // SizedBox(width: context.w(10)), // Reduced from 12
-                                      // Expanded(
-                                      //   child: _appleButton(
-                                      //     onPressed: _isAppleLoading
-                                      //         ? null
-                                      //         : _handleAppleSignIn,
-                                      //     isLoading: _isAppleLoading,
-                                      //   ),
-                                      // ),
+                                      if (Platform.isIOS || Platform.isMacOS) ...[
+                                        SizedBox(width: context.w(10)), // Reduced from 12
+                                        Expanded(
+                                          child: _appleButton(
+                                            onPressed: _isAppleLoading
+                                                ? null
+                                                : _handleAppleSignIn,
+                                            isLoading: _isAppleLoading,
+                                          ),
+                                        ),
+                                      ],
                                     ],
                                   ),
                                   SizedBox(height: context.h(14)),

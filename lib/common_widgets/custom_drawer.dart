@@ -50,7 +50,8 @@ class _CustomDrawerState extends State<CustomDrawer>
 
   // Social Media URLs - Replace with your actual URLs
   static const Map<String, String> socialLinks = {
-    'linkedin': 'https://www.linkedin.com/company/wander-nova/posts/?feedView=all',
+    'linkedin':
+        'https://www.linkedin.com/company/wander-nova/posts/?feedView=all',
     'instagram': 'https://www.instagram.com/the.wandernova/',
     'facebook': 'https://www.facebook.com/thewandernova/?ref=1',
     'youtube': 'https://www.youtube.com/@WanderNovaTourism',
@@ -115,15 +116,9 @@ class _CustomDrawerState extends State<CustomDrawer>
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(context.r(12)),
-        border: Border.all(
-          color: Colors.grey.shade200,
-          width: 1,
-        ),
+        border: Border.all(color: Colors.grey.shade200, width: 1),
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: children,
-      ),
+      child: Column(mainAxisSize: MainAxisSize.min, children: children),
     );
   }
 
@@ -159,39 +154,44 @@ class _CustomDrawerState extends State<CustomDrawer>
   Widget build(BuildContext context) {
     return Drawer(
       elevation: 0,
-      width: context.isMobile ? null : context.w(320),
-      child: Container(
-        color: Colors.white,
-        child: SafeArea(
-          child: Column(
-            children: [
-              // Menu Items
-              Expanded(
-                child: ListView(
-                  padding: EdgeInsets.zero,
-                  physics: const BouncingScrollPhysics(),
-                  children: [
-                    if (_isLoggedIn) ..._buildLoggedInMenu(context),
-                    if (!_isLoggedIn) ..._buildGuestMenu(context),
+      width: context.isMobile
+          ? context.w(304).clamp(0.0, context.screenWidth * 0.85)
+          : context.w(320),
+      child: MediaQuery.withClampedTextScaling(
+        maxScaleFactor: 1.3,
+        child: Container(
+          color: Colors.white,
+          child: SafeArea(
+            child: Column(
+              children: [
+                // Menu Items
+                Expanded(
+                  child: ListView(
+                    padding: EdgeInsets.zero,
+                    physics: const BouncingScrollPhysics(),
+                    children: [
+                      if (_isLoggedIn) ..._buildLoggedInMenu(context),
+                      if (!_isLoggedIn) ..._buildGuestMenu(context),
 
-                    // Add Social Media Section at the bottom of the menu
-                    _buildSocialMediaSection(context),
-                  ],
+                      // Add Social Media Section at the bottom of the menu
+                      _buildSocialMediaSection(context),
+                    ],
+                  ),
                 ),
-              ),
 
-              // Footer Section
-              FadeTransition(
-                opacity: _fadeAnimation,
-                child: SlideTransition(
-                  position: Tween<Offset>(
-                    begin: const Offset(0, 0.1),
-                    end: Offset.zero,
-                  ).animate(_fadeAnimation),
-                  child: _buildFooter(context),
+                // Footer Section
+                FadeTransition(
+                  opacity: _fadeAnimation,
+                  child: SlideTransition(
+                    position: Tween<Offset>(
+                      begin: const Offset(0, 0.1),
+                      end: Offset.zero,
+                    ).animate(_fadeAnimation),
+                    child: _buildFooter(context),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -214,28 +214,28 @@ class _CustomDrawerState extends State<CustomDrawer>
             children: [
               _buildSocialIcon(
                 context,
-                icon: FontAwesomeIcons.linkedin,
+                icon: FontAwesomeIcons.linkedin.data,
                 color: const Color(0xFF0A66C2),
                 url: socialLinks['linkedin']!,
                 label: 'LinkedIn',
               ),
               _buildSocialIcon(
                 context,
-                icon: FontAwesomeIcons.instagram,
+                icon: FontAwesomeIcons.instagram.data,
                 color: const Color(0xFFE4405F),
                 url: socialLinks['instagram']!,
                 label: 'Instagram',
               ),
               _buildSocialIcon(
                 context,
-                icon: FontAwesomeIcons.facebook,
+                icon: FontAwesomeIcons.facebook.data,
                 color: const Color(0xFF1877F2),
                 url: socialLinks['facebook']!,
                 label: 'Facebook',
               ),
               _buildSocialIcon(
                 context,
-                icon: FontAwesomeIcons.youtube,
+                icon: FontAwesomeIcons.youtube.data,
                 color: const Color(0xFFFF0000),
                 url: socialLinks['youtube']!,
                 label: 'YouTube',
@@ -249,34 +249,40 @@ class _CustomDrawerState extends State<CustomDrawer>
   }
 
   Widget _buildSocialIcon(
-      BuildContext context, {
-        required IconData icon,
-        required Color color,
-        required String url,
-        required String label,
-      }) {
-    return InkWell(
-      onTap: () => _launchSocialMedia(url, label),
-      borderRadius: BorderRadius.circular(context.r(30)),
-      child: Container(
-        padding: EdgeInsets.all(context.w(6)),
-        child: Column(
-          children: [
-            Icon(
-              icon,
-              color: color,
-              size: context.iconMedium,
-            ),
-            SizedBox(height: context.gapXSmall),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: context.labelSmall,
-                color: Colors.grey.shade600,
-                fontWeight: FontWeight.w500,
+    BuildContext context, {
+    required IconData icon,
+    required Color color,
+    required String url,
+    required String label,
+  }) {
+    return Expanded(
+      child: InkWell(
+        onTap: () => _launchSocialMedia(url, label),
+        borderRadius: BorderRadius.circular(context.r(30)),
+        child: Container(
+          padding: EdgeInsets.symmetric(
+            vertical: context.w(6),
+            horizontal: context.w(2),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, color: color, size: context.iconMedium),
+              SizedBox(height: context.gapXSmall),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  style: TextStyle(
+                    fontSize: context.labelSmall,
+                    color: Colors.grey.shade600,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -297,10 +303,7 @@ class _CustomDrawerState extends State<CustomDrawer>
       } else {
         // Fallback: Try to open in web view
         if (await canLaunchUrl(Uri.parse(url))) {
-          await launchUrl(
-            Uri.parse(url),
-            mode: LaunchMode.inAppWebView,
-          );
+          await launchUrl(Uri.parse(url), mode: LaunchMode.inAppWebView);
         } else {
           // Show error if can't launch
           if (mounted) {
@@ -382,9 +385,7 @@ class _CustomDrawerState extends State<CustomDrawer>
               decoration: BoxDecoration(
                 color: Colors.green.shade50,
                 borderRadius: BorderRadius.circular(context.r(12)),
-                border: Border.all(
-                  color: Colors.green.shade200,
-                ),
+                border: Border.all(color: Colors.green.shade200),
               ),
               child: ValueListenableBuilder<String>(
                 valueListenable: CurrencyConverter.currencyListenable,
@@ -526,16 +527,16 @@ class _CustomDrawerState extends State<CustomDrawer>
   }
 
   Widget _buildMenuItem(
-      BuildContext context, {
-        required IconData icon,
-        required String title,
-        required VoidCallback onTap,
-        String? subtitle,
-        Widget? trailing,
-        int? badgeCount,
-        bool isHighlighted = false,
-        bool isDestructive = false,
-      }) {
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    required VoidCallback onTap,
+    String? subtitle,
+    Widget? trailing,
+    int? badgeCount,
+    bool isHighlighted = false,
+    bool isDestructive = false,
+  }) {
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -642,7 +643,11 @@ class _CustomDrawerState extends State<CustomDrawer>
         horizontal: context.horizontalPadding.left,
         vertical: context.gapMedium,
       ),
-      child: Divider(color: Colors.grey.shade200, thickness: context.h(1), height: context.h(1)),
+      child: Divider(
+        color: Colors.grey.shade200,
+        thickness: context.h(1),
+        height: context.h(1),
+      ),
     );
   }
 
@@ -651,7 +656,9 @@ class _CustomDrawerState extends State<CustomDrawer>
       padding: EdgeInsets.all(context.responsivePadding.right),
       decoration: BoxDecoration(
         color: Colors.white,
-        border: Border(top: BorderSide(color: Colors.grey.shade200, width: context.h(1))),
+        border: Border(
+          top: BorderSide(color: Colors.grey.shade200, width: context.h(1)),
+        ),
       ),
       child: SafeArea(
         top: false,
@@ -712,12 +719,16 @@ class _CustomDrawerState extends State<CustomDrawer>
                   ),
                 ),
                 SizedBox(width: context.gapSmall),
-                Text(
-                  'Sign Out',
-                  style: TextStyle(
-                    fontSize: context.bodyLarge,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.red,
+                Flexible(
+                  child: Text(
+                    'Sign Out',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: context.bodyLarge,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.red,
+                    ),
                   ),
                 ),
               ],
@@ -757,11 +768,15 @@ class _CustomDrawerState extends State<CustomDrawer>
           children: [
             Icon(Icons.login_rounded, size: context.iconMedium),
             SizedBox(width: context.gapSmall),
-            Text(
-              'Login / Sign Up',
-              style: TextStyle(
-                fontSize: context.bodyLarge,
-                fontWeight: FontWeight.w600,
+            Flexible(
+              child: Text(
+                'Login / Sign Up',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: context.bodyLarge,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
             SizedBox(width: context.gapSmall),
@@ -785,20 +800,20 @@ class _CustomDrawerState extends State<CustomDrawer>
                   DashboardScreen(userEmail: _userEmail, userName: _userName),
               transitionsBuilder:
                   (context, animation, secondaryAnimation, child) {
-                return SlideTransition(
-                  position:
-                  Tween<Offset>(
-                    begin: const Offset(0.1, 0),
-                    end: Offset.zero,
-                  ).animate(
-                    CurvedAnimation(
-                      parent: animation,
-                      curve: Curves.easeOutCubic,
-                    ),
-                  ),
-                  child: FadeTransition(opacity: animation, child: child),
-                );
-              },
+                    return SlideTransition(
+                      position:
+                          Tween<Offset>(
+                            begin: const Offset(0.1, 0),
+                            end: Offset.zero,
+                          ).animate(
+                            CurvedAnimation(
+                              parent: animation,
+                              curve: Curves.easeOutCubic,
+                            ),
+                          ),
+                      child: FadeTransition(opacity: animation, child: child),
+                    );
+                  },
               transitionDuration: const Duration(milliseconds: 500),
             ),
           );
@@ -806,57 +821,43 @@ class _CustomDrawerState extends State<CustomDrawer>
         case '/payment':
           Navigator.push(
             context,
-            MaterialPageRoute(
-              builder: (_) => MakePaymentScreen(),
-            ),
+            MaterialPageRoute(builder: (_) => MakePaymentScreen()),
           );
           break;
         case '/about':
           Navigator.push(
             context,
-            MaterialPageRoute(
-              builder: (_) => AboutUsScreen(),
-            ),
+            MaterialPageRoute(builder: (_) => AboutUsScreen()),
           );
           break;
         case '/delete-account':
           Navigator.push(
             context,
-            MaterialPageRoute(
-              builder: (_) => const DeleteAccountScreen(),
-            ),
+            MaterialPageRoute(builder: (_) => const DeleteAccountScreen()),
           ).then((_) => _loadUserData());
           break;
         case '/bookings':
           Navigator.push(
             context,
-            MaterialPageRoute(
-              builder: (_) => MyBookingScreen(),
-            ),
+            MaterialPageRoute(builder: (_) => MyBookingScreen()),
           );
           break;
         case '/wallet_balance':
           Navigator.push(
             context,
-            MaterialPageRoute(
-              builder: (_) => WalletScreen(),
-            ),
+            MaterialPageRoute(builder: (_) => WalletScreen()),
           );
           break;
         case '/stories':
           Navigator.push(
             context,
-            MaterialPageRoute(
-              builder: (_) => AllTravelStoriesScreen(),
-            ),
+            MaterialPageRoute(builder: (_) => AllTravelStoriesScreen()),
           );
           break;
         case '/trips':
           Navigator.push(
             context,
-            MaterialPageRoute(
-              builder: (_) => const UpcomingTripsScreen(),
-            ),
+            MaterialPageRoute(builder: (_) => const UpcomingTripsScreen()),
           );
           break;
         case '/profile':
@@ -876,7 +877,9 @@ class _CustomDrawerState extends State<CustomDrawer>
   }
 
   void _showCurrencyPicker(BuildContext context) {
-    final selected = CurrencyConverter.isAutoDetectEnabled() ? 'AUTO' : _currentCurrency;
+    final selected = CurrencyConverter.isAutoDetectEnabled()
+        ? 'AUTO'
+        : _currentCurrency;
 
     showDialog(
       context: context,
@@ -930,12 +933,16 @@ class _CustomDrawerState extends State<CustomDrawer>
                           ),
                         ),
                         SizedBox(width: context.w(8)),
-                        Text(
-                          'Choose Currency',
-                          style: GoogleFonts.poppins(
-                            fontSize: context.bodyLarge,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.black87,
+                        Flexible(
+                          child: Text(
+                            'Choose Currency',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.poppins(
+                              fontSize: context.bodyLarge,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.black87,
+                            ),
                           ),
                         ),
                       ],
@@ -967,18 +974,24 @@ class _CustomDrawerState extends State<CustomDrawer>
                                 onSelect: select,
                               ),
                               Padding(
-                                padding: EdgeInsets.symmetric(vertical: context.h(4)),
-                                child: Divider(height: 1, color: Colors.grey.shade200),
-                              ),
-                              ...CurrencyConverter.supportedCurrencies.entries.map(
-                                    (e) => _buildCurrencyOption(
-                                  context,
-                                  value: e.key,
-                                  label: '${e.key} · ${e.value}',
-                                  selectedValue: selected,
-                                  onSelect: select,
+                                padding: EdgeInsets.symmetric(
+                                  vertical: context.h(4),
+                                ),
+                                child: Divider(
+                                  height: 1,
+                                  color: Colors.grey.shade200,
                                 ),
                               ),
+                              ...CurrencyConverter.supportedCurrencies.entries
+                                  .map(
+                                    (e) => _buildCurrencyOption(
+                                      context,
+                                      value: e.key,
+                                      label: '${e.key} · ${e.value}',
+                                      selectedValue: selected,
+                                      onSelect: select,
+                                    ),
+                                  ),
                             ],
                           ),
                         ),
@@ -1017,13 +1030,13 @@ class _CustomDrawerState extends State<CustomDrawer>
   }
 
   Widget _buildCurrencyOption(
-      BuildContext context, {
-        required String value,
-        required String label,
-        required String selectedValue,
-        required ValueChanged<String> onSelect,
-        IconData? icon,
-      }) {
+    BuildContext context, {
+    required String value,
+    required String label,
+    required String selectedValue,
+    required ValueChanged<String> onSelect,
+    IconData? icon,
+  }) {
     final isSelected = value == selectedValue;
     return Material(
       color: Colors.transparent,
@@ -1048,7 +1061,9 @@ class _CustomDrawerState extends State<CustomDrawer>
                 Icon(
                   icon,
                   size: context.iconSmall,
-                  color: isSelected ? const Color(0xFF0054A0) : Colors.grey.shade500,
+                  color: isSelected
+                      ? const Color(0xFF0054A0)
+                      : Colors.grey.shade500,
                 ),
                 SizedBox(width: context.w(8)),
               ],
@@ -1058,14 +1073,18 @@ class _CustomDrawerState extends State<CustomDrawer>
                   style: GoogleFonts.poppins(
                     fontSize: context.bodySmall,
                     fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                    color: isSelected ? const Color(0xFF0054A0) : Colors.black87,
+                    color: isSelected
+                        ? const Color(0xFF0054A0)
+                        : Colors.black87,
                   ),
                 ),
               ),
               Icon(
                 isSelected ? Icons.check_circle_rounded : Icons.circle_outlined,
                 size: context.iconSmall,
-                color: isSelected ? const Color(0xFF0054A0) : Colors.grey.shade300,
+                color: isSelected
+                    ? const Color(0xFF0054A0)
+                    : Colors.grey.shade300,
               ),
             ],
           ),
@@ -1094,11 +1113,15 @@ class _CustomDrawerState extends State<CustomDrawer>
               child: const Icon(Icons.logout_rounded, color: Colors.red),
             ),
             SizedBox(width: context.w(12)),
-            Text(
-              'Sign Out',
-              style: TextStyle(
-                fontSize: context.titleLarge,
-                fontWeight: FontWeight.w600,
+            Flexible(
+              child: Text(
+                'Sign Out',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: context.titleLarge,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           ],
@@ -1127,43 +1150,48 @@ class _CustomDrawerState extends State<CustomDrawer>
 
               final logoutBloc = sl<LogoutBloc>();
 
-              logoutBloc.stream.firstWhere(
+              logoutBloc.stream
+                  .firstWhere(
                     (state) => state is LogoutSuccess || state is LogoutFailed,
-              ).then((state) {
-                if (state is LogoutSuccess) {
-                  print('Logout API successful: ${state.logoutEntity.message}');
+                  )
+                  .then((state) {
+                    if (state is LogoutSuccess) {
+                      print(
+                        'Logout API successful: ${state.logoutEntity.message}',
+                      );
 
-                  SharedPreferences.getInstance().then((prefs) async {
-                    final prefManager = await PreferencesManager.create(prefs);
-                    await prefManager.clearUserData();
-                    await prefManager.clearAuth();
+                      SharedPreferences.getInstance().then((prefs) async {
+                        final prefManager = await PreferencesManager.create(
+                          prefs,
+                        );
+                        await prefManager.clearUserData();
+                        await prefManager.clearAuth();
 
-                    if (mounted) {
-                      setState(() {
-                        _isLoggedIn = false;
-                        _userName = '';
-                        _userEmail = '';
-                        _userAvatar = null;
+                        if (mounted) {
+                          setState(() {
+                            _isLoggedIn = false;
+                            _userName = '';
+                            _userEmail = '';
+                            _userAvatar = null;
+                          });
+                        }
                       });
+                      scaffoldMessenger.showSnackBar(
+                        SnackBar(
+                          content: Text('Logged Out Successfully'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    } else if (state is LogoutFailed) {
+                      print('Logout API failed: ${state.error.message}');
+                      scaffoldMessenger.showSnackBar(
+                        SnackBar(
+                          content: Text('Logout failed Please try again'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
                     }
                   });
-                  scaffoldMessenger.showSnackBar(
-                    SnackBar(
-                      content: Text('Logged Out Successfully'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                }
-                else if (state is LogoutFailed) {
-                  print('Logout API failed: ${state.error.message}');
-                  scaffoldMessenger.showSnackBar(
-                    SnackBar(
-                      content: Text('Logout failed Please try again'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                }
-              });
 
               logoutBloc.add(LogoutRequested());
             },

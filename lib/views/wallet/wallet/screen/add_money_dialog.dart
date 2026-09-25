@@ -453,21 +453,10 @@ class _AddMoneyDialogState extends State<AddMoneyDialog> {
     );
   }
 
-  /// Recharges the wallet via Razorpay's native checkout. On a confirmed
-  /// credit the parent's [onConfirm] runs (refreshes balance) and the dialog
-  /// closes.
-  ///
-  /// KNOWN BACKEND GAP — the wallet is NOT yet credited automatically for
-  /// Razorpay top-ups. `/wallet/verify-payment/` only knows how to settle
-  /// Nomod checkouts (it needs `nomod_checkout_id`), and CCAvenue top-ups are
-  /// credited out-of-band by CCAvenue's own server-to-server response handler
-  /// (`ccavenue_payments/views.py::_credit_wallet_if_needed`). There is no
-  /// equivalent Razorpay branch, so [_creditWallet] below will normally fail.
-  /// The payment itself is still signature-verified server-side and recorded
-  /// as a paid RazorpayTransaction, and the user is shown their reference for
-  /// support — we never report a credit that did not happen. Wiring a
-  /// Razorpay branch into the wallet backend will make this flow complete
-  /// with no further changes here.
+  /// Recharges the wallet via Razorpay's native checkout, mirroring the web
+  /// flow: /wallet/add-money/ → Razorpay → /payments/razorpay/verify/ →
+  /// /wallet/verify-payment/. On a confirmed credit the parent's [onConfirm]
+  /// runs (refreshes balance) and the dialog closes.
   Future<void> _pay(double amount) async {
     final prefs = di.sl<PreferencesManager>();
 
@@ -479,23 +468,36 @@ class _AddMoneyDialogState extends State<AddMoneyDialog> {
     setState(() => _isProcessing = true);
     try {
       final payable = double.parse(amount.toStringAsFixed(2));
-      // Short reference (Razorpay receipts are capped at 40 chars) that ties
-      // the gateway order to this top-up.
-      final reference = 'WTX${DateTime.now().millisecondsSinceEpoch}';
 
+      // Same flow as the web app: /wallet/add-money/ creates the pending
+      // WalletTransaction AND the Razorpay order, and returns the wallet
+      // reference that /wallet/verify-payment/ later settles.
       final dio = di.sl<DioClient>().instance;
       final response = await dio.post(
-        Urls.razorpayCreateOrder,
+        Urls.walletAddMoney,
         data: {
           'amount': payable,
+          'payment_method': 'razorpay',
+          'base_url': 'https://thewandernova.com/',
           'currency': 'INR',
-          'reference_id': reference,
-          'transaction_type': 'wallet',
+          'inr_amount': payable,
         },
       );
 
-      final orderId = response.data['order_id'];
-      final keyId = response.data['key_id'];
+      final body = (response.data as Map?)?.cast<String, dynamic>() ?? {};
+      final orderId = body['razorpay_order_id'];
+      final keyId = body['key_id'];
+      final reference = body['reference']?.toString() ?? '';
+      if (body['success'] != true || orderId == null || reference.isEmpty) {
+        if (!mounted) return;
+        setState(() => _isProcessing = false);
+        _snack(body['error']?.toString() ??
+            'Could not create payment order. Please try again.');
+        return;
+      }
+      final amountPaise = body['amount_paise'] is num
+          ? (body['amount_paise'] as num).toInt()
+          : (payable * 100).toInt();
 
       if (!mounted) return;
       setState(() {
@@ -507,7 +509,7 @@ class _AddMoneyDialogState extends State<AddMoneyDialog> {
       final userData = prefs.getUserData() ?? {};
       _razorpay.open({
         'key': keyId,
-        'amount': (payable * 100).toInt(),
+        'amount': amountPaise,
         'currency': 'INR',
         'name': 'WanderNova',
         'description': 'Wallet Top-up',
@@ -568,10 +570,7 @@ class _AddMoneyDialogState extends State<AddMoneyDialog> {
       return;
     }
 
-    // Step 2: ask the wallet backend to credit the balance. See the note on
-    // [_pay] — this is expected to fail until the backend grows a Razorpay
-    // branch, which is why the failure path stays explicit rather than
-    // optimistically closing the dialog.
+    // Step 2: settle the WalletTransaction created by /wallet/add-money/.
     final credited = await _creditWallet();
 
     if (!mounted) return;

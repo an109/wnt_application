@@ -21,14 +21,21 @@ class AppleSignInService {
   Future<bool> isAvailable() => SignInWithApple.isAvailable();
 
   /// Triggers the native Apple Sign In flow and returns the identity token
-  /// (+ optional name/email). Returns null if no identity token is produced.
+  /// (+ optional name/email). Returns null if no identity token is produced
+  /// or the user dismissed the Apple sheet.
   Future<AppleSignInResult?> signIn() async {
-    final credential = await SignInWithApple.getAppleIDCredential(
-      scopes: [
-        AppleIDAuthorizationScopes.email,
-        AppleIDAuthorizationScopes.fullName,
-      ],
-    );
+    final AuthorizationCredentialAppleID credential;
+    try {
+      credential = await SignInWithApple.getAppleIDCredential(
+        scopes: [
+          AppleIDAuthorizationScopes.email,
+          AppleIDAuthorizationScopes.fullName,
+        ],
+      );
+    } on SignInWithAppleAuthorizationException catch (e) {
+      if (e.code == AuthorizationErrorCode.canceled) return null;
+      rethrow;
+    }
 
     final token = credential.identityToken;
     if (token == null || token.isEmpty) {
