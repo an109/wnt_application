@@ -4,7 +4,8 @@ import 'package:wander_nova/views/flight_payment/data/razorpay_custom_checkout_s
 
 import 'checkout_ui.dart';
 
-/// UPI body with two tabs: UPI ID (collect) and Scan QR.
+/// UPI body: UPI ID (collect), plus a Scan QR tab when [qrPanel] is given
+/// (only the wallet top-up has a QR flow; booking checkouts pass none).
 /// UPI apps (intent) are accessible via the Google Pay quick-tile at the top
 /// of the checkout screen; they are not shown here.
 class UpiSection extends StatefulWidget {
@@ -13,7 +14,7 @@ class UpiSection extends StatefulWidget {
   final Future<List<UpiApp>> apps; // kept for parent's GPay tile
   final ValueChanged<UpiApp> onPayWithApp; // kept for parent's GPay tile
   final ValueChanged<String> onPayWithVpa;
-  final Widget qrPanel;
+  final Widget? qrPanel;
 
   const UpiSection({
     super.key,
@@ -22,7 +23,7 @@ class UpiSection extends StatefulWidget {
     required this.apps,
     required this.onPayWithApp,
     required this.onPayWithVpa,
-    required this.qrPanel,
+    this.qrPanel,
   });
 
   @override
@@ -44,6 +45,8 @@ class _UpiSectionState extends State<UpiSection> {
 
   @override
   Widget build(BuildContext context) {
+    final qrPanel = widget.qrPanel;
+    if (qrPanel == null) return _upiIdTab(context);
     final current = _tabs[_tab];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -58,7 +61,7 @@ class _UpiSectionState extends State<UpiSection> {
           duration: const Duration(milliseconds: 200),
           child: KeyedSubtree(
             key: ValueKey(current),
-            child: current == 'Scan QR' ? widget.qrPanel : _upiIdTab(context),
+            child: current == 'Scan QR' ? qrPanel : _upiIdTab(context),
           ),
         ),
       ],

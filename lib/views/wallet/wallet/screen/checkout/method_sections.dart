@@ -296,45 +296,58 @@ class _EmiSectionState extends State<EmiSection> {
     return principal * r * f / (f - 1);
   }
 
+  /// In Razorpay's methods payload `emi` is just the on/off flag
+  /// (`"emi": true`); the per-bank plans are under `emi_plans`
+  /// ({BANK: {min_amount, plans: {months: rate}}}) or `emi_options`
+  /// ({BANK: [{duration, interest, min_amount}]}). Reading `emi` first, as
+  /// before, found `true` and never reached the plans, so EMI always showed
+  /// as unavailable. `emi` is still accepted if an SDK ever nests plans there.
   List<_EmiBank> _parse(Map<String, dynamic> methods) {
-    // Razorpay methods API returns the key as 'emi', not 'emi_plans'.
-    final raw = methods['emi'] ?? methods['emi_plans'];
+    if (methods['emi'] == false) return const [];
     final names = methods['netbanking'] is Map
         ? methods['netbanking'] as Map
         : const {};
-    final banks = <_EmiBank>[];
-    if (raw is Map) {
+    final byCode = <String, _EmiBank>{};
+    for (final key in const ['emi_plans', 'emi_options', 'emi']) {
+      final raw = methods[key];
+      if (raw is! Map) continue;
       raw.forEach((code, v) {
-        if (code is! String || v is! Map) return;
-        final plans = <_EmiPlan>[];
-        final p = v['plans'];
-        if (p is Map) {
-          p.forEach((m, rate) {
-            final months = int.tryParse(m.toString());
-            final r = rate is num
-                ? rate.toDouble()
-                : double.tryParse(rate.toString());
-            if (months != null && r != null) plans.add(_EmiPlan(months, r));
-          });
-        }
-        plans.sort((a, b) => a.months.compareTo(b.months));
-        final min = v['min_amount'] is num
-            ? (v['min_amount'] as num) / 100
-            : 0.0;
-        if (plans.isNotEmpty) {
-          banks.add(
-            _EmiBank(
-              code,
-              (names[code] ?? code).toString(),
-              min.toDouble(),
-              plans,
-            ),
-          );
-        }
+        if (code is! String || byCode.containsKey(code)) return;
+        final bank = _parseBank(code, (names[code] ?? code).toString(), v);
+        if (bank != null) byCode[code] = bank;
       });
     }
-    banks.sort((a, b) => a.name.compareTo(b.name));
-    return banks;
+    return byCode.values.toList()..sort((a, b) => a.name.compareTo(b.name));
+  }
+
+  static _EmiBank? _parseBank(String code, String name, Object? v) {
+    double? number(Object? x) =>
+        x is num ? x.toDouble() : double.tryParse('${x ?? ''}');
+    final rates = <int, double>{}; // months → annual %
+    void addPlan(Object? months, Object? rate) {
+      final m = number(months)?.toInt();
+      final r = number(rate);
+      if (m != null && m > 0 && r != null) rates.putIfAbsent(m, () => r);
+    }
+
+    double? minPaise;
+    if (v is Map) {
+      final plans = v['plans'];
+      if (plans is Map) plans.forEach(addPlan);
+      minPaise = number(v['min_amount']);
+    } else if (v is List) {
+      for (final option in v.whereType<Map>()) {
+        addPlan(option['duration'], option['interest']);
+        final min = number(option['min_amount']);
+        if (min != null && (minPaise == null || min < minPaise)) {
+          minPaise = min;
+        }
+      }
+    }
+    if (rates.isEmpty) return null;
+    final plans = [for (final e in rates.entries) _EmiPlan(e.key, e.value)]
+      ..sort((a, b) => a.months.compareTo(b.months));
+    return _EmiBank(code, name, (minPaise ?? 0) / 100, plans);
   }
 
   @override
@@ -739,6 +752,70 @@ class _PayLaterSectionState extends State<PayLaterSection> {
           ],
         );
       },
+    );
+  }
+}
+
+// ======================== WALLETS & PAY LATER ========================
+
+/// One card for Wallets and Pay Later, switched with filter tabs. Both lists
+/// render from the same Razorpay methods payload, so switching is instant.
+class WalletsPayLaterSection extends StatefulWidget {
+  final double amount;
+  final bool busy;
+  final Future<Map<String, dynamic>> methods;
+  final ValueChanged<String> onPayWallet; // wallet code
+  final ValueChanged<String> onPayLater; // provider code
+
+  const WalletsPayLaterSection({
+    super.key,
+    required this.amount,
+    required this.busy,
+    required this.methods,
+    required this.onPayWallet,
+    required this.onPayLater,
+  });
+
+  @override
+  State<WalletsPayLaterSection> createState() =>
+      _WalletsPayLaterSectionState();
+}
+
+class _WalletsPayLaterSectionState extends State<WalletsPayLaterSection> {
+  static const _tabs = ['Wallets', 'Pay Later'];
+  int _tab = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        CheckoutTabs(
+          tabs: _tabs,
+          index: _tab,
+          onChanged: (i) => setState(() => _tab = i),
+        ),
+        SizedBox(height: context.h(16)),
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 200),
+          child: KeyedSubtree(
+            key: ValueKey(_tab),
+            child: _tab == 0
+                ? WalletsSection(
+                    amount: widget.amount,
+                    busy: widget.busy,
+                    methods: widget.methods,
+                    onPay: widget.onPayWallet,
+                  )
+                : PayLaterSection(
+                    amount: widget.amount,
+                    busy: widget.busy,
+                    methods: widget.methods,
+                    onPay: widget.onPayLater,
+                  ),
+          ),
+        ),
+      ],
     );
   }
 }

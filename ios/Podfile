@@ -43,4 +43,71 @@ post_install do |installer|
   installer.pods_project.targets.each do |target|
     flutter_additional_ios_build_settings(target)
   end
+
+  # Vendored .xcframework pods (Razorpay) ship dSYMs inside each slice, but
+  # CocoaPods only embeds the .framework itself -- so archives upload without
+  # them ("did not include a dSYM for Razorpay.framework"). Worse, several
+  # Razorpay xcframeworks share one destination dir and CocoaPods copies with
+  # `rsync --delete`, so a later pod prunes an earlier pod's dSYM. We therefore
+  # copy straight from the pod sources, picking the slice for this platform.
+  dsym_phase_name = '[WNT] Copy vendored framework dSYMs'
+  dsym_script = <<~'SCRIPT'
+    # Only builds that generate dSYMs (release / archive) need this.
+    [ "${DEBUG_INFORMATION_FORMAT}" = "dwarf-with-dsym" ] || exit 0
+    [ -n "${DWARF_DSYM_FOLDER_PATH}" ] || exit 0
+    [ -d "${PODS_ROOT}" ] || exit 0
+
+    mkdir -p "${DWARF_DSYM_FOLDER_PATH}"
+
+    find "${PODS_ROOT}" -type d -name "*.framework.dSYM" -path "*.xcframework/*" | while read -r dsym; do
+      slice=$(basename "$(dirname "$(dirname "$dsym")")")
+
+      # Only iOS slices; skip Catalyst/tvOS/watchOS variants.
+      case "$slice" in
+        ios-*) ;;
+        *) continue ;;
+      esac
+      case "$slice" in
+        *maccatalyst*) continue ;;
+      esac
+
+      case "$slice" in
+        *-simulator) is_simulator=1 ;;
+        *) is_simulator=0 ;;
+      esac
+
+      if [ "${PLATFORM_NAME}" = "iphonesimulator" ]; then
+        [ "$is_simulator" = "1" ] || continue
+      else
+        [ "$is_simulator" = "0" ] || continue
+      fi
+
+      name=$(basename "$dsym")
+      rm -rf "${DWARF_DSYM_FOLDER_PATH}/${name}"
+      cp -R "$dsym" "${DWARF_DSYM_FOLDER_PATH}/${name}"
+      echo "note: copied ${name} ($slice) into the archive"
+    done
+  SCRIPT
+
+  installer.aggregate_targets.each do |aggregate_target|
+    project = aggregate_target.user_project
+    next if project.nil?
+
+    project.targets.each do |target|
+      next unless target.name == 'Runner'
+
+      # Drop any previous copy so edits to the script above take effect.
+      target.build_phases.delete_if do |p|
+        p.respond_to?(:name) && p.name == dsym_phase_name
+      end
+
+      phase = target.new_shell_script_build_phase(dsym_phase_name)
+      phase.shell_path = '/bin/sh'
+      phase.show_env_vars_in_log = '0'
+      phase.always_out_of_date = '1'
+      phase.shell_script = dsym_script
+
+      project.save
+    end
+  end
 end

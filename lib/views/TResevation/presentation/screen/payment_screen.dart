@@ -141,6 +141,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
   String? _razorpayOrderId;
   String? _razorpayKeyId;
 
+  // Set once /wallet/pay-booking/ has charged the wallet for this booking, so
+  // it is never charged twice.
+  String? _walletDebitRef;
+
   /// Cosmetic checkout-hold countdown (Figma header) — purely visual, never
   /// blocks payment. Matches the 15-minute hold shown on the Ak flight
   /// payment screen, without adopting its expiry-gating behaviour here.
@@ -174,7 +178,16 @@ class _PaymentScreenState extends State<PaymentScreen> {
     super.dispose();
   }
 
-  TransportReservationEntity _buildReservationEntity() {
+  /// [gateway] is how the booking was actually paid ('razorpay' | 'wallet').
+  /// It must not come from [_selectedPaymentMethod]: Razorpay methods never
+  /// set that, so a card/UPI payment would be recorded with no gateway (or
+  /// as 'wallet' after an earlier wallet tap).
+  TransportReservationEntity _buildReservationEntity({
+    required String gateway,
+    required String paymentReferenceId,
+    String razorpayOrderId = '',
+    String razorpayPaymentId = '',
+  }) {
     print('BUILDING RESERVATION ENTITY');
 
     final nameParts = widget.passengerName.split(' ');
@@ -183,7 +196,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
     // Add-ons chosen on the booking screen, plus the existing payment marker.
     final optionalAmenities = <String>[...widget.optionalAmenityKeys];
-    if (_selectedPaymentMethod == 'razorpay') {
+    if (gateway == 'razorpay') {
       optionalAmenities.add('razorpay_payment');
     }
 
@@ -231,11 +244,11 @@ class _PaymentScreenState extends State<PaymentScreen> {
       tripType: _tripType,
       vehicleName: widget.vehicleName,
       providerName: widget.providerName,
-      paidVia: _selectedPaymentMethod ?? '',
-      paymentGateway: _selectedPaymentMethod ?? '',
-      paymentReferenceId: '',
-      razorpayOrderId: '',
-      razorpayPaymentId: '',
+      paidVia: gateway,
+      paymentGateway: gateway,
+      paymentReferenceId: paymentReferenceId,
+      razorpayOrderId: razorpayOrderId,
+      razorpayPaymentId: razorpayPaymentId,
       specialInstructions: '',
       notes: '',
       // Real flight details captured on the booking form. Mozio requires these
@@ -259,9 +272,21 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
   /// Creates the transport reservation AFTER a successful payment. This is the
   /// step that actually calls `Urls.transportReservations` — without it the
-  /// payment goes through but no booking is ever recorded.
-  Future<void> _createReservation(String paymentReferenceId) async {
-    final entity = _buildReservationEntity();
+  /// payment goes through but no booking is ever recorded. Same payment
+  /// fields as the website: Razorpay → the order's reference_id plus both
+  /// Razorpay ids; wallet → the pay-booking debit's reference.
+  Future<void> _createReservation({
+    required String gateway,
+    required String paymentReferenceId,
+    String razorpayOrderId = '',
+    String razorpayPaymentId = '',
+  }) async {
+    final entity = _buildReservationEntity(
+      gateway: gateway,
+      paymentReferenceId: paymentReferenceId,
+      razorpayOrderId: razorpayOrderId,
+      razorpayPaymentId: razorpayPaymentId,
+    );
     print('=== CREATING TRANSPORT RESERVATION (ref=$paymentReferenceId) ===');
 
     try {
@@ -292,7 +317,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
         providerName: entity.providerName,
         paidVia: entity.paidVia,
         paymentGateway: entity.paymentGateway,
-        paymentReferenceId: paymentReferenceId,
+        paymentReferenceId: entity.paymentReferenceId,
         razorpayOrderId: entity.razorpayOrderId,
         razorpayPaymentId: entity.razorpayPaymentId,
         specialInstructions: entity.specialInstructions,
@@ -417,7 +442,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
                           apps: _upiApps,
                           onPayWithApp: (app) => _payWithMethod({'method': 'upi', '_[flow]': 'intent', 'upi_app_package_name': app.package}),
                           onPayWithVpa: (vpa) => _payWithMethod({'method': 'upi', '_[flow]': 'collect', 'vpa': vpa}),
-                          qrPanel: const SizedBox.shrink(),
                         ) : const SizedBox.shrink(),
                       ),
                       CheckoutAccordion(
@@ -459,29 +483,17 @@ class _PaymentScreenState extends State<PaymentScreen> {
                         ) : const SizedBox.shrink(),
                       ),
                       CheckoutAccordion(
-                        title: 'Wallets',
-                        subtitle: 'Paytm, PhonePe, Amazon Pay & more',
+                        title: 'Wallets & Pay Later',
+                        subtitle: 'Paytm, PhonePe, Amazon Pay · LazyPay, Simpl & more',
                         leading: const CheckoutIcon('assets/NewIcons/wallet.png'),
                         expanded: _open == 'wallet',
                         onTap: () => _toggle('wallet'),
-                        child: _open == 'wallet' ? WalletsSection(
+                        child: _open == 'wallet' ? WalletsPayLaterSection(
                           amount: widget.totalAmount,
                           busy: _isProcessing,
                           methods: _loadMethods(),
-                          onPay: (w) => _payWithMethod({'method': 'wallet', 'wallet': w}),
-                        ) : const SizedBox.shrink(),
-                      ),
-                      CheckoutAccordion(
-                        title: 'Pay Later',
-                        subtitle: 'LazyPay, Simpl, ICICI & more',
-                        leading: const CheckoutIcon('assets/NewIcons/pay_later.png'),
-                        expanded: _open == 'paylater',
-                        onTap: () => _toggle('paylater'),
-                        child: _open == 'paylater' ? PayLaterSection(
-                          amount: widget.totalAmount,
-                          busy: _isProcessing,
-                          methods: _loadMethods(),
-                          onPay: (p) => _payWithMethod({'method': 'paylater', 'provider': p}),
+                          onPayWallet: (w) => _payWithMethod({'method': 'wallet', 'wallet': w}),
+                          onPayLater: (p) => _payWithMethod({'method': 'paylater', 'provider': p}),
                         ) : const SizedBox.shrink(),
                       ),
                     ],
@@ -1491,9 +1503,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
     );
   }
 
-  /// Pays from the wallet if its balance covers the total (uses
-  /// [Urls.walletBalance]). There is no debit endpoint, so a sufficient
-  /// balance is treated as a successful payment.
+  /// Pays from the wallet: /wallet/pay-booking/ debits it (same as the
+  /// website), then the reservation is created against that debit.
   Future<void> _payWithWallet() async {
     // Wallet payment requires a logged-in user.
     if (!di.sl<PreferencesManager>().isLoggedIn()) {
@@ -1506,9 +1517,16 @@ class _PaymentScreenState extends State<PaymentScreen> {
       );
       return;
     }
+    if (_walletDebitRef != null) {
+      setState(() => _errorMessage =
+          'Your wallet has already been charged for this booking (ref '
+          '$_walletDebitRef). Please contact support — do not pay again.');
+      return;
+    }
 
     setState(() {
       _isProcessing = true;
+      _errorMessage = null;
       _statusMessage = 'Checking your wallet balance...';
     });
     try {
@@ -1520,7 +1538,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
       if (!mounted) return;
 
       if (balance >= widget.totalAmount) {
-        setState(() => _statusMessage = 'Processing your payment...');
+        if (!await _debitWallet()) return;
+        setState(() => _statusMessage = 'Confirming your booking...');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: const Text('Payment successful from wallet!'),
@@ -1529,7 +1548,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
           ),
         );
         // Wallet paid → record the booking via the reservation API.
-        await _createReservation('WALLET${DateTime.now().millisecondsSinceEpoch}');
+        await _createReservation(
+          gateway: 'wallet',
+          paymentReferenceId: _walletDebitRef!,
+        );
         if (mounted) setState(() => _isProcessing = false);
       } else {
         setState(() => _isProcessing = false);
@@ -1555,6 +1577,29 @@ class _PaymentScreenState extends State<PaymentScreen> {
         ),
       );
     }
+  }
+
+  /// Charges the wallet for this booking against [_orderReferenceId].
+  /// Returns false, with the reason shown, if it wasn't charged.
+  Future<bool> _debitWallet() async {
+    setState(() => _statusMessage = 'Paying from your wallet...');
+    final debit = await di.sl<WalletApiService>().payBooking(
+      amount: double.parse(widget.totalAmount.toStringAsFixed(2)),
+      bookingType: 'transport',
+      bookingRef: _orderReferenceId,
+      description: 'Transport: ${widget.vehicleName} from '
+          '${widget.pickupLocation} to ${widget.dropoffLocation}',
+    );
+    if (!mounted) return false;
+    if (debit.success) {
+      _walletDebitRef = debit.reference ?? _orderReferenceId;
+      return true;
+    }
+    setState(() {
+      _isProcessing = false;
+      _errorMessage = debit.error ?? 'Wallet payment failed. Please try again.';
+    });
+    return false;
   }
 
   // ============================================================
@@ -1619,12 +1664,17 @@ class _PaymentScreenState extends State<PaymentScreen> {
       // Total is shown in INR on this screen; send a 2-decimal amount.
       final amount = double.parse(widget.totalAmount.toStringAsFixed(2));
       final dio = di.sl<DioClient>().instance;
+      final userId = di.sl<PreferencesManager>().getUserId();
       final response = await dio.post(
         Urls.razorpayCreateOrder,
         data: {
           'amount': amount,
           'currency': 'INR',
           'reference_id': _orderReferenceId,
+          // Same as the website: tells the backend (webhook reconciliation)
+          // what this payment is for.
+          'transaction_type': 'transport',
+          if (userId != null) 'user_id': userId,
         },
       );
 
@@ -1776,7 +1826,12 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
       if (verifyResponse.data['success'] == true) {
         setState(() => _statusMessage = 'Confirming your booking...');
-        await _createReservation(paymentId ?? '');
+        await _createReservation(
+          gateway: 'razorpay',
+          paymentReferenceId: _orderReferenceId,
+          razorpayOrderId: orderId ?? '',
+          razorpayPaymentId: paymentId ?? '',
+        );
         if (mounted) setState(() => _isProcessing = false);
       } else {
         setState(() => _isProcessing = false);

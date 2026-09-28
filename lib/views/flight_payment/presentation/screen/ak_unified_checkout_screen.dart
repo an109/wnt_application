@@ -239,36 +239,22 @@ class _AkUnifiedCheckoutScreenState extends State<AkUnifiedCheckoutScreen> {
             : const SizedBox.shrink(),
       ),
       CheckoutAccordion(
-        title: 'Wallets',
-        subtitle: 'Paytm, PhonePe, Amazon Pay & more',
+        title: 'Wallets & Pay Later',
+        subtitle: 'Paytm, PhonePe, Amazon Pay · LazyPay, Simpl & more',
         leading: const CheckoutIcon('assets/NewIcons/wallet.png'),
         expanded: _open == 'wallet',
         onTap: () => _toggle('wallet'),
         child: _open == 'wallet'
-            ? WalletsSection(
+            ? WalletsPayLaterSection(
                 amount: _args.amountInInr,
                 busy: _processing,
                 methods: _loadMethods(),
-                onPay: (wallet) =>
+                onPayWallet: (wallet) =>
                     _pay({'method': 'wallet', 'wallet': wallet}),
-              )
-            : null,
-      ),
-      CheckoutAccordion(
-        title: 'Pay Later',
-        subtitle: 'LazyPay, Simpl, ICICI & more',
-        leading: const CheckoutIcon('assets/NewIcons/pay_later.png'),
-        expanded: _open == 'paylater',
-        onTap: () => _toggle('paylater'),
-        child: _open == 'paylater'
-            ? PayLaterSection(
-                amount: _args.amountInInr,
-                busy: _processing,
-                methods: _loadMethods(),
-                onPay: (provider) =>
+                onPayLater: (provider) =>
                     _pay({'method': 'paylater', 'provider': provider}),
               )
-            : const SizedBox.shrink(),
+            : null,
       ),
     ];
   }

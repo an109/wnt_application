@@ -57,6 +57,7 @@ class _LoginSignupScreenState extends State<LoginSignupScreen> {
     _appleSignInService = di.sl<AppleSignInService>();
   }
 
+  // ignore: unused_element — its button is commented out in build(); kept to re-enable.
   Future<void> _handleAppleSignIn() async {
     if (_isAppleLoading) return;
 
@@ -660,6 +661,7 @@ class _LoginSignupScreenState extends State<LoginSignupScreen> {
                                           isLoading: _isGoogleLoading,
                                         ),
                                       ),
+                                      // Sign in with Apple — hidden for now.
                                       if (Platform.isIOS || Platform.isMacOS) ...[
                                         SizedBox(width: context.w(10)), // Reduced from 12
                                         Expanded(
@@ -765,6 +767,7 @@ class _LoginSignupScreenState extends State<LoginSignupScreen> {
     );
   }
 
+  // ignore: unused_element — its button is commented out in build(); kept to re-enable.
   Widget _appleButton({VoidCallback? onPressed, bool isLoading = false}) {
     return GestureDetector(
       onTap: onPressed,

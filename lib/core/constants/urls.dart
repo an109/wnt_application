@@ -1,8 +1,10 @@
 class Urls {
-  static const String baseUrl = 'http://167.71.233.208:8032/api/';
-  // static const String baseUrl = 'https://thewandernova.com/api/';
-  static const String basesUrl = 'http://167.71.233.208:8032/api';
-  // static const String basesUrl = 'https://thewandernova.com/api';
+  // static const String baseUrl = 'http://167.71.233.208:8032/api/';
+  // static const String baseUrl = 'http://192.168.1.14:8000/api/';
+  static const String baseUrl = 'https://thewandernova.com/api/';
+  // static const String basesUrl = 'http://192.168.1.14:8000/api';
+  // static const String basesUrl = 'http://167.71.233.208:8032/api';
+  static const String basesUrl = 'https://thewandernova.com/api';
 
   static const String airports = '$basesUrl/flights/airports';
   static const String flightSearch = '$basesUrl/akbar/ExpressSearch/';
@@ -34,12 +36,12 @@ class Urls {
   static const String razorpayCreateOrder =
       '${baseUrl}payments/razorpay/create-order/';
   static const String razorpayVerify = '${baseUrl}payments/razorpay/verify/';
-  // Razorpay UPI QR: create → (proxied, unbranded) image → poll status.
-  static const String razorpayCreateQr = '${baseUrl}payments/razorpay/create-qr/';
-  static String razorpayQrImage(String qrId) =>
-      '${baseUrl}payments/razorpay/qr-image/$qrId/';
+  // Razorpay UPI QR for wallet top-ups (no order): create → poll status.
+  // Not deployed on either server as of 2026-09-28 — confirm the final paths
+  // with the backend (every other Razorpay route lives under payments/).
+  static const String razorpayCreateQr = '${baseUrl}razorpay/create-qr-code/';
   static String razorpayQrStatus(String qrId) =>
-      '${baseUrl}payments/razorpay/qr-status/$qrId/';
+      '${baseUrl}razorpay/qr-status/$qrId/';
 
   // ----- CCAvenue (hosted checkout) -----
   static const String ccavenueCreateCheckout =
@@ -198,6 +200,9 @@ class Urls {
   static const String walletAddMoney = '$basesUrl/wallet/add-money/';
   // Wallet verify payment (credits the wallet after a successful CCAvenue top-up)
   static const String walletVerifyPayment = '$basesUrl/wallet/verify-payment/';
+  // Wallet debit for a booking — must succeed before StartPay / reservation
+  // when the customer pays with their wallet balance.
+  static const String walletPayBooking = '$basesUrl/wallet/pay-booking/';
 
   static String reservationPoll(String searchId) =>
       '$basesUrl/transport/reservations/$searchId/poll/';

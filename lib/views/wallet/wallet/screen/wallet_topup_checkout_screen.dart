@@ -23,8 +23,9 @@ import 'checkout/upi_section.dart';
 ///   /wallet/add-money/ (creates the WalletTransaction + Razorpay order)
 ///   → Razorpay charges the order (UPI intent / card / bank / wallet)
 ///   → /payments/razorpay/verify/ → /wallet/verify-payment/ (credit)
-/// QR payments skip the order: create-qr → poll qr-status →
-///   /wallet/verify-payment/ with the razorpay_payment_id.
+/// QR payments have no Razorpay order: /wallet/add-money/ (gateway
+///   razorpay_qr) → razorpay/create-qr-code/ → poll qr-status →
+///   /wallet/verify-payment/ with the razorpay_payment_id (QrPayController).
 ///
 /// Pops `true` only once the wallet backend confirms the credit.
 class WalletTopUpCheckoutScreen extends StatefulWidget {
@@ -63,8 +64,21 @@ class _WalletTopUpCheckoutScreenState extends State<WalletTopUpCheckoutScreen> {
   );
   Future<Map<String, dynamic>>? _methods;
 
+  // Lives as long as this screen, so a QR keeps being polled while its tab
+  // is hidden or the UPI section is collapsed.
+  late final QrPayController _qr = QrPayController(
+    amount: _amount,
+    onPaid: _creditFromQr,
+  );
+
   double get _amount => double.parse(widget.amount.toStringAsFixed(2));
   bool get _busy => _processing;
+
+  @override
+  void dispose() {
+    _qr.dispose();
+    super.dispose();
+  }
 
   // ==================== ORDER / DETAILS ====================
 
@@ -276,43 +290,54 @@ class _WalletTopUpCheckoutScreenState extends State<WalletTopUpCheckoutScreen> {
     }
 
     // Step 2: settle the WalletTransaction created by /wallet/add-money/.
-    await _creditWallet(supportRef: supportRef);
+    await _creditWallet(reference: _reference!, supportRef: supportRef);
   }
 
   /// QR payments have no order/signature: the backend confirms the payment
-  /// with Razorpay directly from [paymentId], then credits the wallet.
-  Future<void> _creditFromQr(String paymentId) async {
+  /// with Razorpay directly from [paymentId], then credits the QR's own
+  /// wallet transaction [reference].
+  Future<bool> _creditFromQr(String reference, String paymentId) async {
+    if (!mounted) return false;
     setState(() {
       _processing = true;
       _errorMessage = null;
     });
-    await _creditWallet(paymentId: paymentId, supportRef: paymentId);
+    return _creditWallet(
+      reference: reference,
+      paymentId: paymentId,
+      supportRef: paymentId,
+    );
   }
 
-  Future<void> _creditWallet({String? paymentId, String? supportRef}) async {
-    if (!mounted) return;
+  /// Returns whether the wallet was credited (the screen then closes).
+  Future<bool> _creditWallet({
+    required String reference,
+    String? paymentId,
+    String? supportRef,
+  }) async {
+    if (!mounted) return false;
     setState(() => _statusMessage = 'Adding money to your wallet...');
     try {
       final res = await sl<DioClient>().instance.post(
         Urls.walletVerifyPayment,
         data: {
-          'reference': _reference,
+          'reference': reference,
           if (paymentId != null) 'razorpay_payment_id': paymentId,
         },
       );
       final body = (res.data as Map?)?.cast<String, dynamic>() ?? {};
       if (body['success'] == true) {
-        if (!mounted) return;
-        Navigator.pop(context, true);
-        return;
+        if (mounted) Navigator.pop(context, true);
+        return true;
       }
     } catch (e) {
       print('Wallet credit after Razorpay top-up failed: $e');
     }
     _fail(
       'Payment received, but your wallet balance has not updated yet. '
-      'Please contact support with reference: ${supportRef ?? _reference}',
+      'Please contact support with reference: ${supportRef ?? reference}',
     );
+    return false;
   }
 
   void _fail(String message) {
@@ -400,12 +425,7 @@ class _WalletTopUpCheckoutScreenState extends State<WalletTopUpCheckoutScreen> {
           onPayWithApp: _payWithUpiApp,
           onPayWithVpa: (vpa) =>
               _pay({'method': 'upi', '_[flow]': 'collect', 'vpa': vpa}),
-          qrPanel: QrPayPanel(
-            amount: _amount,
-            prepareReference: () async =>
-                await _ensureWalletOrder() ? _reference : null,
-            onPaid: _creditFromQr,
-          ),
+          qrPanel: QrPayPanel(controller: _qr),
         ),
       ),
       CheckoutAccordion(
@@ -455,35 +475,22 @@ class _WalletTopUpCheckoutScreenState extends State<WalletTopUpCheckoutScreen> {
             : const SizedBox.shrink(),
       ),
       CheckoutAccordion(
-        title: 'Wallets',
-        subtitle: 'Paytm, PhonePe, Amazon Pay & more',
+        title: 'Wallets & Pay Later',
+        subtitle: 'Paytm, PhonePe, Amazon Pay · LazyPay, Simpl & more',
         leading: const CheckoutIcon('assets/NewIcons/wallet.png'),
         expanded: _open == 'wallet',
         onTap: () => _toggle('wallet'),
         child: _open == 'wallet'
-            ? WalletsSection(
+            ? WalletsPayLaterSection(
                 amount: _amount,
                 busy: _busy,
                 methods: _loadMethods(),
-                onPay: (wallet) => _pay({'method': 'wallet', 'wallet': wallet}),
-              )
-            : null,
-      ),
-      CheckoutAccordion(
-        title: 'Pay Later',
-        subtitle: 'LazyPay, Simpl, ICICI & more',
-        leading: const CheckoutIcon('assets/NewIcons/pay_later.png'),
-        expanded: _open == 'paylater',
-        onTap: () => _toggle('paylater'),
-        child: _open == 'paylater'
-            ? PayLaterSection(
-                amount: _amount,
-                busy: _busy,
-                methods: _loadMethods(),
-                onPay: (provider) =>
+                onPayWallet: (wallet) =>
+                    _pay({'method': 'wallet', 'wallet': wallet}),
+                onPayLater: (provider) =>
                     _pay({'method': 'paylater', 'provider': provider}),
               )
-            : const SizedBox.shrink(),
+            : null,
       ),
     ];
   }

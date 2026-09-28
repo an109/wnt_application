@@ -5,22 +5,26 @@ import Razorpay
 import WebKit
 
 @main
-@objc class AppDelegate: FlutterAppDelegate {
+@objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
   private var razorpayCustomBridge: RazorpayCustomBridge?
 
   override func application(
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
-    GeneratedPluginRegistrant.register(with: self)
-
      GMSServices.provideAPIKey("AIzaSyDaxxK1mhgIzh5jhn-YRVRz84aO9h-Gxoc")
 
-    if let registrar = self.registrar(forPlugin: "RazorpayCustomBridge") {
-      razorpayCustomBridge = RazorpayCustomBridge(messenger: registrar.messenger())
-    }
-
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+  }
+
+  /// With the UIScene lifecycle (required from iOS 27) the Flutter engine is
+  /// only created once the scene loads Main.storyboard, after launch — so
+  /// plugins and app-level channels are registered here, not in
+  /// didFinishLaunching. See https://flutter.dev/to/uiscene-migration
+  func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
+    GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+    razorpayCustomBridge = RazorpayCustomBridge(
+      messenger: engineBridge.applicationRegistrar.messenger())
   }
 }
 

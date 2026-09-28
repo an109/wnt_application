@@ -7,6 +7,7 @@ import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import 'package:wander_nova/core/constants/urls.dart';
 import 'package:wander_nova/core/network/dio_client.dart';
 import 'package:wander_nova/core/resources/app_colours.dart';
+import 'package:wander_nova/core/utils/storage/shared_preference.dart';
 import 'package:wander_nova/injection_container.dart';
 import '../../../../core/error/data_state.dart';
 import '../../../AKHotelRetrieveBooking/domain/entity/AKHotelRetrieveBooking_entity.dart';
@@ -127,6 +128,10 @@ class _AkHotelPaymentScreenState extends State<AkHotelPaymentScreen> {
   String? _razorpayOrderId;
   String? _razorpayKeyId;
 
+  // Set once /wallet/pay-booking/ has charged the wallet for this booking —
+  // StartPay is never re-run blindly, and the wallet is never charged twice.
+  String? _walletDebitRef;
+
   // Inline accordion payment sections
   String? _open;
   final _rzService = RazorpayCustomCheckoutService();
@@ -173,7 +178,17 @@ class _AkHotelPaymentScreenState extends State<AkHotelPaymentScreen> {
     }
   }
 
+  /// Pays from the wallet: /wallet/pay-booking/ debits it against the
+  /// itinerary TransactionID (what StartPay's payment guard looks for, same
+  /// as the website), then StartPay runs with gateway 'wallet'.
   Future<void> _payWithWallet() async {
+    if (_walletDebitRef != null) {
+      setState(() => _errorMessage =
+          'Your wallet has already been charged for this booking. Please '
+          'contact support with Transaction ID ${widget.transactionId} — do not pay again.');
+      return;
+    }
+
     setState(() {
       _processing = true;
       _errorMessage = null;
@@ -189,7 +204,9 @@ class _AkHotelPaymentScreenState extends State<AkHotelPaymentScreen> {
       if (!mounted) return;
 
       if (balance >= widget.netAmount) {
-        await _runStartPay(gateway: 'wallet', paymentReference: widget.transactionId);
+        if (await _debitWallet()) {
+          await _runStartPay(gateway: 'wallet', paymentReference: widget.transactionId);
+        }
       } else {
         setState(() {
           _processing = false;
@@ -204,6 +221,28 @@ class _AkHotelPaymentScreenState extends State<AkHotelPaymentScreen> {
       });
       print('Hotel wallet balance error: $e');
     }
+  }
+
+  /// Charges the wallet for this booking (whole rupees, rounded up, as the
+  /// website does). Returns false, with the reason shown, if it wasn't charged.
+  Future<bool> _debitWallet() async {
+    setState(() => _statusMessage = 'Paying from your wallet...');
+    final debit = await sl<WalletApiService>().payBooking(
+      amount: widget.netAmount.ceilToDouble(),
+      bookingType: 'hotel',
+      bookingRef: widget.transactionId,
+      description: 'Hotel: ${widget.hotelName}',
+    );
+    if (!mounted) return false;
+    if (debit.success) {
+      _walletDebitRef = debit.reference ?? widget.transactionId;
+      return true;
+    }
+    setState(() {
+      _processing = false;
+      _errorMessage = debit.error ?? 'Wallet payment failed. Please try again.';
+    });
+    return false;
   }
 
   /// Creates the Razorpay order the first time the customer taps ANY Custom
@@ -223,12 +262,17 @@ class _AkHotelPaymentScreenState extends State<AkHotelPaymentScreen> {
 
     try {
       final dio = sl<DioClient>().instance;
+      final userId = sl<PreferencesManager>().getUserId();
       final response = await dio.post(
         Urls.razorpayCreateOrder,
         data: {
           'amount': widget.netAmount,
           'currency': 'INR',
           'reference_id': widget.transactionId,
+          // Same as the website: tells the backend (webhook reconciliation)
+          // what this payment is for.
+          'transaction_type': 'hotel',
+          if (userId != null) 'user_id': userId,
         },
       );
 
@@ -551,7 +595,6 @@ class _AkHotelPaymentScreenState extends State<AkHotelPaymentScreen> {
                           apps: _upiApps,
                           onPayWithApp: (app) => _payWithMethod({'method': 'upi', '_[flow]': 'intent', 'upi_app_package_name': app.package}),
                           onPayWithVpa: (vpa) => _payWithMethod({'method': 'upi', '_[flow]': 'collect', 'vpa': vpa}),
-                          qrPanel: const SizedBox.shrink(),
                         ) : const SizedBox.shrink(),
                       ),
                       CheckoutAccordion(
@@ -593,29 +636,17 @@ class _AkHotelPaymentScreenState extends State<AkHotelPaymentScreen> {
                         ) : const SizedBox.shrink(),
                       ),
                       CheckoutAccordion(
-                        title: 'Wallets',
-                        subtitle: 'Paytm, PhonePe, Amazon Pay & more',
+                        title: 'Wallets & Pay Later',
+                        subtitle: 'Paytm, PhonePe, Amazon Pay · LazyPay, Simpl & more',
                         leading: const CheckoutIcon('assets/NewIcons/wallet.png'),
                         expanded: _open == 'wallet',
                         onTap: () => _toggle('wallet'),
-                        child: _open == 'wallet' ? WalletsSection(
+                        child: _open == 'wallet' ? WalletsPayLaterSection(
                           amount: widget.netAmount,
                           busy: _processing,
                           methods: _loadMethods(),
-                          onPay: (w) => _payWithMethod({'method': 'wallet', 'wallet': w}),
-                        ) : const SizedBox.shrink(),
-                      ),
-                      CheckoutAccordion(
-                        title: 'Pay Later',
-                        subtitle: 'LazyPay, Simpl, ICICI & more',
-                        leading: const CheckoutIcon('assets/NewIcons/pay_later.png'),
-                        expanded: _open == 'paylater',
-                        onTap: () => _toggle('paylater'),
-                        child: _open == 'paylater' ? PayLaterSection(
-                          amount: widget.netAmount,
-                          busy: _processing,
-                          methods: _loadMethods(),
-                          onPay: (p) => _payWithMethod({'method': 'paylater', 'provider': p}),
+                          onPayWallet: (w) => _payWithMethod({'method': 'wallet', 'wallet': w}),
+                          onPayLater: (p) => _payWithMethod({'method': 'paylater', 'provider': p}),
                         ) : const SizedBox.shrink(),
                       ),
                     ],
