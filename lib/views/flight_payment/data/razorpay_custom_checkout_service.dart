@@ -29,17 +29,30 @@ class RazorpayCustomPaymentResult {
   });
 }
 
-/// Thin bridge to the native Razorpay Android Custom Checkout SDK
-/// (`com.razorpay:customui`), wired up natively in `MainActivity.kt`.
-///
-/// Razorpay does not publish an iOS Custom Checkout SDK, so every call here
-/// throws on non-Android platforms — callers should keep payment methods
-/// unrelated to Razorpay (e.g. the WanderNova wallet) available on iOS
-/// instead of routing to a custom-checkout screen.
+/// A UPI app installed on the device (GPay, PhonePe, Paytm, …).
+class UpiApp {
+  final String name;
+  final String package;
+
+  const UpiApp({required this.name, required this.package});
+
+  String get _id => '${name.toLowerCase()} ${package.toLowerCase()}';
+
+  bool get isGooglePay =>
+      _id.contains('google') || _id.contains('gpay') || _id.contains('tez') ||
+      _id.contains('nbu.paisa');
+  bool get isPhonePe => _id.contains('phonepe');
+  bool get isPaytm => _id.contains('paytm');
+}
+
+/// Thin bridge to the native Razorpay Custom Checkout SDKs — Android
+/// (`com.razorpay:customui`, wired up in `MainActivity.kt`) and iOS
+/// (`razorpay-customui-pod`, wired up in `AppDelegate.swift`) — over one
+/// shared method channel with the same contract on both platforms.
 class RazorpayCustomCheckoutService {
   static const _channel = MethodChannel('wander_nova/razorpay_custom');
 
-  bool get isSupported => Platform.isAndroid;
+  bool get isSupported => Platform.isAndroid || Platform.isIOS;
 
   /// Payment methods enabled on this Razorpay account (doc step 1.4) — used
   /// so the netbanking/wallet pickers only ever show real, enabled options
@@ -53,6 +66,29 @@ class RazorpayCustomCheckoutService {
     } on PlatformException catch (e) {
       throw RazorpayCustomCheckoutException(
         e.message ?? 'Could not load payment methods',
+        code: e.code,
+      );
+    }
+  }
+
+  /// UPI apps installed on this device that can complete a UPI intent
+  /// payment, as `{name, package}` — pass `package` as the payload's
+  /// `upi_app_package_name`. Empty when none are installed.
+  Future<List<UpiApp>> getUpiApps() async {
+    _assertSupported();
+    try {
+      final raw = await _channel.invokeListMethod<dynamic>('getUpiApps');
+      return (raw ?? const [])
+          .whereType<Map>()
+          .map((m) => UpiApp(
+                name: (m['name'] ?? '').toString(),
+                package: (m['package'] ?? '').toString(),
+              ))
+          .where((a) => a.package.isNotEmpty)
+          .toList();
+    } on PlatformException catch (e) {
+      throw RazorpayCustomCheckoutException(
+        e.message ?? 'Could not load UPI apps',
         code: e.code,
       );
     }
@@ -91,7 +127,7 @@ class RazorpayCustomCheckoutService {
   void _assertSupported() {
     if (!isSupported) {
       throw const RazorpayCustomCheckoutException(
-        'This payment method is available on Android for now.',
+        'This payment method is not supported on this device.',
       );
     }
   }

@@ -1,13 +1,10 @@
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:razorpay_flutter/razorpay_flutter.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 
-import '../../../../core/constants/urls.dart';
-import '../../../../core/network/dio_client.dart';
 import '../../../../core/utils/storage/shared_preference.dart';
 import '../../../../injection_container.dart' as di;
+import 'wallet_topup_checkout_screen.dart';
 
 class AddMoneyDialog extends StatefulWidget {
   final Function(double amount, String paymentMethod) onConfirm;
@@ -27,30 +24,17 @@ class _AddMoneyDialogState extends State<AddMoneyDialog> {
   String _selectedPaymentMethod = 'Razorpay';
   double? _selectedQuickAmount;
 
-  late final Razorpay _razorpay;
-  bool _isProcessing = false;
-
-  // Set when a Razorpay checkout is opened, so the async success handler knows
-  // which top-up it is confirming.
-  String _reference = '';
-  double _payableAmount = 0;
-
   final List<double> _quickAmounts = [500, 1000, 2000, 5000];
 
   @override
   void initState() {
     super.initState();
     _amountController = TextEditingController();
-    _razorpay = Razorpay();
-    _razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, _handleRazorpaySuccess);
-    _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _handleRazorpayError);
-    _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleRazorpayExternalWallet);
   }
 
   @override
   void dispose() {
     _amountController.dispose(); // Proper cleanup
-    _razorpay.clear();
     super.dispose();
   }
 
@@ -81,7 +65,8 @@ class _AddMoneyDialogState extends State<AddMoneyDialog> {
           maxHeight: context.hp(70),
         ),
         padding: context.responsivePadding,
-        child: SingleChildScrollView(  // 👈 Add this to make content scrollable
+        child: SingleChildScrollView(
+          // 👈 Add this to make content scrollable
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -122,7 +107,9 @@ class _AddMoneyDialogState extends State<AddMoneyDialog> {
               TextField(
                 controller: _amountController,
                 onChanged: _onAmountChanged,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
                 inputFormatters: [
                   FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
                 ],
@@ -134,7 +121,9 @@ class _AddMoneyDialogState extends State<AddMoneyDialog> {
                     fontWeight: FontWeight.w600,
                   ),
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(context.borderRadiusMedium),
+                    borderRadius: BorderRadius.circular(
+                      context.borderRadiusMedium,
+                    ),
                   ),
                   contentPadding: EdgeInsets.symmetric(
                     horizontal: context.gapMedium,
@@ -161,7 +150,9 @@ class _AddMoneyDialogState extends State<AddMoneyDialog> {
                     selectedColor: Colors.red.shade50,
                     labelStyle: TextStyle(
                       color: isSelected ? Colors.red.shade700 : Colors.black87,
-                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                      fontWeight: isSelected
+                          ? FontWeight.w600
+                          : FontWeight.normal,
                     ),
                   );
                 }).toList(),
@@ -185,7 +176,7 @@ class _AddMoneyDialogState extends State<AddMoneyDialog> {
               SizedBox(height: context.gapMedium),
 
               Text(
-                'You will be redirected to Razorpay\'s secure checkout (INR).',
+                'Choose UPI, card, net banking or e-wallet on the next step.',
                 style: TextStyle(
                   fontSize: context.bodySmall,
                   color: Colors.grey.shade600,
@@ -201,9 +192,13 @@ class _AddMoneyDialogState extends State<AddMoneyDialog> {
                     child: OutlinedButton(
                       onPressed: () => Navigator.pop(context),
                       style: OutlinedButton.styleFrom(
-                        padding: EdgeInsets.symmetric(vertical: context.gapMedium),
+                        padding: EdgeInsets.symmetric(
+                          vertical: context.gapMedium,
+                        ),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(context.borderRadiusMedium),
+                          borderRadius: BorderRadius.circular(
+                            context.borderRadiusMedium,
+                          ),
                         ),
                       ),
                       child: Text(
@@ -218,35 +213,27 @@ class _AddMoneyDialogState extends State<AddMoneyDialog> {
                   Expanded(
                     flex: 2,
                     child: ElevatedButton(
-                      onPressed: (amount > 0 && !_isProcessing)
-                          ? () => _pay(amount)
-                          : null,
+                      onPressed: amount > 0 ? () => _pay(amount) : null,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.red.shade600,
                         foregroundColor: Colors.white,
-                        padding: EdgeInsets.symmetric(vertical: context.gapMedium),
+                        padding: EdgeInsets.symmetric(
+                          vertical: context.gapMedium,
+                        ),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(context.borderRadiusMedium),
+                          borderRadius: BorderRadius.circular(
+                            context.borderRadiusMedium,
+                          ),
                         ),
                         elevation: 0,
                       ),
-                      child: _isProcessing
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor:
-                                    AlwaysStoppedAnimation(Colors.white),
-                              ),
-                            )
-                          : Text(
-                              'Pay ₹${amount.toStringAsFixed(2)}',
-                              style: TextStyle(
-                                fontSize: context.bodyMedium,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
+                      child: Text(
+                        'Pay ₹${amount.toStringAsFixed(2)}',
+                        style: TextStyle(
+                          fontSize: context.bodyMedium,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
                   ),
                 ],
@@ -453,166 +440,27 @@ class _AddMoneyDialogState extends State<AddMoneyDialog> {
     );
   }
 
-  /// Recharges the wallet via Razorpay's native checkout, mirroring the web
-  /// flow: /wallet/add-money/ → Razorpay → /payments/razorpay/verify/ →
-  /// /wallet/verify-payment/. On a confirmed credit the parent's [onConfirm]
-  /// runs (refreshes balance) and the dialog closes.
+  /// Opens the full-screen wallet checkout. It pops `true` only once the
+  /// wallet backend confirms the credit; then the parent's [onConfirm] runs
+  /// (refreshes balance) and this dialog closes. Backing out of the checkout
+  /// returns here so the amount can be changed.
   Future<void> _pay(double amount) async {
-    final prefs = di.sl<PreferencesManager>();
-
-    if (!prefs.isLoggedIn()) {
+    if (!di.sl<PreferencesManager>().isLoggedIn()) {
       _snack('Please log in to add money to your wallet.');
       return;
     }
 
-    setState(() => _isProcessing = true);
-    try {
-      final payable = double.parse(amount.toStringAsFixed(2));
+    final payable = double.parse(amount.toStringAsFixed(2));
+    final credited = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => WalletTopUpCheckoutScreen(amount: payable),
+      ),
+    );
 
-      // Same flow as the web app: /wallet/add-money/ creates the pending
-      // WalletTransaction AND the Razorpay order, and returns the wallet
-      // reference that /wallet/verify-payment/ later settles.
-      final dio = di.sl<DioClient>().instance;
-      final response = await dio.post(
-        Urls.walletAddMoney,
-        data: {
-          'amount': payable,
-          'payment_method': 'razorpay',
-          'base_url': 'https://thewandernova.com/',
-          'currency': 'INR',
-          'inr_amount': payable,
-        },
-      );
-
-      final body = (response.data as Map?)?.cast<String, dynamic>() ?? {};
-      final orderId = body['razorpay_order_id'];
-      final keyId = body['key_id'];
-      final reference = body['reference']?.toString() ?? '';
-      if (body['success'] != true || orderId == null || reference.isEmpty) {
-        if (!mounted) return;
-        setState(() => _isProcessing = false);
-        _snack(body['error']?.toString() ??
-            'Could not create payment order. Please try again.');
-        return;
-      }
-      final amountPaise = body['amount_paise'] is num
-          ? (body['amount_paise'] as num).toInt()
-          : (payable * 100).toInt();
-
-      if (!mounted) return;
-      setState(() {
-        _isProcessing = false;
-        _reference = reference;
-        _payableAmount = payable;
-      });
-
-      final userData = prefs.getUserData() ?? {};
-      _razorpay.open({
-        'key': keyId,
-        'amount': amountPaise,
-        'currency': 'INR',
-        'name': 'WanderNova',
-        'description': 'Wallet Top-up',
-        'order_id': orderId,
-        'prefill': {
-          'name': '${userData['firstname'] ?? ''} ${userData['lastname'] ?? ''}'.trim(),
-          'email': (userData['email'] ?? '').toString(),
-          'contact': (userData['phone_number'] ?? '').toString(),
-        },
-        'theme': {'color': '#E53935'},
-      });
-    } on DioException catch (e) {
-      if (!mounted) return;
-      setState(() => _isProcessing = false);
-      print('Razorpay order error: ${e.message}');
-      _snack('Could not create payment order. Please try again.');
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _isProcessing = false);
-      _snack('Could not start payment. Please try again.');
-    }
-  }
-
-  Future<void> _handleRazorpaySuccess(PaymentSuccessResponse response) async {
-    if (!mounted) return;
-    setState(() => _isProcessing = true);
-
-    final dio = di.sl<DioClient>().instance;
-
-    // Step 1: verify the signature server-side. Until this passes the payment
-    // is not trustworthy, so nothing is credited on its basis.
-    try {
-      final verify = await dio.post(
-        Urls.razorpayVerify,
-        data: {
-          'razorpay_order_id': response.orderId,
-          'razorpay_payment_id': response.paymentId,
-          'razorpay_signature': response.signature,
-          'reference_id': _reference,
-        },
-      );
-      if (verify.data['success'] != true) {
-        if (!mounted) return;
-        setState(() => _isProcessing = false);
-        _snack(
-          'Payment could not be verified. If money was deducted, contact '
-          'support with reference: ${response.paymentId ?? _reference}',
-        );
-        return;
-      }
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _isProcessing = false);
-      _snack(
-        'Payment could not be verified. If money was deducted, contact '
-        'support with reference: ${response.paymentId ?? _reference}',
-      );
-      return;
-    }
-
-    // Step 2: settle the WalletTransaction created by /wallet/add-money/.
-    final credited = await _creditWallet();
-
-    if (!mounted) return;
-    setState(() => _isProcessing = false);
-
-    if (credited) {
-      widget.onConfirm(_payableAmount, _selectedPaymentMethod);
+    if (credited == true && mounted) {
+      widget.onConfirm(payable, _selectedPaymentMethod);
       Navigator.pop(context);
-    } else {
-      _snack(
-        'Payment received, but your wallet balance has not updated yet. '
-        'Please contact support with reference: '
-        '${response.paymentId ?? _reference}',
-      );
     }
-  }
-
-  /// Attempts to settle the top-up on the wallet backend. Returns true only
-  /// when the backend confirms the balance was actually credited.
-  Future<bool> _creditWallet() async {
-    try {
-      final dio = di.sl<DioClient>().instance;
-      final res = await dio.post(
-        Urls.walletVerifyPayment,
-        data: {'reference': _reference},
-      );
-      final body = (res.data as Map?)?.cast<String, dynamic>() ?? {};
-      return body['success'] == true;
-    } catch (e) {
-      print('Wallet credit after Razorpay top-up failed: $e');
-      return false;
-    }
-  }
-
-  void _handleRazorpayError(PaymentFailureResponse response) {
-    if (!mounted) return;
-    setState(() => _isProcessing = false);
-    _snack('Payment failed: ${response.message ?? 'Please try again.'}');
-  }
-
-  void _handleRazorpayExternalWallet(ExternalWalletResponse response) {
-    print('Razorpay external wallet: ${response.walletName}');
   }
 
   Widget _buildPaymentMethodCard() {
@@ -644,7 +492,7 @@ class _AddMoneyDialogState extends State<AddMoneyDialog> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Razorpay',
+                  'Continue',
                   style: TextStyle(
                     fontSize: context.bodyMedium,
                     fontWeight: FontWeight.w600,

@@ -21,12 +21,11 @@ import 'package:wander_nova/views/AKRetrieveBooking/domain/usecase/AKRetrieveBoo
 import 'package:wander_nova/views/AKStartPay/domain/entity/AKStartPay_entity.dart';
 import 'package:wander_nova/views/AKStartPay/domain/usecase/AKStartPay_usecase.dart';
 import 'package:wander_nova/views/flight_payment/data/razorpay_custom_checkout_service.dart';
-import 'package:wander_nova/views/flight_payment/presentation/screen/ak_card_payment_screen.dart';
-import 'package:wander_nova/views/flight_payment/presentation/screen/ak_custom_checkout_args.dart';
-import 'package:wander_nova/views/flight_payment/presentation/screen/ak_netbanking_payment_screen.dart';
-import 'package:wander_nova/views/flight_payment/presentation/screen/ak_upi_payment_screen.dart';
-import 'package:wander_nova/views/flight_payment/presentation/screen/ak_wallet_provider_payment_screen.dart';
 import 'package:wander_nova/views/flight_search/presentation/screen/booking_screen.dart';
+import 'package:wander_nova/views/wallet/wallet/screen/checkout/card_form.dart';
+import 'package:wander_nova/views/wallet/wallet/screen/checkout/checkout_ui.dart';
+import 'package:wander_nova/views/wallet/wallet/screen/checkout/method_sections.dart';
+import 'package:wander_nova/views/wallet/wallet/screen/checkout/upi_section.dart';
 import 'package:wander_nova/views/flight_search/presentation/screen/seat_addons_screen.dart';
 import 'package:wander_nova/views/flight_ticket/presentation/screen/ak_ticket_confirmation_screen.dart';
 import 'package:wander_nova/views/wallet/data/data_source/wallet_api_service.dart';
@@ -140,6 +139,12 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
   // The specific card the user tapped ('wallet', 'razorpay', 'gpay', …) —
   // only that card shows the brief selected highlight before payment starts.
   String? _selectedTileId;
+
+  // Inline accordion payment sections
+  String? _open;
+  final _rzService = RazorpayCustomCheckoutService();
+  late final Future<List<UpiApp>> _upiApps = _rzService.getUpiApps().catchError((_) => <UpiApp>[]);
+  Future<Map<String, dynamic>>? _methods;
 
   // Razorpay's payment id — the real gateway transaction reference, shown on
   // the confirmation screen. Null for wallet payments (no gateway involved).
@@ -429,56 +434,75 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
     }
   }
 
-  /// Ensures the order exists, then pushes [screenBuilder] with everything
-  /// it needs to submit a charge against that order. A non-null result means
-  /// the method screen collected a successful charge; a null result means
-  /// the customer backed out (that screen already showed its own error for
-  /// a failed attempt, so nothing further is needed here).
-  Future<void> _openCustomCheckoutScreen(
-    Widget Function(AkCustomCheckoutArgs args) screenBuilder,
-  ) async {
+  void _toggle(String id) => setState(() => _open = _open == id ? null : id);
+
+  Future<Map<String, dynamic>> _loadMethods() {
+    return _methods ??= () async {
+      if (!await _ensureRazorpayOrder()) throw Exception('order');
+      return _rzService.getPaymentMethods(keyId: _razorpayKeyId!);
+    }().catchError((Object e) { _methods = null; throw e; });
+  }
+
+  Future<void> _payWithMethod(Map<String, dynamic> method) async {
     if (_expired || _processing) return;
+    FocusScope.of(context).unfocus();
 
     final ready = await _ensureRazorpayOrder();
     if (!ready || !mounted) return;
 
-    final firstName = (widget.leadPassenger['firstName'] ?? '').toString();
-    final lastName = (widget.leadPassenger['lastName'] ?? '').toString();
+    setState(() {
+      _processing = true;
+      _statusMessage = 'Complete the payment to continue...';
+      _errorMessage = null;
+    });
 
-    final args = AkCustomCheckoutArgs(
-      keyId: _razorpayKeyId!,
-      orderId: _razorpayOrderId!,
-      amountInInr: _totalChargeInInr,
-      name: '$firstName $lastName'.trim(),
-      email: (widget.leadPassenger['email'] ?? '').toString(),
-      contact: (widget.leadPassenger['mobileNumber'] ?? '').toString(),
-      description: 'Flight ${widget.route.from} → ${widget.route.to}',
-    );
-
-    final result = await Navigator.push<RazorpayCustomPaymentResult>(
-      context,
-      MaterialPageRoute(builder: (_) => screenBuilder(args)),
-    );
-
-    if (result == null || !mounted) return;
-    await _verifyAndConfirmBooking(
-      paymentId: result.paymentId,
-      orderId: result.orderId,
-      signature: result.signature,
-    );
+    try {
+      final result = await _rzService.submitPayment(
+        keyId: _razorpayKeyId!,
+        data: {
+          'amount': (_totalChargeInInr * 100).round(),
+          'currency': 'INR',
+          'order_id': _razorpayOrderId,
+          'email': (widget.leadPassenger['email'] ?? '').toString(),
+          'contact': (widget.leadPassenger['mobileNumber'] ?? '').toString(),
+          'description': 'Flight ${widget.route.from} → ${widget.route.to}',
+          ...method,
+        },
+      );
+      await _verifyAndConfirmBooking(
+        paymentId: result.paymentId,
+        orderId: result.orderId,
+        signature: result.signature,
+      );
+    } on RazorpayCustomCheckoutException catch (e) {
+      final msg = e.message.toLowerCase();
+      if (msg.contains('cancel')) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Payment cancelled. You can try again.'), behavior: SnackBarBehavior.floating));
+      } else {
+        if (mounted) setState(() {
+          _processing = false;
+          _errorMessage = e.message;
+        });
+      }
+    }
+    if (mounted) setState(() => _processing = false);
   }
 
-  void _startCardCheckout() =>
-      _openCustomCheckoutScreen((args) => AkCardPaymentScreen(args: args));
-
-  void _startUpiCheckout() =>
-      _openCustomCheckoutScreen((args) => AkUpiPaymentScreen(args: args));
-
-  void _startNetbankingCheckout() =>
-      _openCustomCheckoutScreen((args) => AkNetbankingPaymentScreen(args: args));
-
-  void _startWalletProviderCheckout() =>
-      _openCustomCheckoutScreen((args) => AkWalletProviderPaymentScreen(args: args));
+  Future<void> _payWithGooglePay() async {
+    if (_expired || _processing) return;
+    final apps = await _upiApps;
+    final gpay = apps.where((a) => a.isGooglePay).firstOrNull;
+    if (!mounted) return;
+    if (gpay == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text("Google Pay isn't installed. Try another method."),
+        behavior: SnackBarBehavior.floating));
+      setState(() => _open = 'upi');
+      return;
+    }
+    await _payWithMethod({'method': 'upi', '_[flow]': 'intent', 'upi_app_package_name': gpay.package});
+  }
 
   /// Shared by every Custom Checkout method screen: verifies the signature
   /// server-side (unchanged endpoint/contract from the old Standard
@@ -772,10 +796,6 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
                         ),
                         SizedBox(height: context.h(16)),
                       ],
-                      _sectionLabel(context, 'Suggested options'),
-                      SizedBox(height: context.h(12)),
-                      // Wallet + Razorpay — kept exactly as-is, each its own
-                      // card. One tap starts payment straight away.
                       _optionCard(context, children: [
                         _optionRow(
                           context,
@@ -788,98 +808,90 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
                           subtitle: 'Pay using your wallet balance',
                         ),
                       ]),
-                      // The old single "Razorpay" tile (Standard Checkout,
-                      // its own hosted method picker) is retired — every
-                      // method below now opens WanderNova's own Custom
-                      // Checkout screen for that method directly.
-                      // _optionCard(context, children: [
-                      //   _optionRow(
-                      //     context,
-                      //     tileId: 'razorpay',
-                      //     method: 'razorpay',
-                      //     icon: Icons.payment_rounded,
-                      //     iconColor: const Color(0xFF2F80ED),
-                      //     iconBg: const Color(0xFFEFF6FF),
-                      //     title: 'Razorpay',
-                      //     subtitle: 'Cards, UPI, Net Banking, Wallets',
-                      //   ),
-                      // ]),
-                      _promoStrip(context, 'Get extra discount on UPI of Rs 32'),
-                      // GooglePay + UPI Options — one card, no divider between.
-                      // Both open the Custom Checkout UPI screen (GPay is a
-                      // UPI-intent payment under Razorpay's 'upi' method).
-                      _optionCard(context, children: [
-                        _optionRow(
-                          context,
-                          tileId: 'gpay',
-                          onTapOverride: _startUpiCheckout,
-                          // icon: Icons.g_mobiledata_rounded,
-                          iconAsset: 'assets/NewIcons/gpay.png',
-                          iconColor: const Color(0xFF4285F4),
-                          iconBg: const Color(0xFFEFF6FF),
-                          title: 'GooglePay',
-                          subtitle: 'Pay with GooglePay',
-                        ),
-                        _optionRow(
-                          context,
-                          tileId: 'upi',
-                          onTapOverride: _startUpiCheckout,
-                          // icon: Icons.qr_code_2_rounded,
-                          iconAsset: 'assets/NewIcons/upi.png',
-                          // iconColor: const Color(0xFF5F259F),
-                          iconBg: const Color(0xFFF3E8FF),
-                          title: 'UPI Options',
-                          subtitle: 'Pay Directly From Your Bank Account',
-                        ),
-                      ]),
-                      SizedBox(height: context.h(12)),
-                      _sectionLabel(context, 'Other Payment Options'),
-                      SizedBox(height: context.h(12)),
-                      // Card / Net Banking / Gift Cards & e-Wallets now open
-                      // their own Custom Checkout screens. Pay Later stays
-                      // static — it needs separate Razorpay approval and
-                      // isn't confirmed enabled on this account.
-                      _optionCard(context, children: [
-                        _optionRow(
-                          context,
-                          tileId: 'card',
-                          onTapOverride: _startCardCheckout,
-                          iconAsset: 'assets/NewIcons/credit.png',
-                          iconBg: const Color(0xFFEFF6FF),
-                          title: 'Credit & Debit Cards',
-                          subtitle: 'Visa, Mastercard, Amex, Rupay and more',
-                        ),
-                      ]),
-                      _optionCard(context, children: [
-                        _optionRow(
-                          context,
-                          tileId: 'netbanking',
-                          onTapOverride: _startNetbankingCheckout,
-                          iconAsset: 'assets/NewIcons/net_banking.png',
-                          iconBg: const Color(0xFFF5F3FF),
-                          title: 'Net Banking',
-                          subtitle: '40+ Banks available',
-                          tag: 'Fingerprint/Face ID',
-                        ),
-                        _optionRow(
-                          context,
-                          tileId: 'paylater',
-                          interactive: false,
-                          iconAsset: 'assets/NewIcons/pay_later.png',
-                          iconBg: const Color(0xFFECFEFF),
-                          title: 'Pay Later',
-                          subtitle: 'LazyPay, Simpl, ICICI PayLater and more',
-                        ),
-                        _optionRow(
-                          context,
-                          tileId: 'giftcard',
-                          onTapOverride: _startWalletProviderCheckout,
-                          iconAsset: 'assets/NewIcons/wallet.png',
-                          iconBg: const Color(0xFFFFFBEB),
-                          title: 'Gift Cards & e-Wallets',
-                          subtitle: 'Paytm, PhonePe, Amazon Pay and more',
-                        ),
-                      ]),
+                      _sectionLabel(context, 'Pay Online'),
+                      SizedBox(height: context.h(10)),
+                      _googlePayTile(context),
+                      SizedBox(height: context.h(8)),
+                      CheckoutAccordion(
+                        title: 'UPI',
+                        subtitle: 'Google Pay, PhonePe, Paytm & more',
+                        badge: 'INSTANT',
+                        leading: const CheckoutIcon('assets/NewIcons/upi.png'),
+                        expanded: _open == 'upi',
+                        onTap: () => _toggle('upi'),
+                        child: _open == 'upi' ? UpiSection(
+                          amount: _totalChargeInInr,
+                          busy: _processing,
+                          apps: _upiApps,
+                          onPayWithApp: (app) => _payWithMethod({'method': 'upi', '_[flow]': 'intent', 'upi_app_package_name': app.package}),
+                          onPayWithVpa: (vpa) => _payWithMethod({'method': 'upi', '_[flow]': 'collect', 'vpa': vpa}),
+                          qrPanel: const SizedBox.shrink(),
+                        ) : const SizedBox.shrink(),
+                      ),
+                      CheckoutAccordion(
+                        title: 'Credit / Debit Card',
+                        subtitle: 'Visa, Mastercard, RuPay, Amex & more',
+                        leading: const CheckoutIcon('assets/NewIcons/credit.png'),
+                        expanded: _open == 'card',
+                        onTap: () => _toggle('card'),
+                        child: _open == 'card' ? CardForm(
+                          payLabel: 'Pay ${formatInr(_totalChargeInInr)}',
+                          busy: _processing,
+                          onSubmit: (card) => _payWithMethod({'method': 'card', 'card': card}),
+                        ) : const SizedBox.shrink(),
+                      ),
+                      CheckoutAccordion(
+                        title: 'Net Banking',
+                        subtitle: 'All major banks available',
+                        leading: const CheckoutIcon('assets/NewIcons/net_banking.png'),
+                        expanded: _open == 'netbanking',
+                        onTap: () => _toggle('netbanking'),
+                        child: _open == 'netbanking' ? NetbankingSection(
+                          amount: _totalChargeInInr,
+                          busy: _processing,
+                          methods: _loadMethods(),
+                          onPay: (bank) => _payWithMethod({'method': 'netbanking', 'bank': bank}),
+                        ) : const SizedBox.shrink(),
+                      ),
+                      CheckoutAccordion(
+                        title: 'EMI',
+                        subtitle: 'Easy monthly instalments on credit cards',
+                        leading: _emiIcon(context),
+                        expanded: _open == 'emi',
+                        onTap: () => _toggle('emi'),
+                        child: _open == 'emi' ? EmiSection(
+                          amount: _totalChargeInInr,
+                          busy: _processing,
+                          methods: _loadMethods(),
+                          onPay: (months, card) => _payWithMethod({'method': 'emi', 'emi_duration': months, 'card': card}),
+                        ) : const SizedBox.shrink(),
+                      ),
+                      CheckoutAccordion(
+                        title: 'Wallets',
+                        subtitle: 'Paytm, PhonePe, Amazon Pay & more',
+                        leading: const CheckoutIcon('assets/NewIcons/wallet.png'),
+                        expanded: _open == 'wallet',
+                        onTap: () => _toggle('wallet'),
+                        child: _open == 'wallet' ? WalletsSection(
+                          amount: _totalChargeInInr,
+                          busy: _processing,
+                          methods: _loadMethods(),
+                          onPay: (w) => _payWithMethod({'method': 'wallet', 'wallet': w}),
+                        ) : const SizedBox.shrink(),
+                      ),
+                      CheckoutAccordion(
+                        title: 'Pay Later',
+                        subtitle: 'LazyPay, Simpl, ICICI & more',
+                        leading: const CheckoutIcon('assets/NewIcons/pay_later.png'),
+                        expanded: _open == 'paylater',
+                        onTap: () => _toggle('paylater'),
+                        child: _open == 'paylater' ? PayLaterSection(
+                          amount: _totalChargeInInr,
+                          busy: _processing,
+                          methods: _loadMethods(),
+                          onPay: (p) => _payWithMethod({'method': 'paylater', 'provider': p}),
+                        ) : const SizedBox.shrink(),
+                      ),
                     ],
                   ],
                 ),
@@ -1542,6 +1554,43 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
       _errorMessage = null;
     });
     _processPayment();
+  }
+
+  Widget _emiIcon(BuildContext context) => Container(
+    width: context.w(34), height: context.w(34),
+    decoration: BoxDecoration(color: const Color(0xFFFFF4E5), borderRadius: BorderRadius.circular(context.r(8))),
+    child: Icon(Icons.calendar_month_rounded, size: context.w(20), color: const Color(0xFFF59E0B)),
+  );
+
+  Widget _googlePayTile(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(context.r(14)),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(context.r(14)),
+        onTap: (_expired || _processing) ? null : _payWithGooglePay,
+        child: Container(
+          padding: EdgeInsets.symmetric(horizontal: context.w(14), vertical: context.h(14)),
+          decoration: BoxDecoration(borderRadius: BorderRadius.circular(context.r(14)), border: Border.all(color: const Color(0xFFE2E8F0))),
+          child: Row(children: [
+            const CheckoutIcon('assets/NewIcons/gpay.png'),
+            SizedBox(width: context.w(12)),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+              Text('Google Pay', style: TextStyle(fontSize: context.fs(15), fontWeight: FontWeight.w700, color: const Color(0xFF0F172A))),
+              SizedBox(height: context.h(2)),
+              Text('Pay instantly from the Google Pay app', maxLines: 1, overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: context.fs(12), color: AppColors.subhead)),
+            ])),
+            SizedBox(width: context.w(8)),
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: context.w(12), vertical: context.h(7)),
+              decoration: BoxDecoration(color: AppColors.AppBlue, borderRadius: BorderRadius.circular(context.r(8))),
+              child: Text('PAY', style: TextStyle(fontSize: context.fs(12), fontWeight: FontWeight.w800, color: Colors.white)),
+            ),
+          ]),
+        ),
+      ),
+    );
   }
 
   // ==================== STATUS / PAY ====================

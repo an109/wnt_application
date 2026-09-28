@@ -34,6 +34,12 @@ class Urls {
   static const String razorpayCreateOrder =
       '${baseUrl}payments/razorpay/create-order/';
   static const String razorpayVerify = '${baseUrl}payments/razorpay/verify/';
+  // Razorpay UPI QR: create → (proxied, unbranded) image → poll status.
+  static const String razorpayCreateQr = '${baseUrl}payments/razorpay/create-qr/';
+  static String razorpayQrImage(String qrId) =>
+      '${baseUrl}payments/razorpay/qr-image/$qrId/';
+  static String razorpayQrStatus(String qrId) =>
+      '${baseUrl}payments/razorpay/qr-status/$qrId/';
 
   // ----- CCAvenue (hosted checkout) -----
   static const String ccavenueCreateCheckout =

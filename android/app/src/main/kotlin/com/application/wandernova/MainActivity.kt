@@ -1,5 +1,6 @@
 package com.application.wandernova
 
+import android.content.Intent
 import android.os.Bundle
 import android.view.View
 import android.view.ViewGroup
@@ -9,6 +10,7 @@ import com.razorpay.PaymentData
 import com.razorpay.PaymentMethodsCallback
 import com.razorpay.PaymentResultWithDataListener
 import com.razorpay.Razorpay
+import com.razorpay.RzpUpiSupportedAppsCallback
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -91,9 +93,29 @@ class MainActivity : FlutterActivity() {
                         result.error("SUBMIT_EXCEPTION", e.message, null)
                     }
                 }
+                "getUpiApps" -> {
+                    // UPI apps installed on this device that can take an
+                    // intent payment: [{name, package}].
+                    Razorpay.getAppsWhichSupportUpi(this, object : RzpUpiSupportedAppsCallback {
+                        override fun onReceiveUpiSupportedApps(list: MutableList<com.razorpay.ApplicationDetails>?) {
+                            val apps = list.orEmpty().map {
+                                hashMapOf("name" to it.appName, "package" to it.packageName)
+                            }
+                            runOnUiThread { result.success(apps) }
+                        }
+                    })
+                }
                 else -> result.notImplemented()
             }
         }
+    }
+
+    // UPI intent payments return here from the UPI app (GPay/PhonePe/…);
+    // the SDK needs the result to finish the payment.
+    @Deprecated("Deprecated in Java")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        razorpay?.onActivityResult(requestCode, resultCode, data)
     }
 
     private fun ensureRazorpay(keyId: String): Razorpay {

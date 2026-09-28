@@ -200,17 +200,24 @@ class _HotelRecentSearchesSectionState
           ),
         ),
         SizedBox(height: context.h(14)),
-        SizedBox(
-          // A bit more than the card's natural content height — this app
-          // doesn't clamp text scale, so real devices with a larger system
-          // font need the slack to avoid a RenderFlex overflow here.
-          height: context.h(90),
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            padding: EdgeInsets.symmetric(horizontal: context.wp(4)),
-            itemCount: _history.length,
-            separatorBuilder: (_, __) => SizedBox(width: context.w(12)),
-            itemBuilder: (_, index) => _recentSearchCard(index),
+        // Height comes from the tallest card's own content (not a fixed
+        // guess), so any screen size or system font size fits without
+        // overflow. Recent searches are a short list, so building them all
+        // eagerly is fine.
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          padding: EdgeInsets.symmetric(horizontal: context.wp(4)),
+          clipBehavior: Clip.none,
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (var i = 0; i < _history.length; i++) ...[
+                  if (i > 0) SizedBox(width: context.w(12)),
+                  _recentSearchCard(i),
+                ],
+              ],
+            ),
           ),
         ),
       ],

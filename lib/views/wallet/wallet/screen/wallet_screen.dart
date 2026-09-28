@@ -26,7 +26,6 @@ import '../widget/transaction_list.dart';
 import 'add_money_dialog.dart';
 import '../../../../core/error/data_state.dart';
 
-
 class WalletScreen extends StatefulWidget {
   const WalletScreen({super.key});
 
@@ -111,7 +110,8 @@ class _WalletScreenState extends State<WalletScreen> {
 
     setState(() {
       if (!reset) _isLoadMore = true;
-      _isLoadingTransactions = !reset; // Only show full screen loader if not loading more
+      _isLoadingTransactions =
+          !reset; // Only show full screen loader if not loading more
     });
 
     // Calculate the next page based on current accumulated items (assuming page size 20)
@@ -120,13 +120,15 @@ class _WalletScreenState extends State<WalletScreen> {
       nextPage = (_allTransactions.length / 20).floor() + 1;
     }
 
-    _transactionBloc.add(FetchTransactions(
-      type: _getApiType(),
-      days: _getApiDays(),
-      search: _searchQuery.isNotEmpty ? _searchQuery : null,
-      page: nextPage,
-      loadMore: !reset,
-    ));
+    _transactionBloc.add(
+      FetchTransactions(
+        type: _getApiType(),
+        days: _getApiDays(),
+        search: _searchQuery.isNotEmpty ? _searchQuery : null,
+        page: nextPage,
+        loadMore: !reset,
+      ),
+    );
   }
 
   void _showAddMoneyDialog() {
@@ -187,7 +189,9 @@ class _WalletScreenState extends State<WalletScreen> {
     }
   }
 
-  Future<void> _updateNotificationSettings(NotificationSettings settings) async {
+  Future<void> _updateNotificationSettings(
+    NotificationSettings settings,
+  ) async {
     try {
       print('Updating notification settings');
       setState(() => _notificationSettings = settings);
@@ -223,13 +227,28 @@ class _WalletScreenState extends State<WalletScreen> {
               children: [
                 Row(
                   children: [
-                    Icon(Icons.workspace_premium, size: context.w(22), color: Colors.amber.shade700),
+                    Icon(
+                      Icons.workspace_premium,
+                      size: context.w(22),
+                      color: Colors.amber.shade700,
+                    ),
                     SizedBox(width: context.w(8)),
-                    Text("Loyalty Tier", style: TextStyle(fontSize: context.fs(16), fontWeight: FontWeight.w600)),
+                    Text(
+                      "Loyalty Tier",
+                      style: TextStyle(
+                        fontSize: context.fs(16),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ],
                 ),
                 SizedBox(height: context.h(16)),
-                const Center(child: Padding(padding: EdgeInsets.all(16.0), child: CircularProgressIndicator())),
+                const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(16.0),
+                    child: CircularProgressIndicator(),
+                  ),
+                ),
               ],
             );
           }
@@ -240,7 +259,9 @@ class _WalletScreenState extends State<WalletScreen> {
               return _buildLoyaltyContent(dataState.data!);
             }
             if (dataState is DataFailed<LoyaltyEntity>) {
-              return _buildLoyaltyError(dataState.error?.message ?? 'Failed to load');
+              return _buildLoyaltyError(
+                dataState.error?.message ?? 'Failed to load',
+              );
             }
           }
           return const SizedBox.shrink();
@@ -252,7 +273,10 @@ class _WalletScreenState extends State<WalletScreen> {
   Widget _buildLoyaltyContent(LoyaltyEntity loyalty) {
     final tierColor = _getColorFromHex(loyalty.tierColor);
     final progress = loyalty.progressPercentage;
-    final isMaxTier = loyalty.nextTier == null || loyalty.bookingsNeeded == null || loyalty.bookingsNeeded == 0;
+    final isMaxTier =
+        loyalty.nextTier == null ||
+        loyalty.bookingsNeeded == null ||
+        loyalty.bookingsNeeded == 0;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -261,77 +285,174 @@ class _WalletScreenState extends State<WalletScreen> {
           children: [
             Container(
               padding: EdgeInsets.all(context.w(6)),
-              decoration: BoxDecoration(color: tierColor.withOpacity(0.15), borderRadius: BorderRadius.circular(context.r(8))),
-              child: Icon(Icons.workspace_premium, size: context.w(20), color: tierColor),
+              decoration: BoxDecoration(
+                color: tierColor.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(context.r(8)),
+              ),
+              child: Icon(
+                Icons.workspace_premium,
+                size: context.w(20),
+                color: tierColor,
+              ),
             ),
             SizedBox(width: context.w(10)),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text("Loyalty Tier", style: TextStyle(fontSize: context.fs(12), color: Colors.grey.shade500)),
-                  Text(loyalty.tierLabel, style: TextStyle(fontSize: context.fs(18), fontWeight: FontWeight.w700, color: tierColor)),
+                  Text(
+                    "Loyalty Tier",
+                    style: TextStyle(
+                      fontSize: context.fs(12),
+                      color: Colors.grey.shade500,
+                    ),
+                  ),
+                  Text(
+                    loyalty.tierLabel,
+                    style: TextStyle(
+                      fontSize: context.fs(18),
+                      fontWeight: FontWeight.w700,
+                      color: tierColor,
+                    ),
+                  ),
                 ],
               ),
             ),
             Container(
-              padding: EdgeInsets.symmetric(horizontal: context.w(12), vertical: context.h(6)),
+              padding: EdgeInsets.symmetric(
+                horizontal: context.w(12),
+                vertical: context.h(6),
+              ),
               decoration: BoxDecoration(
                 color: tierColor.withOpacity(0.15),
                 borderRadius: BorderRadius.circular(context.r(20)),
                 border: Border.all(color: tierColor.withOpacity(0.3)),
               ),
-              child: Text(loyalty.tier.toUpperCase(), style: TextStyle(fontSize: context.fs(11), fontWeight: FontWeight.w700, color: tierColor, letterSpacing: context.letterSpacingWide)),
+              child: Text(
+                loyalty.tier.toUpperCase(),
+                style: TextStyle(
+                  fontSize: context.fs(11),
+                  fontWeight: FontWeight.w700,
+                  color: tierColor,
+                  letterSpacing: context.letterSpacingWide,
+                ),
+              ),
             ),
           ],
         ),
         SizedBox(height: context.h(16)),
         Container(
           padding: EdgeInsets.all(context.w(12)),
-          decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(context.r(12))),
+          decoration: BoxDecoration(
+            color: Colors.grey.shade50,
+            borderRadius: BorderRadius.circular(context.r(12)),
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Progress to ${isMaxTier ? "Max Tier" : loyalty.nextTierLabel ?? "Next Tier"}', style: TextStyle(fontSize: context.fs(13), fontWeight: FontWeight.w500, color: Colors.grey.shade700)),
-                  Text('${(progress * 100).toStringAsFixed(0)}%', style: TextStyle(fontSize: context.fs(13), fontWeight: FontWeight.w700, color: tierColor)),
+                  Text(
+                    'Progress to ${isMaxTier ? "Max Tier" : loyalty.nextTierLabel ?? "Next Tier"}',
+                    style: TextStyle(
+                      fontSize: context.fs(13),
+                      fontWeight: FontWeight.w500,
+                      color: Colors.grey.shade700,
+                    ),
+                  ),
+                  Text(
+                    '${(progress * 100).toStringAsFixed(0)}%',
+                    style: TextStyle(
+                      fontSize: context.fs(13),
+                      fontWeight: FontWeight.w700,
+                      color: tierColor,
+                    ),
+                  ),
                 ],
               ),
               SizedBox(height: context.h(8)),
               ClipRRect(
                 borderRadius: BorderRadius.circular(context.r(8)),
-                child: LinearProgressIndicator(value: progress, minHeight: context.h(8), backgroundColor: Colors.grey.shade200, valueColor: AlwaysStoppedAnimation<Color>(tierColor)),
+                child: LinearProgressIndicator(
+                  value: progress,
+                  minHeight: context.h(8),
+                  backgroundColor: Colors.grey.shade200,
+                  valueColor: AlwaysStoppedAnimation<Color>(tierColor),
+                ),
               ),
               SizedBox(height: context.h(8)),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('${loyalty.completedBookings} bookings completed', style: TextStyle(fontSize: context.fs(11), color: Colors.grey.shade600)),
+                  Text(
+                    '${loyalty.completedBookings} bookings completed',
+                    style: TextStyle(
+                      fontSize: context.fs(11),
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
                   if (!isMaxTier && loyalty.bookingsNeeded != null)
-                    Text('${loyalty.bookingsNeeded} more to go', style: TextStyle(fontSize: context.fs(11), color: Colors.grey.shade600, fontWeight: FontWeight.w500))
+                    Text(
+                      '${loyalty.bookingsNeeded} more to go',
+                      style: TextStyle(
+                        fontSize: context.fs(11),
+                        color: Colors.grey.shade600,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    )
                   else
-                    Text('Highest tier reached', style: TextStyle(fontSize: context.fs(11), color: tierColor, fontWeight: FontWeight.w600)),
+                    Text(
+                      'Highest tier reached',
+                      style: TextStyle(
+                        fontSize: context.fs(11),
+                        color: tierColor,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                 ],
               ),
             ],
           ),
         ),
         SizedBox(height: context.h(16)),
-        Text('Your Benefits', style: TextStyle(fontSize: context.fs(14), fontWeight: FontWeight.w600)),
-        SizedBox(height: context.h(8)),
-        ...loyalty.benefits.map((benefit) => Padding(
-          padding: EdgeInsets.only(bottom: context.h(6)),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(padding: EdgeInsets.only(top: context.h(2)), child: Icon(Icons.check_circle, size: context.w(16), color: tierColor)),
-              SizedBox(width: context.w(8)),
-              Expanded(child: Text(benefit, style: TextStyle(fontSize: context.fs(13), color: Colors.grey.shade700, height: 1.4))),
-            ],
+        Text(
+          'Your Benefits',
+          style: TextStyle(
+            fontSize: context.fs(14),
+            fontWeight: FontWeight.w600,
           ),
-        )),
+        ),
+        SizedBox(height: context.h(8)),
+        ...loyalty.benefits.map(
+          (benefit) => Padding(
+            padding: EdgeInsets.only(bottom: context.h(6)),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: EdgeInsets.only(top: context.h(2)),
+                  child: Icon(
+                    Icons.check_circle,
+                    size: context.w(16),
+                    color: tierColor,
+                  ),
+                ),
+                SizedBox(width: context.w(8)),
+                Expanded(
+                  child: Text(
+                    benefit,
+                    style: TextStyle(
+                      fontSize: context.fs(13),
+                      color: Colors.grey.shade700,
+                      height: 1.4,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ],
     );
   }
@@ -340,22 +461,61 @@ class _WalletScreenState extends State<WalletScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(children: [Icon(Icons.workspace_premium, size: context.w(22), color: Colors.amber.shade700), SizedBox(width: context.w(8)), Text("Loyalty Tier", style: TextStyle(fontSize: context.fs(16), fontWeight: FontWeight.w600))]),
+        Row(
+          children: [
+            Icon(
+              Icons.workspace_premium,
+              size: context.w(22),
+              color: Colors.amber.shade700,
+            ),
+            SizedBox(width: context.w(8)),
+            Text(
+              "Loyalty Tier",
+              style: TextStyle(
+                fontSize: context.fs(16),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
         SizedBox(height: context.h(12)),
         Center(
           child: Column(
             children: [
-              Icon(Icons.error_outline, size: context.w(40), color: Colors.red.shade300),
+              Icon(
+                Icons.error_outline,
+                size: context.w(40),
+                color: Colors.red.shade300,
+              ),
               SizedBox(height: context.h(8)),
-              Text("Failed to load loyalty data", style: TextStyle(fontSize: context.fs(14), color: Colors.grey.shade600)),
+              Text(
+                "Failed to load loyalty data",
+                style: TextStyle(
+                  fontSize: context.fs(14),
+                  color: Colors.grey.shade600,
+                ),
+              ),
               SizedBox(height: context.h(4)),
-              Text(message, style: TextStyle(fontSize: context.fs(11), color: Colors.grey.shade500), textAlign: TextAlign.center),
+              Text(
+                message,
+                style: TextStyle(
+                  fontSize: context.fs(11),
+                  color: Colors.grey.shade500,
+                ),
+                textAlign: TextAlign.center,
+              ),
               SizedBox(height: context.h(12)),
               ElevatedButton.icon(
-                onPressed: () => context.read<LoyaltyBloc>().add(FetchUserLoyalty()),
+                onPressed: () =>
+                    context.read<LoyaltyBloc>().add(FetchUserLoyalty()),
                 icon: const Icon(Icons.refresh, size: 18),
                 label: const Text("Retry"),
-                style: ElevatedButton.styleFrom(padding: EdgeInsets.symmetric(horizontal: context.w(20), vertical: context.h(10))),
+                style: ElevatedButton.styleFrom(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: context.w(20),
+                    vertical: context.h(10),
+                  ),
+                ),
               ),
             ],
           ),
@@ -373,12 +533,21 @@ class _WalletScreenState extends State<WalletScreen> {
 
   Widget _buildReferAndEarnSection() {
     return Container(
-      margin: EdgeInsets.symmetric(horizontal: context.w(16), vertical: context.h(8)),
+      margin: EdgeInsets.symmetric(
+        horizontal: context.w(16),
+        vertical: context.h(8),
+      ),
       padding: EdgeInsets.all(context.w(16)),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(context.r(16)),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: context.w(8), offset: Offset(0, context.h(2)))],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: context.w(8),
+            offset: Offset(0, context.h(2)),
+          ),
+        ],
       ),
       child: BlocBuilder<ReferralBloc, ReferralState>(
         builder: (context, state) {
@@ -386,9 +555,26 @@ class _WalletScreenState extends State<WalletScreen> {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(children: [const Icon(Icons.card_giftcard, size: 22), const SizedBox(width: 8), Text("Refer & Earn", style: TextStyle(fontSize: context.bodyLarge, fontWeight: FontWeight.w600))]),
+                Row(
+                  children: [
+                    const Icon(Icons.card_giftcard, size: 22),
+                    const SizedBox(width: 8),
+                    Text(
+                      "Refer & Earn",
+                      style: TextStyle(
+                        fontSize: context.bodyLarge,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 12),
-                const Center(child: Padding(padding: EdgeInsets.all(16.0), child: CircularProgressIndicator())),
+                const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(16.0),
+                    child: CircularProgressIndicator(),
+                  ),
+                ),
               ],
             );
           }
@@ -398,30 +584,79 @@ class _WalletScreenState extends State<WalletScreen> {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(children: [Icon(Icons.card_giftcard, size: context.w(22)), SizedBox(width: context.w(8)), Text("Refer & Earn", style: TextStyle(fontSize: context.fs(16), fontWeight: FontWeight.w600))]),
+                Row(
+                  children: [
+                    Icon(Icons.card_giftcard, size: context.w(22)),
+                    SizedBox(width: context.w(8)),
+                    Text(
+                      "Refer & Earn",
+                      style: TextStyle(
+                        fontSize: context.fs(16),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
                 SizedBox(height: context.h(6)),
-                Text("Invite friends and earn rewards on every successful referral.", style: TextStyle(fontSize: context.fs(13), color: Colors.grey.shade600)),
+                Text(
+                  "Invite friends and earn rewards on every successful referral.",
+                  style: TextStyle(
+                    fontSize: context.fs(13),
+                    color: Colors.grey.shade600,
+                  ),
+                ),
                 SizedBox(height: context.h(12)),
                 Container(
-                  padding: EdgeInsets.symmetric(horizontal: context.w(12), vertical: context.h(10)),
-                  decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade300), borderRadius: BorderRadius.circular(context.r(12))),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: context.w(12),
+                    vertical: context.h(10),
+                  ),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.grey.shade300),
+                    borderRadius: BorderRadius.circular(context.r(12)),
+                  ),
                   child: Row(
                     children: [
-                      Expanded(child: Text(referral.referralLink, style: TextStyle(fontSize: context.fs(15), fontWeight: FontWeight.w600, letterSpacing: context.letterSpacingWider))),
+                      Expanded(
+                        child: Text(
+                          referral.referralLink,
+                          style: TextStyle(
+                            fontSize: context.fs(15),
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: context.letterSpacingWider,
+                          ),
+                        ),
+                      ),
                       InkWell(
                         onTap: () {
-                          Clipboard.setData(ClipboardData(text: referral.referralLink));
+                          Clipboard.setData(
+                            ClipboardData(text: referral.referralLink),
+                          );
                           setState(() => _isReferralCopied = true);
-                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Referral code copied")));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text("Referral code copied"),
+                            ),
+                          );
                           Future.delayed(const Duration(seconds: 2), () {
-                            if (mounted) setState(() => _isReferralCopied = false);
+                            if (mounted)
+                              setState(() => _isReferralCopied = false);
                           });
                         },
                         child: Row(
                           children: [
-                            Icon(_isReferralCopied ? Icons.check : Icons.copy, size: context.w(18)),
+                            Icon(
+                              _isReferralCopied ? Icons.check : Icons.copy,
+                              size: context.w(18),
+                            ),
                             SizedBox(width: context.w(4)),
-                            Text(_isReferralCopied ? "Copied" : "Copy", style: TextStyle(fontWeight: FontWeight.w600, fontSize: context.fs(14))),
+                            Text(
+                              _isReferralCopied ? "Copied" : "Copy",
+                              style: TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: context.fs(14),
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -432,8 +667,14 @@ class _WalletScreenState extends State<WalletScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    _buildStatItem(label: "Total Referrals", value: referral.totalReferrals.toString()),
-                    _buildStatItem(label: "Total Earned", value: "${referral.totalEarned}"),
+                    _buildStatItem(
+                      label: "Total Referrals",
+                      value: referral.totalReferrals.toString(),
+                    ),
+                    _buildStatItem(
+                      label: "Total Earned",
+                      value: "${referral.totalEarned}",
+                    ),
                   ],
                 ),
               ],
@@ -444,20 +685,49 @@ class _WalletScreenState extends State<WalletScreen> {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(children: [Icon(Icons.card_giftcard, size: context.w(22)), SizedBox(width: context.w(8)), Text("Refer & Earn", style: TextStyle(fontSize: context.fs(16), fontWeight: FontWeight.w600))]),
+                Row(
+                  children: [
+                    Icon(Icons.card_giftcard, size: context.w(22)),
+                    SizedBox(width: context.w(8)),
+                    Text(
+                      "Refer & Earn",
+                      style: TextStyle(
+                        fontSize: context.fs(16),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
                 SizedBox(height: context.h(12)),
                 Center(
                   child: Column(
                     children: [
-                      Icon(Icons.error_outline, size: context.w(40), color: Colors.red.shade300),
+                      Icon(
+                        Icons.error_outline,
+                        size: context.w(40),
+                        color: Colors.red.shade300,
+                      ),
                       SizedBox(height: context.h(8)),
-                      Text("Failed to load referral data", style: TextStyle(fontSize: context.fs(14), color: Colors.grey.shade600)),
+                      Text(
+                        "Failed to load referral data",
+                        style: TextStyle(
+                          fontSize: context.fs(14),
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
                       SizedBox(height: context.h(12)),
                       ElevatedButton.icon(
-                        onPressed: () => context.read<ReferralBloc>().add(const FetchReferralEvent()),
+                        onPressed: () => context.read<ReferralBloc>().add(
+                          const FetchReferralEvent(),
+                        ),
                         icon: const Icon(Icons.refresh, size: 18),
                         label: const Text("Retry"),
-                        style: ElevatedButton.styleFrom(padding: EdgeInsets.symmetric(horizontal: context.w(20), vertical: context.h(10))),
+                        style: ElevatedButton.styleFrom(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: context.w(20),
+                            vertical: context.h(10),
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -475,13 +745,29 @@ class _WalletScreenState extends State<WalletScreen> {
     return Expanded(
       child: Container(
         padding: EdgeInsets.all(context.w(12)),
-        decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(context.r(8))),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade50,
+          borderRadius: BorderRadius.circular(context.r(8)),
+        ),
         child: Column(
           children: [
             SizedBox(height: context.h(4)),
-            Text(value, style: TextStyle(fontSize: context.fs(16), fontWeight: FontWeight.bold)),
+            Text(
+              value,
+              style: TextStyle(
+                fontSize: context.fs(16),
+                fontWeight: FontWeight.bold,
+              ),
+            ),
             SizedBox(height: context.h(2)),
-            Text(label, style: TextStyle(fontSize: context.fs(11), color: Colors.grey.shade600), textAlign: TextAlign.center),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: context.fs(11),
+                color: Colors.grey.shade600,
+              ),
+              textAlign: TextAlign.center,
+            ),
           ],
         ),
       ),
@@ -501,7 +787,9 @@ class _WalletScreenState extends State<WalletScreen> {
       child: BlocListener<TransactionBloc, TransactionState>(
         listener: (context, state) {
           if (state is TransactionSuccess) {
-            final converted = state.data.transactions.map(_toTransaction).toList();
+            final converted = state.data.transactions
+                .map(_toTransaction)
+                .toList();
             setState(() {
               if (_isLoadMore) {
                 _allTransactions.addAll(converted);
@@ -523,7 +811,12 @@ class _WalletScreenState extends State<WalletScreen> {
             });
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Failed to load transactions: ${state.error.message}'), backgroundColor: Colors.red),
+                SnackBar(
+                  content: Text(
+                    'Failed to load transactions: ${state.error.message}',
+                  ),
+                  backgroundColor: Colors.red,
+                ),
               );
             }
           }
@@ -533,7 +826,10 @@ class _WalletScreenState extends State<WalletScreen> {
             title: const WanderNovaLogo(scaleFactor: 0.6),
             backgroundColor: Colors.white,
             actions: [
-              Padding(padding: EdgeInsets.all(context.w(8)), child: Image.asset("assets/images/wander_logo.png", height: 35))
+              Padding(
+                padding: EdgeInsets.all(context.w(8)),
+                child: Image.asset("assets/images/wander_logo.png", height: 35),
+              ),
             ],
           ),
           backgroundColor: AppColors.lightBg,
@@ -547,9 +843,21 @@ class _WalletScreenState extends State<WalletScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         SizedBox(height: context.gapMedium),
-                        Text('My Wallet Balance', style: TextStyle(fontSize: context.headlineSmall, fontWeight: FontWeight.bold)),
+                        Text(
+                          'My Wallet Balance',
+                          style: TextStyle(
+                            fontSize: context.headlineSmall,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                         SizedBox(height: context.gapXSmall),
-                        Text('View your WALLET balance, earnings, and transaction history.', style: TextStyle(fontSize: context.bodyMedium, color: Colors.grey.shade600)),
+                        Text(
+                          'View your WALLET balance, earnings, and transaction history.',
+                          style: TextStyle(
+                            fontSize: context.bodyMedium,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
                         SizedBox(height: context.gapLarge),
                       ],
                     ),
@@ -561,17 +869,44 @@ class _WalletScreenState extends State<WalletScreen> {
                     child: BlocBuilder<WalletBloc, WalletState>(
                       builder: (context, state) {
                         if (state is WalletLoading) {
-                          return BalanceCard(balance: 0.0, totalEarnings: 0.0, currency: 'INR', isLoading: true, onRecharge: null);
+                          return BalanceCard(
+                            balance: 0.0,
+                            totalEarnings: 0.0,
+                            currency: 'INR',
+                            isLoading: true,
+                            onRecharge: null,
+                          );
                         }
                         if (state is WalletLoaded) {
-                          final balanceValue = double.tryParse(state.balance) ?? 0.0;
-                          final earningsValue = double.tryParse(state.totalEarnings) ?? 0.0;
-                          return BalanceCard(balance: balanceValue, totalEarnings: earningsValue, currency: state.currency, isLoading: false, onRecharge: _showAddMoneyDialog);
+                          final balanceValue =
+                              double.tryParse(state.balance) ?? 0.0;
+                          final earningsValue =
+                              double.tryParse(state.totalEarnings) ?? 0.0;
+                          return BalanceCard(
+                            balance: balanceValue,
+                            totalEarnings: earningsValue,
+                            currency: state.currency,
+                            isLoading: false,
+                            onRecharge: _showAddMoneyDialog,
+                          );
                         }
                         if (state is WalletError) {
-                          return BalanceCard(balance: 0.0, totalEarnings: 0.0, currency: 'INR', isLoading: false, onRecharge: _showAddMoneyDialog, errorMessage: state.message);
+                          return BalanceCard(
+                            balance: 0.0,
+                            totalEarnings: 0.0,
+                            currency: 'INR',
+                            isLoading: false,
+                            onRecharge: _showAddMoneyDialog,
+                            errorMessage: state.message,
+                          );
                         }
-                        return BalanceCard(balance: 0.0, totalEarnings: 0.0, currency: 'INR', isLoading: true, onRecharge: null);
+                        return BalanceCard(
+                          balance: 0.0,
+                          totalEarnings: 0.0,
+                          currency: 'INR',
+                          isLoading: true,
+                          onRecharge: null,
+                        );
                       },
                     ),
                   ),
@@ -584,12 +919,30 @@ class _WalletScreenState extends State<WalletScreen> {
                     padding: context.horizontalPadding,
                     child: Container(
                       padding: EdgeInsets.all(context.w(12)),
-                      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(context.borderRadiusMedium), border: Border.all(color: Colors.grey.shade200)),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(
+                          context.borderRadiusMedium,
+                        ),
+                        border: Border.all(color: Colors.grey.shade200),
+                      ),
                       child: Row(
                         children: [
-                          Icon(Icons.credit_card, size: context.iconMedium, color: Colors.grey.shade600),
+                          Icon(
+                            Icons.credit_card,
+                            size: context.iconMedium,
+                            color: Colors.grey.shade600,
+                          ),
                           SizedBox(width: context.gapMedium),
-                          Expanded(child: Text('Use for booking: You can pay with your wallet on the payment page when booking flights, hotels, or holidays.', style: TextStyle(fontSize: context.bodySmall, color: Colors.grey.shade700))),
+                          Expanded(
+                            child: Text(
+                              'Use for booking: You can pay with your wallet on the payment page when booking flights, hotels, or holidays.',
+                              style: TextStyle(
+                                fontSize: context.bodySmall,
+                                color: Colors.grey.shade700,
+                              ),
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -599,7 +952,13 @@ class _WalletScreenState extends State<WalletScreen> {
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: context.horizontalPadding,
-                    child: Text('Transactions', style: TextStyle(fontSize: context.titleMedium, fontWeight: FontWeight.bold)),
+                    child: Text(
+                      'Transactions',
+                      style: TextStyle(
+                        fontSize: context.titleMedium,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
                 ),
                 SliverToBoxAdapter(child: SizedBox(height: context.gapMedium)),
@@ -673,7 +1032,10 @@ class _WalletScreenState extends State<WalletScreen> {
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: context.horizontalPadding,
-                    child: NotificationSettingsWidget(settings: _notificationSettings, onChanged: _updateNotificationSettings),
+                    child: NotificationSettingsWidget(
+                      settings: _notificationSettings,
+                      onChanged: _updateNotificationSettings,
+                    ),
                   ),
                 ),
                 SliverToBoxAdapter(child: SizedBox(height: context.gapXXLarge)),
