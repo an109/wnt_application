@@ -1,8 +1,6 @@
 class Urls {
   // static const String baseUrl = 'http://167.71.233.208:8032/api/';
-  // static const String baseUrl = 'http://192.168.1.14:8000/api/';
   static const String baseUrl = 'https://thewandernova.com/api/';
-  // static const String basesUrl = 'http://192.168.1.14:8000/api';
   // static const String basesUrl = 'http://167.71.233.208:8032/api';
   static const String basesUrl = 'https://thewandernova.com/api';
 

@@ -143,6 +143,7 @@ import 'package:wander_nova/views/ExclusiveDeals/data/repository/exclusive_deals
 import 'package:wander_nova/views/ExclusiveDeals/domain/repository/exclusive_deals_repository.dart';
 import 'package:wander_nova/views/ExclusiveDeals/domain/usecase/get_exclusive_deals_usecase.dart';
 import 'package:wander_nova/views/ExclusiveDeals/presentation/bloc/exclusive_deals_bloc.dart';
+import 'package:wander_nova/views/DiyHoliday/data/diy_holiday_api.dart';
 import 'package:wander_nova/views/Holiday_destination/data/data_source/holiday_destination_api_service.dart';
 import 'package:wander_nova/views/Holiday_destination/data/repository/holiday_destination_repository_impl.dart';
 import 'package:wander_nova/views/Holiday_destination/domain/repository/holiday_repository.dart';
@@ -441,6 +442,10 @@ Future<void> initializeDependencies() async {
   sl.registerFactory<VisaDestinationApiService>(() => VisaDestinationApiServiceImpl(sl<DioClient>().instance));
   sl.registerFactory<GeneralSettingsApiService>(() => GeneralSettingsApiServiceImpl(sl<DioClient>().instance));
   sl.registerFactory<HolidayApiService>(() => HolidayApiServiceImpl(sl<DioClient>().instance));
+
+  // DIY Holidays (diy.thewandernova.com) — its own Dio: different host, no
+  // auth header, and long read timeouts for the price/hotel calls.
+  sl.registerLazySingleton<DiyHolidayApi>(() => DiyHolidayApi());
   sl.registerFactory<ExchangeRateApiService>(() => ExchangeRateApiServiceImpl(sl<DioClient>().instance));
   sl.registerFactory<SendOtpApiService>(() => SendOtpApiServiceImpl(sl<DioClient>().instance));
   sl.registerFactory<VerifyOtpApiService>(() => VerifyOtpApiServiceImpl(sl<DioClient>().instance));

@@ -4,19 +4,30 @@ import 'package:wander_nova/UI_helper/responsive_layout.dart';
 
 import '../../../../common_widgets/custom_bottom_nav.dart';
 import '../../../../common_widgets/custom_drawer.dart';
-import '../../../../common_widgets/logo.dart';
+import '../../../../core/resources/app_colours.dart';
 import '../../../../injection_container.dart';
+import '../../../DiyHoliday/data/diy_dates.dart';
+import '../../../DiyHoliday/data/diy_origins.dart';
+import '../../../DiyHoliday/data/diy_search_query.dart';
+import '../../../DiyHoliday/presentation/widgets/diy_book_now_section.dart';
+import '../../../DiyHoliday/presentation/widgets/diy_holiday_search_card.dart';
+import '../../../DiyHoliday/presentation/widgets/diy_theme_section.dart';
 import '../../../ExclusiveDeals/presentation/bloc/exclusive_deals_bloc.dart';
 import '../../../ExclusiveDeals/presentation/screen/T_exclusiveDeals.dart';
 import '../../../MainApi/presentation/bloc/general_setting_bloc.dart';
 import '../../../MainApi/presentation/bloc/general_settings_event.dart';
-import '../../../MainApi/presentation/bloc/general_settings_state.dart';
 import '../../../home/presentation/screen_sections/about_company_section.dart';
 import '../../../home/presentation/screen_sections/service_info_section.dart';
+import '../../../home/presentation/screens/deals.dart';
 import '../../../travel_stories/presentation/screen/travel_stories.dart';
 
-import '../widget/holiday_search_card.dart';
-
+/// Entry point of the holiday flow.
+///
+/// Everything under the hero is driven by the DIY Holidays API
+/// (diy.thewandernova.com): the search form, the Book Now destinations
+/// (API 1) and the Holiday By Theme tiles (API 2). The surrounding
+/// deals/stories/company sections are the app's shared ones and are
+/// untouched.
 class HolidaysScreen extends StatefulWidget {
   const HolidaysScreen({super.key});
 
@@ -25,217 +36,77 @@ class HolidaysScreen extends StatefulWidget {
 }
 
 class _HolidaysScreenState extends State<HolidaysScreen> {
-  String? _holidayHeroImage;
+  /// Seeds the Book Now / theme shortcuts with whatever the user last
+  /// searched, so tapping one carries their own party size and date.
+  DiySearchQuery _query = DiySearchQuery(
+    origin: DiyOrigins.defaultOrigin,
+    departureDate: DiyDates.defaultDeparture(),
+  );
 
   @override
   void initState() {
     super.initState();
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        context.read<GeneralSettingsBloc>().add(
-          const LoadSectionHeroes(domain: 'thewandernova.com'),
-        );
-      }
+    DiySearchStore.loadLastSearch().then((saved) {
+      if (saved != null && mounted) setState(() => _query = saved);
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    return BlocListener<GeneralSettingsBloc, GeneralSettingsState>(
-      listener: (context, state) {
-        if (state is SectionHeroesLoaded) {
-          setState(() {
-            _holidayHeroImage = state.sectionHeroes.holidays;
-          });
-        }
+    return Scaffold(
+      drawer: const CustomDrawer(),
+      backgroundColor: AppColors.white,
+      extendBodyBehindAppBar: true,
+      body: CustomScrollView(
+        physics: context.scrollPhysics,
+        slivers: [
+          /// HERO + SEARCH FORM — full bleed, no padding, so the background
+          /// image spans the screen and fades into the content below.
+          const SliverToBoxAdapter(child: DiyHolidaySearchCard()),
 
-        if (state is GeneralSettingsError) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text(state.message)));
-        }
-      },
-      child: Scaffold(
-        drawer: const CustomDrawer(),
-        appBar: AppBar(
-          title: WanderNovaLogo(
-            scaleFactor: context.isMobile
-                ? 0.6
-                : (context.isTablet ? 0.8 : 1.0),
-          ),
-          backgroundColor: Colors.white,
-          elevation: 0,
-          actions: [
-            Padding(
-              padding: EdgeInsets.all(context.wp(2)),
-              child: Image.asset(
-                "assets/images/wander_logo.png",
-                height: context.hp(4.5),
-              ),
+          /// BOOK NOW — destinations from GET /destinations/
+          SliverToBoxAdapter(child: SizedBox(height: context.h(10))),
+          SliverToBoxAdapter(child: DiyBookNowSection(query: _query)),
+
+          /// PROMO BANNERS (shared exclusive-deals carousel)
+          SliverToBoxAdapter(child: SizedBox(height: context.h(20))),
+          SliverToBoxAdapter(
+            child: BlocProvider<ExclusiveDealsBloc>(
+              create: (context) => sl<ExclusiveDealsBloc>(),
+              child: const DealsSection(),
             ),
-          ],
-        ),
-        // body: Container(
-        //   color: const Color(0xFFFFFFFF),
-        //   child: CustomScrollView(
-        //     physics: context.scrollPhysics,
-        //     slivers: [
-        //       /// HERO SECTION
-        //       SliverToBoxAdapter(
-        //         child: Stack(
-        //           clipBehavior: Clip.none,
-        //           children: [
-        //             /// BACKGROUND IMAGE
-        //             SizedBox(
-        //               height: context.isMobile
-        //                   ? context.hp(45)
-        //                   : context.hp(50),
-        //               width: double.infinity,
-        //               child:
-        //               _holidayHeroImage != null &&
-        //                   _holidayHeroImage!.isNotEmpty
-        //                   ? Image.network(
-        //                 _holidayHeroImage!,
-        //                 fit: BoxFit.cover,
-        //                 loadingBuilder:
-        //                     (context, child, loadingProgress) {
-        //                   if (loadingProgress == null) return child;
-        //                   return Container(
-        //                     color: const Color(0xFFE0E0E0),
-        //                     child: Center(
-        //                       child: CircularProgressIndicator(
-        //                         value:
-        //                         loadingProgress
-        //                             .expectedTotalBytes !=
-        //                             null
-        //                             ? loadingProgress
-        //                             .cumulativeBytesLoaded /
-        //                             loadingProgress
-        //                                 .expectedTotalBytes!
-        //                             : null,
-        //                       ),
-        //                     ),
-        //                   );
-        //                 },
-        //                 errorBuilder: (context, error, stackTrace) {
-        //                   return Container(
-        //                     color: const Color(0xFFE0E0E0),
-        //                   );
-        //                 },
-        //               )
-        //                   : Container(color: const Color(0xFFE0E0E0)),
-        //             ),
-        //
-        //             /// DARK OVERLAY
-        //             IgnorePointer(
-        //               ignoring: true,
-        //               child: Container(
-        //                 height: context.isMobile
-        //                     ? context.hp(45)
-        //                     : context.hp(50),
-        //                 color: Colors.black.withOpacity(0.35),
-        //               ),
-        //             ),
-        //
-        //             /// SEARCH / BANNER CARD
-        //             Positioned(
-        //               left: context.wp(2),
-        //               right: context.wp(2),
-        //               bottom: -context.hp(-2),
-        //               child: const Material(
-        //                 color: Colors.transparent,
-        //                 child: HolidaysSearchCard(),
-        //               ),
-        //             ),
-        //           ],
-        //         ),
-        //       ),
-        //
-        //       const SliverToBoxAdapter(child: SizedBox(height: 20)),
-        //       SliverToBoxAdapter(
-        //         child: BlocProvider<ExclusiveDealsBloc>(
-        //           create: (context) => sl<ExclusiveDealsBloc>(),
-        //           child: const TransportExclusiveDealsSection(),
-        //         ),
-        //       ),
-        //
-        //       const SliverToBoxAdapter(child: TravelStoriesSection()),
-        //       SliverToBoxAdapter(
-        //         child: BlocProvider(
-        //           create: (_) => sl<GeneralSettingsBloc>()
-        //             ..add(const LoadGeneralSettings(domain: 'thewandernova.com')),
-        //           child: const AboutCompanySection(),
-        //         ),
-        //       ),
-        //
-        //       SliverToBoxAdapter(
-        //         child: BlocProvider(
-        //           create: (_) => sl<GeneralSettingsBloc>()
-        //             ..add(const LoadGeneralSettings(domain: 'thewandernova.com')),
-        //           child: const ServicesInfoSection(),
-        //         ),
-        //       ),
-        //
-        //       SliverToBoxAdapter(child: SizedBox(height: context.hp(5))),
-        //     ],
-        //   ),
-        // ),
-        body: Container(
-          color: const Color(0xFFFFFFFF),
-          child: CustomScrollView(
-            physics: context.scrollPhysics,
-            slivers: [
-              /// SEARCH CARD SECTION (removed background image)
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: context.wp(2),
-                    vertical: context.hp(2),
-                  ),
-                  child: const Material(
-                    color: Colors.transparent,
-                    child: HolidaysSearchCard(),
-                  ),
-                ),
-              ),
-
-              /// EXCLUSIVE DEALS SECTION
-              SliverToBoxAdapter(
-                child: BlocProvider<ExclusiveDealsBloc>(
-                  create: (context) => sl<ExclusiveDealsBloc>(),
-                  child: const TransportExclusiveDealsSection(),
-                ),
-              ),
-
-              /// TRAVEL STORIES SECTION
-              const SliverToBoxAdapter(child: TravelStoriesSection()),
-
-              /// ABOUT COMPANY SECTION
-              SliverToBoxAdapter(
-                child: BlocProvider(
-                  create: (_) => sl<GeneralSettingsBloc>()
-                    ..add(const LoadGeneralSettings(domain: 'thewandernova.com')),
-                  child: const AboutCompanySection(),
-                ),
-              ),
-
-              /// SERVICES INFO SECTION
-              SliverToBoxAdapter(
-                child: BlocProvider(
-                  create: (_) => sl<GeneralSettingsBloc>()
-                    ..add(const LoadGeneralSettings(domain: 'thewandernova.com')),
-                  child: const ServicesInfoSection(),
-                ),
-              ),
-
-              /// BOTTOM SPACER
-              SliverToBoxAdapter(child: SizedBox(height: context.hp(5))),
-            ],
           ),
-        ),
-        bottomNavigationBar: const CustomBottomNav(currentIndex: 3),
+
+          /// HOLIDAY BY THEME — tiles from GET /themes/
+          SliverToBoxAdapter(child: SizedBox(height: context.h(10))),
+          SliverToBoxAdapter(child: DiyThemeSection(query: _query)),
+
+          /// TRAVEL STORIES
+          // SliverToBoxAdapter(child: SizedBox(height: context.h(20))),
+          // const SliverToBoxAdapter(child: TravelStoriesSection()),
+
+          /// ABOUT COMPANY
+          // SliverToBoxAdapter(
+          //   child: BlocProvider(
+          //     create: (_) => sl<GeneralSettingsBloc>()
+          //       ..add(const LoadGeneralSettings(domain: 'thewandernova.com')),
+          //     child: const AboutCompanySection(),
+          //   ),
+          // ),
+          //
+          // /// SERVICES INFO
+          // SliverToBoxAdapter(
+          //   child: BlocProvider(
+          //     create: (_) => sl<GeneralSettingsBloc>()
+          //       ..add(const LoadGeneralSettings(domain: 'thewandernova.com')),
+          //     child: const ServicesInfoSection(),
+          //   ),
+          // ),
+
+          SliverToBoxAdapter(child: SizedBox(height: context.h(5))),
+        ],
       ),
+      // bottomNavigationBar: const CustomBottomNav(currentIndex: 3),
     );
   }
 }

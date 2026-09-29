@@ -203,7 +203,7 @@
 				3B06AD1E1E4923F5004D2608 /* Thin Binary */,
 				73D9B9813F78D642BD9AC5E0 /* [CP] Embed Pods Frameworks */,
 				E61992D61D0A563710931986 /* [CP] Copy Pods Resources */,
-				B098F35DDAC02AA9CC6778A3 /* [WNT] Copy vendored framework dSYMs */,
+				152E01173AC933DEF6ACAC1A /* [WNT] Copy vendored framework dSYMs */,
 			);
 			buildRules = (
 			);
@@ -303,6 +303,26 @@
 			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
 			showEnvVarsInLog = 0;
 		};
+		152E01173AC933DEF6ACAC1A /* [WNT] Copy vendored framework dSYMs */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "[WNT] Copy vendored framework dSYMs";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# Only builds that generate dSYMs (release / archive) need this.\n[ \"${DEBUG_INFORMATION_FORMAT}\" = \"dwarf-with-dsym\" ] || exit 0\n[ -n \"${DWARF_DSYM_FOLDER_PATH}\" ] || exit 0\n[ -d \"${PODS_ROOT}\" ] || exit 0\n\nmkdir -p \"${DWARF_DSYM_FOLDER_PATH}\"\n\nfind \"${PODS_ROOT}\" -type d -name \"*.framework.dSYM\" -path \"*.xcframework/*\" | while read -r dsym; do\n  slice=$(basename \"$(dirname \"$(dirname \"$dsym\")\")\")\n\n  # Only iOS slices; skip Catalyst/tvOS/watchOS variants.\n  case \"$slice\" in\n    ios-*) ;;\n    *) continue ;;\n  esac\n  case \"$slice\" in\n    *maccatalyst*) continue ;;\n  esac\n\n  case \"$slice\" in\n    *-simulator) is_simulator=1 ;;\n    *) is_simulator=0 ;;\n  esac\n\n  if [ \"${PLATFORM_NAME}\" = \"iphonesimulator\" ]; then\n    [ \"$is_simulator\" = \"1\" ] || continue\n  else\n    [ \"$is_simulator\" = \"0\" ] || continue\n  fi\n\n  name=$(basename \"$dsym\")\n  rm -rf \"${DWARF_DSYM_FOLDER_PATH}/${name}\"\n  cp -R \"$dsym\" \"${DWARF_DSYM_FOLDER_PATH}/${name}\"\n  echo \"note: copied ${name} ($slice) into the archive\"\ndone\n";
+			showEnvVarsInLog = 0;
+		};
 		3B06AD1E1E4923F5004D2608 /* Thin Binary */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
@@ -373,47 +393,27 @@
 			shellPath = /bin/sh;
 			shellScript = "/bin/sh \"$FLUTTER_ROOT/packages/flutter_tools/bin/xcode_backend.sh\" build";
 		};
-		9D8F93807D3AD00ED056AA0D /* [WNT] Copy vendored framework dSYMs */ = {
-			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-			);
-			name = "[WNT] Copy vendored framework dSYMs";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "# Only builds that generate dSYMs (release / archive) need this.\n[ \"${DEBUG_INFORMATION_FORMAT}\" = \"dwarf-with-dsym\" ] || exit 0\n[ -n \"${DWARF_DSYM_FOLDER_PATH}\" ] || exit 0\n[ -d \"${PODS_ROOT}\" ] || exit 0\n\nmkdir -p \"${DWARF_DSYM_FOLDER_PATH}\"\n\nfind \"${PODS_ROOT}\" -type d -name \"*.framework.dSYM\" -path \"*.xcframework/*\" | while read -r dsym; do\n  slice=$(basename \"$(dirname \"$(dirname \"$dsym\")\")\")\n\n  # Only iOS slices; skip Catalyst/tvOS/watchOS variants.\n  case \"$slice\" in\n    ios-*) ;;\n    *) continue ;;\n  esac\n  case \"$slice\" in\n    *maccatalyst*) continue ;;\n  esac\n\n  case \"$slice\" in\n    *-simulator) is_simulator=1 ;;\n    *) is_simulator=0 ;;\n  esac\n\n  if [ \"${PLATFORM_NAME}\" = \"iphonesimulator\" ]; then\n    [ \"$is_simulator\" = \"1\" ] || continue\n  else\n    [ \"$is_simulator\" = \"0\" ] || continue\n  fi\n\n  name=$(basename \"$dsym\")\n  rm -rf \"${DWARF_DSYM_FOLDER_PATH}/${name}\"\n  cp -R \"$dsym\" \"${DWARF_DSYM_FOLDER_PATH}/${name}\"\n  echo \"note: copied ${name} ($slice) into the archive\"\ndone\n";
-			showEnvVarsInLog = 0;
-		};
-		AE567D98C71FAF577CE28885 /* [WNT] Copy vendored framework dSYMs */ = {
-			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-			);
-			name = "[WNT] Copy vendored framework dSYMs";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "# Only builds that generate dSYMs (release / archive) need this.\n[ \"${DEBUG_INFORMATION_FORMAT}\" = \"dwarf-with-dsym\" ] || exit 0\n[ -n \"${DWARF_DSYM_FOLDER_PATH}\" ] || exit 0\n[ -d \"${PODS_ROOT}\" ] || exit 0\n\nmkdir -p \"${DWARF_DSYM_FOLDER_PATH}\"\n\nfind \"${PODS_ROOT}\" -type d -name \"*.framework.dSYM\" -path \"*.xcframework/*\" | while read -r dsym; do\n  slice=$(basename \"$(dirname \"$(dirname \"$dsym\")\")\")\n\n  # Only iOS slices; skip Catalyst/tvOS/watchOS variants.\n  case \"$slice\" in\n    ios-*) ;;\n    *) continue ;;\n  esac\n  case \"$slice\" in\n    *maccatalyst*) continue ;;\n  esac\n\n  case \"$slice\" in\n    *-simulator) is_simulator=1 ;;\n    *) is_simulator=0 ;;\n  esac\n\n  if [ \"${PLATFORM_NAME}\" = \"iphonesimulator\" ]; then\n    [ \"$is_simulator\" = \"1\" ] || continue\n  else\n    [ \"$is_simulator\" = \"0\" ] || continue\n  fi\n\n  name=$(basename \"$dsym\")\n  rm -rf \"${DWARF_DSYM_FOLDER_PATH}/${name}\"\n  cp -R \"$dsym\" \"${DWARF_DSYM_FOLDER_PATH}/${name}\"\n  echo \"note: copied ${name} ($slice) into the archive\"\ndone\n";
-			showEnvVarsInLog = 0;
-		};
 		B098F35DDAC02AA9CC6778A3 /* [WNT] Copy vendored framework dSYMs */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "[WNT] Copy vendored framework dSYMs";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# Only builds that generate dSYMs (release / archive) need this.\n[ \"${DEBUG_INFORMATION_FORMAT}\" = \"dwarf-with-dsym\" ] || exit 0\n[ -n \"${DWARF_DSYM_FOLDER_PATH}\" ] || exit 0\n[ -d \"${PODS_ROOT}\" ] || exit 0\n\nmkdir -p \"${DWARF_DSYM_FOLDER_PATH}\"\n\nfind \"${PODS_ROOT}\" -type d -name \"*.framework.dSYM\" -path \"*.xcframework/*\" | while read -r dsym; do\n  slice=$(basename \"$(dirname \"$(dirname \"$dsym\")\")\")\n\n  # Only iOS slices; skip Catalyst/tvOS/watchOS variants.\n  case \"$slice\" in\n    ios-*) ;;\n    *) continue ;;\n  esac\n  case \"$slice\" in\n    *maccatalyst*) continue ;;\n  esac\n\n  case \"$slice\" in\n    *-simulator) is_simulator=1 ;;\n    *) is_simulator=0 ;;\n  esac\n\n  if [ \"${PLATFORM_NAME}\" = \"iphonesimulator\" ]; then\n    [ \"$is_simulator\" = \"1\" ] || continue\n  else\n    [ \"$is_simulator\" = \"0\" ] || continue\n  fi\n\n  name=$(basename \"$dsym\")\n  rm -rf \"${DWARF_DSYM_FOLDER_PATH}/${name}\"\n  cp -R \"$dsym\" \"${DWARF_DSYM_FOLDER_PATH}/${name}\"\n  echo \"note: copied ${name} ($slice) into the archive\"\ndone\n";
+			showEnvVarsInLog = 0;
+		};
+		D9057F42DA6891D10FD969DE /* [WNT] Copy vendored framework dSYMs */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
