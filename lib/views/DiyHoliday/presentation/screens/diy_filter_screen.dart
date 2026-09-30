@@ -5,7 +5,7 @@ import 'package:wander_nova/UI_helper/responsive_layout.dart';
 
 import '../../../../injection_container.dart';
 import '../../data/diy_holiday_api.dart';
-import 'diy_common.dart';
+import '../widgets/diy_common.dart';
 
 /// The filters the DIY search endpoint understands.
 ///
@@ -23,7 +23,10 @@ class DiyFilters {
 
   const DiyFilters({
     this.maxPrice,
-    this.withFlight = true,
+    // Results open on land-only pricing: it is the smaller, more comparable
+    // number (₹17,790 vs ₹79,467 on the same Kerala package), and the
+    // customer picks with/without per package from the card's option sheet.
+    this.withFlight = false,
     this.nights,
     this.stars,
     this.theme,
@@ -53,12 +56,18 @@ class DiyFilters {
       maxPrice != null || nights != null || stars != null || theme != null;
 }
 
-const double _minBudget = 4000;
-const double _maxBudget = 90000;
+// Sized for a party total (see [_budgetSection]): a two-adult Kerala package
+// already runs to ~₹86,000, so the old 4k–90k range put the live results hard
+// against the ceiling and made the lower half of the slider match nothing.
+// The far-right position means "no ceiling" and sends no `max_price` at all.
+const double _minBudget = 10000;
+const double _maxBudget = 300000;
 const double _minNights = 1;
 const double _maxNights = 14;
 
-Future<DiyFilters?> showDiyFilterSheet(
+/// Opens Filters as its own screen and returns the chosen [DiyFilters], or
+/// null when the customer backs out without applying.
+Future<DiyFilters?> openDiyFilterScreen(
   BuildContext context, {
   required DiyFilters initial,
   String? origin,
@@ -66,28 +75,28 @@ Future<DiyFilters?> showDiyFilterSheet(
   int? adults,
   int? children,
 }) {
-  return showModalBottomSheet<DiyFilters>(
-    context: context,
-    isScrollControlled: true,
-    backgroundColor: Colors.transparent,
-    builder: (_) => _DiyFilterSheet(
-      initial: initial,
-      origin: origin,
-      destination: destination,
-      adults: adults,
-      children: children,
+  return Navigator.of(context).push<DiyFilters>(
+    MaterialPageRoute(
+      builder: (_) => DiyFilterScreen(
+        initial: initial,
+        origin: origin,
+        destination: destination,
+        adults: adults,
+        children: children,
+      ),
     ),
   );
 }
 
-class _DiyFilterSheet extends StatefulWidget {
+class DiyFilterScreen extends StatefulWidget {
   final DiyFilters initial;
   final String? origin;
   final String? destination;
   final int? adults;
   final int? children;
 
-  const _DiyFilterSheet({
+  const DiyFilterScreen({
+    super.key,
     required this.initial,
     this.origin,
     this.destination,
@@ -96,10 +105,10 @@ class _DiyFilterSheet extends StatefulWidget {
   });
 
   @override
-  State<_DiyFilterSheet> createState() => _DiyFilterSheetState();
+  State<DiyFilterScreen> createState() => _DiyFilterScreenState();
 }
 
-class _DiyFilterSheetState extends State<_DiyFilterSheet> {
+class _DiyFilterScreenState extends State<DiyFilterScreen> {
   late double _budget;
   late bool _withFlight;
   late double _nights;
@@ -176,16 +185,13 @@ class _DiyFilterSheetState extends State<_DiyFilterSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: context.screenHeight * 0.92,
-      decoration: BoxDecoration(
-        color: DiyTokens.pageBg,
-        borderRadius:
-            BorderRadius.vertical(top: Radius.circular(context.r(18))),
-      ),
-      child: Column(
-        children: [
-          _header(),
+    return Scaffold(
+      backgroundColor: DiyTokens.pageBg,
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            _header(),
           Expanded(
             child: ListView(
               padding: EdgeInsets.fromLTRB(
@@ -204,9 +210,10 @@ class _DiyFilterSheetState extends State<_DiyFilterSheet> {
                 _hotelCategorySection(),
               ],
             ),
-          ),
-          _applyBar(),
-        ],
+            ),
+            _applyBar(),
+          ],
+        ),
       ),
     );
   }
@@ -217,17 +224,14 @@ class _DiyFilterSheetState extends State<_DiyFilterSheet> {
         horizontal: context.w(16),
         vertical: context.h(14),
       ),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius:
-            BorderRadius.vertical(top: Radius.circular(context.r(18))),
-      ),
+      decoration: const BoxDecoration(color: Colors.white),
       child: Row(
         children: [
           GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: () => Navigator.of(context).pop(),
-            child: Icon(Icons.close, size: context.w(22), color: DiyTokens.navy),
+            child: Icon(Icons.arrow_back,
+                size: context.w(22), color: DiyTokens.navy),
           ),
           SizedBox(width: context.w(14)),
           Text(
@@ -282,15 +286,21 @@ class _DiyFilterSheetState extends State<_DiyFilterSheet> {
   }
 
   Widget _budgetSection() {
+    // `max_price` is compared against the package's PARTY TOTAL, not a
+    // per-person fare — verified against the live endpoint: max_price=80000
+    // returns the ₹79,467 package and drops the ₹85,869 one, where the
+    // per-person figures are ₹39,734 / ₹42,935. The section used to be
+    // labelled "per person" with per-person-sized presets, so every preset
+    // filtered everything out for a party of two.
     final quickPicks = <String, double?>{
-      '< ₹15,000': 15000,
-      '₹15,000 – ₹20,000': 20000,
-      '₹20,000 – ₹25,000': 25000,
-      '> ₹25,000': null,
+      '< ₹50,000': 50000,
+      '₹50,000 – ₹75,000': 75000,
+      '₹75,000 – ₹1,00,000': 100000,
+      'Any': null,
     };
 
     return _section(
-      title: 'Budget (per person)',
+      title: 'Budget (trip total)',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

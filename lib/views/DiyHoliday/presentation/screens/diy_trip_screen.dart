@@ -9,7 +9,7 @@ import '../widgets/diy_cab_sheet.dart';
 import '../widgets/diy_common.dart';
 import '../widgets/diy_itinerary.dart';
 import 'diy_addons_screen.dart';
-import 'diy_enquiry_screen.dart';
+import 'diy_review_screen.dart';
 import 'diy_flight_options_screen.dart';
 import 'diy_hotel_options_screen.dart';
 
@@ -256,13 +256,16 @@ class _DiyTripScreenState extends State<DiyTripScreen> {
     }
   }
 
+  /// BOOK NOW — hands the finished trip to the Figma review screen, which
+  /// collects travellers and then takes payment. The enquiry-only path is
+  /// still reachable from there via "Talk to a consultant instead".
   void _proceed() {
     final date = widget.query.departureDate ??
         DateTime.tryParse(_trip.departureDate) ??
         DateTime.now();
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => DiyEnquiryScreen(
+        builder: (_) => DiyReviewScreen(
           shareId: _trip.shareId.isNotEmpty ? _trip.shareId : widget.shareId,
           query: widget.query.copyWith(departureDate: date),
           withFlight: _trip.flightIncluded,
@@ -271,6 +274,10 @@ class _DiyTripScreenState extends State<DiyTripScreen> {
           currency: _trip.currency,
           packageTitle: _trip.title,
           tripId: _trip.tripId,
+          counts: _trip.counts,
+          // The trip reports days; the Figma header talks in nights.
+          nights: _trip.counts.days > 0 ? _trip.counts.days - 1 : 0,
+          destination: widget.query.destination?.name ?? '',
         ),
       ),
     );

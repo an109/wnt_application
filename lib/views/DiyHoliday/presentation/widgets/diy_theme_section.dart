@@ -7,13 +7,19 @@ import '../../data/diy_search_query.dart';
 import '../../data/models/diy_models.dart';
 import '../screens/diy_results_screen.dart';
 import 'diy_common.dart';
-import 'diy_filter_sheet.dart';
+import '../screens/diy_filter_screen.dart';
 
 /// "Holiday By Theme" — **API 2: GET /themes/**.
 ///
-/// Tapping a tile runs **API 3** with `?theme=<slug>`. The endpoint returns
-/// no artwork (slug / label / blurb only), so each tile is drawn from a
-/// per-theme gradient and icon rather than a placeholder photo.
+/// Tapping a tile runs **API 3** with `?theme=<slug>`.
+///
+/// Laid out as the staggered mosaic in the Figma: a 2-column grid whose
+/// columns alternate tall/short so the seam between them is never straight.
+/// The Figma fills each tile with a photo; the endpoint returns no artwork
+/// (slug / label / blurb only), so a tile without [DiyTheme.image] falls back
+/// to its per-theme gradient and icon rather than showing a broken or
+/// placeholder photo. Tiles switch to the photo treatment automatically once
+/// the backend starts sending `image`.
 class DiyThemeSection extends StatefulWidget {
   final DiySearchQuery query;
 
@@ -106,18 +112,7 @@ class _DiyThemeSectionState extends State<DiyThemeSection> {
             SizedBox(height: context.h(14)),
             Padding(
               padding: EdgeInsets.symmetric(horizontal: context.w(16)),
-              child: GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: themes.length,
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  mainAxisSpacing: context.h(12),
-                  crossAxisSpacing: context.w(12),
-                  childAspectRatio: 1.05,
-                ),
-                itemBuilder: (context, i) => _tile(themes[i]),
-              ),
+              child: _mosaic(themes),
             ),
             SizedBox(height: context.h(14)),
             Center(child: _starDivider()),
@@ -154,6 +149,38 @@ class _DiyThemeSectionState extends State<DiyThemeSection> {
     );
   }
 
+  /// The Figma mosaic: two columns of alternating tall/short tiles, dealt
+  /// left-then-right so the two columns stay the same total height while the
+  /// horizontal seams never line up.
+  Widget _mosaic(List<DiyTheme> themes) {
+    final tall = context.h(196);
+    final short = context.h(140);
+    final left = <Widget>[];
+    final right = <Widget>[];
+
+    for (var i = 0; i < themes.length; i++) {
+      // Left column starts tall, right column starts short, and each flips
+      // every row — which is what staggers the seam.
+      final isLeft = i.isEven;
+      final row = i ~/ 2;
+      final isTall = isLeft ? row.isEven : row.isOdd;
+      final tile = Padding(
+        padding: EdgeInsets.only(bottom: context.h(12)),
+        child: SizedBox(height: isTall ? tall : short, child: _tile(themes[i])),
+      );
+      (isLeft ? left : right).add(tile);
+    }
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(child: Column(children: left)),
+        SizedBox(width: context.w(12)),
+        Expanded(child: Column(children: right)),
+      ],
+    );
+  }
+
   Widget _tile(DiyTheme theme) {
     final colors = _gradients[theme.slug] ??
         const [Color(0xFF1F3A5F), Color(0xFF4F7CAC)];
@@ -175,15 +202,41 @@ class _DiyThemeSectionState extends State<DiyThemeSection> {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            Positioned(
-              right: -context.w(10),
-              top: -context.h(6),
-              child: Icon(
-                icon,
-                size: context.w(84),
-                color: Colors.white.withOpacity(0.16),
+            // Photo tile (Figma). Only reached once the backend sends
+            // `image`; a failed load drops back to the gradient beneath.
+            if (theme.hasImage)
+              Image.network(
+                theme.image,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => const SizedBox.shrink(),
               ),
-            ),
+            // Scrim, so the label stays readable over any photo.
+            if (theme.hasImage)
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.transparent,
+                      Colors.black.withOpacity(0.55),
+                    ],
+                    stops: const [0.45, 1],
+                  ),
+                ),
+              ),
+            // The oversized watermark icon reads as clutter on top of a
+            // photo, so it is gradient-only.
+            if (!theme.hasImage)
+              Positioned(
+                right: -context.w(10),
+                top: -context.h(6),
+                child: Icon(
+                  icon,
+                  size: context.w(84),
+                  color: Colors.white.withOpacity(0.16),
+                ),
+              ),
             Positioned(
               left: context.w(12),
               right: context.w(12),
@@ -192,8 +245,10 @@ class _DiyThemeSectionState extends State<DiyThemeSection> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(icon, size: context.w(20), color: Colors.white),
-                  SizedBox(height: context.h(6)),
+                  if (!theme.hasImage) ...[
+                    Icon(icon, size: context.w(20), color: Colors.white),
+                    SizedBox(height: context.h(6)),
+                  ],
                   Text(
                     theme.label,
                     maxLines: 1,

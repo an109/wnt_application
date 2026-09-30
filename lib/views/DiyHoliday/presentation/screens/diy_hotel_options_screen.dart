@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 
 import '../../../../injection_container.dart';
@@ -40,6 +41,11 @@ class _DiyHotelOptionsScreenState extends State<DiyHotelOptionsScreen> {
   String? _error;
   String? _applyingRef;
 
+  /// Per-card carousel state, keyed by hotel_ref so a rebuild of the list
+  /// does not reset the photo a customer has swiped to.
+  final Map<String, PageController> _galleryControllers = {};
+  final Map<String, int> _galleryPage = {};
+
   int? _starFilter;
   bool _breakfastOnly = false;
 
@@ -47,6 +53,16 @@ class _DiyHotelOptionsScreenState extends State<DiyHotelOptionsScreen> {
   void initState() {
     super.initState();
     _load();
+  }
+
+  @override
+  void dispose() {
+    // One controller is created per multi-photo card and kept for the life of
+    // the screen, so they are torn down together here.
+    for (final controller in _galleryControllers.values) {
+      controller.dispose();
+    }
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -238,11 +254,6 @@ class _DiyHotelOptionsScreenState extends State<DiyHotelOptionsScreen> {
 
   Widget _tile(DiyHotelOption option) {
     final applying = _applyingRef == option.hotelRef;
-    final deltaColor = option.delta == 0
-        ? DiyTokens.subGrey
-        : option.delta < 0
-            ? Colors.green.shade700
-            : DiyTokens.orange;
 
     return DiyCard(
       padding: EdgeInsets.all(context.w(10)),
@@ -251,160 +262,317 @@ class _DiyHotelOptionsScreenState extends State<DiyHotelOptionsScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              DiyImage(
-                url: option.heroImage,
-                width: context.w(92),
-                height: context.w(84),
-                radius: BorderRadius.circular(context.r(10)),
-              ),
-              SizedBox(width: context.w(10)),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      option.name,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: context.fs(13.5),
-                        fontWeight: FontWeight.w700,
-                        color: DiyTokens.navy,
-                      ),
-                    ),
-                    SizedBox(height: context.h(3)),
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.star_rounded,
-                          size: context.w(13),
-                          color: const Color(0xFFFFC107),
-                        ),
-                        SizedBox(width: context.w(3)),
-                        Text(
-                          option.starRating,
-                          style: TextStyle(
-                            fontSize: context.fs(11),
-                            color: DiyTokens.subGrey,
-                          ),
-                        ),
-                        if (option.reviewRating.isNotEmpty) ...[
-                          SizedBox(width: context.w(8)),
-                          Container(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: context.w(5),
-                              vertical: context.h(1),
-                            ),
-                            decoration: BoxDecoration(
-                              color: DiyTokens.blue,
-                              borderRadius:
-                                  BorderRadius.circular(context.r(4)),
-                            ),
-                            child: Text(
-                              option.reviewRating,
-                              style: TextStyle(
-                                fontSize: context.fs(9.5),
-                                fontWeight: FontWeight.w700,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
-                          if (option.reviewCount > 0) ...[
-                            SizedBox(width: context.w(5)),
-                            Text(
-                              '(${option.reviewCount})',
-                              style: TextStyle(
-                                fontSize: context.fs(9.5),
-                                color: DiyTokens.labelGrey,
-                              ),
-                            ),
-                          ],
-                        ],
-                      ],
-                    ),
-                    SizedBox(height: context.h(3)),
-                    Text(
-                      option.location,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: context.fs(10.5),
-                        color: DiyTokens.subGrey,
-                      ),
-                    ),
-                    if (option.freeBreakfast || option.distanceKm.isNotEmpty)
-                      Padding(
-                        padding: EdgeInsets.only(top: context.h(3)),
-                        child: Text(
-                          [
-                            if (option.freeBreakfast) 'Free breakfast',
-                            if (option.distanceKm.isNotEmpty)
-                              '${option.distanceKm} km from centre',
-                          ].join(' · '),
-                          style: TextStyle(
-                            fontSize: context.fs(10),
-                            color: Colors.green.shade700,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: context.h(8)),
-          const Divider(height: 1, color: DiyTokens.line),
-          SizedBox(height: context.h(8)),
+          _gallery(option),
+          SizedBox(height: context.h(10)),
           Row(
             children: [
               Expanded(
                 child: Text(
-                  option.isSelected
-                      ? 'Currently in your trip'
-                      : 'For ${widget.stop.nights} night'
-                          '${widget.stop.nights == 1 ? '' : 's'}',
+                  option.name,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: context.fs(11),
-                    color: option.isSelected
-                        ? DiyTokens.blue
-                        : DiyTokens.labelGrey,
-                    fontWeight:
-                        option.isSelected ? FontWeight.w700 : FontWeight.w400,
+                    fontSize: context.fs(14),
+                    fontWeight: FontWeight.w700,
+                    color: DiyTokens.navy,
                   ),
                 ),
               ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    diyMoney(option.total, currency: widget.currency),
-                    style: TextStyle(
-                      fontSize: context.fs(15),
-                      fontWeight: FontWeight.w800,
-                      color: DiyTokens.navy,
-                    ),
-                  ),
-                  Text(
-                    diyDelta(option.delta, currency: widget.currency),
-                    style: TextStyle(
-                      fontSize: context.fs(11),
-                      fontWeight: FontWeight.w600,
-                      color: deltaColor,
-                    ),
-                  ),
-                ],
+              SizedBox(width: context.w(8)),
+              GestureDetector(
+                onTap: () => Share.share(
+                  'Check out ${option.name}'
+                  '${option.location.isNotEmpty ? ' in ${option.location}' : ''}!',
+                ),
+                behavior: HitTestBehavior.opaque,
+                child: Icon(
+                  Icons.share_outlined,
+                  size: context.w(16),
+                  color: DiyTokens.subGrey,
+                ),
               ),
             ],
           ),
+          SizedBox(height: context.h(5)),
+          _starRow(option),
+          if (option.location.isNotEmpty) ...[
+            SizedBox(height: context.h(5)),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  Icons.location_on_outlined,
+                  size: context.w(13),
+                  color: DiyTokens.subGrey,
+                ),
+                SizedBox(width: context.w(4)),
+                Expanded(
+                  child: Text(
+                    option.location,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: context.fs(11),
+                      fontWeight: FontWeight.w600,
+                      color: DiyTokens.subGrey,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+          if (option.freeBreakfast || option.distanceKm.isNotEmpty) ...[
+            SizedBox(height: context.h(7)),
+            Wrap(
+              spacing: context.w(6),
+              runSpacing: context.h(5),
+              children: [
+                if (option.freeBreakfast)
+                  _perk(Icons.free_breakfast_outlined, 'Free breakfast'),
+                if (option.distanceKm.isNotEmpty)
+                  _perk(
+                    Icons.near_me_outlined,
+                    '${option.distanceKm} km from centre',
+                  ),
+              ],
+            ),
+          ],
+          SizedBox(height: context.h(9)),
+          const Divider(height: 1, color: DiyTokens.line),
+          SizedBox(height: context.h(8)),
+          _priceRow(option),
           if (applying) ...[
             SizedBox(height: context.h(10)),
             const LinearProgressIndicator(minHeight: 2),
           ],
         ],
       ),
+    );
+  }
+
+  /// Inset rounded image with a swipeable carousel when the API sent more
+  /// than one photo — the same treatment the hotel search result cards use.
+  /// The dots and counter are only drawn when there is something to page
+  /// through.
+  Widget _gallery(DiyHotelOption option) {
+    final photos = <String>[
+      if (option.heroImage.isNotEmpty) option.heroImage,
+      ...option.images.where((u) => u.isNotEmpty && u != option.heroImage),
+    ];
+    final radius = BorderRadius.circular(context.r(10));
+    final height = context.h(150);
+
+    if (photos.length <= 1) {
+      return DiyImage(
+        url: photos.isEmpty ? '' : photos.first,
+        width: double.infinity,
+        height: height,
+        radius: radius,
+      );
+    }
+
+    final controller = _galleryControllers.putIfAbsent(
+      option.hotelRef,
+      () => PageController(),
+    );
+
+    return SizedBox(
+      height: height,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: ClipRRect(
+              borderRadius: radius,
+              child: PageView.builder(
+                controller: controller,
+                itemCount: photos.length,
+                onPageChanged: (i) =>
+                    setState(() => _galleryPage[option.hotelRef] = i),
+                itemBuilder: (_, i) => DiyImage(
+                  url: photos[i],
+                  width: double.infinity,
+                  height: height,
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            right: context.w(8),
+            top: context.h(8),
+            child: Container(
+              padding: EdgeInsets.symmetric(
+                horizontal: context.w(7),
+                vertical: context.h(2),
+              ),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.55),
+                borderRadius: BorderRadius.circular(context.r(20)),
+              ),
+              child: Text(
+                '${(_galleryPage[option.hotelRef] ?? 0) + 1}/${photos.length}',
+                style: TextStyle(
+                  fontSize: context.fs(9.5),
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: context.h(8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                for (var i = 0; i < photos.length && i < 6; i++)
+                  Container(
+                    width: context.w(5),
+                    height: context.w(5),
+                    margin: EdgeInsets.symmetric(horizontal: context.w(2)),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: (_galleryPage[option.hotelRef] ?? 0) == i
+                          ? Colors.white
+                          : Colors.white.withOpacity(0.5),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Amber stars for the property class, then the guest score as a filled
+  /// chip — the pairing the hotel result cards use.
+  Widget _starRow(DiyHotelOption option) {
+    final stars = int.tryParse(option.starRating.split('.').first) ?? 0;
+
+    return Row(
+      children: [
+        if (stars > 0)
+          for (var i = 0; i < stars.clamp(0, 5); i++)
+            Icon(
+              Icons.star_rounded,
+              size: context.w(13),
+              color: const Color(0xFFFFC107),
+            ),
+        if (option.reviewRating.isNotEmpty) ...[
+          if (stars > 0) SizedBox(width: context.w(7)),
+          Container(
+            padding: EdgeInsets.symmetric(
+              horizontal: context.w(5),
+              vertical: context.h(1),
+            ),
+            decoration: BoxDecoration(
+              color: DiyTokens.blue,
+              borderRadius: BorderRadius.circular(context.r(4)),
+            ),
+            child: Text(
+              option.reviewRating,
+              style: TextStyle(
+                fontSize: context.fs(9.5),
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
+              ),
+            ),
+          ),
+          if (option.reviewCount > 0) ...[
+            SizedBox(width: context.w(5)),
+            Text(
+              '(${option.reviewCount})',
+              style: TextStyle(
+                fontSize: context.fs(9.5),
+                color: DiyTokens.labelGrey,
+              ),
+            ),
+          ],
+        ],
+      ],
+    );
+  }
+
+  Widget _perk(IconData icon, String label) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: context.w(12), color: Colors.green.shade700),
+        SizedBox(width: context.w(4)),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: context.fs(10),
+            fontWeight: FontWeight.w600,
+            color: Colors.green.shade700,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _priceRow(DiyHotelOption option) {
+    final deltaColor = option.delta == 0
+        ? DiyTokens.subGrey
+        : option.delta < 0
+            ? Colors.green.shade700
+            : DiyTokens.orange;
+
+    return Row(
+      children: [
+        Expanded(
+          child: option.isSelected
+              ? Row(
+                  children: [
+                    Icon(
+                      Icons.check_circle_rounded,
+                      size: context.w(14),
+                      color: DiyTokens.blue,
+                    ),
+                    SizedBox(width: context.w(5)),
+                    Text(
+                      'Currently in your trip',
+                      style: TextStyle(
+                        fontSize: context.fs(11),
+                        fontWeight: FontWeight.w700,
+                        color: DiyTokens.blue,
+                      ),
+                    ),
+                  ],
+                )
+              : Text(
+                  'For ${widget.stop.nights} night'
+                  '${widget.stop.nights == 1 ? '' : 's'}',
+                  style: TextStyle(
+                    fontSize: context.fs(11),
+                    color: DiyTokens.labelGrey,
+                  ),
+                ),
+        ),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text(
+              diyMoney(option.total, currency: widget.currency),
+              style: TextStyle(
+                fontSize: context.fs(16),
+                fontWeight: FontWeight.w800,
+                color: DiyTokens.navy,
+              ),
+            ),
+            if (!option.isSelected)
+              Text(
+                diyDelta(option.delta, currency: widget.currency),
+                style: TextStyle(
+                  fontSize: context.fs(11),
+                  fontWeight: FontWeight.w600,
+                  color: deltaColor,
+                ),
+              ),
+          ],
+        ),
+      ],
     );
   }
 }

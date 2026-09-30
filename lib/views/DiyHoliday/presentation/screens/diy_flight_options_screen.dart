@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
+import 'package:wander_nova/common_widgets/airline_logo.dart';
+import 'package:wander_nova/newUIWidgets/flightCard.dart';
 
 import '../../../../injection_container.dart';
 import '../../data/diy_holiday_api.dart';
@@ -123,196 +125,129 @@ class _DiyFlightOptionsScreenState extends State<DiyFlightOptionsScreen> {
     );
   }
 
+  /// The API sends the leg as a title like "DEL to COK" and gives no city
+  /// names, so the airport codes are read back off it. Anything that does not
+  /// match that shape falls back to an empty code rather than showing junk.
+  static (String, String) _routeCodes(String title) {
+    final parts = title.split(RegExp(r'\s+to\s+', caseSensitive: false));
+    if (parts.length != 2) return ('', '');
+    return (parts[0].trim().toUpperCase(), parts[1].trim().toUpperCase());
+  }
+
   Widget _tile(DiyFlightOption option) {
     final applying = _applyingRef == option.offerRef;
+    final (fromCode, toCode) = _routeCodes(option.title);
+
+    return Opacity(
+      // Dim the row being applied so it is clear which one is in flight.
+      opacity: applying ? 0.6 : 1,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: _applyingRef != null ? null : () => _select(option),
+        child: FlightCard(
+          isSelected: option.isSelected,
+          airlineName: option.carrierName,
+          flightNumber: option.flightNumber,
+          // The API sends `carrier_logo` empty on every option, so the real
+          // artwork comes from the shared AirlineLogo (Kiwi CDN, by IATA
+          // code) — the same widget the flight search results use. It falls
+          // back to a coloured initials tile on its own.
+          logo: AirlineLogo(
+            code: option.carrier,
+            name: option.carrierName,
+            size: context.w(38),
+            borderRadius: BorderRadius.circular(context.r(8)),
+          ),
+          priceText: diyMoney(option.total, currency: widget.currency),
+          // DIY quotes the whole party, not one adult — do not inherit the
+          // flight module's "/adult" default here.
+          perLabel: 'total',
+          departureCity: diyDayDate(option.departureAt),
+          departureCode: fromCode,
+          departureTime: diyTime(option.departureAt),
+          arrivalCity: diyDayDate(option.arrivalAt),
+          arrivalCode: toCode,
+          arrivalTime: diyTime(option.arrivalAt),
+          duration: diyDuration(option.durationMinutes),
+          stopsLabel: option.stops == 0
+              ? 'Non stop'
+              : '${option.stops} Stop${option.stops == 1 ? '' : 's'}',
+          footer: _footer(option, applying),
+        ),
+      ),
+    );
+  }
+
+  /// Everything below the route row: the fare pills, the difference this swap
+  /// makes to the trip total, and the progress bar while it is applying.
+  Widget _footer(DiyFlightOption option, bool applying) {
     final deltaColor = option.delta == 0
         ? DiyTokens.subGrey
         : option.delta < 0
             ? Colors.green.shade700
             : DiyTokens.orange;
 
-    return DiyCard(
-      borderColor: option.isSelected ? DiyTokens.blue : null,
-      onTap: applying ? null : () => _select(option),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: context.w(32),
-                height: context.w(32),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF1F4F9),
-                  borderRadius: BorderRadius.circular(context.r(8)),
-                ),
-                alignment: Alignment.center,
-                child: option.carrierLogo.isNotEmpty
-                    ? DiyImage(
-                        url: option.carrierLogo,
-                        width: context.w(22),
-                        height: context.w(22),
-                        fit: BoxFit.contain,
-                      )
-                    : Text(
-                        option.carrier,
-                        style: TextStyle(
-                          fontSize: context.fs(11),
-                          fontWeight: FontWeight.w800,
-                          color: DiyTokens.navy,
-                        ),
-                      ),
-              ),
-              SizedBox(width: context.w(10)),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      option.carrierName,
-                      style: TextStyle(
-                        fontSize: context.fs(13),
-                        fontWeight: FontWeight.w700,
-                        color: DiyTokens.navy,
-                      ),
-                    ),
-                    Text(
-                      option.flightNumber,
-                      style: TextStyle(
-                        fontSize: context.fs(10.5),
-                        color: DiyTokens.subGrey,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              if (option.isSelected)
-                Container(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: context.w(8),
-                    vertical: context.h(3),
-                  ),
-                  decoration: BoxDecoration(
-                    color: DiyTokens.blue,
-                    borderRadius: BorderRadius.circular(context.r(20)),
-                  ),
-                  child: Text(
-                    'Selected',
-                    style: TextStyle(
-                      fontSize: context.fs(10),
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-            ],
-          ),
-          SizedBox(height: context.h(12)),
-          Row(
-            children: [
-              _timeColumn(diyTime(option.departureAt), 'Departs'),
-              Expanded(
-                child: Column(
-                  children: [
-                    Text(
-                      diyDuration(option.durationMinutes),
-                      style: TextStyle(
-                        fontSize: context.fs(10.5),
-                        color: DiyTokens.subGrey,
-                      ),
-                    ),
-                    Padding(
-                      padding: EdgeInsets.symmetric(vertical: context.h(3)),
-                      child: const Divider(height: 1, color: DiyTokens.line),
-                    ),
-                    Text(
-                      option.stops == 0
-                          ? 'Non-stop'
-                          : '${option.stops} stop${option.stops == 1 ? '' : 's'}',
-                      style: TextStyle(
-                        fontSize: context.fs(10.5),
-                        color: DiyTokens.subGrey,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              _timeColumn(diyTime(option.arrivalAt), 'Arrives'),
-            ],
-          ),
-          SizedBox(height: context.h(10)),
-          const Divider(height: 1, color: DiyTokens.line),
-          SizedBox(height: context.h(8)),
-          Row(
-            children: [
-              Expanded(
-                child: Wrap(
-                  spacing: context.w(6),
-                  runSpacing: context.h(4),
-                  children: [
-                    if (option.baggageChecked.isNotEmpty)
-                      _pill(context, '${option.baggageChecked} check-in'),
-                    if (option.refundable) _pill(context, 'Refundable'),
-                    if (option.seatsAvailable > 0 && option.seatsAvailable <= 5)
-                      _pill(
-                        context,
-                        '${option.seatsAvailable} seats left',
-                        color: DiyTokens.orange,
-                      ),
-                  ],
-                ),
-              ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    diyMoney(option.total, currency: widget.currency),
-                    style: TextStyle(
-                      fontSize: context.fs(15),
-                      fontWeight: FontWeight.w800,
-                      color: DiyTokens.navy,
-                    ),
-                  ),
-                  Text(
-                    diyDelta(option.delta, currency: widget.currency),
-                    style: TextStyle(
-                      fontSize: context.fs(11),
-                      fontWeight: FontWeight.w600,
-                      color: deltaColor,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          if (applying) ...[
-            SizedBox(height: context.h(10)),
-            const LinearProgressIndicator(minHeight: 2),
-          ],
-        ],
-      ),
-    );
-  }
+    final pills = <Widget>[
+      if (option.baggageChecked.isNotEmpty)
+        _pill(context, '${option.baggageChecked} check-in'),
+      if (option.refundable) _pill(context, 'Refundable'),
+      if (option.seatsAvailable > 0 && option.seatsAvailable <= 5)
+        _pill(
+          context,
+          '${option.seatsAvailable} seats left',
+          color: DiyTokens.orange,
+        ),
+    ];
 
-  Widget _timeColumn(String time, String caption) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          time,
-          style: TextStyle(
-            fontSize: context.fs(16),
-            fontWeight: FontWeight.w700,
-            color: DiyTokens.navy,
-          ),
+        SizedBox(height: context.h(12)),
+        Container(height: 0.6, color: const Color(0xFFCCCCCC)),
+        SizedBox(height: context.h(10)),
+        Row(
+          children: [
+            Expanded(
+              child: Wrap(
+                spacing: context.w(6),
+                runSpacing: context.h(4),
+                children: pills,
+              ),
+            ),
+            if (option.isSelected)
+              Container(
+                padding: EdgeInsets.symmetric(
+                  horizontal: context.w(9),
+                  vertical: context.h(4),
+                ),
+                decoration: BoxDecoration(
+                  color: DiyTokens.blue,
+                  borderRadius: BorderRadius.circular(context.r(20)),
+                ),
+                child: Text(
+                  'Selected',
+                  style: TextStyle(
+                    fontSize: context.fs(10),
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
+                ),
+              )
+            else
+              Text(
+                diyDelta(option.delta, currency: widget.currency),
+                style: TextStyle(
+                  fontSize: context.fs(13),
+                  fontWeight: FontWeight.w700,
+                  color: deltaColor,
+                ),
+              ),
+          ],
         ),
-        Text(
-          caption,
-          style: TextStyle(
-            fontSize: context.fs(10),
-            color: DiyTokens.labelGrey,
-          ),
-        ),
+        if (applying) ...[
+          SizedBox(height: context.h(10)),
+          const LinearProgressIndicator(minHeight: 2),
+        ],
       ],
     );
   }

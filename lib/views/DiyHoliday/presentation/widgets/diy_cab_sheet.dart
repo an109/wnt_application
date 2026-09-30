@@ -40,6 +40,17 @@ class _DiyCabSheet extends StatefulWidget {
 }
 
 class _DiyCabSheetState extends State<_DiyCabSheet> {
+  // Same palette as the transport search result card, so a transfer reads the
+  // same whether the customer reaches it from Transport or from a holiday.
+  static const Color _cardBorder = Color(0xffE3E5E8);
+  static const Color _panelBg = Color(0xffF0F4F9);
+  static const Color _bulletText = Color(0xff4F4F4F);
+  static const LinearGradient _labelGradient = LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [Color(0xff7AD3F7), DiyTokens.blue],
+  );
+
   final DiyHolidayApi _api = sl<DiyHolidayApi>();
 
   DiyCabOptions _options = DiyCabOptions.empty;
@@ -163,63 +174,189 @@ class _DiyCabSheetState extends State<_DiyCabSheet> {
     );
   }
 
+  /// Laid out like the transport search result card: a tinted image panel on
+  /// the left with the class name on a gradient strip along its bottom, and
+  /// the description, capacity bullets and state on the right.
   Widget _tile(DiyCabOption option) {
     final applying = _applyingCode == option.code;
-    return DiyCard(
-      borderColor: option.isSelected ? DiyTokens.blue : null,
-      onTap: applying ? null : () => _select(option),
-      child: Row(
-        children: [
-          Icon(
-            Icons.local_taxi_rounded,
-            size: context.w(22),
-            color: option.isSelected ? DiyTokens.blue : DiyTokens.subGrey,
+    final radius = BorderRadius.circular(context.r(10));
+
+    return Opacity(
+      opacity: _applyingCode != null && !applying ? 0.55 : 1,
+      child: GestureDetector(
+        onTap: _applyingCode != null ? null : () => _select(option),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: radius,
+            border: Border.all(
+              color: option.isSelected ? DiyTokens.blue : _cardBorder,
+              width: option.isSelected ? 1 : 0.5,
+            ),
           ),
-          SizedBox(width: context.w(12)),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  option.name,
+          child: ClipRRect(
+            borderRadius: radius,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: context.h(88)),
+              child: IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _imagePanel(option),
+                    Expanded(child: _details(option, applying)),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _imagePanel(DiyCabOption option) {
+    final labelH = context.h(18);
+
+    return Container(
+      width: context.w(98),
+      color: _panelBg,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            bottom: labelH,
+            child: Padding(
+              padding: EdgeInsets.all(context.w(6)),
+              // The endpoint sends `image` empty for every class, so the
+              // vehicle is drawn as a class-appropriate icon rather than one
+              // generic taxi glyph for all four.
+              child: option.image.isNotEmpty
+                  ? DiyImage(url: option.image, fit: BoxFit.contain)
+                  : Center(
+                      child: Icon(
+                        _iconFor(option),
+                        size: context.w(34),
+                        color: option.isSelected
+                            ? DiyTokens.blue
+                            : DiyTokens.subGrey,
+                      ),
+                    ),
+            ),
+          ),
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            height: labelH,
+            child: Container(
+              alignment: Alignment.center,
+              decoration: const BoxDecoration(gradient: _labelGradient),
+              child: Text(
+                option.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: context.fs(11),
+                  fontWeight: FontWeight.w500,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Bigger body for bigger vehicles — a Tempo Traveller reading as a sedan
+  /// would misrepresent what the customer is booking.
+  IconData _iconFor(DiyCabOption option) {
+    final code = option.code.toUpperCase();
+    if (code.contains('TEMPO') || code.contains('BUS')) {
+      return Icons.airport_shuttle_rounded;
+    }
+    if (code.contains('SUV') || code.contains('MUV')) {
+      return Icons.directions_car_filled_rounded;
+    }
+    return Icons.directions_car_rounded;
+  }
+
+  Widget _details(DiyCabOption option, bool applying) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        context.w(10),
+        context.h(8),
+        context.w(10),
+        context.h(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Text(
+                  option.label.isNotEmpty ? option.label : option.name,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: context.fs(13.5),
-                    fontWeight: FontWeight.w700,
+                    fontSize: context.fs(13),
+                    fontWeight: FontWeight.w600,
                     color: DiyTokens.navy,
                   ),
                 ),
-                Text(
-                  option.label,
-                  style: TextStyle(
-                    fontSize: context.fs(11),
-                    color: DiyTokens.subGrey,
-                  ),
+              ),
+              if (applying)
+                SizedBox(
+                  width: context.w(16),
+                  height: context.w(16),
+                  child: const CircularProgressIndicator(strokeWidth: 2),
+                )
+              else if (option.isSelected)
+                Icon(
+                  Icons.check_circle_rounded,
+                  color: DiyTokens.blue,
+                  size: context.w(18),
                 ),
-                SizedBox(height: context.h(2)),
-                Text(
-                  '${option.seats} seats · ${option.luggage} bags',
-                  style: TextStyle(
-                    fontSize: context.fs(10.5),
-                    color: DiyTokens.labelGrey,
-                  ),
-                ),
-              ],
-            ),
+            ],
           ),
-          if (applying)
-            SizedBox(
-              width: context.w(18),
-              height: context.w(18),
-              child: const CircularProgressIndicator(strokeWidth: 2),
-            )
-          else if (option.isSelected)
-            Icon(
-              Icons.check_circle_rounded,
-              color: DiyTokens.blue,
-              size: context.w(20),
-            ),
+          SizedBox(height: context.h(5)),
+          Wrap(
+            spacing: context.w(8),
+            runSpacing: context.h(2),
+            children: [
+              _bullet('${option.seats} seats'),
+              _bullet('${option.luggage} bags'),
+              if (option.isSelected) _bullet('In your trip'),
+            ],
+          ),
         ],
       ),
+    );
+  }
+
+  Widget _bullet(String text) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: context.w(4),
+          height: context.w(4),
+          decoration: const BoxDecoration(
+            color: _bulletText,
+            shape: BoxShape.circle,
+          ),
+        ),
+        SizedBox(width: context.w(4)),
+        Text(
+          text,
+          style: TextStyle(
+            fontSize: context.fs(9.5),
+            color: _bulletText,
+            height: 1.2,
+          ),
+        ),
+      ],
     );
   }
 }

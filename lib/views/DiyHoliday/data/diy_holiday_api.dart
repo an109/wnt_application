@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
+import '../../../core/constants/holiday_urls.dart';
 import 'models/diy_models.dart';
 
 /// Thrown by every [DiyHolidayApi] call so screens can show one message
@@ -30,7 +31,9 @@ class DiyApiException implements Exception {
 /// attach the app's bearer token and its 401-refresh interceptor to a
 /// service that has no idea about either.
 class DiyHolidayApi {
-  static const String baseUrl = 'https://diy.thewandernova.com/api/v1/app/';
+  /// The host lives in [HolidayUrls] alongside every DIY path, the same way
+  /// the main API's host lives in `Urls`.
+  static const String baseUrl = HolidayUrls.baseUrl;
 
   final Dio _dio;
 
@@ -131,7 +134,7 @@ class DiyHolidayApi {
   /// GET /destinations/ — the "Travelling to" list. Returns regions
   /// ("kerala") and cities ("alleppey-in"); the `slug` feeds [searchPackages].
   Future<List<DiyDestination>> getDestinations() async {
-    final data = await _get('destinations/');
+    final data = await _get(HolidayUrls.destinations);
     return unwrapList(data).map(DiyDestination.fromJson).toList();
   }
 
@@ -139,7 +142,7 @@ class DiyHolidayApi {
 
   /// GET /themes/ — the "Holiday By Theme" tiles.
   Future<List<DiyTheme>> getThemes() async {
-    final data = await _get('themes/');
+    final data = await _get(HolidayUrls.themes);
     return unwrapList(data).map(DiyTheme.fromJson).toList();
   }
 
@@ -161,7 +164,7 @@ class DiyHolidayApi {
     int? nights,
     int? page,
   }) async {
-    final data = await _get('packages/', query: {
+    final data = await _get(HolidayUrls.packages, query: {
       'origin': origin,
       'destination': destination,
       'adults': adults,
@@ -187,8 +190,8 @@ class DiyHolidayApi {
     bool withFlight = true,
   }) async {
     final data = await _get(
-      'packages/$shareId/',
-      query: {'flight': withFlight ? 'with' : 'without'},
+      HolidayUrls.package(shareId),
+      query: {'flight': HolidayUrls.flightMode(withFlight: withFlight)},
     );
     return DiyPackageDetail.fromJson(data);
   }
@@ -209,11 +212,11 @@ class DiyHolidayApi {
     bool withFlight = true,
   }) async {
     try {
-      final data = await _post('packages/$shareId/price/', {
+      final data = await _post(HolidayUrls.packagePrice(shareId), {
         'departure_date': _ymd(departureDate),
         'adults': adults,
         'children': children,
-        'flight': withFlight ? 'with' : 'without',
+        'flight': HolidayUrls.flightMode(withFlight: withFlight),
       });
       return DiyTrip.fromJson(data);
     } on DiyApiException catch (e) {
@@ -237,7 +240,7 @@ class DiyHolidayApi {
   /// GET /trips/{trip_id}/ — the live trip, including `stops[]` whose
   /// `stop_id` is needed to browse or change that stay's hotel.
   Future<DiyTrip> getTrip(String tripId) async {
-    final data = await _get('trips/$tripId/');
+    final data = await _get(HolidayUrls.trip(tripId));
     return DiyTrip.fromJson(data);
   }
 
@@ -249,7 +252,10 @@ class DiyHolidayApi {
     required bool outbound,
   }) async {
     final data =
-        await _get('trips/$tripId/flights/${outbound ? 'outbound' : 'return'}/');
+await _get(HolidayUrls.tripFlights(
+      tripId,
+      HolidayUrls.flightDirection(outbound: outbound),
+    ));
     return unwrapList(data).map(DiyFlightOption.fromJson).toList();
   }
 
@@ -262,7 +268,10 @@ class DiyHolidayApi {
     DiyTrip? previous,
   }) async {
     final data = await _post(
-      'trips/$tripId/flights/${outbound ? 'outbound' : 'return'}/',
+      HolidayUrls.tripFlights(
+        tripId,
+        HolidayUrls.flightDirection(outbound: outbound),
+      ),
       {'offer_ref': offerRef},
     );
     return DiyTrip.fromJson(data, previous: previous);
@@ -276,7 +285,7 @@ class DiyHolidayApi {
     required String tripId,
     required String stopId,
   }) async {
-    final data = await _get('trips/$tripId/stops/$stopId/hotels/');
+    final data = await _get(HolidayUrls.tripStopHotels(tripId, stopId));
     return unwrapList(data).map(DiyHotelOption.fromJson).toList();
   }
 
@@ -289,7 +298,7 @@ class DiyHolidayApi {
     String? roomRef,
     DiyTrip? previous,
   }) async {
-    final data = await _post('trips/$tripId/stops/$stopId/hotels/', {
+    final data = await _post(HolidayUrls.tripStopHotels(tripId, stopId), {
       'hotel_ref': hotelRef,
       if (roomRef != null && roomRef.isNotEmpty) 'room_ref': roomRef,
     });
@@ -300,7 +309,7 @@ class DiyHolidayApi {
 
   /// GET /packages/{share_id}/addons/ — the activities that can be added.
   Future<List<DiyAddon>> getAddons(String shareId) async {
-    final data = await _get('packages/$shareId/addons/');
+    final data = await _get(HolidayUrls.packageAddons(shareId));
     return unwrapList(data).map(DiyAddon.fromJson).toList();
   }
 
@@ -321,7 +330,7 @@ class DiyHolidayApi {
     required int day,
     DiyTrip? previous,
   }) async {
-    final data = await _post('trips/$tripId/activities/', {
+    final data = await _post(HolidayUrls.tripActivities(tripId), {
       'activity': activityId,
       'day': day,
     });
@@ -333,7 +342,7 @@ class DiyHolidayApi {
     required String tripId,
     required String tripActivityId,
   }) async {
-    await _delete('trips/$tripId/activities/$tripActivityId/');
+    await _delete(HolidayUrls.tripActivity(tripId, tripActivityId));
   }
 
   // -------------------------------------------------------- 14. customise
@@ -345,9 +354,9 @@ class DiyHolidayApi {
     required List<String> addOnIds,
     bool withFlight = true,
   }) async {
-    final data = await _post('packages/$shareId/customise/', {
+    final data = await _post(HolidayUrls.packageCustomise(shareId), {
       'add_on_ids': addOnIds,
-      'flight': withFlight ? 'with' : 'without',
+      'flight': HolidayUrls.flightMode(withFlight: withFlight),
     });
     return DiyCustomiseQuote.fromJson(data);
   }
@@ -369,11 +378,11 @@ class DiyHolidayApi {
     required String quotedTotal,
     String message = '',
   }) async {
-    final data = await _post('packages/$shareId/enquiry/', {
+    final data = await _post(HolidayUrls.packageEnquiry(shareId), {
       'customer_name': customerName,
       'customer_phone': customerPhone,
       'customer_email': customerEmail,
-      'flight': withFlight ? 'with' : 'without',
+      'flight': HolidayUrls.flightMode(withFlight: withFlight),
       'departure_date': _ymd(departureDate),
       'adults': adults,
       'children': children,
@@ -390,7 +399,7 @@ class DiyHolidayApi {
   /// offered. Transfers are derived from the cab, so changing it rewrites
   /// the transfer rows too; there is no separate transfer endpoint.
   Future<DiyCabOptions> getCabOptions(String tripId) async {
-    final data = await _get('trips/$tripId/cab/');
+    final data = await _get(HolidayUrls.tripCab(tripId));
     return DiyCabOptions.fromJson(data);
   }
 
@@ -401,7 +410,7 @@ class DiyHolidayApi {
     required String code,
     DiyTrip? previous,
   }) async {
-    final data = await _post('trips/$tripId/cab/', {'code': code});
+    final data = await _post(HolidayUrls.tripCab(tripId), {'code': code});
     return DiyTrip.fromJson(data, previous: previous);
   }
 

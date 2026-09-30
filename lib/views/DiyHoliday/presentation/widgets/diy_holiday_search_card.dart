@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_svg/svg.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
+import 'package:wander_nova/core/resources/app_colours.dart';
 
 import '../../../MainApi/presentation/bloc/general_setting_bloc.dart';
 import '../../../MainApi/presentation/bloc/general_settings_event.dart';
@@ -14,7 +16,7 @@ import '../screens/diy_destination_search_screen.dart';
 import '../screens/diy_origin_search_screen.dart';
 import '../screens/diy_results_screen.dart';
 import 'diy_common.dart';
-import 'diy_filter_sheet.dart';
+import '../screens/diy_filter_screen.dart';
 
 /// The holiday hero + search form.
 ///
@@ -114,7 +116,7 @@ class _DiyHolidaySearchCardState extends State<DiyHolidaySearchCard> {
   }
 
   Future<void> _openFilters() async {
-    final result = await showDiyFilterSheet(
+    final result = await openDiyFilterScreen(
       context,
       initial: _filters,
       // The sheet counts packages live; at this point the search hasn't run
@@ -413,10 +415,14 @@ class _DiyHolidaySearchCardState extends State<DiyHolidaySearchCard> {
             SizedBox(height: context.h(6)),
             Row(
               children: [
-                Icon(
-                  Icons.location_on,
-                  size: context.w(20),
-                  color: DiyTokens.blue,
+                SvgPicture.asset(
+                  'assets/NewIcons/location.svg',
+                  width: context.w(16),
+                  height: context.w(19),
+                  colorFilter: const ColorFilter.mode(
+                    AppColors.AppBlue,
+                    BlendMode.srcIn,
+                  ),
                 ),
                 SizedBox(width: context.w(10)),
                 Expanded(
@@ -458,10 +464,10 @@ class _DiyHolidaySearchCardState extends State<DiyHolidaySearchCard> {
             SizedBox(height: context.h(6)),
             Row(
               children: [
-                Icon(
-                  Icons.location_on_outlined,
-                  size: context.w(20),
-                  color: DiyTokens.blue,
+                SvgPicture.asset(
+                  'assets/NewIcons/location_outline.svg',
+                  width: context.w(16),
+                  height: context.w(19),
                 ),
                 SizedBox(width: context.w(10)),
                 Expanded(
@@ -527,6 +533,7 @@ class _DiyHolidaySearchCardState extends State<DiyHolidaySearchCard> {
                   width: context.w(22),
                   height: context.w(22),
                   fit: BoxFit.contain,
+                  color: AppColors.AppBlue,
                 ),
                 SizedBox(width: context.w(8)),
                 Expanded(

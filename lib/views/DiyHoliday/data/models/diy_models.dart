@@ -113,12 +113,26 @@ class DiyTheme {
   final String label;
   final String blurb;
 
-  const DiyTheme({required this.slug, required this.label, required this.blurb});
+  /// Artwork for the tile. The live endpoint returns slug/label/blurb only,
+  /// so this is empty today and the tile falls back to its gradient. Parsed
+  /// here so the Figma photo tile lights up the moment the backend sends an
+  /// `image` (or `image_url`) without another app release.
+  final String image;
+
+  const DiyTheme({
+    required this.slug,
+    required this.label,
+    required this.blurb,
+    this.image = '',
+  });
+
+  bool get hasImage => image.isNotEmpty;
 
   factory DiyTheme.fromJson(Map<String, dynamic> j) => DiyTheme(
         slug: _str(j['slug']),
         label: _str(j['label']),
         blurb: _str(j['blurb']),
+        image: _str(j['image'] ?? j['image_url']),
       );
 }
 
@@ -144,6 +158,28 @@ class DiyPackageSummary {
   final String image;
   final bool priceIsStale;
 
+  // --- Figma fields the live API does not send yet -------------------------
+  // Parsed defensively so each one starts working the moment the backend
+  // adds it, with no app change beyond flipping its DiyFeatures flag.
+
+  /// Star rating out of 5. Waiting on `rating`.
+  final double rating;
+
+  /// Number of reviews behind [rating]. Waiting on `review_count`.
+  final int reviewCount;
+
+  /// e.g. "4 Star Hotel". Waiting on `hotel_class_label`.
+  final String hotelClassLabel;
+
+  /// e.g. "Selected Meals". Waiting on `meal_plan_label`.
+  final String mealPlanLabel;
+
+  /// Deposit that books the package. Waiting on `part_payment.amount`.
+  final double partPaymentAmount;
+
+  /// Pre-rendered countdown, e.g. "05h 24m". Waiting on `deal.ends_in`.
+  final String dealEndsInLabel;
+
   const DiyPackageSummary({
     required this.shareId,
     required this.title,
@@ -163,6 +199,12 @@ class DiyPackageSummary {
     required this.hasCabItinerary,
     required this.image,
     required this.priceIsStale,
+    this.rating = 0,
+    this.reviewCount = 0,
+    this.hotelClassLabel = '',
+    this.mealPlanLabel = '',
+    this.partPaymentAmount = 0,
+    this.dealEndsInLabel = '',
   });
 
   factory DiyPackageSummary.fromJson(Map<String, dynamic> j) =>
@@ -185,6 +227,15 @@ class DiyPackageSummary {
         hasCabItinerary: _bool(j['has_cab_itinerary']),
         image: _str(j['image']),
         priceIsStale: _bool(j['price_is_stale']),
+        rating: _dbl(j['rating']),
+        reviewCount: _int(j['review_count']),
+        hotelClassLabel: _str(j['hotel_class_label']),
+        mealPlanLabel: _str(j['meal_plan_label']),
+        partPaymentAmount: _dbl(
+          j['part_payment'] is Map ? j['part_payment']['amount'] : null,
+        ),
+        dealEndsInLabel:
+            _str(j['deal'] is Map ? j['deal']['ends_in'] : null),
       );
 
   double priceFor(bool withFlight) =>
