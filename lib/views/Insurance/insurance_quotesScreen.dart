@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 
+import '../../core/resources/app_colours.dart';
 import '../AKInsurance/presentation/bloc/AKInsurance_bloc.dart';
 import '../AKInsurance/presentation/bloc/AKInsurance_event.dart';
 import '../AKInsurance/presentation/bloc/AKInsurance_state.dart';
@@ -41,7 +42,7 @@ class InsuranceQuotesScreen extends StatefulWidget {
 class _InsuranceQuotesScreenState extends State<InsuranceQuotesScreen> {
   static const Color _brandBlue = Color(0xFF003B95);
   static const Color _brandTeal = Color(0xFF005B7F);
-  static const Color _accentOrange = Color(0xFFE23A1E);
+  static const Color _accentOrange = AppColors.OrangeColor;
 
   static const List<String> _sortOptions = [
     'Premium: Low to High',
@@ -108,10 +109,10 @@ class _InsuranceQuotesScreenState extends State<InsuranceQuotesScreen> {
             state.plans.map(InsurancePolicy.fromPlan).toList();
         return Scaffold(
           key: _scaffoldKey,
-          backgroundColor: const Color(0xFFFFFFFF),
+          backgroundColor: AppColors.white,
           endDrawer: _buildFilterDrawer(context, allPolicies),
           appBar: AppBar(
-            backgroundColor: Colors.white,
+            backgroundColor: AppColors.white,
             elevation: 0,
             leading: BackButton(color: _brandBlue),
             title: Text('Insurance Quotes',
@@ -386,11 +387,10 @@ class _InsuranceQuotesScreenState extends State<InsuranceQuotesScreen> {
         child: DropdownButton<String>(
           value: _sort,
           isExpanded: true,
-          icon: Icon(Icons.arrow_drop_down_rounded, color: Colors.grey.shade700),
           style: TextStyle(
               fontSize: context.fs(14),
               fontWeight: FontWeight.w600,
-              color: Colors.black87),
+              color: AppColors.black),
           items: [
             for (final s in _sortOptions)
               DropdownMenuItem(value: s, child: Text(s)),

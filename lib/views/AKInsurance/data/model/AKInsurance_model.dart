@@ -429,7 +429,27 @@ class AkInsuranceBenefitModel extends AkInsuranceBenefitEntity {
   factory AkInsuranceBenefitModel.fromJson(Map<String, dynamic> json) {
     return AkInsuranceBenefitModel(
       title: _str(json, ['title', 'Title', 'name', 'benefit', 'label', 'coverage']),
-      value: _str(json, ['value', 'Value', 'amount', 'limit', 'cover', 'description']),
+      // PlanDetails spells the cover limit `sumInsured` on each benefit row.
+      value: _str(json, [
+        'value',
+        'Value',
+        'sumInsured',
+        'SumInsured',
+        'amount',
+        'limit',
+        'cover',
+        'description',
+      ]),
+    );
+  }
+
+  /// The same row read for its deductible instead of its cover limit, so the
+  /// benefits table's third column can be built from one list — PlanDetails
+  /// carries the deductible on the benefit itself, not as a separate list.
+  factory AkInsuranceBenefitModel.deductibleFromJson(Map<String, dynamic> json) {
+    return AkInsuranceBenefitModel(
+      title: _str(json, ['title', 'Title', 'name', 'benefit', 'label', 'coverage']),
+      value: _str(json, ['deductible', 'Deductible', 'deductibles']),
     );
   }
 }
@@ -454,6 +474,24 @@ class AkInsurancePlanDetailsModel extends AkInsurancePlanDetailsEntity {
       return nested is Map ? nested.cast<String, dynamic>() : json;
     }();
 
+    // PlanDetails nests the benefit rows under `coverageDetails`, and quotes
+    // the premium as an object (`{base, tax, total, currency, …}`) rather
+    // than a bare number — both are dived into here, falling back to the
+    // flat shapes for providers built differently.
+    final coverageDetails = () {
+      final node = _pick(planJson, ['coverageDetails', 'CoverageDetails']);
+      return node is Map ? node.cast<String, dynamic>() : planJson;
+    }();
+
+    final premiumNode = _pick(planJson, ['premium', 'Premium']);
+    final premiumMap =
+        premiumNode is Map ? premiumNode.cast<String, dynamic>() : null;
+
+    final benefitRows = _objectList(
+      coverageDetails,
+      ['benefits', 'Benefits', 'coverages', 'covers'],
+    );
+
     return AkInsurancePlanDetailsModel(
       success: _flag(_pick(json, ['success', 'Success', 'status'])),
       planId: _str(planJson, ['planId', 'PlanId', 'id', 'planCode']),
@@ -462,16 +500,27 @@ class AkInsurancePlanDetailsModel extends AkInsurancePlanDetailsEntity {
         ['planName', 'PlanName', 'name', 'productName', 'title'],
         fallback: 'Travel Insurance',
       ),
-      premium: _num(planJson, ['premium', 'Premium', 'totalPremium', 'amount', 'price']),
-      currency: _str(planJson, ['currency', 'Currency'], fallback: 'INR'),
-      benefits: _objectList(planJson, ['benefits', 'Benefits', 'coverages', 'covers'])
+      premium: premiumMap != null
+          ? _num(premiumMap, ['total', 'Total', 'netTotal', 'base', 'amount'])
+          : _num(planJson,
+              ['premium', 'Premium', 'totalPremium', 'amount', 'price']),
+      currency: premiumMap != null
+          ? _str(premiumMap, ['currency', 'Currency'], fallback: 'INR')
+          : _str(planJson, ['currency', 'Currency'], fallback: 'INR'),
+      benefits: benefitRows
           .map(AkInsuranceBenefitModel.fromJson)
           .where((b) => b.title.isNotEmpty)
           .toList(),
-      deductibles: _objectList(planJson, ['deductibles', 'Deductibles', 'deductible'])
-          .map(AkInsuranceBenefitModel.fromJson)
-          .where((b) => b.title.isNotEmpty)
-          .toList(),
+      // Built from the same rows: the deductible travels on each benefit,
+      // so a separate `deductibles` list only exists on other providers.
+      deductibles: [
+        ...benefitRows
+            .map(AkInsuranceBenefitModel.deductibleFromJson)
+            .where((b) => b.title.isNotEmpty && b.value.isNotEmpty),
+        ..._objectList(planJson, ['deductibles', 'Deductibles'])
+            .map(AkInsuranceBenefitModel.fromJson)
+            .where((b) => b.title.isNotEmpty),
+      ],
       healthQuestions: _stringList(
         _pick(planJson, [
           'healthQuestions',

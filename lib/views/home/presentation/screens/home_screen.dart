@@ -31,7 +31,7 @@ import '../../../NewSection/foryourStay.dart';
 import '../../../Transport/screen/transport_screen.dart';
 import '../../../travel_stories/presentation/screen/travel_stories.dart';
 import '../../../visa/presentation/screen/visa_screen.dart';
-import '../../../Insurance/insurance_screen.dart';
+import '../../../AKInsurance/presentation/screens/ins_home_screen.dart';
 import '../../../flight_popularDestination/presentation/screen/popular_destination.dart';
 import '../../../trending_route/presentation/screen/trending_routes.dart';
 import '../../flight/flight_screen.dart';
@@ -905,7 +905,7 @@ class _HomeScreenState extends State<HomeScreen> {
       case 'Insurance':
         onTap = () => Navigator.push(
           context,
-          MaterialPageRoute(builder: (_) => const InsuranceScreen()),
+          MaterialPageRoute(builder: (_) => const InsHomeScreen()),
         );
         break;
     }
