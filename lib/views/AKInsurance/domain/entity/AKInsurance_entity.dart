@@ -252,6 +252,46 @@ class AkInsuranceBenefitEntity extends Equatable {
   List<Object?> get props => [title, value];
 }
 
+/// One row of the PED questionnaire PlanDetails returns under
+/// `coverageDetails.questions`.
+///
+/// The live set is a single `Radio` gate (`ISPED` — "does anyone have any
+/// pre-existing disease?") followed by `CheckBox` rows for the individual
+/// conditions, which is why [selectionType] is carried rather than assumed:
+/// the review form renders the gate first and only reveals the rest on yes.
+class AkInsurancePedQuestionEntity extends Equatable {
+  final String title;
+  final String questionCode;
+
+  /// `Radio` or `CheckBox`, as the provider spells it.
+  final String selectionType;
+  final String category;
+
+  const AkInsurancePedQuestionEntity({
+    required this.title,
+    required this.questionCode,
+    this.selectionType = '',
+    this.category = '',
+  });
+
+  /// The one question that gates the rest.
+  bool get isGate => questionCode.toUpperCase() == 'ISPED';
+
+  /// A tick box rather than free text.
+  bool get isCheckbox =>
+      selectionType.toLowerCase().replaceAll(' ', '') == 'checkbox';
+
+  /// Belongs under the gate: the provider prefixes every pre-existing-disease
+  /// row with `PED`, while the standalone declarations it also asks for
+  /// (previous claims, hospitalisation in the last 48 months) do not carry
+  /// the prefix and are put to the traveller regardless of the gate.
+  bool get isUnderGate =>
+      !isGate && questionCode.toUpperCase().startsWith('PED');
+
+  @override
+  List<Object?> get props => [title, questionCode, selectionType, category];
+}
+
 class AkInsurancePlanDetailsEntity extends Equatable {
   final bool success;
   final String planId;
@@ -261,10 +301,16 @@ class AkInsurancePlanDetailsEntity extends Equatable {
   final List<AkInsuranceBenefitEntity> benefits;
   final List<AkInsuranceBenefitEntity> deductibles;
 
-  /// PED health questionnaire — only relevant when the user declares a
-  /// pre-existing disease.
-  final List<String> healthQuestions;
-  final String termsAndConditions;
+  /// PED health questionnaire, exactly as the plan returned it. The review
+  /// form renders these rather than assuming a fixed question set.
+  final List<AkInsurancePedQuestionEntity> healthQuestions;
+
+  /// The policy wording / T&C documents, which the provider sends as a list
+  /// of PDF URLs rather than prose.
+  final List<String> termsAndConditionUrls;
+
+  /// Free-text notes shown under the premium (e.g. the GST line).
+  final List<String> notes;
 
   const AkInsurancePlanDetailsEntity({
     required this.success,
@@ -275,8 +321,25 @@ class AkInsurancePlanDetailsEntity extends Equatable {
     required this.benefits,
     required this.deductibles,
     required this.healthQuestions,
-    required this.termsAndConditions,
+    required this.termsAndConditionUrls,
+    required this.notes,
   });
+
+  /// The gate question, when the plan carries one.
+  AkInsurancePedQuestionEntity? get pedGate {
+    for (final q in healthQuestions) {
+      if (q.isGate) return q;
+    }
+    return null;
+  }
+
+  /// The individual conditions sitting under the gate.
+  List<AkInsurancePedQuestionEntity> get pedConditions =>
+      [for (final q in healthQuestions) if (q.isUnderGate) q];
+
+  /// Declarations asked of every traveller, gate or no gate.
+  List<AkInsurancePedQuestionEntity> get pedIndependent =>
+      [for (final q in healthQuestions) if (!q.isGate && !q.isUnderGate) q];
 
   @override
   List<Object?> get props => [
@@ -288,7 +351,8 @@ class AkInsurancePlanDetailsEntity extends Equatable {
         benefits,
         deductibles,
         healthQuestions,
-        termsAndConditions,
+        termsAndConditionUrls,
+        notes,
       ];
 }
 
@@ -751,11 +815,18 @@ class AkInsuranceThirdPartyInfoEntity extends Equatable {
 }
 
 /// Step 6/7 — issues a real policy against WanderNova's Akbar/Benzy agent
-/// balance. [paymentReference] should be the gateway transaction id (e.g. the
-/// Razorpay payment id) the customer's charge was collected under, so the
-/// provider call and the actual payment can be reconciled. [amount] must be
-/// the plan's raw premium in its own (provider) currency — never a
-/// display-converted figure.
+/// balance.
+///
+/// [paymentReference] is the **order's `reference_id`** — the same string the
+/// Razorpay order was created and verified under. The backend's payment guard
+/// looks the paid transaction up by it and answers 402 "Payment not verified"
+/// when it cannot find one, which is what sending the Razorpay *payment* id
+/// here used to produce. The gateway's own transaction id travels separately
+/// in [paymentId]. This matches the convention the transport reservation
+/// ("Razorpay → the order's reference_id") and flight StartPay calls use.
+///
+/// [amount] must be the plan's raw premium in its own (provider) currency —
+/// never a display-converted figure.
 ///
 /// Benzy's real schema has ~50 fields — most carry no meaningful data from
 /// this app and are defaulted to the doc's own null/""/0/false placeholders

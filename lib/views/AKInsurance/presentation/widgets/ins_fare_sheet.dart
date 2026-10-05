@@ -34,11 +34,10 @@ class InsFareSheet extends StatelessWidget {
   }) {
     return showModalBottomSheet<void>(
       context: context,
-      backgroundColor: Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius:
-            BorderRadius.vertical(top: Radius.circular(context.r(20))),
-      ),
+      // Transparent so the × can float on the barrier above the sheet; the
+      // sheet draws its own white card and rounded top corners.
+      backgroundColor: Colors.transparent,
+      elevation: 0,
       builder: (_) => InsFareSheet(
         baseFare: baseFare,
         taxes: taxes,
@@ -50,102 +49,142 @@ class InsFareSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      top: false,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Stack(
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // The cross sits on the barrier just above the sheet's top-left
+        // corner, rather than inside the sheet.
+        Padding(
+          padding: EdgeInsets.only(
+            right: context.w(16),
+            bottom: context.h(10),
+          ),
+          child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [_closeButton(context)]),
+        ),
+        Container(
+          width: double.infinity,
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius:
+                BorderRadius.vertical(top: Radius.circular(context.r(20))),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
               const InsSheetHandle(),
-              Positioned(
-                right: context.w(8),
-                top: context.h(2),
-                child: GestureDetector(
-                  onTap: () => Navigator.of(context).pop(),
-                  behavior: HitTestBehavior.opaque,
-                  child: Padding(
-                    padding: EdgeInsets.all(context.w(8)),
-                    child: Icon(Icons.close_rounded,
-                        size: context.w(22), color: InsTokens.navy),
-                  ),
+              Padding(
+                padding: EdgeInsets.fromLTRB(
+                  context.w(18),
+                  context.h(18),
+                  context.w(18),
+                  context.h(6),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Fare Breakup',
+                      style: TextStyle(
+                        fontSize: context.fs(20),
+                        fontWeight: FontWeight.w800,
+                        color: InsTokens.navy,
+                      ),
+                    ),
+                    // SizedBox(height: context.h(6)),
+                    // Text(
+                    //   '$planName · $travellers Traveller'
+                    //   '${travellers == 1 ? '' : 's'}',
+                    //   style: TextStyle(
+                    //     fontSize: context.fs(13),
+                    //     color: InsTokens.subGrey,
+                    //   ),
+                    // ),
+                    SizedBox(height: context.h(24)),
+                    _row(context, 'Base Fare', baseFare),
+                    const Divider(height: 1, color: InsTokens.line),
+                    _row(
+                      context,
+                      'Taxes & Surcharges',
+                      taxes,
+                      note: taxes == 0 ? 'Included in the premium' : null,
+                    ),
+                  ],
                 ),
               ),
+              _footer(context),
             ],
           ),
-          Padding(
-            padding: EdgeInsets.fromLTRB(
-              context.w(18),
-              context.h(18),
-              context.w(18),
-              context.h(6),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Fare Breakup',
-                  style: TextStyle(
-                    fontSize: context.fs(24),
-                    fontWeight: FontWeight.w700,
-                    color: InsTokens.navy,
-                  ),
-                ),
-                SizedBox(height: context.h(6)),
-                Text(
-                  '$planName · $travellers Traveller'
-                  '${travellers == 1 ? '' : 's'}',
-                  style: TextStyle(
-                    fontSize: context.fs(13),
-                    color: InsTokens.subGrey,
-                  ),
-                ),
-                SizedBox(height: context.h(24)),
-                _row(context, 'Base Fare', baseFare),
-                const Divider(height: 1, color: InsTokens.line),
-                _row(
-                  context,
-                  'Taxes & Surcharges',
-                  taxes,
-                  note: taxes == 0 ? 'Included in the premium' : null,
-                ),
-              ],
-            ),
-          ),
-          Container(
-            decoration: const BoxDecoration(
-              border: Border(top: BorderSide(color: InsTokens.line)),
-            ),
-            padding: EdgeInsets.fromLTRB(
-              context.w(18),
-              context.h(18),
-              context.w(18),
-              context.h(18),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    'Total Amount',
-                    style: TextStyle(
-                      fontSize: context.fs(22),
-                      fontWeight: FontWeight.w700,
-                      color: InsTokens.navy,
-                    ),
-                  ),
-                ),
-                Text(
-                  InsTokens.rupees(baseFare + taxes),
-                  style: TextStyle(
-                    fontSize: context.fs(24),
-                    fontWeight: FontWeight.w700,
-                    color: InsTokens.blue,
-                  ),
-                ),
-              ],
-            ),
+        ),
+      ],
+    );
+  }
+
+  /// The dismiss cross that sits outside the sheet, top left.
+  Widget _closeButton(BuildContext context) {
+    return GestureDetector(
+      onTap: () => Navigator.of(context).pop(),
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        width: context.w(34),
+        height: context.w(34),
+        alignment: Alignment.center,
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          shape: BoxShape.circle,
+        ),
+        child: Icon(Icons.close_rounded,
+            size: context.w(20), color: InsTokens.navy),
+      ),
+    );
+  }
+
+  /// The total band. Last in the Column, so it paints over the rows above
+  /// and its upward shadow lands on them instead of a hairline rule.
+  Widget _footer(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: context.r(10),
+            offset: Offset(0, -context.h(4)), // negative = cast upward
           ),
         ],
+      ),
+      padding: EdgeInsets.fromLTRB(
+        context.w(18),
+        context.h(18),
+        context.w(18),
+        context.h(0),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                'Total Amount',
+                style: TextStyle(
+                  fontSize: context.fs(18),
+                  fontWeight: FontWeight.w700,
+                  color: InsTokens.navy,
+                ),
+              ),
+            ),
+            Text(
+              InsTokens.rupees(baseFare + taxes),
+              style: TextStyle(
+                fontSize: context.fs(24),
+                fontWeight: FontWeight.w700,
+                color: InsTokens.blue,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -168,20 +207,22 @@ class InsFareSheet extends StatelessWidget {
                 Text(
                   label,
                   style: TextStyle(
-                    fontSize: context.fs(19),
+                    fontSize: context.fs(16),
+                    fontWeight: FontWeight.w400,
                     color: InsTokens.navy,
                   ),
                 ),
-                if (note != null) ...[
-                  SizedBox(height: context.h(3)),
-                  Text(
-                    note,
-                    style: TextStyle(
-                      fontSize: context.fs(12),
-                      color: InsTokens.subGrey,
-                    ),
-                  ),
-                ],
+                // if (note != null) ...[
+                //   // SizedBox(height: context.h(1)),
+                //   Text(
+                //     note,
+                //     style: TextStyle(
+                //       fontSize: context.fs(15),
+                //       fontWeight: FontWeight.w500,
+                //       color: InsTokens.subGrey,
+                //     ),
+                //   ),
+                // ],
               ],
             ),
           ),

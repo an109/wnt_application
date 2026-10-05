@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../UI_helper/responsive_layout.dart';
+import '../../../../core/resources/app_colours.dart';
 import '../../domain/entity/AKInsurance_entity.dart';
 import '../bloc/AKInsurance_bloc.dart';
 import '../bloc/AKInsurance_event.dart';
@@ -10,9 +11,9 @@ import '../state/ins_plan_filter.dart';
 import '../state/ins_search_query.dart';
 import '../tokens/ins_tokens.dart';
 import '../widgets/ins_common.dart';
+import '../widgets/ins_edit_search_drawer.dart';
 import '../widgets/ins_plan_card.dart';
 import '../widgets/ins_sort_sheet.dart';
-import 'ins_edit_search_screen.dart';
 import 'ins_filter_screen.dart';
 import 'ins_policy_details_screen.dart';
 import 'ins_review_screen.dart';
@@ -20,9 +21,10 @@ import 'ins_review_screen.dart';
 /// "Select plan" — Figma `Select plan Individual`.
 ///
 /// Renders whatever QuotesListing returned for the query it was pushed
-/// with. The summary strip at the top re-opens the search through
-/// [InsEditSearchScreen]; coming back re-issues the quote rather than
-/// filtering the old list, since a different trip is a different rate.
+/// with. The summary strip at the top re-opens the search in the
+/// [showInsEditSearchDrawer] top drawer; a confirmed edit re-issues the
+/// quote rather than filtering the old list, since a different trip is a
+/// different rate.
 class InsQuotesScreen extends StatefulWidget {
   final InsSearchQuery query;
 
@@ -39,7 +41,7 @@ class _InsQuotesScreenState extends State<InsQuotesScreen> {
   AkInsuranceBloc get _bloc => context.read<AkInsuranceBloc>();
 
   Future<void> _editSearch() async {
-    final updated = await InsEditSearchScreen.show(
+    final updated = await showInsEditSearchDrawer(
       context,
       query: _query,
       bloc: _bloc,
@@ -199,7 +201,7 @@ class _InsQuotesScreenState extends State<InsQuotesScreen> {
         child: Container(
           padding: EdgeInsets.symmetric(
             horizontal: context.w(16),
-            vertical: context.h(14),
+            vertical: context.h(8),
           ),
           decoration: insCard(context, border: true, shadow: false),
           child: Row(
@@ -213,7 +215,8 @@ class _InsQuotesScreenState extends State<InsQuotesScreen> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        fontSize: context.fs(16),
+                        fontSize: context.fs(12.5),
+                        fontWeight: FontWeight.w500,
                         color: InsTokens.navy,
                       ),
                     ),
@@ -223,7 +226,8 @@ class _InsQuotesScreenState extends State<InsQuotesScreen> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        fontSize: context.fs(13),
+                        fontSize: context.fs(10),
+                        fontWeight: FontWeight.w400,
                         color: InsTokens.subGrey,
                       ),
                     ),
@@ -231,8 +235,12 @@ class _InsQuotesScreenState extends State<InsQuotesScreen> {
                 ),
               ),
               SizedBox(width: context.w(10)),
-              Icon(Icons.edit_square,
-                  size: context.w(22), color: InsTokens.blue),
+              Image.asset(
+                'assets/NewIcons/edit.png',
+                width: context.w(16),
+                height: context.w(16),
+                color: AppColors.AppBlue,
+              ),
             ],
           ),
         ),
@@ -311,14 +319,14 @@ class _InsQuotesScreenState extends State<InsQuotesScreen> {
           children: [
             Icon(
               icon,
-              size: context.w(21),
+              size: context.w(18),
               color: active ? InsTokens.blue : InsTokens.navy,
             ),
-            SizedBox(width: context.w(9)),
+            SizedBox(width: context.w(10)),
             Text(
               label,
               style: TextStyle(
-                fontSize: context.fs(16),
+                fontSize: context.fs(13),
                 fontWeight: active ? FontWeight.w600 : FontWeight.w400,
                 color: active ? InsTokens.blue : InsTokens.navy,
               ),

@@ -18,6 +18,12 @@ class InsField extends StatelessWidget {
   final Widget? prefix;
   final bool enabled;
   final ValueChanged<String>? onChanged;
+  final FocusNode? focusNode;
+
+  /// `false` when the field is the second half of a pair and the label
+  /// is notched into the first half instead — the mobile number next to
+  /// its country code.
+  final bool showLabel;
 
   const InsField({
     super.key,
@@ -31,32 +37,40 @@ class InsField extends StatelessWidget {
     this.prefix,
     this.enabled = true,
     this.onChanged,
+    this.showLabel = true,
+    this.focusNode,
   });
 
   @override
   Widget build(BuildContext context) {
     return TextField(
       controller: controller,
+      focusNode: focusNode,
       enabled: enabled,
+      // A no-op at the field's natural height; it keeps the text centred
+      // when the field is stretched to a taller sibling's height.
+      textAlignVertical: TextAlignVertical.center,
       keyboardType: keyboardType,
       inputFormatters: [
         if (maxLength > 0) LengthLimitingTextInputFormatter(maxLength),
         ...formatters,
       ],
       onChanged: onChanged,
-      style: TextStyle(fontSize: context.fs(15), color: InsTokens.navy),
+      style: TextStyle(fontSize: context.fs(12), color: InsTokens.navy),
       decoration: InputDecoration(
-        label: _Label(label: label, required: required),
+        label: showLabel
+            ? InsFieldLabel(label: label, required: required)
+            : null,
         floatingLabelBehavior: FloatingLabelBehavior.always,
         hintText: hint,
         hintStyle:
-            TextStyle(fontSize: context.fs(15), color: InsTokens.labelGrey),
+            TextStyle(fontSize: context.fs(13), color: InsTokens.labelGrey),
         prefixIcon: prefix,
         prefixIconConstraints: BoxConstraints(minWidth: context.w(40)),
         isDense: true,
         contentPadding: EdgeInsets.symmetric(
           horizontal: context.w(14),
-          vertical: context.h(16),
+          vertical: context.h(12.5),
         ),
         border: _border(context, InsTokens.line),
         enabledBorder: _border(context, InsTokens.line),
@@ -68,7 +82,7 @@ class InsField extends StatelessWidget {
 
   OutlineInputBorder _border(BuildContext context, Color colour) {
     return OutlineInputBorder(
-      borderRadius: BorderRadius.circular(context.r(10)),
+      borderRadius: BorderRadius.circular(context.r(8)),
       borderSide: BorderSide(color: colour),
     );
   }
@@ -97,7 +111,7 @@ class InsDropdown extends StatelessWidget {
   Widget build(BuildContext context) {
     return InputDecorator(
       decoration: InputDecoration(
-        label: _Label(label: label, required: required),
+        label: InsFieldLabel(label: label, required: required),
         floatingLabelBehavior: FloatingLabelBehavior.always,
         prefixIcon: prefix,
         prefixIconConstraints: BoxConstraints(minWidth: context.w(40)),
@@ -172,7 +186,7 @@ class InsPickerField extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       child: InputDecorator(
         decoration: InputDecoration(
-          label: _Label(label: label, required: required),
+          label: InsFieldLabel(label: label, required: required),
           floatingLabelBehavior: FloatingLabelBehavior.always,
           isDense: true,
           contentPadding: EdgeInsets.symmetric(
@@ -208,11 +222,19 @@ class InsPickerField extends StatelessWidget {
 }
 
 /// `LABEL*` with the asterisk in red, as every required field shows it.
-class _Label extends StatelessWidget {
+///
+/// Public so a field built by hand out of an [InputDecorator] — the
+/// review screen's country-code card — notches the same label into its
+/// border as [InsField] does.
+class InsFieldLabel extends StatelessWidget {
   final String label;
   final bool required;
 
-  const _Label({required this.label, required this.required});
+  const InsFieldLabel({
+    super.key,
+    required this.label,
+    this.required = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -220,8 +242,8 @@ class _Label extends StatelessWidget {
       text: TextSpan(
         text: label.toUpperCase(),
         style: TextStyle(
-          fontSize: context.fs(11),
-          fontWeight: FontWeight.w500,
+          fontSize: context.fs(8),
+          fontWeight: FontWeight.w600,
           letterSpacing: 0.2,
           color: InsTokens.subGrey,
         ),
@@ -241,7 +263,15 @@ class _Label extends StatelessWidget {
 /// "Travellers", "Nominee Details".
 class InsSectionCard extends StatelessWidget {
   final String title;
+
+  /// Drawn when no [iconAsset] is given, or when the asset fails to
+  /// load, so a missing file degrades to a glyph rather than a gap.
   final IconData icon;
+
+  /// An artwork icon from `assets/NewIcons`, used as-is: these are drawn
+  /// in their own colours, so [iconColour] does not tint them.
+  final String? iconAsset;
+
   final Color iconColour;
   final Widget? trailing;
   final List<Widget> children;
@@ -252,6 +282,7 @@ class InsSectionCard extends StatelessWidget {
     required this.icon,
     required this.iconColour,
     required this.children,
+    this.iconAsset,
     this.trailing,
   });
 
@@ -261,8 +292,8 @@ class InsSectionCard extends StatelessWidget {
       margin: EdgeInsets.only(bottom: context.h(16)),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(context.r(12)),
-        border: Border.all(color: InsTokens.line),
+        borderRadius: BorderRadius.circular(context.r(14)),
+        border: Border.all(color: InsTokens.line, width: 0.8),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -276,7 +307,7 @@ class InsSectionCard extends StatelessWidget {
             ),
             child: Row(
               children: [
-                Icon(icon, size: context.w(22), color: iconColour),
+                _icon(context),
                 SizedBox(width: context.w(9)),
                 Expanded(
                   child: Text(
@@ -307,6 +338,21 @@ class InsSectionCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _icon(BuildContext context) {
+    final asset = iconAsset;
+    if (asset == null) {
+      return Icon(icon, size: context.w(22), color: iconColour);
+    }
+    return Image.asset(
+      asset,
+      width: context.w(22),
+      height: context.w(22),
+      fit: BoxFit.contain,
+      errorBuilder: (_, __, ___) =>
+          Icon(icon, size: context.w(22), color: iconColour),
     );
   }
 }

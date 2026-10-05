@@ -55,7 +55,7 @@ class InsTokens {
 
   /// The "RECOMMENDED" ribbon on a plan card.
   static const ribbon = LinearGradient(
-    colors: [Color(0xFF4FC3F7), Color(0xFF00A1E4)],
+    colors: [Color(0xFF80DAFF), Color(0xFF00A1E4)],
   );
 
   /// Confirmation screen's header band.

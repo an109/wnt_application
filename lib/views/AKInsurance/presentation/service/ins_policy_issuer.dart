@@ -78,6 +78,7 @@ class InsPolicyIssuer {
     required String gateway,
     required String paymentReference,
     required int amount,
+    String? paymentId,
   }) {
     final lead = details.lead;
     final proposer = details.proposer;
@@ -103,6 +104,8 @@ class InsPolicyIssuer {
       stateName: proposer.state,
     );
 
+    final questionAnswers = details.health.toQuestionAnswers();
+
     final nominee = AkInsuranceNomineeEntity(
       firstName: details.nominee.firstName,
       lastName: details.nominee.lastName,
@@ -111,6 +114,7 @@ class InsPolicyIssuer {
 
     return AkInsuranceStartPayRequestEntity(
       paymentReference: paymentReference,
+      paymentId: paymentId,
       gateway: gateway,
       panNo: proposer.panNumber,
       countryCodes: countryCodes,
@@ -123,11 +127,18 @@ class InsPolicyIssuer {
       // The real policy category — deliberately not the same value as
       // [_planType]; see its comment for why the two diverge.
       policyType: query.policyType.code,
+      // Traveller 1 is the proposer (IsProposer: true below), so the
+      // Customer block is that person — nationality, gender and passport
+      // included. They were collected on the review form but never reached
+      // the request before.
       customer: AkInsuranceCustomerEntity(
         title: lead.title,
         firstName: lead.firstName,
         lastName: lead.lastName,
         birthDate: lead.dob != null ? _dateOnly(lead.dob!) : '',
+        nationality: proposer.nationality,
+        gender: lead.genderCode,
+        passportNumber: lead.passport,
         contactInfo: contact,
         addresses: [address],
         gstin: proposer.gstNumber,
@@ -158,11 +169,11 @@ class InsPolicyIssuer {
                 visaType: _isStudent ? 'STUDENT' : 'TOURIST',
                 // Benzy's schema requires a nominee and a questions list on
                 // every traveller; omitting either crashes StartPay with a
-                // 500/502 upstream.
+                // 500/502 upstream. The answers are the traveller's own, from
+                // the questionnaire PlanDetails returned — this used to be a
+                // hardcoded "no pre-existing disease" on everyone.
                 nominee: nominee,
-                questionsAnswers: const [
-                  AkInsuranceQuestionAnswerEntity.defaultPed,
-                ],
+                questionsAnswers: questionAnswers,
                 addresses: [address],
                 contactInfo: contact,
                 studentDetails: AkInsuranceStudentDetailsEntity(
@@ -197,6 +208,7 @@ class InsPolicyIssuer {
     required String gateway,
     required String paymentReference,
     required int amount,
+    String? paymentId,
     int maxAttempts = 3,
     Duration retryDelay = const Duration(seconds: 4),
   }) async {
@@ -204,6 +216,7 @@ class InsPolicyIssuer {
       gateway: gateway,
       paymentReference: paymentReference,
       amount: amount,
+      paymentId: paymentId,
     );
 
     var attempt = 0;

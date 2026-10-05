@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../../UI_helper/responsive_layout.dart';
 import '../../core/error/data_state.dart';
+import '../../core/resources/app_colours.dart';
 import '../../injection_container.dart' as di;
 import '../AKInsurance/domain/entity/AKInsurance_entity.dart';
 import '../AKInsurance/domain/usecase/AKInsurance_usecase.dart';
@@ -465,12 +466,14 @@ class _PolicyDetailsSheetState extends State<PolicyDetailsSheet> {
   }
 
   Widget _notesCard(BuildContext context) {
-    final terms = _details?.termsAndConditions ?? '';
+    // PlanDetails sends the notes and the wording separately now; this
+    // legacy screen only has one slot, so it shows the notes.
+    final terms = (_details?.notes ?? const <String>[]).join('\n');
     return Container(
       width: double.infinity,
       padding: EdgeInsets.all(context.w(12)),
       decoration: BoxDecoration(
-        color: const Color(0xFFF6F8FB),
+        color: AppColors.white,
         borderRadius: BorderRadius.circular(context.r(10)),
         border: Border.all(color: Colors.grey.shade200),
       ),

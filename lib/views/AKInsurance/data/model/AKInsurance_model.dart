@@ -454,6 +454,41 @@ class AkInsuranceBenefitModel extends AkInsuranceBenefitEntity {
   }
 }
 
+class AkInsurancePedQuestionModel extends AkInsurancePedQuestionEntity {
+  const AkInsurancePedQuestionModel({
+    required super.title,
+    required super.questionCode,
+    super.selectionType,
+    super.category,
+  });
+
+  factory AkInsurancePedQuestionModel.fromJson(Map<String, dynamic> json) {
+    return AkInsurancePedQuestionModel(
+      title: _str(json, ['title', 'Title', 'question', 'text', 'name']).trim(),
+      questionCode: _str(json, ['questionCode', 'QuestionCode', 'code', 'id']),
+      selectionType: _str(json, ['selectionType', 'SelectionType', 'type']),
+      category: _str(json, ['category', 'Category']),
+    );
+  }
+}
+
+/// The questionnaire rows, or empty when the plan carries none.
+List<AkInsurancePedQuestionEntity> _pedQuestions(Map<String, dynamic> node) {
+  final raw = _pick(node, [
+    'questions',
+    'Questions',
+    'healthQuestions',
+    'pedQuestions',
+    'questionnaire',
+  ]);
+  if (raw is! List) return const [];
+  return raw
+      .whereType<Map>()
+      .map((e) => AkInsurancePedQuestionModel.fromJson(e.cast<String, dynamic>()))
+      .where((q) => q.title.isNotEmpty && q.questionCode.isNotEmpty)
+      .toList();
+}
+
 class AkInsurancePlanDetailsModel extends AkInsurancePlanDetailsEntity {
   const AkInsurancePlanDetailsModel({
     required super.success,
@@ -464,7 +499,8 @@ class AkInsurancePlanDetailsModel extends AkInsurancePlanDetailsEntity {
     required super.benefits,
     required super.deductibles,
     required super.healthQuestions,
-    required super.termsAndConditions,
+    required super.termsAndConditionUrls,
+    required super.notes,
   });
 
   factory AkInsurancePlanDetailsModel.fromJson(Map<String, dynamic> json) {
@@ -521,22 +557,27 @@ class AkInsurancePlanDetailsModel extends AkInsurancePlanDetailsEntity {
             .map(AkInsuranceBenefitModel.fromJson)
             .where((b) => b.title.isNotEmpty),
       ],
-      healthQuestions: _stringList(
-        _pick(planJson, [
-          'healthQuestions',
-          'HealthQuestions',
-          'pedQuestions',
-          'questionnaire',
-          'medicalQuestions',
+      // The questionnaire, the T&C documents and the premium notes all sit
+      // under `coverageDetails` alongside the benefits — reading them off the
+      // top level (which is where they used to be looked for) silently left
+      // every one of them empty.
+      // Picked directly rather than through _objectList: that helper falls
+      // back to "the first list of objects anywhere", which on a plan that
+      // carries no questionnaire would hand back the benefits rows instead.
+      healthQuestions: _pedQuestions(coverageDetails),
+      // Sent as a list of PDF URLs, not prose.
+      termsAndConditionUrls: _stringList(
+        _pick(coverageDetails, [
+          'termsAndConditions',
+          'TermsAndConditions',
+          'terms',
+          'tnc',
+          'TnC',
         ]),
-      ),
-      termsAndConditions: _str(planJson, [
-        'termsAndConditions',
-        'TermsAndConditions',
-        'terms',
-        'tnc',
-        'TnC',
-      ]),
+      ).where((u) => u.trim().isNotEmpty).toList(),
+      notes: _stringList(_pick(coverageDetails, ['notes', 'Notes']))
+          .where((n) => n.trim().isNotEmpty)
+          .toList(),
     );
   }
 }

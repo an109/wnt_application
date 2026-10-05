@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 
@@ -184,7 +185,7 @@ class TripSecurePlanDetailsSheet extends StatelessWidget {
                     SizedBox(width: context.w(8)),
                     Expanded(
                       child: Text(
-                        question,
+                        question.title,
                         style: TextStyle(
                           fontSize: context.fs(11.5),
                           color: const Color(0xff4B5563),
@@ -197,21 +198,60 @@ class TripSecurePlanDetailsSheet extends StatelessWidget {
               ),
             SizedBox(height: context.h(6)),
           ],
-          if (details.termsAndConditions.isNotEmpty) ...[
-            _groupTitle(context, 'Terms & conditions'),
-            Text(
-              details.termsAndConditions,
-              style: TextStyle(
-                fontSize: context.fs(11),
-                color: const Color(0xff6B7280),
-                height: 1.5,
+          if (details.notes.isNotEmpty) ...[
+            _groupTitle(context, 'Notes'),
+            for (final note in details.notes)
+              Padding(
+                padding: EdgeInsets.only(bottom: context.h(6)),
+                child: Text(
+                  note,
+                  style: TextStyle(
+                    fontSize: context.fs(11),
+                    color: const Color(0xff6B7280),
+                    height: 1.5,
+                  ),
+                ),
               ),
-            ),
+          ],
+          // The provider sends the wording as PDF links, so they open rather
+          // than being pasted in as prose.
+          if (details.termsAndConditionUrls.isNotEmpty) ...[
+            _groupTitle(context, 'Terms & conditions'),
+            for (final url in details.termsAndConditionUrls)
+              Padding(
+                padding: EdgeInsets.only(bottom: context.h(6)),
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => launchUrl(
+                    Uri.parse(url),
+                    mode: LaunchMode.externalApplication,
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.picture_as_pdf_rounded,
+                          size: context.w(14), color: const Color(0xff6B7280)),
+                      SizedBox(width: context.w(6)),
+                      Expanded(
+                        child: Text(
+                          'Policy wording & terms (PDF)',
+                          style: TextStyle(
+                            fontSize: context.fs(11),
+                            color: const Color(0xff2563EB),
+                            decoration: TextDecoration.underline,
+                            height: 1.5,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
           ],
           if (details.benefits.isEmpty &&
               details.deductibles.isEmpty &&
               details.healthQuestions.isEmpty &&
-              details.termsAndConditions.isEmpty)
+              details.notes.isEmpty &&
+              details.termsAndConditionUrls.isEmpty)
             Text(
               'The provider did not return any additional detail for this plan.',
               style: TextStyle(fontSize: context.fs(12), color: const Color(0xff6B7280)),

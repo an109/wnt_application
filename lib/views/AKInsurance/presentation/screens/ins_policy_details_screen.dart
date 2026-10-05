@@ -65,7 +65,22 @@ class InsPolicyDetailsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: insAppBar(context, title: 'Policy Details', closeIcon: true),
+      appBar: PreferredSize(
+        preferredSize: Size.fromHeight(kToolbarHeight),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.08),
+                blurRadius: context.r(10),
+                offset: Offset(0, context.h(4)), // cast DOWN onto body
+              ),
+            ],
+          ),
+          child: insAppBar(context, title: 'Policy Details', closeIcon: true),
+        ),
+      ),
       body: BlocBuilder<AkInsuranceBloc, AkInsuranceState>(
         builder: (context, state) {
           // PlanDetails is per-plan; ignore a response still in flight for a
@@ -130,22 +145,23 @@ class InsPolicyDetailsScreen extends StatelessWidget {
       BuildContext context,
       AkInsurancePlanDetailsEntity? details,
       ) {
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(context.r(14)),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            InsTokens.blue.withOpacity(0.22),
-            InsTokens.blue.withOpacity(0.06),
-          ],
-        ),
-
-      ),
-      child: Stack(
-        children: [
-          Padding(
+    return Stack(
+      clipBehavior: Clip.none, // allow badge to overflow the card edge
+      children: [
+        // ---------- the card itself ----------
+        Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(context.r(14)),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                InsTokens.blue.withOpacity(0.22),
+                InsTokens.blue.withOpacity(0.06),
+              ],
+            ),
+          ),
+          child: Padding(
             padding: EdgeInsets.fromLTRB(
               context.w(14),
               context.h(18),
@@ -155,14 +171,15 @@ class InsPolicyDetailsScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // ---- logo (left) + [plan name over chips] (right) ----
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     InsProviderLogo(
                       provider: plan.provider,
                       logoUrl: plan.logoUrl,
-                      width: 72,
-                      height: 58,
+                      width: 81,
+                      height: 70,
                     ),
                     SizedBox(width: context.w(12)),
                     Expanded(
@@ -170,7 +187,7 @@ class InsPolicyDetailsScreen extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Padding(
-                            padding: EdgeInsets.only(right: context.w(70)),
+                            padding: EdgeInsets.only(right: context.w(90)),
                             child: Text(
                               plan.planName,
                               style: TextStyle(
@@ -181,99 +198,105 @@ class InsPolicyDetailsScreen extends StatelessWidget {
                               ),
                             ),
                           ),
+                          SizedBox(height: context.h(10)),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _chip(
+                                  context,
+                                  'Plan Type',
+                                  query.policyType.label,
+                                  InsTokens.green,
+                                ),
+                              ),
+                              if (plan.sumInsured > 0) ...[
+                                SizedBox(width: context.w(8)),
+                                Expanded(
+                                  child: _chip(
+                                    context,
+                                    'Coverage',
+                                    InsTokens.coverage(plan.sumInsured),
+                                    InsTokens.orange,
+                                  ),
+                                ),
+                              ],
+                              SizedBox(width: context.w(8)),
+                              Expanded(
+                                child: _chip(
+                                  context,
+                                  'Premium',
+                                  InsTokens.rupees(
+                                      details?.premium ?? plan.premium),
+                                  InsTokens.blue,
+                                ),
+                              ),
+                            ],
+                          ),
                         ],
                       ),
                     ),
                   ],
                 ),
-                SizedBox(height: context.h(14)),
-                // Full width, below the logo+name row: three chips beside a
-                // logo wrap onto two lines on a phone.
-                Row(
-                  children: [
-                    Expanded(
-                      child: _chip(context, 'Plan Type',
-                          query.policyType.label, InsTokens.green),
-                    ),
-                    if (plan.sumInsured > 0) ...[
-                      SizedBox(width: context.w(8)),
-                      Expanded(
-                        child: _chip(
-                          context,
-                          'Coverage',
-                          InsTokens.coverage(plan.sumInsured),
-                          InsTokens.orange,
-                        ),
-                      ),
-                    ],
-                    SizedBox(width: context.w(8)),
-                    Expanded(
-                      child: _chip(
-                        context,
-                        'Premium',
-                        InsTokens.rupees(details?.premium ?? plan.premium),
-                        InsTokens.blue,
-                      ),
-                    ),
-                  ],
-                ),
+
                 SizedBox(height: context.h(18)),
                 Row(
                   children: [
                     Icon(Icons.diamond_rounded,
-                        size: context.w(19), color: InsTokens.blue),
-                    SizedBox(width: context.w(8)),
+                        size: context.w(16), color: InsTokens.blue),
+                    SizedBox(width: context.w(4)),
                     Text(
                       'Premium Distributions',
                       style: TextStyle(
-                        fontSize: context.fs(16),
+                        fontSize: context.fs(12),
+                        fontWeight: FontWeight.w500,
                         color: InsTokens.navy,
                       ),
                     ),
                   ],
                 ),
                 SizedBox(height: context.h(10)),
-                Divider(height: 1, color: InsTokens.blue.withOpacity(0.25)),
+                Divider(height: 0.2, color: AppColors.lightsubhead),
                 SizedBox(height: context.h(12)),
                 _distribution(context, details),
               ],
             ),
           ),
-          Positioned(
-            top: 0,
-            right: 0,
-            child: Container(
-              padding: EdgeInsets.symmetric(
-                horizontal: context.w(14),
-                vertical: context.h(8),
-              ),
-              decoration: BoxDecoration(
-                color: InsTokens.blue,
-                borderRadius: BorderRadius.only(
-                  topRight: Radius.circular(context.r(14)),
-                  bottomLeft: Radius.circular(context.r(18)),
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.check_rounded,
-                      size: context.w(16), color: Colors.white),
-                  SizedBox(width: context.w(5)),
-                  Text(
-                    'SELECTED',
-                    style: TextStyle(
-                      fontSize: context.fs(12.5),
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
-                    ),
+        ),
+
+        // ---------- SELECTED badge (floating pill, top-right) ----------
+        Positioned(
+          top: -context.h(8),   // lift it above the card's top edge
+          right: context.w(0),  // inset from right so it doesn't clip
+          child: Container(
+            padding: EdgeInsets.symmetric(
+              horizontal: context.w(12),
+              vertical: context.h(2),
+            ),
+            decoration: BoxDecoration(
+              color: InsTokens.blue,
+              borderRadius: BorderRadius.circular(context.r(24)), // full pill
+              border: Border.all(color: Colors.white, width: 0),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.check_rounded,
+                    size: context.w(16), color: Colors.white),
+                SizedBox(width: context.w(5)),
+                Text(
+                  'SELECTED',
+                  style: TextStyle(
+                    fontSize: context.fs(10),
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.4,
+                    color: Colors.white,
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -347,16 +370,18 @@ class InsPolicyDetailsScreen extends StatelessWidget {
                     Text(
                       'Relation',
                       style: TextStyle(
-                        fontSize: context.fs(14),
+                        fontSize: context.fs(11),
                         color: InsTokens.subGrey,
+                        fontWeight: FontWeight.w500
                       ),
                     ),
                     SizedBox(height: context.h(2)),
                     Text(
                       _titleCase(query.relationFor(i)),
                       style: TextStyle(
-                        fontSize: context.fs(17),
+                        fontSize: context.fs(11),
                         color: InsTokens.navy,
+                        fontWeight: FontWeight.w600
                       ),
                     ),
                   ],
@@ -369,16 +394,17 @@ class InsPolicyDetailsScreen extends StatelessWidget {
                       Text(
                         'Total Premium',
                         style: TextStyle(
-                          fontSize: context.fs(14),
+                          fontSize: context.fs(11),
                           color: InsTokens.orange,
+                          fontWeight: FontWeight.w500
                         ),
                       ),
                       SizedBox(height: context.h(2)),
                       Text(
                         InsTokens.rupees(total),
                         style: TextStyle(
-                          fontSize: context.fs(17),
-                          fontWeight: FontWeight.w500,
+                          fontSize: context.fs(11),
+                          fontWeight: FontWeight.w600,
                           color: InsTokens.blue,
                         ),
                       ),
@@ -400,9 +426,6 @@ class InsPolicyDetailsScreen extends StatelessWidget {
       BuildContext context,
       AkInsurancePlanDetailsEntity details,
       ) {
-    // Deductibles arrive as their own list keyed by the same benefit title,
-    // so the third column is filled by matching on title and falls back to
-    // the provider's own "N.A." when there is no match.
     final deductibleByTitle = {
       for (final d in details.deductibles) d.title.toLowerCase().trim(): d.value,
     };
@@ -416,17 +439,22 @@ class InsPolicyDetailsScreen extends StatelessWidget {
         borderRadius: BorderRadius.circular(context.r(12)),
         child: Column(
           children: [
+            // ---------------- header row (NO vertical dividers) ----------------
             Container(
-              color: Color(0xFF80DAFF),
-              padding: EdgeInsets.symmetric(vertical: context.h(14)),
-              child: Row(
-                children: [
-                  _cell(context, 'Benefit', flex: 5, header: true),
-                  _cell(context, 'Sum Insured', flex: 3, header: true),
-                  _cell(context, 'Deductible', flex: 4, header: true),
-                ],
+              color: const Color(0xFF80DAFF),
+              child: IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _cell(context, 'Benefit', flex: 5, header: true),
+                    _cell(context, 'Sum Insured', flex: 3, header: true),
+                    _cell(context, 'Deductible', flex: 4, header: true),
+                  ],
+                ),
               ),
             ),
+
+            // ---------------- data rows (vertical dividers) ----------------
             for (int i = 0; i < details.benefits.length; i++)
               Container(
                 decoration: BoxDecoration(
@@ -436,26 +464,33 @@ class InsPolicyDetailsScreen extends StatelessWidget {
                     top: BorderSide(color: InsTokens.line),
                   ),
                 ),
-                padding: EdgeInsets.symmetric(vertical: context.h(14)),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _cell(context, details.benefits[i].title, flex: 5),
-                    _cell(
-                      context,
-                      details.benefits[i].value.isEmpty
-                          ? 'Up to SI'
-                          : details.benefits[i].value,
-                      flex: 3,
-                    ),
-                    _cell(
-                      context,
-                      deductibleByTitle[
-                      details.benefits[i].title.toLowerCase().trim()] ??
-                          'N.A.',
-                      flex: 4,
-                    ),
-                  ],
+                child: IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _cell(
+                        context,
+                        details.benefits[i].title,
+                        flex: 5,
+                        showRightBorder: true,
+                      ),
+                      _cell(
+                        context,
+                        details.benefits[i].value.isEmpty
+                            ? 'Up to SI'
+                            : details.benefits[i].value,
+                        flex: 3,
+                        showRightBorder: true,
+                      ),
+                      _cell(
+                        context,
+                        deductibleByTitle[
+                        details.benefits[i].title.toLowerCase().trim()] ??
+                            'N.A.',
+                        flex: 4,
+                      ),
+                    ],
+                  ),
                 ),
               ),
           ],
@@ -469,16 +504,31 @@ class InsPolicyDetailsScreen extends StatelessWidget {
       String text, {
         required int flex,
         bool header = false,
+        bool showRightBorder = false,
       }) {
     return Expanded(
       flex: flex,
-      child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: context.w(8)),
+      child: Container(
+        // vertical padding moved here so the divider spans the full row height
+        padding: EdgeInsets.symmetric(
+          horizontal: context.w(8),
+          vertical: context.h(14),
+        ),
+        decoration: BoxDecoration(
+          border: showRightBorder
+              ? Border(
+            right: BorderSide(
+              color: header
+                  ? Colors.white.withOpacity(0.55)  // lighter line on blue header
+                  : InsTokens.line,
+            ),
+          )
+              : null,
+        ),
         child: Text(
           text,
           style: TextStyle(
             fontSize: context.fs(header ? 14 : 12),
-            // height: 1.3,
             fontWeight: header ? FontWeight.w600 : FontWeight.w400,
             color: header ? AppColors.white : InsTokens.navy,
           ),
@@ -487,30 +537,69 @@ class InsPolicyDetailsScreen extends StatelessWidget {
     );
   }
 
+  /// The provider's own premium notes (the GST line), plus a link to the
+  /// policy wording. Both come from `coverageDetails`; nothing here is
+  /// written by the app, so a plan that sends neither shows neither.
   Widget _note(BuildContext context, AkInsurancePlanDetailsEntity details) {
-    final terms = details.termsAndConditions.trim();
-    return RichText(
-      text: TextSpan(
-        text: 'Note : ',
-        style: TextStyle(
-          fontSize: context.fs(14),
-          fontWeight: FontWeight.w600,
-          color: InsTokens.blue,
-        ),
-        children: [
-          TextSpan(
-            text: terms.isEmpty
-                ? 'These premiums are inclusive of GST and shown in INR.'
-                : terms,
-            style: TextStyle(
-              fontSize: context.fs(14),
-              fontWeight: FontWeight.w400,
-              height: 1.4,
-              color: InsTokens.subGrey,
+    final notes = details.notes;
+    final urls = details.termsAndConditionUrls;
+    if (notes.isEmpty && urls.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (notes.isNotEmpty)
+          RichText(
+            text: TextSpan(
+              text: 'Note : ',
+              style: TextStyle(
+                fontSize: context.fs(14),
+                fontWeight: FontWeight.w600,
+                color: InsTokens.blue,
+              ),
+              children: [
+                TextSpan(
+                  text: notes.join('\n'),
+                  style: TextStyle(
+                    fontSize: context.fs(14),
+                    fontWeight: FontWeight.w400,
+                    height: 1.4,
+                    color: InsTokens.subGrey,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        for (final url in urls) ...[
+          SizedBox(height: context.h(10)),
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => launchUrl(
+              Uri.parse(url),
+              mode: LaunchMode.externalApplication,
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.picture_as_pdf_rounded,
+                    size: context.w(17), color: InsTokens.blue),
+                SizedBox(width: context.w(7)),
+                Expanded(
+                  child: Text(
+                    'Policy wording & terms (PDF)',
+                    style: TextStyle(
+                      fontSize: context.fs(14),
+                      fontWeight: FontWeight.w500,
+                      color: InsTokens.blue,
+                      decoration: TextDecoration.underline,
+                      decorationColor: InsTokens.blue,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
-      ),
+      ],
     );
   }
 
