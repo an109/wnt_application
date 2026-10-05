@@ -310,7 +310,7 @@ class CheckoutIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) =>
-      Image.asset(asset, width: context.w(34), height: context.w(34));
+      Image.asset(asset, width: context.w(30), height: context.w(30));
 }
 
 /// Network logo (bank / wallet from Razorpay's CDN) with an initials fallback.

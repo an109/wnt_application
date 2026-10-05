@@ -16,20 +16,21 @@ class _T {
 /// The row above the list: `All / Credits / Debits` on the left, the orange
 /// **Filter** button on the right.
 ///
-/// The type chips are the design's; the time filter and the search box they
-/// replaced are not lost — they live behind [onOpenFilters], which the wallet
-/// screen opens as a sheet.
+/// The type chips are the design's. Tapping **Filter** drops the period list
+/// under the button.
 class TransactionFilters extends StatelessWidget {
   final TransactionType selectedType;
   final TimeFilter selectedTime;
   final Function(TransactionType) onTypeChanged;
-  final VoidCallback onOpenFilters;
+  final Function(TimeFilter) onTimeChanged;
 
-  /// Shows the orange button as "on" while anything inside the sheet is
-  /// narrowing the list, so an active time filter or search is never
-  /// invisible just because the sheet is closed.
+  /// Shows the orange button as "on" while a period other than All Time is
+  /// narrowing the list, so an active filter is visible without opening the
+  /// menu.
   final bool filtersActive;
 
+  /// The screen draws this button in its own header, so the chips row leaves
+  /// it out unless asked.
   final bool showFilterButton;
 
   const TransactionFilters({
@@ -37,9 +38,9 @@ class TransactionFilters extends StatelessWidget {
     required this.selectedType,
     required this.selectedTime,
     required this.onTypeChanged,
-    required this.onOpenFilters,
+    required this.onTimeChanged,
     this.filtersActive = false,
-    this.showFilterButton = true,
+    this.showFilterButton = false,
   });
 
   @override
@@ -73,9 +74,12 @@ class TransactionFilters extends StatelessWidget {
             ),
           ),
         ),
-        // _FilterButton(active: filtersActive, onTap: onOpenFilters),
-        // if (showFilterButton)
-        //   FilterButton(active: filtersActive, onTap: onOpenFilters),
+        if (showFilterButton)
+          FilterButton(
+            active: filtersActive,
+            selectedTime: selectedTime,
+            onTimeChanged: onTimeChanged,
+          ),
       ],
     );
   }
@@ -125,11 +129,80 @@ class _TypeChip extends StatelessWidget {
   }
 }
 
+/// The orange **Filter** button and the period list it drops underneath.
 class FilterButton extends StatelessWidget {
   final bool active;
-  final VoidCallback onTap;
+  final TimeFilter selectedTime;
+  final Function(TimeFilter) onTimeChanged;
 
-  const FilterButton({super.key, required this.active, required this.onTap});
+  const FilterButton({
+    super.key,
+    required this.active,
+    required this.selectedTime,
+    required this.onTimeChanged,
+  });
+
+  static const _periods = <TimeFilter, String>{
+    TimeFilter.allTime: 'All Time',
+    TimeFilter.last3Days: 'Last 3 Days',
+    TimeFilter.last7Days: 'Last 7 Days',
+    TimeFilter.last30Days: 'Last 30 Days',
+  };
+
+  /// Opens the list directly under the button and aligned to its right edge,
+  /// so the card hangs off the button rather than floating mid-screen.
+  Future<void> _open(BuildContext context) async {
+    final button = context.findRenderObject() as RenderBox?;
+    final overlay =
+        Overlay.of(context).context.findRenderObject() as RenderBox?;
+    if (button == null || overlay == null) return;
+
+    final topLeft = button.localToGlobal(Offset.zero, ancestor: overlay);
+    final bottomRight = button.localToGlobal(
+      button.size.bottomRight(Offset.zero),
+      ancestor: overlay,
+    );
+
+    final picked = await showMenu<TimeFilter>(
+      context: context,
+      color: Colors.white,
+      elevation: 8,
+      surfaceTintColor: Colors.white,
+      shadowColor: const Color(0x33000000),
+      constraints: BoxConstraints(minWidth: context.w(168)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(context.r(18)),
+      ),
+      position: RelativeRect.fromLTRB(
+        topLeft.dx,
+        bottomRight.dy + context.h(6),
+        overlay.size.width - bottomRight.dx,
+        0,
+      ),
+      items: [
+        for (final entry in _periods.entries)
+          PopupMenuItem<TimeFilter>(
+            value: entry.key,
+            height: context.h(42),
+            padding: EdgeInsets.symmetric(horizontal: context.w(20)),
+            child: Text(
+              entry.value,
+              style: TextStyle(
+                fontSize: context.fs(12),
+                // The period in force is marked, so the menu says what the
+                // list is already showing.
+                fontWeight: entry.key == selectedTime
+                    ? FontWeight.w700
+                    : FontWeight.w400,
+                color: entry.key == selectedTime ? AppColors.AppBlue : _T.ink,
+              ),
+            ),
+          ),
+      ],
+    );
+
+    if (picked != null && picked != selectedTime) onTimeChanged(picked);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -138,7 +211,7 @@ class FilterButton extends StatelessWidget {
       borderRadius: BorderRadius.circular(context.r(4)),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: onTap,
+        onTap: () => _open(context),
         child: Padding(
           padding: EdgeInsets.symmetric(
             horizontal: context.w(8),
@@ -161,8 +234,8 @@ class FilterButton extends StatelessWidget {
                 size: context.w(14),
                 color: Colors.white,
               ),
-              // A dot rather than a count: the sheet holds two controls, so
-              // the number would never be interesting.
+              // A dot rather than a count: there is only ever one period in
+              // force, so a number would say nothing.
               if (active) ...[
                 SizedBox(width: context.w(5)),
                 Container(
@@ -175,232 +248,6 @@ class FilterButton extends StatelessWidget {
                 ),
               ],
             ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// The time filter and search that the design's Filter button opens.
-///
-/// Both were on the wallet screen before the redesign; they kept working and
-/// simply moved in here.
-class TransactionFilterSheet extends StatefulWidget {
-  final TimeFilter selectedTime;
-  final String searchQuery;
-  final Function(TimeFilter) onTimeChanged;
-  final Function(String) onSearch;
-
-  const TransactionFilterSheet({
-    super.key,
-    required this.selectedTime,
-    required this.searchQuery,
-    required this.onTimeChanged,
-    required this.onSearch,
-  });
-
-  @override
-  State<TransactionFilterSheet> createState() => _TransactionFilterSheetState();
-}
-
-class _TransactionFilterSheetState extends State<TransactionFilterSheet> {
-  late TimeFilter _time = widget.selectedTime;
-  late final TextEditingController _search =
-      TextEditingController(text: widget.searchQuery);
-
-  @override
-  void dispose() {
-    _search.dispose();
-    super.dispose();
-  }
-
-  void _apply() {
-    // Time first, then search: the screen refetches on each, and the search
-    // callback is the one that carries the debounce.
-    widget.onTimeChanged(_time);
-    widget.onSearch(_search.text.trim());
-    Navigator.of(context).pop();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
-      ),
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(
-            top: Radius.circular(context.r(22)),
-          ),
-        ),
-        padding: EdgeInsets.fromLTRB(
-          context.w(20),
-          context.h(12),
-          context.w(20),
-          context.h(20),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: context.w(38),
-                height: context.h(4),
-                decoration: BoxDecoration(
-                  color: _T.stroke,
-                  borderRadius: BorderRadius.circular(context.r(4)),
-                ),
-              ),
-            ),
-            SizedBox(height: context.h(16)),
-            Text(
-              'Filter transactions',
-              style: TextStyle(
-                fontSize: context.fs(17),
-                fontWeight: FontWeight.w700,
-                color: _T.ink,
-              ),
-            ),
-            SizedBox(height: context.h(16)),
-            Text(
-              'Period',
-              style: TextStyle(
-                fontSize: context.fs(12),
-                fontWeight: FontWeight.w600,
-                color: _T.muted,
-              ),
-            ),
-            SizedBox(height: context.h(8)),
-            Wrap(
-              spacing: context.w(8),
-              runSpacing: context.h(8),
-              children: [
-                _timeChip('All time', TimeFilter.allTime),
-                _timeChip('Last 7 days', TimeFilter.last7Days),
-                _timeChip('Last 30 days', TimeFilter.last30Days),
-              ],
-            ),
-            SizedBox(height: context.h(18)),
-            Text(
-              'Search',
-              style: TextStyle(
-                fontSize: context.fs(12),
-                fontWeight: FontWeight.w600,
-                color: _T.muted,
-              ),
-            ),
-            SizedBox(height: context.h(8)),
-            TextField(
-              controller: _search,
-              textInputAction: TextInputAction.search,
-              onSubmitted: (_) => _apply(),
-              decoration: InputDecoration(
-                hintText: 'Description or transaction ID',
-                hintStyle: TextStyle(
-                  fontSize: context.fs(13),
-                  color: _T.muted,
-                ),
-                prefixIcon: Icon(Icons.search, size: context.w(19)),
-                isDense: true,
-                contentPadding: EdgeInsets.symmetric(
-                  horizontal: context.w(12),
-                  vertical: context.h(14),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(context.r(12)),
-                  borderSide: const BorderSide(color: _T.stroke),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(context.r(12)),
-                  borderSide: const BorderSide(color: AppColors.AppBlue),
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(context.r(12)),
-                ),
-              ),
-            ),
-            SizedBox(height: context.h(20)),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () {
-                      setState(() {
-                        _time = TimeFilter.allTime;
-                        _search.clear();
-                      });
-                    },
-                    style: OutlinedButton.styleFrom(
-                      padding: EdgeInsets.symmetric(vertical: context.h(14)),
-                      side: const BorderSide(color: _T.stroke),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(context.r(12)),
-                      ),
-                    ),
-                    child: Text(
-                      'Reset',
-                      style: TextStyle(
-                        fontSize: context.fs(14),
-                        fontWeight: FontWeight.w600,
-                        color: _T.ink,
-                      ),
-                    ),
-                  ),
-                ),
-                SizedBox(width: context.w(12)),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: _apply,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.OrangeColor,
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      padding: EdgeInsets.symmetric(vertical: context.h(14)),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(context.r(12)),
-                      ),
-                    ),
-                    child: Text(
-                      'Apply',
-                      style: TextStyle(
-                        fontSize: context.fs(14),
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _timeChip(String label, TimeFilter value) {
-    final selected = _time == value;
-    return GestureDetector(
-      onTap: () => setState(() => _time = value),
-      child: Container(
-        padding: EdgeInsets.symmetric(
-          horizontal: context.w(16),
-          vertical: context.h(9),
-        ),
-        decoration: BoxDecoration(
-          color: selected ? AppColors.AppBlue : Colors.white,
-          borderRadius: BorderRadius.circular(context.r(20)),
-          border: Border.all(color: selected ? AppColors.AppBlue : _T.stroke),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: context.fs(13),
-            fontWeight: FontWeight.w600,
-            color: selected ? Colors.white : _T.ink,
           ),
         ),
       ),

@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -23,6 +22,7 @@ import '../views/LogOut/presentation/bloc/logout_bloc.dart';
 import '../views/LogOut/presentation/bloc/logout_event.dart';
 import '../views/LogOut/presentation/bloc/logout_state.dart';
 import '../views/DeleteAccount/presentation/screen/delete_account_screen.dart';
+import '../views/currency/presentation/screen/currency_screen.dart';
 import '../views/wallet/wallet/screen/rewards_screen.dart';
 import '../views/wallet/wallet/screen/wallet_screen.dart';
 import '../views/login/presentation/screen/login.dart';
@@ -893,221 +893,17 @@ class _CustomDrawerState extends State<CustomDrawer>
     });
   }
 
-  void _showCurrencyPicker(BuildContext context) {
-    final selected = CurrencyConverter.isAutoDetectEnabled()
-        ? 'AUTO'
-        : _currentCurrency;
-
-    showDialog(
-      context: context,
-      builder: (ctx) {
-        bool isLoading = false;
-        return StatefulBuilder(
-          builder: (ctx, setDialogState) {
-            Future<void> select(String value) async {
-              setDialogState(() => isLoading = true);
-              if (value == 'AUTO') {
-                final currency = await CurrencyConverter.enableAutoDetect();
-                if (mounted) setState(() => _currentCurrency = currency);
-              } else {
-                await CurrencyConverter.setManualCurrency(value);
-                if (mounted) setState(() => _currentCurrency = value);
-              }
-              Navigator.pop(ctx);
-            }
-
-            return Dialog(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(context.r(16)),
-              ),
-              insetPadding: EdgeInsets.symmetric(
-                horizontal: context.w(32),
-                vertical: context.h(24),
-              ),
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(
-                  context.w(16),
-                  context.h(14),
-                  context.w(16),
-                  context.h(8),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: EdgeInsets.all(context.w(6)),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF0054A0).withOpacity(0.1),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            Icons.currency_exchange,
-                            color: const Color(0xFF0054A0),
-                            size: context.iconSmall,
-                          ),
-                        ),
-                        SizedBox(width: context.w(8)),
-                        Flexible(
-                          child: Text(
-                            'Choose Currency',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.poppins(
-                              fontSize: context.bodyLarge,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.black87,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    SizedBox(height: context.h(8)),
-                    if (isLoading)
-                      Padding(
-                        padding: EdgeInsets.symmetric(vertical: context.h(20)),
-                        child: const Center(
-                          child: SizedBox(
-                            width: 22,
-                            height: 22,
-                            child: CircularProgressIndicator(strokeWidth: 2.4),
-                          ),
-                        ),
-                      )
-                    else
-                      Flexible(
-                        child: SingleChildScrollView(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              _buildCurrencyOption(
-                                context,
-                                value: 'AUTO',
-                                label: 'Auto (detect by location)',
-                                selectedValue: selected,
-                                icon: Icons.my_location_rounded,
-                                onSelect: select,
-                              ),
-                              Padding(
-                                padding: EdgeInsets.symmetric(
-                                  vertical: context.h(4),
-                                ),
-                                child: Divider(
-                                  height: 1,
-                                  color: Colors.grey.shade200,
-                                ),
-                              ),
-                              ...CurrencyConverter.supportedCurrencies.entries
-                                  .map(
-                                    (e) => _buildCurrencyOption(
-                                      context,
-                                      value: e.key,
-                                      label: '${e.key} · ${e.value}',
-                                      selectedValue: selected,
-                                      onSelect: select,
-                                    ),
-                                  ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    SizedBox(height: context.h(4)),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: TextButton(
-                        onPressed: isLoading ? null : () => Navigator.pop(ctx),
-                        style: TextButton.styleFrom(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: context.w(10),
-                            vertical: context.h(6),
-                          ),
-                          minimumSize: Size.zero,
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        ),
-                        child: Text(
-                          'Cancel',
-                          style: GoogleFonts.poppins(
-                            fontSize: context.bodySmall,
-                            fontWeight: FontWeight.w500,
-                            color: Colors.grey.shade600,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
+  /// Opens the currency screen (Figma `CHOOSE Currency`). It applies the
+  /// choice itself through CurrencyConverter and pops the saved code, so this
+  /// only has to mirror it into the drawer's own label.
+  Future<void> _showCurrencyPicker(BuildContext context) async {
+    final saved = await Navigator.push<String>(
+      context,
+      MaterialPageRoute(builder: (_) => const CurrencyScreen()),
     );
-  }
-
-  Widget _buildCurrencyOption(
-    BuildContext context, {
-    required String value,
-    required String label,
-    required String selectedValue,
-    required ValueChanged<String> onSelect,
-    IconData? icon,
-  }) {
-    final isSelected = value == selectedValue;
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () => onSelect(value),
-        borderRadius: BorderRadius.circular(context.r(8)),
-        child: Container(
-          margin: EdgeInsets.symmetric(vertical: context.h(1)),
-          padding: EdgeInsets.symmetric(
-            horizontal: context.w(8),
-            vertical: context.h(9),
-          ),
-          decoration: BoxDecoration(
-            color: isSelected
-                ? const Color(0xFF0054A0).withOpacity(0.07)
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(context.r(8)),
-          ),
-          child: Row(
-            children: [
-              if (icon != null) ...[
-                Icon(
-                  icon,
-                  size: context.iconSmall,
-                  color: isSelected
-                      ? const Color(0xFF0054A0)
-                      : Colors.grey.shade500,
-                ),
-                SizedBox(width: context.w(8)),
-              ],
-              Expanded(
-                child: Text(
-                  label,
-                  style: GoogleFonts.poppins(
-                    fontSize: context.bodySmall,
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                    color: isSelected
-                        ? const Color(0xFF0054A0)
-                        : Colors.black87,
-                  ),
-                ),
-              ),
-              Icon(
-                isSelected ? Icons.check_circle_rounded : Icons.circle_outlined,
-                size: context.iconSmall,
-                color: isSelected
-                    ? const Color(0xFF0054A0)
-                    : Colors.grey.shade300,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+    if (saved != null && mounted) {
+      setState(() => _currentCurrency = saved);
+    }
   }
 
   void _showLogoutDialog(BuildContext context) {

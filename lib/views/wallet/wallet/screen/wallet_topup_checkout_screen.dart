@@ -50,6 +50,7 @@ class _WalletTopUpCheckoutScreenState extends State<WalletTopUpCheckoutScreen> {
   /// Which method row is selected. The design shows exactly one open at a
   /// time, with its body inline under the row.
   String? _open = 'card';
+  int? _selectedQuickAmount;
 
   /// Lets the screen's PAY NOW submit the open method. Each section binds its
   /// own submit here while it is on screen.
@@ -554,26 +555,26 @@ class _WalletTopUpCheckoutScreenState extends State<WalletTopUpCheckoutScreen> {
               )
             : null,
       ),
-      _MethodRow(
-        id: 'emi',
-        title: 'EMI',
-        subtitle: 'Easy monthly instalments on credit cards',
-        selected: _open == 'emi',
-        onTap: () => _select('emi'),
-        leading: _emiIcon(context),
-        child: _open == 'emi'
-            ? EmiSection(
-                amount: _amount,
-                busy: _busy,
-                methods: _loadMethods(),
-                onPay: (months, card) => _pay({
-                  'method': 'emi',
-                  'emi_duration': months,
-                  'card': card,
-                }),
-              )
-            : null,
-      ),
+      // _MethodRow(
+      //   id: 'emi',
+      //   title: 'EMI',
+      //   subtitle: 'Easy monthly instalments on credit cards',
+      //   selected: _open == 'emi',
+      //   onTap: () => _select('emi'),
+      //   leading: _emiIcon(context),
+      //   child: _open == 'emi'
+      //       ? EmiSection(
+      //           amount: _amount,
+      //           busy: _busy,
+      //           methods: _loadMethods(),
+      //           onPay: (months, card) => _pay({
+      //             'method': 'emi',
+      //             'emi_duration': months,
+      //             'card': card,
+      //           }),
+      //         )
+      //       : null,
+      // ),
       _MethodRow(
         id: 'wallet',
         title: 'Wallet & Pay Later',
@@ -643,7 +644,7 @@ class _WalletTopUpCheckoutScreenState extends State<WalletTopUpCheckoutScreen> {
                     Text(
                       'Google Pay',
                       style: TextStyle(
-                        fontSize: context.fs(15),
+                        fontSize: context.fs(13),
                         fontWeight: FontWeight.w700,
                         color: CheckoutColors.ink,
                       ),
@@ -654,7 +655,7 @@ class _WalletTopUpCheckoutScreenState extends State<WalletTopUpCheckoutScreen> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        fontSize: context.fs(12),
+                        fontSize: context.fs(11),
                         color: CheckoutColors.muted,
                       ),
                     ),
@@ -662,24 +663,6 @@ class _WalletTopUpCheckoutScreenState extends State<WalletTopUpCheckoutScreen> {
                 ),
               ),
               SizedBox(width: context.w(8)),
-              // Container(
-              //   padding: EdgeInsets.symmetric(
-              //     horizontal: context.w(12),
-              //     vertical: context.h(7),
-              //   ),
-              //   decoration: BoxDecoration(
-              //     color: CheckoutColors.primary,
-              //     borderRadius: BorderRadius.circular(context.r(8)),
-              //   ),
-              //   child: Text(
-              //     'PAY',
-              //     style: TextStyle(
-              //       fontSize: context.fs(12),
-              //       fontWeight: FontWeight.w800,
-              //       color: Colors.white,
-              //     ),
-              //   ),
-              // ),
             ],
           ),
         ),
@@ -837,8 +820,6 @@ class _WalletTopUpCheckoutScreenState extends State<WalletTopUpCheckoutScreen> {
     );
   }
 
-  /// `+₹20 … +₹500`. Each chip adds to what is already entered, as the `+`
-  /// says — tapping ₹100 twice tops up ₹200.
   Widget _quickAmountRow(BuildContext context) {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
@@ -847,14 +828,16 @@ class _WalletTopUpCheckoutScreenState extends State<WalletTopUpCheckoutScreen> {
           for (final value in _quickAmounts) ...[
             _QuickAmountChip(
               label: '+₹$value',
+              selected: _selectedQuickAmount == value,
               onTap: _busy
                   ? null
                   : () {
-                      final next = _amount + value;
-                      _amountCtrl.text = next
-                          .toStringAsFixed(next % 1 == 0 ? 0 : 2);
-                      _applyAmount(next);
-                    },
+                final next = _amount + value;
+                _amountCtrl.text = next
+                    .toStringAsFixed(next % 1 == 0 ? 0 : 2);
+                setState(() => _selectedQuickAmount = value);
+                _applyAmount(next);
+              },
             ),
             if (value != _quickAmounts.last) SizedBox(width: context.w(19)),
           ],
@@ -903,54 +886,21 @@ class _WalletTopUpCheckoutScreenState extends State<WalletTopUpCheckoutScreen> {
         context.w(16),
         context.h(12),
         context.w(16),
-        context.h(12),
+        context.h(0),
       ),
       decoration: BoxDecoration(
         color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 10,
-            offset: const Offset(0, -2),
-          ),
-        ],
+        // boxShadow: [
+        //   BoxShadow(
+        //     color: Colors.black.withValues(alpha: 0.06),
+        //     blurRadius: 10,
+        //     offset: const Offset(0, -2),
+        //   ),
+        // ],
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  !ready
-                      ? 'Enter an amount to continue'
-                      : (_submit.hint ??
-                            'Adding ${formatInr(_amount)} to your wallet'),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: context.fs(11.5),
-                    color: CheckoutColors.muted,
-                  ),
-                ),
-              ),
-              Icon(
-                Icons.lock_outline_rounded,
-                size: context.w(13),
-                color: CheckoutColors.offer,
-              ),
-              SizedBox(width: context.w(4)),
-              Text(
-                'Secured by Razorpay',
-                style: TextStyle(
-                  fontSize: context.fs(11),
-                  fontWeight: FontWeight.w600,
-                  color: CheckoutColors.muted,
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: context.h(10)),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
@@ -974,13 +924,13 @@ class _WalletTopUpCheckoutScreenState extends State<WalletTopUpCheckoutScreen> {
                   Text(
                     'PAY NOW',
                     style: TextStyle(
-                      fontSize: context.fs(15),
-                      fontWeight: FontWeight.w700,
+                      fontSize: context.fs(12.5),
+                      fontWeight: FontWeight.w800,
                       letterSpacing: 0.6,
                     ),
                   ),
                   SizedBox(width: context.w(10)),
-                  Icon(Icons.arrow_forward_rounded, size: context.w(18)),
+                  Icon(Icons.arrow_forward_rounded, size: context.w(16)),
                 ],
               ),
             ),
@@ -1235,17 +1185,21 @@ class _ContactDetailsSheetState extends State<_ContactDetailsSheet> {
   }
 }
 
-/// One `+₹100` chip under the amount field.
 class _QuickAmountChip extends StatelessWidget {
   final String label;
   final VoidCallback? onTap;
+  final bool selected;
 
-  const _QuickAmountChip({required this.label, this.onTap});
+  const _QuickAmountChip({
+    required this.label,
+    this.onTap,
+    this.selected = false,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.white,
+      color: selected ? AppColors.AppBlue : Colors.white,
       borderRadius: BorderRadius.circular(context.r(8)),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
@@ -1264,7 +1218,7 @@ class _QuickAmountChip extends StatelessWidget {
             style: TextStyle(
               fontSize: context.fs(13),
               fontWeight: FontWeight.w400,
-              color: CheckoutColors.ink,
+              color: selected ? Colors.white : CheckoutColors.ink,
             ),
           ),
         ),
@@ -1353,12 +1307,12 @@ class _MethodRow extends StatelessWidget {
       margin: EdgeInsets.only(bottom: context.h(12)),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(context.r(14)),
+        borderRadius: BorderRadius.circular(context.r(12)),
         // Only the open row is boxed, as in the design — the collapsed ones
         // are plain rows separated by their own spacing.
         border: selected
-            ? Border.all(color: CheckoutColors.stroke)
-            : Border.all(color: Colors.transparent),
+            ? Border.all(color: CheckoutColors.stroke, width: 0.5)
+            : Border.all(color: Colors.transparent, width: 0.5),
       ),
       padding: EdgeInsets.symmetric(
         horizontal: context.w(12),
@@ -1394,7 +1348,7 @@ class _MethodRow extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          fontSize: context.fs(14.5),
+                          fontSize: context.fs(13),
                           fontWeight: FontWeight.w700,
                           color: CheckoutColors.ink,
                         ),
@@ -1406,7 +1360,7 @@ class _MethodRow extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            fontSize: context.fs(11.5),
+                            fontSize: context.fs(10),
                             color: CheckoutColors.muted,
                           ),
                         ),

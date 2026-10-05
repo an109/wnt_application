@@ -1,6 +1,6 @@
 enum TransactionType { all, credit, debit }
 
-enum TimeFilter { allTime, last7Days, last30Days }
+enum TimeFilter { allTime, last3Days, last7Days, last30Days }
 
 class WalletBalance {
   final double balance;

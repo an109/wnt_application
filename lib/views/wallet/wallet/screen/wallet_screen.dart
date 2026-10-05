@@ -102,6 +102,7 @@ class _WalletScreenState extends State<WalletScreen> {
   // Helper to map TimeFilter enum to API days integer parameter
   int? _getApiDays() {
     final name = _selectedTime.toString().split('.').last;
+    if (name == 'last3Days') return 3;
     if (name == 'last7Days' || name == 'week') return 7;
     if (name == 'last30Days' || name == 'month') return 30;
     return null;
@@ -168,21 +169,9 @@ class _WalletScreenState extends State<WalletScreen> {
     }
   }
 
-  Future<void> _openFilterSheet() async {
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => TransactionFilterSheet(
-        selectedTime: _selectedTime,
-        searchQuery: _searchQuery,
-        onTimeChanged: (time) => _selectedTime = time,
-        onSearch: (query) {
-          setState(() => _searchQuery = query);
-          _fetchTransactions(reset: true);
-        },
-      ),
-    );
+  void _onTimeChanged(TimeFilter time) {
+    setState(() => _selectedTime = time);
+    _fetchTransactions(reset: true);
   }
 
   Future<void> _updateNotificationSettings(
@@ -277,7 +266,8 @@ class _WalletScreenState extends State<WalletScreen> {
                                 const Spacer(),
                                 FilterButton(
                                   active: _filtersActive,
-                                  onTap: _openFilterSheet,
+                                  selectedTime: _selectedTime,
+                                  onTimeChanged: _onTimeChanged,
                                 ),
                               ],
                             ),
@@ -300,7 +290,7 @@ class _WalletScreenState extends State<WalletScreen> {
                                 setState(() => _selectedType = type);
                                 _fetchTransactions(reset: true);
                               },
-                              onOpenFilters: _openFilterSheet,
+                              onTimeChanged: _onTimeChanged,
                             ),
                           ),
                         ),
