@@ -3,33 +3,39 @@ import 'package:wander_nova/UI_helper/responsive_layout.dart';
 
 import 'diy_common.dart';
 
-/// How the results list is ordered.
-///
-/// Sorting is client-side: **API 3 — GET /packages/** takes no ordering
-/// parameter, so [recommended] means "leave the backend's own order alone"
-/// rather than a popularity score the endpoint does not expose.
+/// How the results list is ordered — sent as `sort` on
+/// **POST /packages/search/**, so the order holds across every page rather
+/// than only the cards already loaded.
 enum DiySortOption {
-  recommended,
+  popularity,
   priceLowToHigh,
   priceHighToLow,
   durationShortest;
 
+  /// The backend's name for this order.
+  String get apiValue => switch (this) {
+        DiySortOption.popularity => 'popularity',
+        DiySortOption.priceLowToHigh => 'price_low',
+        DiySortOption.priceHighToLow => 'price_high',
+        DiySortOption.durationShortest => 'duration_short',
+      };
+
   String get label => switch (this) {
-        DiySortOption.recommended => 'Recommended',
+        DiySortOption.popularity => 'Popularity',
         DiySortOption.priceLowToHigh => 'Price',
         DiySortOption.priceHighToLow => 'Price',
         DiySortOption.durationShortest => 'Duration',
       };
 
   String get caption => switch (this) {
-        DiySortOption.recommended => 'Our pick',
+        DiySortOption.popularity => 'High to Low',
         DiySortOption.priceLowToHigh => 'Low to High',
         DiySortOption.priceHighToLow => 'High to Low',
         DiySortOption.durationShortest => 'Shortest first',
       };
 
   IconData get icon => switch (this) {
-        DiySortOption.recommended => Icons.star_outline_rounded,
+        DiySortOption.popularity => Icons.star_outline_rounded,
         DiySortOption.priceLowToHigh => Icons.south_rounded,
         DiySortOption.priceHighToLow => Icons.north_rounded,
         DiySortOption.durationShortest => Icons.schedule_rounded,
@@ -140,7 +146,7 @@ class _DiySortSheetState extends State<_DiySortSheet> {
                     height: context.h(48),
                     child: OutlinedButton(
                       onPressed: () =>
-                          setState(() => _selected = DiySortOption.recommended),
+                          setState(() => _selected = DiySortOption.popularity),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: DiyTokens.subGrey,
                         side: const BorderSide(color: Color(0xFFD9DDE4)),

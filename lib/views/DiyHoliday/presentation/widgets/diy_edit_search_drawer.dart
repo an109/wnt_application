@@ -9,6 +9,7 @@ import '../screens/diy_calendar_screen.dart';
 import '../screens/diy_destination_search_screen.dart';
 import '../screens/diy_image_search_screen.dart';
 import '../screens/diy_origin_search_screen.dart';
+import 'diy_rooms_sheet.dart';
 import 'diy_common.dart';
 
 /// "Edit Your Search" — the top drawer the results screen opens from its edit
@@ -72,6 +73,7 @@ class _DiyEditSearchDrawerState extends State<_DiyEditSearchDrawer> {
   late int _rooms = widget.query.rooms;
   late int _adults = widget.query.adults;
   late int _children = widget.query.children;
+  late List<int> _childAges = widget.query.childAgesFilled;
 
   Future<void> _pickOrigin() async {
     final picked = await Navigator.of(context).push<DiyOrigin>(
@@ -105,6 +107,7 @@ class _DiyEditSearchDrawerState extends State<_DiyEditSearchDrawer> {
         rooms: _rooms,
         adults: _adults,
         children: _children,
+        childAges: DiySearchQuery.fitChildAges(_childAges, _children),
       ),
     );
   }
@@ -447,107 +450,24 @@ class _DiyEditSearchDrawerState extends State<_DiyEditSearchDrawer> {
     );
   }
 
-  /// Room / adults / children steppers. Kept in a small sheet rather than
-  /// inline so the drawer stays the height of the Figma.
+  /// Rooms and guests — the shared Figma sheet, with each child's age.
   Future<void> _openPartySheet() async {
-    await showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius:
-            BorderRadius.vertical(top: Radius.circular(context.r(18))),
+    final edited = await showDiyRoomsSheet(
+      context,
+      query: widget.query.copyWith(
+        rooms: _rooms,
+        adults: _adults,
+        children: _children,
+        childAges: _childAges,
       ),
-      builder: (sheetContext) {
-        return StatefulBuilder(
-          builder: (sheetContext, setSheetState) {
-            Widget row(
-              String label,
-              int value,
-              int min,
-              int max,
-              ValueChanged<int> onChanged,
-            ) {
-              return Padding(
-                padding: EdgeInsets.symmetric(
-                  horizontal: context.w(18),
-                  vertical: context.h(10),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        label,
-                        style: TextStyle(
-                          fontSize: context.fs(14),
-                          fontWeight: FontWeight.w600,
-                          color: DiyTokens.navy,
-                        ),
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: value > min
-                          ? () {
-                              onChanged(value - 1);
-                              setSheetState(() {});
-                            }
-                          : null,
-                      icon: const Icon(Icons.remove_circle_outline),
-                      color: DiyTokens.blue,
-                    ),
-                    SizedBox(
-                      width: context.w(28),
-                      child: Text(
-                        '$value',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: context.fs(15),
-                          fontWeight: FontWeight.w700,
-                          color: DiyTokens.navy,
-                        ),
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: value < max
-                          ? () {
-                              onChanged(value + 1);
-                              setSheetState(() {});
-                            }
-                          : null,
-                      icon: const Icon(Icons.add_circle_outline),
-                      color: DiyTokens.blue,
-                    ),
-                  ],
-                ),
-              );
-            }
-
-            return SafeArea(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  SizedBox(height: context.h(14)),
-                  Text(
-                    'Rooms & travellers',
-                    style: TextStyle(
-                      fontSize: context.fs(15),
-                      fontWeight: FontWeight.w700,
-                      color: DiyTokens.navy,
-                    ),
-                  ),
-                  SizedBox(height: context.h(6)),
-                  row('Rooms', _rooms, 1, 9, (v) => _rooms = v),
-                  // The price API (API 5) needs at least one adult.
-                  row('Adults', _adults, 1, 20, (v) => _adults = v),
-                  row('Children', _children, 0, 10, (v) => _children = v),
-                  SizedBox(height: context.h(10)),
-                ],
-              ),
-            );
-          },
-        );
-      },
     );
-    if (mounted) setState(() {});
+    if (edited == null || !mounted) return;
+    setState(() {
+      _rooms = edited.rooms;
+      _adults = edited.adults;
+      _children = edited.children;
+      _childAges = edited.childAgesFilled;
+    });
   }
 
   Widget _modifyButton() {

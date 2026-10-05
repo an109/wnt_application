@@ -80,6 +80,16 @@ class DiyTraveller {
         'paxType': paxType,
       };
 
+  /// The booking API's shape — POST /trips/{id}/book/ `travellers[]`.
+  Map<String, dynamic> toBookingJson() => {
+        'first_name': firstName.trim(),
+        'last_name': lastName.trim(),
+        'gender': gender,
+        if (dob.isNotEmpty) 'dob': dob,
+        'pax_type': isChild ? 'Child' : 'Adult',
+        'phone': phone,
+      };
+
   /// Reads both the saved-traveller shape (camelCase, as
   /// `Urls.travellers` returns) and a plain snake_case row.
   factory DiyTraveller.fromJson(Map<String, dynamic> j) {

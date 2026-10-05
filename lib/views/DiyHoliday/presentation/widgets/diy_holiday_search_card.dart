@@ -15,6 +15,7 @@ import '../screens/diy_calendar_screen.dart';
 import '../screens/diy_destination_search_screen.dart';
 import '../screens/diy_origin_search_screen.dart';
 import '../screens/diy_results_screen.dart';
+import 'diy_rooms_sheet.dart';
 import 'diy_common.dart';
 import '../screens/diy_filter_screen.dart';
 
@@ -27,10 +28,18 @@ class DiyHolidaySearchCard extends StatefulWidget {
   const DiyHolidaySearchCard({super.key});
 
   @override
-  State<DiyHolidaySearchCard> createState() => _DiyHolidaySearchCardState();
+  State<DiyHolidaySearchCard> createState() => DiyHolidaySearchCardState();
 }
 
-class _DiyHolidaySearchCardState extends State<DiyHolidaySearchCard> {
+/// Public so the home screen's compact bar can read the form and run the
+/// same search once the form has scrolled away.
+class DiyHolidaySearchCardState extends State<DiyHolidaySearchCard> {
+  /// The form as it stands.
+  DiySearchQuery get query => _query;
+
+  /// SEARCH, exactly as the form's own button runs it.
+  void search() => _search();
+
   static const String _icCalendar = 'assets/NewIcons/departureCalendar.png';
   static const String _icAdult = 'assets/NewIcons/TravellerAdult.png';
   static const String _icChild = 'assets/NewIcons/TravellerChild.png';
@@ -43,6 +52,7 @@ class _DiyHolidaySearchCardState extends State<DiyHolidaySearchCard> {
   int _rooms = 1;
   int _adults = 2;
   int _children = 1;
+  List<int> _childAges = [DiySearchQuery.defaultChildAge];
 
   DiyFilters _filters = const DiyFilters();
 
@@ -71,6 +81,7 @@ class _DiyHolidaySearchCardState extends State<DiyHolidaySearchCard> {
       _rooms = saved.rooms;
       _adults = saved.adults;
       _children = saved.children;
+      _childAges = saved.childAgesFilled;
     });
   }
 
@@ -81,6 +92,7 @@ class _DiyHolidaySearchCardState extends State<DiyHolidaySearchCard> {
         rooms: _rooms,
         adults: _adults,
         children: _children,
+        childAges: _childAges,
       );
 
   // ------------------------------------------------------------ actions
@@ -120,11 +132,8 @@ class _DiyHolidaySearchCardState extends State<DiyHolidaySearchCard> {
       context,
       initial: _filters,
       // The sheet counts packages live; at this point the search hasn't run
-      // yet, so it queries with the form's current origin/destination.
-      origin: _origin.slug,
-      destination: _destination?.slug,
-      adults: _adults,
-      children: _children,
+      // yet, so it queries with the form as it stands.
+      query: _query,
     );
     if (result != null && mounted) setState(() => _filters = result);
   }
@@ -682,180 +691,14 @@ class _DiyHolidaySearchCardState extends State<DiyHolidaySearchCard> {
 
   // --------------------------------------------------------- room sheet
 
-  void _openRoomSheet() {
-    int rooms = _rooms;
-    int adults = _adults;
-    int children = _children;
-
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: Colors.white,
-      isScrollControlled: true,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(context.r(20))),
-      ),
-      builder: (sheetContext) {
-        return StatefulBuilder(
-          builder: (sheetContext, setSheetState) {
-            Widget row({
-              required String title,
-              required String subtitle,
-              required int value,
-              required int min,
-              required ValueChanged<int> onChanged,
-            }) {
-              return Padding(
-                padding: EdgeInsets.symmetric(vertical: context.h(10)),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            title,
-                            style: TextStyle(
-                              fontSize: context.fs(15),
-                              fontWeight: FontWeight.w600,
-                              color: DiyTokens.navy,
-                            ),
-                          ),
-                          Text(
-                            subtitle,
-                            style: TextStyle(
-                              fontSize: context.fs(11),
-                              color: DiyTokens.subGrey,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    _stepButton(
-                      icon: Icons.remove,
-                      enabled: value > min,
-                      onTap: () => onChanged(value - 1),
-                    ),
-                    SizedBox(width: context.w(16)),
-                    SizedBox(
-                      width: context.w(24),
-                      child: Text(
-                        '$value',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: context.fs(16),
-                          fontWeight: FontWeight.w700,
-                          color: DiyTokens.navy,
-                        ),
-                      ),
-                    ),
-                    SizedBox(width: context.w(16)),
-                    _stepButton(
-                      icon: Icons.add,
-                      enabled: value < 9,
-                      onTap: () => onChanged(value + 1),
-                    ),
-                  ],
-                ),
-              );
-            }
-
-            return Padding(
-              padding: EdgeInsets.fromLTRB(
-                context.w(20),
-                context.h(16),
-                context.w(20),
-                context.h(20) + MediaQuery.of(sheetContext).padding.bottom,
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Center(
-                    child: Container(
-                      width: context.w(40),
-                      height: context.h(4),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFE3E6EC),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                    ),
-                  ),
-                  SizedBox(height: context.h(16)),
-                  Text(
-                    'Rooms & Travellers',
-                    style: TextStyle(
-                      fontSize: context.fs(18),
-                      fontWeight: FontWeight.w700,
-                      color: DiyTokens.navy,
-                    ),
-                  ),
-                  SizedBox(height: context.h(8)),
-                  row(
-                    title: 'Rooms',
-                    subtitle: 'How many rooms you need',
-                    value: rooms,
-                    min: 1,
-                    onChanged: (v) => setSheetState(() => rooms = v),
-                  ),
-                  const Divider(height: 1, color: DiyTokens.line),
-                  row(
-                    title: 'Adults',
-                    subtitle: '12 years and above',
-                    value: adults,
-                    min: 1,
-                    onChanged: (v) => setSheetState(() => adults = v),
-                  ),
-                  const Divider(height: 1, color: DiyTokens.line),
-                  row(
-                    title: 'Children',
-                    subtitle: 'Under 12 years',
-                    value: children,
-                    min: 0,
-                    onChanged: (v) => setSheetState(() => children = v),
-                  ),
-                  SizedBox(height: context.h(18)),
-                  DiyPrimaryButton(
-                    label: 'APPLY',
-                    onPressed: () {
-                      setState(() {
-                        _rooms = rooms;
-                        _adults = adults;
-                        _children = children;
-                      });
-                      Navigator.pop(sheetContext);
-                    },
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
-  Widget _stepButton({
-    required IconData icon,
-    required bool enabled,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: enabled ? onTap : null,
-      child: Container(
-        width: context.w(30),
-        height: context.w(30),
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          border: Border.all(
-            color: enabled ? DiyTokens.blue : const Color(0xFFE3E6EC),
-          ),
-        ),
-        child: Icon(
-          icon,
-          size: context.w(16),
-          color: enabled ? DiyTokens.blue : const Color(0xFFC7CCD6),
-        ),
-      ),
-    );
+  Future<void> _openRoomSheet() async {
+    final edited = await showDiyRoomsSheet(context, query: _query);
+    if (edited == null || !mounted) return;
+    setState(() {
+      _rooms = edited.rooms;
+      _adults = edited.adults;
+      _children = edited.children;
+      _childAges = edited.childAgesFilled;
+    });
   }
 }

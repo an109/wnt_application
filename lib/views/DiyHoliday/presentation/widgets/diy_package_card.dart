@@ -35,11 +35,15 @@ class DiyPackageCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final total = package.priceFor(withFlight);
-    // The Figma leads on a per-person price. The API quotes a party total, so
-    // divide by the heads it was quoted for — never by zero.
-    final heads = package.adults + package.children;
-    final perPerson = heads > 0 ? total / heads : total;
+    // POST /packages/search/ sends both figures for the fare searched: per
+    // adult, and that times the party searched. The GET search sends only the
+    // saved party total, so fall back to dividing it — never by zero.
+    final saved = package.priceFor(withFlight);
+    final perPerson = package.perPerson > 0
+        ? package.perPerson
+        : (package.adults > 0 ? saved / package.adults : saved);
+    final total =
+        package.totalForParty > 0 ? package.totalForParty : saved;
 
     return Material(
       color: Colors.white,
@@ -121,6 +125,18 @@ class DiyPackageCard extends StatelessWidget {
               context,
               '${package.days}D / ${package.nights}N',
               background: Colors.black.withOpacity(0.55),
+            ),
+          ),
+        // Saved with flights: the customer can add them when opening it, priced
+        // live from their own city. The price on the card stays land-only.
+        if (package.includesFlight && !DiyFeatures.wishlist)
+          Positioned(
+            right: context.w(10),
+            top: context.h(10),
+            child: _badge(
+              context,
+              '✈ Flight option',
+              background: DiyTokens.blue.withOpacity(0.92),
             ),
           ),
         // Figma: wishlist heart. Needs a saved/wishlist endpoint.
@@ -239,7 +255,9 @@ class DiyPackageCard extends StatelessWidget {
         SizedBox(width: context.w(4)),
         Expanded(
           child: Text(
-            '${package.destination} • From ${package.origin}',
+            package.area.isNotEmpty
+                ? package.area
+                : '${package.destination} • From ${package.origin}',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
@@ -257,8 +275,10 @@ class DiyPackageCard extends StatelessWidget {
   /// the nights summary simply takes the whole row instead.
   Widget _ratingAndNightsRow(BuildContext context) {
     final nights = Text(
-      '${package.nights}N ${package.destination} '
-      '(${package.nights}N/${package.days}D)',
+      package.nightsLabel.isNotEmpty
+          ? '${package.nightsLabel} (${package.nights}N/${package.days}D)'
+          : '${package.nights}N ${package.destination} '
+              '(${package.nights}N/${package.days}D)',
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
       style: TextStyle(
@@ -268,7 +288,9 @@ class DiyPackageCard extends StatelessWidget {
       ),
     );
 
-    if (!DiyFeatures.ratings) return nights;
+    // The search sends the hotels' guest score but no review count, so the
+    // stars show whenever there is a score and the count only when one comes.
+    if (!DiyFeatures.ratings && package.rating <= 0) return nights;
 
     return Row(
       children: [
@@ -289,14 +311,17 @@ class DiyPackageCard extends StatelessWidget {
             color: DiyTokens.navy,
           ),
         ),
-        SizedBox(width: context.w(3)),
-        Text(
-          '(${package.reviewCount})',
-          style: TextStyle(
-            fontSize: context.fs(9),
-            color: DiyTokens.labelGrey,
+        if (package.reviewCount > 0) ...[
+          SizedBox(width: context.w(3)),
+          Text(
+            '(${package.reviewCount})',
+            style: TextStyle(
+              fontSize: context.fs(9),
+              color: DiyTokens.labelGrey,
+            ),
           ),
-        ),
+        ],
+        SizedBox(width: context.w(8)),
         const Spacer(),
         Flexible(child: nights),
       ],
@@ -308,14 +333,17 @@ class DiyPackageCard extends StatelessWidget {
   /// the hotel class and meal plan arrive with the package detail, so they
   /// ride the ratings flag. Theme chips are real and always shown.
   Widget _featureChips(BuildContext context) {
-    final chips = <String>[
-      if (DiyFeatures.ratings && package.hotelClassLabel.isNotEmpty)
-        package.hotelClassLabel,
-      if (DiyFeatures.ratings && package.mealPlanLabel.isNotEmpty)
-        package.mealPlanLabel,
-      if (package.hasCabItinerary) 'Airport Pickup & Drop',
-      ...package.themes,
-    ];
+    // POST /packages/search/ sends the chips ready-made, read out of the
+    // package's own hotels and transfers. The GET search does not, so the
+    // old guesswork stays as the fallback.
+    final chips = package.inclusions.isNotEmpty
+        ? package.inclusions.take(3).toList()
+        : <String>[
+            if (package.hotelClassLabel.isNotEmpty) package.hotelClassLabel,
+            if (package.mealPlanLabel.isNotEmpty) package.mealPlanLabel,
+            if (package.hasCabItinerary) 'Airport Pickup & Drop',
+            ...package.themes,
+          ];
     if (chips.isEmpty) return const SizedBox.shrink();
 
     return Wrap(
@@ -376,7 +404,11 @@ class DiyPackageCard extends StatelessWidget {
                     ),
                   )
                 : Text(
-                    withFlight ? 'Total with flight' : 'Total without flight',
+                    withFlight
+                        ? 'Price with flight'
+                        : package.includesFlight
+                            ? 'Without flight · add flights\nwhen you open it'
+                            : 'Land package price',
                     style: TextStyle(
                       fontSize: context.fs(10.5),
                       color: DiyTokens.subGrey,

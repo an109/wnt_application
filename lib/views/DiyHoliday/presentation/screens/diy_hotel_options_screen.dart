@@ -1,67 +1,80 @@
 import 'package:flutter/material.dart';
-import 'package:share_plus/share_plus.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:intl/intl.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 
 import '../../../../injection_container.dart';
 import '../../data/diy_holiday_api.dart';
 import '../../data/models/diy_models.dart';
 import '../widgets/diy_common.dart';
+import '../widgets/diy_trip_day_card.dart';
+import 'diy_hotel_detail_screen.dart';
+import 'diy_hotel_filter_screen.dart';
 
-/// Hotel options for one stop — **API 9: GET /trips/{trip_id}/stops/
-/// {stop_id}/hotels/** — and the swap, **API 10: POST** on the same path
-/// with `{"hotel_ref": …}` (`room_ref` optional; omitted here so the backend
-/// picks a room).
+/// "Change Hotel" for one stay of the trip.
 ///
-/// The first call for a stop takes roughly 19 seconds and returns ~40
-/// options, so the wait is spelled out to the user.
+/// **GET /trips/{trip_id}/stops/{stop_id}/hotels/** lists the properties,
+/// each priced as the difference (`delta`) from the hotel on the package. The
+/// customer picks one — optionally a particular room in it, through Change
+/// Room — the current-selection card shows what the trip comes to, and
+/// UPDATE pins it (**POST /hotels/**) and pops the repriced trip.
 class DiyHotelOptionsScreen extends StatefulWidget {
-  /// The trip being edited — the POST answers with a partial trip, so this
-  /// is passed back in as the base to merge onto.
   final DiyTrip trip;
   final DiyStop stop;
+  final int rooms;
 
   const DiyHotelOptionsScreen({
     super.key,
     required this.trip,
     required this.stop,
+    this.rooms = 1,
   });
-
-  String get tripId => trip.tripId;
-  String get currency => trip.currency;
 
   @override
   State<DiyHotelOptionsScreen> createState() => _DiyHotelOptionsScreenState();
 }
 
+/// A hotel the customer has picked but not yet applied.
+class _Pending {
+  final DiyHotelOption hotel;
+  final String hotelRef;
+  final DiyRoomOption? room;
+
+  const _Pending(this.hotel, this.hotelRef, this.room);
+
+  /// The room's own difference when one was chosen; the hotel's "from" one
+  /// otherwise.
+  double get delta => room?.delta ?? hotel.delta;
+}
+
 class _DiyHotelOptionsScreenState extends State<DiyHotelOptionsScreen> {
   final DiyHolidayApi _api = sl<DiyHolidayApi>();
+  final TextEditingController _search = TextEditingController();
 
   List<DiyHotelOption> _options = const [];
   bool _loading = true;
   String? _error;
-  String? _applyingRef;
+  bool _updating = false;
 
-  /// Per-card carousel state, keyed by hotel_ref so a rebuild of the list
-  /// does not reset the photo a customer has swiped to.
-  final Map<String, PageController> _galleryControllers = {};
-  final Map<String, int> _galleryPage = {};
+  _Pending? _pending;
 
-  int? _starFilter;
-  bool _breakfastOnly = false;
+  /// Room names chosen through Change Room, by hotel, for the Room Type row.
+  final Map<String, String> _roomNames = {};
+
+  DiyHotelFilters _filters = const DiyHotelFilters();
+
+  int get _adults => widget.trip.adults > 0 ? widget.trip.adults : 1;
 
   @override
   void initState() {
     super.initState();
+    _search.addListener(() => setState(() {}));
     _load();
   }
 
   @override
   void dispose() {
-    // One controller is created per multi-photo card and kept for the life of
-    // the screen, so they are torn down together here.
-    for (final controller in _galleryControllers.values) {
-      controller.dispose();
-    }
+    _search.dispose();
     super.dispose();
   }
 
@@ -72,7 +85,7 @@ class _DiyHotelOptionsScreenState extends State<DiyHotelOptionsScreen> {
     });
     try {
       final options = await _api.getHotelOptions(
-        tripId: widget.tripId,
+        tripId: widget.trip.tripId,
         stopId: widget.stop.stopId,
       );
       if (!mounted) return;
@@ -89,490 +102,882 @@ class _DiyHotelOptionsScreenState extends State<DiyHotelOptionsScreen> {
     }
   }
 
-  Future<void> _select(DiyHotelOption option) async {
-    if (option.isSelected) {
+  // ------------------------------------------------------------ the stay
+
+  /// The hotel row on the trip for this stay — its dates and the room on it.
+  DiyRow? get _stayRow {
+    for (final day in widget.trip.days) {
+      for (final row in day.rows) {
+        if (row.kind == 'HOTEL' &&
+            row.destination.toLowerCase() ==
+                widget.stop.destination.toLowerCase()) {
+          return row;
+        }
+      }
+    }
+    return null;
+  }
+
+  String get _dates {
+    final row = _stayRow;
+    final a = diyParseDate(row?.checkIn ?? '');
+    final b = diyParseDate(row?.checkOut ?? '');
+    if (a == null || b == null) return '';
+    final days = widget.stop.nights + 1;
+    return '${DateFormat('EEE dd MMM').format(a)} - '
+        '${DateFormat('EEE dd MMM').format(b)} (${days}D)';
+  }
+
+  DiyHotelOption? get _current => _options.where((o) => o.isSelected).firstOrNull;
+
+  // -------------------------------------------------------------- actions
+
+  Future<void> _update() async {
+    final pending = _pending;
+    if (pending == null) {
       Navigator.of(context).pop();
       return;
     }
-    setState(() => _applyingRef = option.hotelRef);
+    setState(() => _updating = true);
     try {
       final trip = await _api.changeHotel(
-        tripId: widget.tripId,
+        tripId: widget.trip.tripId,
         stopId: widget.stop.stopId,
-        hotelRef: option.hotelRef,
+        hotelRef: pending.hotelRef,
+        roomRef: pending.room?.roomRef,
         previous: widget.trip,
       );
-      if (!mounted) return;
-      Navigator.of(context).pop(trip);
+      if (mounted) Navigator.of(context).pop(trip);
     } catch (e) {
       if (mounted) diySnack(context, e.toString(), isError: true);
     } finally {
-      if (mounted) setState(() => _applyingRef = null);
+      if (mounted) setState(() => _updating = false);
     }
   }
 
+  void _pick(DiyHotelOption hotel) {
+    if (hotel.isSelected) {
+      setState(() => _pending = null);
+      return;
+    }
+    setState(() => _pending = _Pending(hotel, hotel.hotelRef, null));
+  }
+
+  Future<void> _changeRoom(DiyHotelOption hotel) async {
+    final row = _stayRow;
+    final pick = await Navigator.of(context).push<DiyRoomPick>(
+      MaterialPageRoute(
+        builder: (_) => DiyHotelDetailScreen(
+          trip: widget.trip,
+          stop: widget.stop,
+          hotelRef: hotel.isSelected ? null : hotel.hotelRef,
+          hotelName: hotel.name,
+          previewImages: [
+            if (hotel.heroImage.isNotEmpty) hotel.heroImage,
+            ...hotel.images,
+          ],
+          checkIn: row?.checkIn ?? '',
+          checkOut: row?.checkOut ?? '',
+          rooms: widget.rooms,
+        ),
+      ),
+    );
+    if (pick == null || !mounted) return;
+    // A room on the hotel already pinned is applied by the hotel page itself.
+    if (pick.trip != null) {
+      Navigator.of(context).pop(pick.trip);
+      return;
+    }
+    final room = pick.room;
+    if (room == null) return;
+    setState(() {
+      _roomNames[hotel.hotelRef] = room.name;
+      _pending = _Pending(hotel, pick.hotelRef, room);
+    });
+  }
+
+  Future<void> _openFilters() async {
+    final deltas = _options.map((o) => o.delta / _adults).toList()..sort();
+    final locations = _rank(_options.map(_locality));
+    final amenities = _rank(_options.expand((o) => o.facilities));
+    final result = await Navigator.of(context).push<DiyHotelFilters>(
+      MaterialPageRoute(
+        builder: (_) => DiyHotelFilterScreen(
+          initial: _filters,
+          priceMin: deltas.isEmpty ? 0 : deltas.first.floorToDouble(),
+          priceMax: deltas.isEmpty ? 0 : deltas.last.ceilToDouble(),
+          locations: locations,
+          amenities: amenities,
+        ),
+      ),
+    );
+    if (result != null && mounted) setState(() => _filters = result);
+  }
+
+  /// Distinct values, most common first.
+  static List<String> _rank(Iterable<String> values) {
+    final counts = <String, int>{};
+    for (final v in values) {
+      if (v.trim().isEmpty) continue;
+      counts[v] = (counts[v] ?? 0) + 1;
+    }
+    final keys = counts.keys.toList()
+      ..sort((a, b) => counts[b]!.compareTo(counts[a]!));
+    return keys;
+  }
+
+  /// "Vagator" out of "Vagator, North Goa, Goa".
+  static String _locality(DiyHotelOption o) => o.location.split(',').first.trim();
+
   List<DiyHotelOption> get _visible {
-    return _options.where((o) {
-      if (_starFilter != null && o.stars != _starFilter) return false;
-      if (_breakfastOnly && !o.freeBreakfast) return false;
+    final query = _search.text.trim().toLowerCase();
+    final f = _filters;
+    final list = _options.where((o) {
+      if (o.isSelected) return true;
+      if (query.isNotEmpty &&
+          !o.name.toLowerCase().contains(query) &&
+          !o.location.toLowerCase().contains(query)) {
+        return false;
+      }
+      if (f.maxPerPerson != null && o.delta / _adults > f.maxPerPerson!) {
+        return false;
+      }
+      final stars = (double.tryParse(o.starRating) ?? 0).round();
+      if (f.stars.isNotEmpty && !f.stars.contains(stars)) return false;
+      if (f.locations.isNotEmpty && !f.locations.contains(_locality(o))) {
+        return false;
+      }
+      if (f.amenities.isNotEmpty &&
+          !f.amenities.every((a) => o.facilities.contains(a))) {
+        return false;
+      }
       return true;
     }).toList();
+
+    double rating(DiyHotelOption o) => double.tryParse(o.reviewRating) ?? 0;
+    list.sort(switch (f.sort) {
+      DiyHotelSort.popularity => (a, b) {
+          final byRating = rating(b).compareTo(rating(a));
+          return byRating != 0 ? byRating : b.reviewCount.compareTo(a.reviewCount);
+        },
+      DiyHotelSort.priceLow => (a, b) => a.delta.compareTo(b.delta),
+      DiyHotelSort.priceHigh => (a, b) => b.delta.compareTo(a.delta),
+    });
+    // The hotel on the package leads — it is what everything is compared to.
+    final current = _current;
+    if (current != null && list.remove(current)) list.insert(0, current);
+    return list;
   }
+
+  // ----------------------------------------------------------------- build
 
   @override
   Widget build(BuildContext context) {
+    final trip = widget.trip;
+    final date = diyParseDate(trip.departureDate);
+    final party = [
+      '${trip.adults} Adult${trip.adults == 1 ? '' : 's'}',
+      if (trip.children > 0)
+        '${trip.children} Child${trip.children == 1 ? '' : 'ren'}',
+    ].join(', ');
+
     return Scaffold(
-      backgroundColor: DiyTokens.pageBg,
+      backgroundColor: Colors.white,
       appBar: AppBar(
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.white,
-        elevation: 0,
-        scrolledUnderElevation: 0.5,
+        elevation: 2,
+        shadowColor: Colors.black.withValues(alpha: 0.15),
         leading: IconButton(
-          icon: Icon(Icons.arrow_back,
-              color: DiyTokens.navy, size: context.w(22)),
-          onPressed: () => Navigator.of(context).maybePop(),
+          icon: Icon(Icons.arrow_back, color: Colors.black, size: context.w(24)),
+          onPressed: () => Navigator.of(context).pop(),
         ),
         titleSpacing: 0,
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              'Hotels in ${widget.stop.destination}',
+              trip.title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 fontSize: context.fs(16),
-                fontWeight: FontWeight.w700,
-                color: DiyTokens.navy,
+                fontWeight: FontWeight.w600,
+                color: Colors.black,
               ),
             ),
             Text(
-              '${widget.stop.nights} night${widget.stop.nights == 1 ? '' : 's'}',
-              style: TextStyle(
-                fontSize: context.fs(11),
-                color: DiyTokens.subGrey,
-              ),
+              [
+                if (date != null) DateFormat('MMM dd').format(date),
+                party,
+              ].join(', '),
+              style: TextStyle(fontSize: context.fs(10), color: DiyTripStyle.grey),
             ),
           ],
         ),
       ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+      floatingActionButton: _options.isEmpty ? null : _sortFilterPill(),
       body: _loading
-          ? const DiyLoading(
-              message: 'Searching hotels for this stop…',
-              hint: 'This first search takes about 20 seconds.',
-            )
+          ? const DiyLoading(message: 'Finding hotels for your dates…')
           : _error != null
               ? DiyErrorView(message: _error!, onRetry: _load)
-              : Column(
-                  children: [
-                    _filterBar(),
-                    Expanded(
-                      child: _visible.isEmpty
-                          ? const DiyErrorView(
-                              message: 'No hotels match these filters.',
-                            )
-                          : ListView.builder(
-                              padding: EdgeInsets.fromLTRB(
-                                context.w(14),
-                                context.h(10),
-                                context.w(14),
-                                context.h(24),
-                              ),
-                              itemCount: _visible.length,
-                              itemBuilder: (context, i) => Padding(
-                                padding: EdgeInsets.only(bottom: context.h(10)),
-                                child: _tile(_visible[i]),
-                              ),
-                            ),
-                    ),
-                  ],
-                ),
+              : _content(),
     );
   }
 
-  Widget _filterBar() {
-    Widget chip(String label, bool selected, VoidCallback onTap) {
-      return Padding(
-        padding: EdgeInsets.only(right: context.w(8)),
-        child: GestureDetector(
-          onTap: onTap,
-          behavior: HitTestBehavior.opaque,
-          child: Container(
-            padding: EdgeInsets.symmetric(
-              horizontal: context.w(12),
-              vertical: context.h(6),
+  Widget _content() {
+    final hotels = _visible;
+    return ListView(
+      padding: EdgeInsets.fromLTRB(
+        context.w(16),
+        context.h(24),
+        context.w(16),
+        context.h(96),
+      ),
+      children: [
+        _currentCard(),
+        SizedBox(height: context.h(18)),
+        TextField(
+          controller: _search,
+          decoration: InputDecoration(
+            isDense: true,
+            prefixIcon: Icon(Icons.search_rounded,
+                size: context.w(20), color: DiyTripStyle.grey),
+            hintText: 'Search by hotel name, landmark or beach…',
+            hintStyle:
+                TextStyle(fontSize: context.fs(11), color: DiyTripStyle.grey),
+            contentPadding: EdgeInsets.symmetric(vertical: context.h(12)),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(context.r(8)),
+              borderSide: const BorderSide(color: DiyTripStyle.border),
             ),
-            decoration: BoxDecoration(
-              color: selected ? const Color(0xFFE8F4FC) : Colors.white,
-              borderRadius: BorderRadius.circular(context.r(20)),
-              border: Border.all(
-                color: selected ? DiyTokens.blue : DiyTokens.line,
-              ),
-            ),
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: context.fs(11.5),
-                fontWeight: FontWeight.w600,
-                color: selected ? DiyTokens.blue : DiyTokens.subGrey,
-              ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(context.r(8)),
+              borderSide: const BorderSide(color: DiyTripStyle.border),
             ),
           ),
         ),
-      );
-    }
-
-    return Container(
-      color: Colors.white,
-      padding: EdgeInsets.symmetric(
-        horizontal: context.w(14),
-        vertical: context.h(8),
-      ),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: [
-            chip('${_options.length} options', false, () {}),
-            for (final star in [3, 4, 5])
-              chip(
-                '$star★',
-                _starFilter == star,
-                () => setState(
-                  () => _starFilter = _starFilter == star ? null : star,
-                ),
-              ),
-            chip(
-              'Free breakfast',
-              _breakfastOnly,
-              () => setState(() => _breakfastOnly = !_breakfastOnly),
+        SizedBox(height: context.h(18)),
+        if (hotels.length <= 1)
+          Padding(
+            padding: EdgeInsets.symmetric(vertical: context.h(12)),
+            child: Text(
+              'No other hotels match. Try clearing the search or filters.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: context.fs(12), color: DiyTripStyle.grey),
             ),
-          ],
+          ),
+        for (final hotel in hotels)
+          Padding(
+            padding: EdgeInsets.only(bottom: context.h(18)),
+            child: _hotelCard(hotel),
+          ),
+      ],
+    );
+  }
+
+  // ------------------------------------------------------- current card
+
+  Widget _currentCard() {
+    final pending = _pending;
+    final shown = pending?.hotel ?? _current;
+    final row = _stayRow;
+    final image = shown?.heroImage.isNotEmpty == true
+        ? shown!.heroImage
+        : (row?.heroImage ?? '');
+    final name = shown?.name ?? row?.hotelName ?? '';
+    final location = shown?.location ?? row?.location ?? '';
+    final rating = shown?.reviewRating ?? row?.reviewRating ?? '';
+    final perPerson =
+        (widget.trip.grandTotal + (pending?.delta ?? 0)) / _adults;
+
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Container(
+          padding: EdgeInsets.all(context.w(14)),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(context.r(12)),
+            gradient: const LinearGradient(
+              colors: [Color(0xFFBFE6F8), Color(0xFFEFF9FE)],
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: context.w(6),
+                    height: context.w(6),
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFE5484D),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  SizedBox(width: context.w(6)),
+                  Text(
+                    '${pending == null ? 'CURRENT SELECTION' : 'NEW SELECTION'}'
+                    ' • ${widget.stop.nights} NIGHTS STAY',
+                    style: TextStyle(
+                      fontSize: context.fs(10),
+                      fontWeight: FontWeight.w700,
+                      color: DiyTokens.blue,
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: context.h(10)),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Stack(
+                    children: [
+                      DiyImage(
+                        url: image,
+                        width: context.w(70),
+                        height: context.w(70),
+                        radius: BorderRadius.circular(context.r(8)),
+                      ),
+                      if (rating.isNotEmpty)
+                        Positioned(
+                          right: context.w(4),
+                          bottom: context.w(4),
+                          child: Container(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: context.w(4),
+                              vertical: context.h(1),
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.6),
+                              borderRadius: BorderRadius.circular(context.r(4)),
+                            ),
+                            child: Text(
+                              '$rating ★',
+                              style: TextStyle(
+                                fontSize: context.fs(8),
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  SizedBox(width: context.w(12)),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: context.fs(14),
+                            fontWeight: FontWeight.w600,
+                            color: Colors.black,
+                          ),
+                        ),
+                        if (location.isNotEmpty)
+                          _meta(Icons.location_on_rounded, location),
+                        if (_dates.isNotEmpty)
+                          _meta(Icons.calendar_month_rounded, _dates),
+                        SizedBox(height: context.h(6)),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  if (pending == null)
+                                    Text(
+                                      'Package Base Cost:',
+                                      style: TextStyle(
+                                        fontSize: context.fs(9),
+                                        color: DiyTripStyle.grey,
+                                      ),
+                                    ),
+                                  Text.rich(
+                                    TextSpan(
+                                      children: [
+                                        TextSpan(
+                                          text: diyMoney(perPerson,
+                                              currency: widget.trip.currency),
+                                          style: TextStyle(
+                                            fontSize: context.fs(16),
+                                            fontWeight: FontWeight.w700,
+                                            color: DiyTokens.blue,
+                                          ),
+                                        ),
+                                        TextSpan(
+                                          text: '/person',
+                                          style: TextStyle(
+                                            fontSize: context.fs(10),
+                                            color: DiyTripStyle.grey,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            if (pending != null)
+                              SizedBox(
+                                width: context.w(96),
+                                height: context.h(36),
+                                child: ElevatedButton(
+                                  onPressed: _updating ? null : _update,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: DiyTripStyle.orange,
+                                    elevation: 0,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius:
+                                          BorderRadius.circular(context.r(6)),
+                                    ),
+                                  ),
+                                  child: _updating
+                                      ? SizedBox(
+                                          width: context.w(16),
+                                          height: context.w(16),
+                                          child:
+                                              const CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            color: Colors.white,
+                                          ),
+                                        )
+                                      : Text(
+                                          'UPDATE',
+                                          style: TextStyle(
+                                            fontSize: context.fs(13),
+                                            fontWeight: FontWeight.w600,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
+        if (pending == null)
+          Positioned(
+            right: context.w(8),
+            top: -context.h(10),
+            child: Container(
+              padding: EdgeInsets.symmetric(
+                horizontal: context.w(10),
+                vertical: context.h(3),
+              ),
+              decoration: BoxDecoration(
+                color: DiyTokens.blue,
+                borderRadius: BorderRadius.circular(context.r(20)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.check_rounded,
+                      size: context.w(11), color: Colors.white),
+                  SizedBox(width: context.w(3)),
+                  Text(
+                    'SELECTED',
+                    style: TextStyle(
+                      fontSize: context.fs(9),
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _meta(IconData icon, String text) {
+    return Padding(
+      padding: EdgeInsets.only(top: context.h(3)),
+      child: Row(
+        children: [
+          Icon(icon, size: context.w(10), color: DiyTripStyle.grey),
+          SizedBox(width: context.w(4)),
+          Expanded(
+            child: Text(
+              text,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: context.fs(9), color: DiyTripStyle.grey),
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _tile(DiyHotelOption option) {
-    final applying = _applyingRef == option.hotelRef;
+  // --------------------------------------------------------- hotel card
 
-    return DiyCard(
-      padding: EdgeInsets.all(context.w(10)),
-      borderColor: option.isSelected ? DiyTokens.blue : null,
-      onTap: applying ? null : () => _select(option),
+  Widget _hotelCard(DiyHotelOption o) {
+    final pickedHere = _pending?.hotel == o;
+    final selected = pickedHere || (_pending == null && o.isSelected);
+    final stars = (double.tryParse(o.starRating) ?? 0).round().clamp(0, 5);
+    final image = o.heroImage.isNotEmpty
+        ? o.heroImage
+        : (o.images.isNotEmpty ? o.images.first : '');
+    final locality = [
+      _locality(o),
+      if (o.distanceKm.isNotEmpty) '${o.distanceKm} km away',
+    ].join(' • ');
+    final room = _roomNames[o.hotelRef] ??
+        (o.isSelected ? _stayRow?.roomName ?? '' : '');
+    final delta = pickedHere && _pending?.room != null
+        ? _pending!.delta
+        : o.delta;
+
+    return Container(
+      padding: EdgeInsets.all(context.w(12)),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(context.r(12)),
+        border: Border.all(
+          color: selected ? DiyTokens.blue : DiyTripStyle.border,
+        ),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _gallery(option),
-          SizedBox(height: context.h(10)),
-          Row(
+          Stack(
             children: [
-              Expanded(
-                child: Text(
-                  option.name,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: context.fs(14),
-                    fontWeight: FontWeight.w700,
-                    color: DiyTokens.navy,
+              DiyImage(
+                url: image,
+                width: double.infinity,
+                height: context.h(150),
+                radius: BorderRadius.circular(context.r(10)),
+              ),
+              if (o.freeBreakfast)
+                Positioned(
+                  left: context.w(8),
+                  top: context.h(8),
+                  child: Container(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: context.w(8),
+                      vertical: context.h(4),
+                    ),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFE5484D), Color(0xFFF59E0B)],
+                      ),
+                      borderRadius: BorderRadius.circular(context.r(12)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.restaurant_rounded,
+                            size: context.w(11), color: Colors.white),
+                        SizedBox(width: context.w(4)),
+                        Text(
+                          'Free Breakfast',
+                          style: TextStyle(
+                            fontSize: context.fs(9),
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-              SizedBox(width: context.w(8)),
-              GestureDetector(
-                onTap: () => Share.share(
-                  'Check out ${option.name}'
-                  '${option.location.isNotEmpty ? ' in ${option.location}' : ''}!',
+            ],
+          ),
+          SizedBox(height: context.h(10)),
+          Text(
+            o.name,
+            style: TextStyle(
+              fontSize: context.fs(15),
+              fontWeight: FontWeight.w600,
+              color: Colors.black,
+            ),
+          ),
+          if (locality.isNotEmpty) _meta(Icons.location_on_rounded, locality),
+          if (_dates.isNotEmpty) _meta(Icons.calendar_month_rounded, _dates),
+          SizedBox(height: context.h(8)),
+          Row(
+            children: [
+              for (var i = 0; i < stars; i++)
+                Padding(
+                  padding: EdgeInsets.only(right: context.w(2)),
+                  child: SvgPicture.asset(DiyTripStyle.star,
+                      width: context.w(16), height: context.w(16)),
                 ),
-                behavior: HitTestBehavior.opaque,
-                child: Icon(
-                  Icons.share_outlined,
-                  size: context.w(16),
-                  color: DiyTokens.subGrey,
+              if (o.reviewRating.isNotEmpty)
+                Text.rich(
+                  TextSpan(
+                    children: [
+                      TextSpan(
+                        text: ' ${o.reviewRating}',
+                        style: TextStyle(
+                          fontSize: context.fs(12),
+                          fontWeight: FontWeight.w700,
+                          color: Colors.black,
+                        ),
+                      ),
+                      if (o.reviewCount > 0)
+                        TextSpan(
+                          text: '(${o.reviewCount})',
+                          style: TextStyle(
+                            fontSize: context.fs(8),
+                            color: DiyTripStyle.grey,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              const Spacer(),
+              Text(
+                '${widget.stop.nights}N ${widget.stop.destination}',
+                style: TextStyle(
+                  fontSize: context.fs(11),
+                  fontWeight: FontWeight.w600,
+                  color: DiyTokens.blue,
                 ),
               ),
             ],
           ),
-          SizedBox(height: context.h(5)),
-          _starRow(option),
-          if (option.location.isNotEmpty) ...[
-            SizedBox(height: context.h(5)),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          SizedBox(height: context.h(10)),
+          Container(
+            padding: EdgeInsets.symmetric(
+              horizontal: context.w(10),
+              vertical: context.h(8),
+            ),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF7F8FA),
+              borderRadius: BorderRadius.circular(context.r(6)),
+            ),
+            child: Row(
               children: [
-                Icon(
-                  Icons.location_on_outlined,
-                  size: context.w(13),
-                  color: DiyTokens.subGrey,
-                ),
-                SizedBox(width: context.w(4)),
                 Expanded(
-                  child: Text(
-                    option.location,
-                    maxLines: 2,
+                  child: Text.rich(
+                    TextSpan(
+                      children: [
+                        TextSpan(
+                          text: 'Room Type: ',
+                          style: TextStyle(
+                            fontSize: context.fs(9),
+                            fontWeight: FontWeight.w700,
+                            color: Colors.black,
+                          ),
+                        ),
+                        TextSpan(
+                          text: room.isNotEmpty
+                              ? room.toUpperCase()
+                              : 'BEST AVAILABLE',
+                          style: TextStyle(
+                            fontSize: context.fs(9),
+                            color: Colors.black,
+                          ),
+                        ),
+                      ],
+                    ),
+                    maxLines: 1,
                     overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                GestureDetector(
+                  onTap: () => _changeRoom(o),
+                  child: Text(
+                    'Change Room',
                     style: TextStyle(
                       fontSize: context.fs(11),
-                      fontWeight: FontWeight.w600,
-                      color: DiyTokens.subGrey,
+                      color: DiyTokens.blue,
+                      decoration: TextDecoration.underline,
+                      decorationColor: DiyTokens.blue,
                     ),
                   ),
                 ),
               ],
             ),
-          ],
-          if (option.freeBreakfast || option.distanceKm.isNotEmpty) ...[
-            SizedBox(height: context.h(7)),
-            Wrap(
-              spacing: context.w(6),
-              runSpacing: context.h(5),
-              children: [
-                if (option.freeBreakfast)
-                  _perk(Icons.free_breakfast_outlined, 'Free breakfast'),
-                if (option.distanceKm.isNotEmpty)
-                  _perk(
-                    Icons.near_me_outlined,
-                    '${option.distanceKm} km from centre',
+          ),
+          SizedBox(height: context.h(12)),
+          if (selected && !pickedHere)
+            SizedBox(
+              width: double.infinity,
+              height: context.h(40),
+              child: ElevatedButton(
+                onPressed: null,
+                style: ElevatedButton.styleFrom(
+                  disabledBackgroundColor: DiyTripStyle.orange,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(context.r(6)),
                   ),
-              ],
+                ),
+                child: Text(
+                  'SELECTED',
+                  style: TextStyle(
+                    fontSize: context.fs(14),
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            )
+          else
+            Container(
+              padding: EdgeInsets.all(context.w(12)),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF7F8FA),
+                borderRadius: BorderRadius.circular(context.r(8)),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Upgrade Difference',
+                          style: TextStyle(
+                            fontSize: context.fs(9),
+                            color: DiyTripStyle.grey,
+                          ),
+                        ),
+                        Text.rich(
+                          TextSpan(
+                            children: [
+                              TextSpan(
+                                text: diyDelta(delta / _adults,
+                                    currency: widget.trip.currency),
+                                style: TextStyle(
+                                  fontSize: context.fs(16),
+                                  fontWeight: FontWeight.w700,
+                                  color: DiyTokens.blue,
+                                ),
+                              ),
+                              TextSpan(
+                                text: '/person',
+                                style: TextStyle(
+                                  fontSize: context.fs(10),
+                                  color: DiyTripStyle.grey,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  SizedBox(
+                    width: context.w(100),
+                    height: context.h(38),
+                    child: pickedHere
+                        ? ElevatedButton(
+                            onPressed: () => _pick(_current ?? o),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: DiyTripStyle.orange,
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius:
+                                    BorderRadius.circular(context.r(6)),
+                              ),
+                            ),
+                            child: Text(
+                              'SELECTED',
+                              style: TextStyle(
+                                fontSize: context.fs(12),
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white,
+                              ),
+                            ),
+                          )
+                        : OutlinedButton(
+                            onPressed: () => _pick(o),
+                            style: OutlinedButton.styleFrom(
+                              side: const BorderSide(color: DiyTripStyle.orange),
+                              shape: RoundedRectangleBorder(
+                                borderRadius:
+                                    BorderRadius.circular(context.r(6)),
+                              ),
+                            ),
+                            child: Text(
+                              'SELECT',
+                              style: TextStyle(
+                                fontSize: context.fs(13),
+                                fontWeight: FontWeight.w600,
+                                color: DiyTripStyle.orange,
+                              ),
+                            ),
+                          ),
+                  ),
+                ],
+              ),
             ),
-          ],
-          SizedBox(height: context.h(9)),
-          const Divider(height: 1, color: DiyTokens.line),
-          SizedBox(height: context.h(8)),
-          _priceRow(option),
-          if (applying) ...[
-            SizedBox(height: context.h(10)),
-            const LinearProgressIndicator(minHeight: 2),
-          ],
         ],
       ),
     );
   }
 
-  /// Inset rounded image with a swipeable carousel when the API sent more
-  /// than one photo — the same treatment the hotel search result cards use.
-  /// The dots and counter are only drawn when there is something to page
-  /// through.
-  Widget _gallery(DiyHotelOption option) {
-    final photos = <String>[
-      if (option.heroImage.isNotEmpty) option.heroImage,
-      ...option.images.where((u) => u.isNotEmpty && u != option.heroImage),
-    ];
-    final radius = BorderRadius.circular(context.r(10));
-    final height = context.h(150);
+  // ---------------------------------------------------------- sort/filter
 
-    if (photos.length <= 1) {
-      return DiyImage(
-        url: photos.isEmpty ? '' : photos.first,
-        width: double.infinity,
-        height: height,
-        radius: radius,
+  Widget _sortFilterPill() {
+    Widget half(IconData icon, String label, VoidCallback onTap, bool dot) {
+      return InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(context.r(30)),
+        child: Padding(
+          padding: EdgeInsets.symmetric(
+            horizontal: context.w(26),
+            vertical: context.h(12),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: context.w(17), color: Colors.black),
+              SizedBox(width: context.w(8)),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: context.fs(13),
+                  fontWeight: FontWeight.w500,
+                  color: Colors.black,
+                ),
+              ),
+              if (dot) ...[
+                SizedBox(width: context.w(5)),
+                Container(
+                  width: context.w(6),
+                  height: context.w(6),
+                  decoration: const BoxDecoration(
+                    color: DiyTripStyle.orange,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
       );
     }
 
-    final controller = _galleryControllers.putIfAbsent(
-      option.hotelRef,
-      () => PageController(),
-    );
-
-    return SizedBox(
-      height: height,
-      child: Stack(
+    return Material(
+      color: Colors.white,
+      elevation: 6,
+      shadowColor: Colors.black.withValues(alpha: 0.2),
+      borderRadius: BorderRadius.circular(context.r(30)),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Positioned.fill(
-            child: ClipRRect(
-              borderRadius: radius,
-              child: PageView.builder(
-                controller: controller,
-                itemCount: photos.length,
-                onPageChanged: (i) =>
-                    setState(() => _galleryPage[option.hotelRef] = i),
-                itemBuilder: (_, i) => DiyImage(
-                  url: photos[i],
-                  width: double.infinity,
-                  height: height,
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            right: context.w(8),
-            top: context.h(8),
-            child: Container(
-              padding: EdgeInsets.symmetric(
-                horizontal: context.w(7),
-                vertical: context.h(2),
-              ),
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.55),
-                borderRadius: BorderRadius.circular(context.r(20)),
-              ),
-              child: Text(
-                '${(_galleryPage[option.hotelRef] ?? 0) + 1}/${photos.length}',
-                style: TextStyle(
-                  fontSize: context.fs(9.5),
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: context.h(8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                for (var i = 0; i < photos.length && i < 6; i++)
-                  Container(
-                    width: context.w(5),
-                    height: context.w(5),
-                    margin: EdgeInsets.symmetric(horizontal: context.w(2)),
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: (_galleryPage[option.hotelRef] ?? 0) == i
-                          ? Colors.white
-                          : Colors.white.withOpacity(0.5),
-                    ),
-                  ),
-              ],
-            ),
-          ),
+          half(Icons.swap_vert_rounded, 'Sort', _openFilters, false),
+          Container(
+              width: 1, height: context.h(22), color: DiyTripStyle.divider),
+          half(Icons.tune_rounded, 'Filter', _openFilters, _filters.isActive),
         ],
       ),
-    );
-  }
-
-  /// Amber stars for the property class, then the guest score as a filled
-  /// chip — the pairing the hotel result cards use.
-  Widget _starRow(DiyHotelOption option) {
-    final stars = int.tryParse(option.starRating.split('.').first) ?? 0;
-
-    return Row(
-      children: [
-        if (stars > 0)
-          for (var i = 0; i < stars.clamp(0, 5); i++)
-            Icon(
-              Icons.star_rounded,
-              size: context.w(13),
-              color: const Color(0xFFFFC107),
-            ),
-        if (option.reviewRating.isNotEmpty) ...[
-          if (stars > 0) SizedBox(width: context.w(7)),
-          Container(
-            padding: EdgeInsets.symmetric(
-              horizontal: context.w(5),
-              vertical: context.h(1),
-            ),
-            decoration: BoxDecoration(
-              color: DiyTokens.blue,
-              borderRadius: BorderRadius.circular(context.r(4)),
-            ),
-            child: Text(
-              option.reviewRating,
-              style: TextStyle(
-                fontSize: context.fs(9.5),
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
-              ),
-            ),
-          ),
-          if (option.reviewCount > 0) ...[
-            SizedBox(width: context.w(5)),
-            Text(
-              '(${option.reviewCount})',
-              style: TextStyle(
-                fontSize: context.fs(9.5),
-                color: DiyTokens.labelGrey,
-              ),
-            ),
-          ],
-        ],
-      ],
-    );
-  }
-
-  Widget _perk(IconData icon, String label) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: context.w(12), color: Colors.green.shade700),
-        SizedBox(width: context.w(4)),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: context.fs(10),
-            fontWeight: FontWeight.w600,
-            color: Colors.green.shade700,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _priceRow(DiyHotelOption option) {
-    final deltaColor = option.delta == 0
-        ? DiyTokens.subGrey
-        : option.delta < 0
-            ? Colors.green.shade700
-            : DiyTokens.orange;
-
-    return Row(
-      children: [
-        Expanded(
-          child: option.isSelected
-              ? Row(
-                  children: [
-                    Icon(
-                      Icons.check_circle_rounded,
-                      size: context.w(14),
-                      color: DiyTokens.blue,
-                    ),
-                    SizedBox(width: context.w(5)),
-                    Text(
-                      'Currently in your trip',
-                      style: TextStyle(
-                        fontSize: context.fs(11),
-                        fontWeight: FontWeight.w700,
-                        color: DiyTokens.blue,
-                      ),
-                    ),
-                  ],
-                )
-              : Text(
-                  'For ${widget.stop.nights} night'
-                  '${widget.stop.nights == 1 ? '' : 's'}',
-                  style: TextStyle(
-                    fontSize: context.fs(11),
-                    color: DiyTokens.labelGrey,
-                  ),
-                ),
-        ),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Text(
-              diyMoney(option.total, currency: widget.currency),
-              style: TextStyle(
-                fontSize: context.fs(16),
-                fontWeight: FontWeight.w800,
-                color: DiyTokens.navy,
-              ),
-            ),
-            if (!option.isSelected)
-              Text(
-                diyDelta(option.delta, currency: widget.currency),
-                style: TextStyle(
-                  fontSize: context.fs(11),
-                  fontWeight: FontWeight.w600,
-                  color: deltaColor,
-                ),
-              ),
-          ],
-        ),
-      ],
     );
   }
 }

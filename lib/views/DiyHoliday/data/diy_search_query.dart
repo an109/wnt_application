@@ -17,6 +17,17 @@ class DiySearchQuery {
   final int adults;
   final int children;
 
+  /// One age per child, from the Rooms & Guests sheet. Hotels price children
+  /// by age, so the price call needs them; see [childAgesFilled].
+  final List<int> childAges;
+
+  /// The age a child gets when none was picked — mid-band for every supplier
+  /// the backend uses, and the same default the backend itself falls back to.
+  static const int defaultChildAge = 8;
+
+  /// The most adults the backend (and every hotel supplier) puts in a room.
+  static const int maxAdultsPerRoom = 9;
+
   const DiySearchQuery({
     required this.origin,
     this.destination,
@@ -24,7 +35,41 @@ class DiySearchQuery {
     this.rooms = 1,
     this.adults = 2,
     this.children = 0,
+    this.childAges = const [],
   });
+
+  /// [childAges] padded or trimmed to exactly [children] entries.
+  List<int> get childAgesFilled => fitChildAges(childAges, children);
+
+  static List<int> fitChildAges(List<int> ages, int children) => [
+        for (var i = 0; i < children; i++)
+          i < ages.length ? ages[i] : defaultChildAge,
+      ];
+
+  /// The party as the backend's `rooms` list: adults spread as evenly as
+  /// possible over [rooms], children handed out one per room in turn.
+  ///
+  /// The form collects totals, not per-room occupancy, so this is the split a
+  /// hotel would make anyway. Never produces an empty room — a room count
+  /// above the adult count is capped at one adult per room — nor one with
+  /// more than [maxAdultsPerRoom], which no hotel supplier will take.
+  List<Map<String, dynamic>> get roomsPayload {
+    final needed = (adults + maxAdultsPerRoom - 1) ~/ maxAdultsPerRoom;
+    final count =
+        rooms.clamp(needed < 1 ? 1 : needed, adults < 1 ? 1 : adults);
+    final out = List.generate(
+      count,
+      (i) => <String, dynamic>{
+        'adults': adults ~/ count + (i < adults % count ? 1 : 0),
+        'child_ages': <int>[],
+      },
+    );
+    final ages = childAgesFilled;
+    for (var i = 0; i < ages.length; i++) {
+      (out[i % count]['child_ages'] as List<int>).add(ages[i]);
+    }
+    return out;
+  }
 
   DiySearchQuery copyWith({
     DiyOrigin? origin,
@@ -33,6 +78,7 @@ class DiySearchQuery {
     int? rooms,
     int? adults,
     int? children,
+    List<int>? childAges,
     bool clearDestination = false,
   }) {
     return DiySearchQuery(
@@ -42,6 +88,7 @@ class DiySearchQuery {
       rooms: rooms ?? this.rooms,
       adults: adults ?? this.adults,
       children: children ?? this.children,
+      childAges: childAges ?? this.childAges,
     );
   }
 
@@ -54,6 +101,7 @@ class DiySearchQuery {
         'rooms': rooms,
         'adults': adults,
         'children': children,
+        'childAges': childAges,
       };
 
   static DiySearchQuery fromJson(Map<String, dynamic> j) {
@@ -69,6 +117,10 @@ class DiySearchQuery {
       rooms: (j['rooms'] as num?)?.toInt() ?? 1,
       adults: (j['adults'] as num?)?.toInt() ?? 2,
       children: (j['children'] as num?)?.toInt() ?? 0,
+      childAges: ((j['childAges'] as List?) ?? const [])
+          .whereType<num>()
+          .map((a) => a.toInt())
+          .toList(),
     );
   }
 }

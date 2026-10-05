@@ -83,6 +83,15 @@ class DiyHolidayApi {
     }
   }
 
+  Future<dynamic> _put(String path) async {
+    try {
+      final res = await _dio.put(path);
+      return res.data;
+    } on DioException catch (e) {
+      throw _toException(e);
+    }
+  }
+
   Future<dynamic> _delete(String path) async {
     try {
       final res = await _dio.delete(path);
@@ -146,6 +155,12 @@ class DiyHolidayApi {
     return unwrapList(data).map(DiyTheme.fromJson).toList();
   }
 
+  /// GET /policies/ — terms, exclusions and the cancellation policy.
+  Future<DiyPolicies> getPolicies() async {
+    final data = await _get(HolidayUrls.policies);
+    return DiyPolicies.fromJson(data);
+  }
+
   // ------------------------------------------------------------ 3. search
 
   /// GET /packages/ — the search form's submit.
@@ -181,6 +196,41 @@ class DiyHolidayApi {
     return DiyPackagePage.fromJson(data);
   }
 
+  /// POST /packages/search/ — the results screen and the Filters sheet.
+  ///
+  /// Takes the whole form. `origin` and the departure date are echoed, not
+  /// filtered on: a saved package can be taken from any city on any date, and
+  /// [priceForDates] prices it for theirs. Card prices are the saved ones, per
+  /// adult.
+  Future<DiySearchResult> searchPackagesByBody({
+    String? origin,
+    String? destination,
+    DateTime? departureDate,
+    required List<Map<String, dynamic>> rooms,
+    // null shows both kinds of package; true only those sold with flights,
+    // false only land packages.
+    bool? withFlight,
+    Map<String, dynamic> filters = const {},
+    String sort = 'popularity',
+    int page = 1,
+    int pageSize = 20,
+  }) async {
+    final data = await _post(HolidayUrls.packageSearch, {
+      'origin': origin ?? '',
+      'destination': destination ?? '',
+      if (departureDate != null) 'departure_date': _ymd(departureDate),
+      'rooms': rooms,
+      'flight': withFlight == null
+          ? 'any'
+          : HolidayUrls.flightMode(withFlight: withFlight),
+      'filters': filters,
+      'sort': sort,
+      'page': page,
+      'page_size': pageSize,
+    });
+    return DiySearchResult.fromJson(data);
+  }
+
   // ------------------------------------------------- 4. saved package view
 
   /// GET /packages/{share_id}/ — the saved package at its published price.
@@ -204,11 +254,17 @@ class DiyHolidayApi {
   /// `flight: with` takes ~7s (live fares), `without` returns immediately —
   /// callers must show a loading state. The returned `trip_id` is what every
   /// later customisation works on.
+  ///
+  /// [rooms] is the Rooms & Guests split with every child's age
+  /// (`[{"adults": 2, "child_ages": [6]}]`). When sent it replaces [adults]
+  /// and [children], which older backends still read.
   Future<DiyTrip> priceForDates({
     required String shareId,
     required DateTime departureDate,
     required int adults,
     int children = 0,
+    List<Map<String, dynamic>>? rooms,
+    String? origin,
     bool withFlight = true,
   }) async {
     try {
@@ -216,6 +272,8 @@ class DiyHolidayApi {
         'departure_date': _ymd(departureDate),
         'adults': adults,
         'children': children,
+        if (rooms != null && rooms.isNotEmpty) 'rooms': rooms,
+        if (origin != null && origin.isNotEmpty) 'origin': origin,
         'flight': HolidayUrls.flightMode(withFlight: withFlight),
       });
       return DiyTrip.fromJson(data);
@@ -277,6 +335,35 @@ await _get(HolidayUrls.tripFlights(
     return DiyTrip.fromJson(data, previous: previous);
   }
 
+  /// DELETE /trips/{trip_id}/flights/{direction}/ — drops that leg; the
+  /// customer makes their own way for it. Answers with the repriced trip.
+  Future<DiyTrip> removeFlight({
+    required String tripId,
+    required bool outbound,
+    DiyTrip? previous,
+  }) async {
+    final data = await _delete(HolidayUrls.tripFlights(
+      tripId,
+      HolidayUrls.flightDirection(outbound: outbound),
+    ));
+    return DiyTrip.fromJson(data, previous: previous);
+  }
+
+  /// PUT /trips/{trip_id}/flights/{direction}/ — puts a dropped leg back
+  /// with a freshly searched flight; the other leg stays as it was. A live
+  /// search.
+  Future<DiyTrip> restoreFlight({
+    required String tripId,
+    required bool outbound,
+    DiyTrip? previous,
+  }) async {
+    final data = await _put(HolidayUrls.tripFlights(
+      tripId,
+      HolidayUrls.flightDirection(outbound: outbound),
+    ));
+    return DiyTrip.fromJson(data, previous: previous);
+  }
+
   // -------------------------------------------------------- 9/10. hotels
 
   /// GET /trips/{trip_id}/stops/{stop_id}/hotels/ — ~40 options; the first
@@ -303,6 +390,23 @@ await _get(HolidayUrls.tripFlights(
       if (roomRef != null && roomRef.isNotEmpty) 'room_ref': roomRef,
     });
     return DiyTrip.fromJson(data, previous: previous);
+  }
+
+  /// GET /trips/{trip_id}/stops/{stop_id}/rooms/ — without [hotelRef], the
+  /// hotel already on the stay with its photos, facilities and rooms; with
+  /// it, that hotel's rooms. A live supplier search.
+  Future<DiyHotelRooms> getRooms({
+    required String tripId,
+    required String stopId,
+    String? hotelRef,
+  }) async {
+    final data = await _get(
+      HolidayUrls.tripStopRooms(tripId, stopId),
+      query: {
+        if (hotelRef != null && hotelRef.isNotEmpty) 'hotel_ref': hotelRef,
+      },
+    );
+    return DiyHotelRooms.fromJson(data);
   }
 
   // ----------------------------------------------------- 11/12/13. add-ons
@@ -412,6 +516,61 @@ await _get(HolidayUrls.tripFlights(
   }) async {
     final data = await _post(HolidayUrls.tripCab(tripId), {'code': code});
     return DiyTrip.fromJson(data, previous: previous);
+  }
+
+  /// DELETE /trips/{trip_id}/cab/ — takes the car, and every transfer and
+  /// sightseeing drive with it, off the trip. Answers with the repriced trip.
+  Future<DiyTrip> removeCab({required String tripId, DiyTrip? previous}) async {
+    final data = await _delete(HolidayUrls.tripCab(tripId));
+    return DiyTrip.fromJson(data, previous: previous);
+  }
+
+  // ------------------------------------------------------------ booking
+
+  /// POST /trips/{trip_id}/book/ — raises the DIY booking: price and
+  /// cancellation terms frozen, the customer, travellers, GST state and
+  /// arrival/departure details on it.
+  Future<DiyBooking> bookTrip({
+    required String tripId,
+    required String customerName,
+    required String customerPhone,
+    required String customerEmail,
+    required String gstState,
+    required List<Map<String, dynamic>> travellers,
+    Map<String, dynamic>? arrival,
+    Map<String, dynamic>? departure,
+    required bool termsAccepted,
+  }) async {
+    final data = await _post(HolidayUrls.tripBook(tripId), {
+      'customer_name': customerName,
+      'customer_phone': customerPhone,
+      'customer_email': customerEmail,
+      'gst_state': gstState,
+      'travellers': travellers,
+      if (arrival != null) 'arrival': arrival,
+      if (departure != null) 'departure': departure,
+      'terms_accepted': termsAccepted,
+    });
+    return DiyBooking.fromJson(data);
+  }
+
+  /// POST /bookings/{booking_id}/pay/ — a Razorpay link for one instalment.
+  Future<DiyPaymentLink> payBooking({
+    required String bookingId,
+    required int percent,
+  }) async {
+    final data = await _post(
+      HolidayUrls.bookingPay(bookingId),
+      {'percent': percent},
+    );
+    return DiyPaymentLink.fromJson(data);
+  }
+
+  /// POST /bookings/{booking_id}/sync/ — records anything paid on the
+  /// booking's links and answers with where it stands.
+  Future<DiyBooking> syncBooking(String bookingId) async {
+    final data = await _post(HolidayUrls.bookingSync(bookingId), {});
+    return DiyBooking.fromJson(data);
   }
 
   // --------------------------------------------------------------- utils

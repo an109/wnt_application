@@ -23,7 +23,24 @@ import '../screens/diy_filter_screen.dart';
 class DiyThemeSection extends StatefulWidget {
   final DiySearchQuery query;
 
-  const DiyThemeSection({super.key, required this.query});
+  /// "Holiday By Theme" on home; the results screen's "Collection".
+  final String title;
+
+  /// Replaces opening a new results screen — the results screen filters in
+  /// place instead.
+  final ValueChanged<DiyTheme>? onPick;
+
+  /// Only these themes, when given — the results screen passes the ones its
+  /// search actually has packages for, so a tile never leads nowhere.
+  final Set<String>? onlySlugs;
+
+  const DiyThemeSection({
+    super.key,
+    required this.query,
+    this.title = 'Holiday By Theme',
+    this.onPick,
+    this.onlySlugs,
+  });
 
   @override
   State<DiyThemeSection> createState() => _DiyThemeSectionState();
@@ -61,6 +78,10 @@ class _DiyThemeSectionState extends State<DiyThemeSection> {
   }
 
   void _open(DiyTheme theme) {
+    if (widget.onPick != null) {
+      widget.onPick!(theme);
+      return;
+    }
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => DiyResultsScreen(
@@ -84,7 +105,10 @@ class _DiyThemeSectionState extends State<DiyThemeSection> {
             child: const Center(child: CircularProgressIndicator()),
           );
         }
-        final themes = snapshot.data ?? const <DiyTheme>[];
+        final only = widget.onlySlugs;
+        final themes = (snapshot.data ?? const <DiyTheme>[])
+            .where((t) => only == null || only.contains(t.slug))
+            .toList();
         if (themes.isEmpty) return const SizedBox.shrink();
 
         return Column(
@@ -96,7 +120,7 @@ class _DiyThemeSectionState extends State<DiyThemeSection> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Holiday By Theme',
+                    widget.title,
                     style: TextStyle(
                       fontSize: context.fs(22),
                       fontWeight: FontWeight.w700,

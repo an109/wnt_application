@@ -5,103 +5,146 @@ import 'package:wander_nova/UI_helper/responsive_layout.dart';
 
 import '../../../../injection_container.dart';
 import '../../data/diy_holiday_api.dart';
+import '../../data/diy_search_query.dart';
+import '../../data/models/diy_models.dart';
 import '../widgets/diy_common.dart';
+import '../widgets/diy_sort_sheet.dart';
 
-/// The filters the DIY search endpoint understands.
+/// The Filters sheet's choices, sent as `filters` and `sort` on
+/// **POST /packages/search/**.
 ///
-/// [maxPrice], [nights] and [withFlight] map onto `?max_price=`, `?nights=`
-/// and `?flight=` on **API 3 — GET /packages/**. [stars] is sent as
-/// `?stars=` for the Hotel Category row in the design; the backend currently
-/// ignores it, so it is not applied client-side either (package summaries
-/// carry no star rating).
+/// Budget is **per person** — the backend divides each package's saved price
+/// by the adults it was priced for, the same figure the card leads on.
 class DiyFilters {
-  final double? maxPrice;
-  final bool withFlight;
-  final int? nights;
-  final int? stars;
+  final double? budgetMin;
+  final double? budgetMax;
+
+  /// Which kind of package: null shows both, true only those that offer
+  /// flights (priced live once opened), false only land packages.
+  final bool? withFlight;
+  final int? nightsMax;
+  final Set<int> stars;
+  final Set<String> cities;
   final String? theme;
+  final bool trending;
+  final DiySortOption sort;
 
   const DiyFilters({
-    this.maxPrice,
-    // Results open on land-only pricing: it is the smaller, more comparable
-    // number (₹17,790 vs ₹79,467 on the same Kerala package), and the
-    // customer picks with/without per package from the card's option sheet.
-    this.withFlight = false,
-    this.nights,
-    this.stars,
+    this.budgetMin,
+    this.budgetMax,
+    this.withFlight,
+    this.nightsMax,
+    this.stars = const {},
+    this.cities = const {},
     this.theme,
+    this.trending = false,
+    this.sort = DiySortOption.popularity,
   });
 
   DiyFilters copyWith({
-    double? maxPrice,
+    double? budgetMin,
+    double? budgetMax,
     bool? withFlight,
-    int? nights,
-    int? stars,
+    int? nightsMax,
+    Set<int>? stars,
+    Set<String>? cities,
     String? theme,
-    bool clearMaxPrice = false,
+    bool? trending,
+    DiySortOption? sort,
+    bool clearBudget = false,
     bool clearNights = false,
-    bool clearStars = false,
     bool clearTheme = false,
+    bool clearFlight = false,
   }) {
     return DiyFilters(
-      maxPrice: clearMaxPrice ? null : (maxPrice ?? this.maxPrice),
-      withFlight: withFlight ?? this.withFlight,
-      nights: clearNights ? null : (nights ?? this.nights),
-      stars: clearStars ? null : (stars ?? this.stars),
+      budgetMin: clearBudget ? null : (budgetMin ?? this.budgetMin),
+      budgetMax: clearBudget ? null : (budgetMax ?? this.budgetMax),
+      withFlight: clearFlight ? null : (withFlight ?? this.withFlight),
+      nightsMax: clearNights ? null : (nightsMax ?? this.nightsMax),
+      stars: stars ?? this.stars,
+      cities: cities ?? this.cities,
       theme: clearTheme ? null : (theme ?? this.theme),
+      trending: trending ?? this.trending,
+      sort: sort ?? this.sort,
     );
   }
 
-  bool get isActive =>
-      maxPrice != null || nights != null || stars != null || theme != null;
-}
+  /// Both budget ends replaced at once — either may be null ("no floor",
+  /// "no ceiling"), which [copyWith] cannot express.
+  DiyFilters withBudget(double? min, double? max) => DiyFilters(
+        budgetMin: min,
+        budgetMax: max,
+        withFlight: withFlight,
+        nightsMax: nightsMax,
+        stars: stars,
+        cities: cities,
+        theme: theme,
+        trending: trending,
+        sort: sort,
+      );
 
-// Sized for a party total (see [_budgetSection]): a two-adult Kerala package
-// already runs to ~₹86,000, so the old 4k–90k range put the live results hard
-// against the ceiling and made the lower half of the slider match nothing.
-// The far-right position means "no ceiling" and sends no `max_price` at all.
-const double _minBudget = 10000;
-const double _maxBudget = 300000;
-const double _minNights = 1;
-const double _maxNights = 14;
+  /// Anything narrowing the list. Sort is a choice, not a filter.
+  bool get isActive =>
+      withFlight != null ||
+      budgetMin != null ||
+      budgetMax != null ||
+      nightsMax != null ||
+      stars.isNotEmpty ||
+      cities.isNotEmpty ||
+      theme != null ||
+      trending;
+
+  /// The `filters` object of the search body. Whole rupees: the backend
+  /// takes integers.
+  Map<String, dynamic> toApi() => {
+        if (budgetMin != null) 'budget_min': budgetMin!.round(),
+        if (budgetMax != null) 'budget_max': budgetMax!.round(),
+        if (nightsMax != null) 'nights_max': nightsMax,
+        if (stars.isNotEmpty) 'hotel_stars': stars.toList()..sort(),
+        if (cities.isNotEmpty) 'cities': cities.toList(),
+        if (theme != null && theme!.isNotEmpty) 'themes': [theme],
+        if (trending) 'trending': true,
+      };
+}
 
 /// Opens Filters as its own screen and returns the chosen [DiyFilters], or
 /// null when the customer backs out without applying.
 Future<DiyFilters?> openDiyFilterScreen(
   BuildContext context, {
   required DiyFilters initial,
-  String? origin,
-  String? destination,
-  int? adults,
-  int? children,
+  required DiySearchQuery query,
 }) {
   return Navigator.of(context).push<DiyFilters>(
     MaterialPageRoute(
-      builder: (_) => DiyFilterScreen(
-        initial: initial,
-        origin: origin,
-        destination: destination,
-        adults: adults,
-        children: children,
-      ),
+      builder: (_) => DiyFilterScreen(initial: initial, query: query),
     ),
   );
 }
 
+/// Quick budget picks from the design, per person: (label, min, max).
+const List<(String, double?, double?)> _budgetPicks = [
+  ('< ₹15,000', null, 15000),
+  ('₹15,000 - ₹20,000', 15000, 20000),
+  ('₹20,000 - ₹25,000', 20000, 25000),
+  ('> ₹25,000', 25000, null),
+];
+
+/// The design's hotel category chips. 2 is the backend's "below three star".
+const Map<int, String> _starOptions = {
+  2: '< 3 Star',
+  3: '3 Star',
+  4: '4 Star',
+  5: '5 Star',
+};
+
 class DiyFilterScreen extends StatefulWidget {
   final DiyFilters initial;
-  final String? origin;
-  final String? destination;
-  final int? adults;
-  final int? children;
+  final DiySearchQuery query;
 
   const DiyFilterScreen({
     super.key,
     required this.initial,
-    this.origin,
-    this.destination,
-    this.adults,
-    this.children,
+    required this.query,
   });
 
   @override
@@ -109,23 +152,22 @@ class DiyFilterScreen extends StatefulWidget {
 }
 
 class _DiyFilterScreenState extends State<DiyFilterScreen> {
-  late double _budget;
-  late bool _withFlight;
-  late double _nights;
-  int? _stars;
+  late DiyFilters _f = widget.initial;
 
+  /// The budget slider's own position, so dragging does not fire a search on
+  /// every frame — it is committed to [_f] on release.
+  double? _sliderBudget;
+
+  DiySearchFacets _facets = DiySearchFacets.empty;
   Timer? _debounce;
-  int? _foundCount;
+  int? _found;
+  int? _total;
   bool _counting = false;
 
   @override
   void initState() {
     super.initState();
-    _budget = widget.initial.maxPrice ?? _maxBudget;
-    _withFlight = widget.initial.withFlight;
-    _nights = (widget.initial.nights ?? _minNights).toDouble();
-    _stars = widget.initial.stars;
-    _recount();
+    _recount(immediate: true);
   }
 
   @override
@@ -134,53 +176,66 @@ class _DiyFilterScreenState extends State<DiyFilterScreen> {
     super.dispose();
   }
 
-  DiyFilters get _current => DiyFilters(
-        // A budget parked at the far right means "no ceiling".
-        maxPrice: _budget >= _maxBudget ? null : _budget,
-        withFlight: _withFlight,
-        nights: widget.initial.nights == null && _nights == _minNights
-            ? null
-            : _nights.round(),
-        stars: _stars,
-        theme: widget.initial.theme,
-      );
-
-  /// Live "Found N Packages" counter — runs the same search the Apply button
-  /// will run, and only reads `count`.
-  void _recount() {
+  /// Runs the search Apply will run, for one card only, and keeps its counts
+  /// and facets — the "25/63 Packages" footer and the number on every option.
+  void _recount({bool immediate = false}) {
     _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 350), () async {
-      if (!mounted) return;
-      setState(() => _counting = true);
-      final f = _current;
-      try {
-        final page = await sl<DiyHolidayApi>().searchPackages(
-          origin: widget.origin,
-          destination: widget.destination,
-          adults: widget.adults,
-          children: widget.children,
-          theme: f.theme,
-          flight: f.withFlight ? 'with' : 'without',
-          maxPrice: f.maxPrice,
-          nights: f.nights,
-        );
-        if (mounted) setState(() => _foundCount = page.count);
-      } catch (_) {
-        if (mounted) setState(() => _foundCount = null);
-      } finally {
-        if (mounted) setState(() => _counting = false);
-      }
-    });
+    _debounce = Timer(
+      immediate ? Duration.zero : const Duration(milliseconds: 300),
+      () async {
+        if (!mounted) return;
+        setState(() => _counting = true);
+        try {
+          final result = await sl<DiyHolidayApi>().searchPackagesByBody(
+            origin: widget.query.origin.slug,
+            destination: widget.query.destination?.slug,
+            departureDate: widget.query.departureDate,
+            rooms: widget.query.roomsPayload,
+            withFlight: _f.withFlight,
+            filters: _f.toApi(),
+            sort: _f.sort.apiValue,
+            pageSize: 1,
+          );
+          if (!mounted) return;
+          setState(() {
+            _found = result.page.count;
+            _total = result.total;
+            _facets = result.facets;
+          });
+        } catch (_) {
+          if (mounted) setState(() => _found = null);
+        } finally {
+          if (mounted) setState(() => _counting = false);
+        }
+      },
+    );
+  }
+
+  void _update(DiyFilters next) {
+    setState(() => _f = next);
+    _recount();
   }
 
   void _reset() {
     setState(() {
-      _budget = _maxBudget;
-      _withFlight = true;
-      _nights = _minNights;
-      _stars = null;
+      _sliderBudget = null;
+      _f = const DiyFilters();
     });
     _recount();
+  }
+
+  // Slider bounds come from what the destination actually has, so the full
+  // track always spans real packages.
+  double get _budgetFloor => (_facets.budgetMin ?? 1000).floorToDouble();
+  double get _budgetCeiling {
+    final top = (_facets.budgetMax ?? 100000).ceilToDouble();
+    return top > _budgetFloor ? top : _budgetFloor + 1000;
+  }
+
+  int get _nightsFloor => _facets.nightsMin ?? 1;
+  int get _nightsCeiling {
+    final top = _facets.nightsMax ?? 14;
+    return top > _nightsFloor ? top : _nightsFloor;
   }
 
   @override
@@ -192,24 +247,34 @@ class _DiyFilterScreenState extends State<DiyFilterScreen> {
         child: Column(
           children: [
             _header(),
-          Expanded(
-            child: ListView(
-              padding: EdgeInsets.fromLTRB(
-                context.w(14),
-                context.h(14),
-                context.w(14),
-                context.h(20),
+            Expanded(
+              child: ListView(
+                padding: EdgeInsets.fromLTRB(
+                  context.w(14),
+                  context.h(14),
+                  context.w(14),
+                  context.h(20),
+                ),
+                children: [
+                  _budgetSection(),
+                  SizedBox(height: context.h(14)),
+                  _flightSection(),
+                  SizedBox(height: context.h(14)),
+                  _nightsSection(),
+                  SizedBox(height: context.h(14)),
+                  _hotelCategorySection(),
+                  if (_facets.cities.isNotEmpty) ...[
+                    SizedBox(height: context.h(14)),
+                    _citiesSection(),
+                  ],
+                  SizedBox(height: context.h(14)),
+                  _sortSection(),
+                  if (_facets.themes.isNotEmpty || _facets.trending > 0) ...[
+                    SizedBox(height: context.h(14)),
+                    _themeSection(),
+                  ],
+                ],
               ),
-              children: [
-                _budgetSection(),
-                SizedBox(height: context.h(14)),
-                _flightSection(),
-                SizedBox(height: context.h(14)),
-                _nightsSection(),
-                SizedBox(height: context.h(14)),
-                _hotelCategorySection(),
-              ],
-            ),
             ),
             _applyBar(),
           ],
@@ -230,8 +295,7 @@ class _DiyFilterScreenState extends State<DiyFilterScreen> {
           GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: () => Navigator.of(context).pop(),
-            child: Icon(Icons.arrow_back,
-                size: context.w(22), color: DiyTokens.navy),
+            child: Icon(Icons.close, size: context.w(22), color: DiyTokens.navy),
           ),
           SizedBox(width: context.w(14)),
           Text(
@@ -273,10 +337,7 @@ class _DiyFilterScreenState extends State<DiyFilterScreen> {
         children: [
           Text(
             title,
-            style: TextStyle(
-              fontSize: context.fs(15),
-              color: DiyTokens.subGrey,
-            ),
+            style: TextStyle(fontSize: context.fs(15), color: DiyTokens.subGrey),
           ),
           SizedBox(height: context.h(10)),
           child,
@@ -285,101 +346,96 @@ class _DiyFilterScreenState extends State<DiyFilterScreen> {
     );
   }
 
+  SliderThemeData _sliderTheme() => SliderTheme.of(context).copyWith(
+        activeTrackColor: DiyTokens.blue,
+        inactiveTrackColor: const Color(0xFFE3E6EC),
+        thumbColor: Colors.white,
+        overlayColor: DiyTokens.blue.withOpacity(0.12),
+        trackHeight: 4,
+        thumbShape: const RoundSliderThumbShape(
+          enabledThumbRadius: 11,
+          elevation: 2,
+        ),
+      );
+
+  Widget _valueTag(String text) {
+    return Align(
+      alignment: Alignment.center,
+      child: Container(
+        padding: EdgeInsets.symmetric(
+          horizontal: context.w(10),
+          vertical: context.h(4),
+        ),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(context.r(6)),
+          border: Border.all(color: DiyTokens.line),
+        ),
+        child: Text(
+          text,
+          style: TextStyle(
+            fontSize: context.fs(13),
+            fontWeight: FontWeight.w700,
+            color: DiyTokens.navy,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _rangeLabels(String low, String high) {
+    final style = TextStyle(fontSize: context.fs(12), color: DiyTokens.subGrey);
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [Text(low, style: style), Text(high, style: style)],
+    );
+  }
+
   Widget _budgetSection() {
-    // `max_price` is compared against the package's PARTY TOTAL, not a
-    // per-person fare — verified against the live endpoint: max_price=80000
-    // returns the ₹79,467 package and drops the ₹85,869 one, where the
-    // per-person figures are ₹39,734 / ₹42,935. The section used to be
-    // labelled "per person" with per-person-sized presets, so every preset
-    // filtered everything out for a party of two.
-    final quickPicks = <String, double?>{
-      '< ₹50,000': 50000,
-      '₹50,000 – ₹75,000': 75000,
-      '₹75,000 – ₹1,00,000': 100000,
-      'Any': null,
-    };
+    final floor = _budgetFloor;
+    final ceiling = _budgetCeiling;
+    final value =
+        (_sliderBudget ?? _f.budgetMax ?? ceiling).clamp(floor, ceiling);
 
     return _section(
-      title: 'Budget (trip total)',
+      title: 'Budget (per person)',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Align(
-            alignment: Alignment.center,
-            child: Container(
-              padding: EdgeInsets.symmetric(
-                horizontal: context.w(10),
-                vertical: context.h(4),
-              ),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(context.r(6)),
-                border: Border.all(color: DiyTokens.line),
-              ),
-              child: Text(
-                diyMoney(_budget),
-                style: TextStyle(
-                  fontSize: context.fs(13),
-                  fontWeight: FontWeight.w700,
-                  color: DiyTokens.navy,
-                ),
-              ),
-            ),
-          ),
+          _valueTag(diyMoney(value)),
           SliderTheme(
-            data: SliderTheme.of(context).copyWith(
-              activeTrackColor: DiyTokens.blue,
-              inactiveTrackColor: const Color(0xFFE3E6EC),
-              thumbColor: Colors.white,
-              overlayColor: DiyTokens.blue.withOpacity(0.12),
-              trackHeight: 4,
-              thumbShape: const RoundSliderThumbShape(
-                enabledThumbRadius: 11,
-                elevation: 2,
-              ),
-            ),
+            data: _sliderTheme(),
             child: Slider(
-              min: _minBudget,
-              max: _maxBudget,
-              divisions: 86,
-              value: _budget.clamp(_minBudget, _maxBudget),
-              onChanged: (v) => setState(() => _budget = v),
-              onChangeEnd: (_) => _recount(),
+              min: floor,
+              max: ceiling,
+              value: value,
+              onChanged: (v) => setState(() => _sliderBudget = v),
+              onChangeEnd: (v) {
+                _sliderBudget = null;
+                // The far right means "no ceiling".
+                _update(_f.withBudget(null, v >= ceiling ? null : v));
+              },
             ),
           ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                diyMoney(_minBudget),
-                style: TextStyle(
-                  fontSize: context.fs(12),
-                  color: DiyTokens.subGrey,
-                ),
-              ),
-              Text(
-                diyMoney(_maxBudget),
-                style: TextStyle(
-                  fontSize: context.fs(12),
-                  color: DiyTokens.subGrey,
-                ),
-              ),
-            ],
-          ),
+          _rangeLabels(diyMoney(floor), diyMoney(ceiling)),
           SizedBox(height: context.h(12)),
           Wrap(
             spacing: context.w(10),
             runSpacing: context.h(10),
             children: [
-              for (final entry in quickPicks.entries)
+              for (final (label, low, high) in _budgetPicks)
                 _chip(
-                  label: entry.key,
-                  selected: entry.value == null
-                      ? _budget >= _maxBudget
-                      : _budget == entry.value,
+                  label: label,
+                  selected: _f.budgetMin == low && _f.budgetMax == high &&
+                      (low != null || high != null),
                   onTap: () {
-                    setState(() => _budget = entry.value ?? _maxBudget);
-                    _recount();
+                    final picked =
+                        _f.budgetMin == low && _f.budgetMax == high;
+                    _update(
+                      picked
+                          ? _f.withBudget(null, null)
+                          : _f.withBudget(low, high),
+                    );
                   },
                 ),
             ],
@@ -426,12 +482,16 @@ class _DiyFilterScreenState extends State<DiyFilterScreen> {
                   color: selected ? DiyTokens.blue : DiyTokens.subGrey,
                 ),
                 SizedBox(width: context.w(8)),
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: context.fs(14),
-                    fontWeight: FontWeight.w600,
-                    color: selected ? DiyTokens.blue : DiyTokens.subGrey,
+                Flexible(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: context.fs(13),
+                      fontWeight: FontWeight.w600,
+                      color: selected ? DiyTokens.blue : DiyTokens.subGrey,
+                    ),
                   ),
                 ),
               ],
@@ -451,23 +511,26 @@ class _DiyFilterScreenState extends State<DiyFilterScreen> {
         ),
         child: Row(
           children: [
+            // Tapping the picked side again shows both kinds again.
             option(
-              label: 'With Flight',
+              label: 'With Flight (${_facets.withFlight})',
               icon: Icons.flight_takeoff,
-              selected: _withFlight,
-              onTap: () {
-                setState(() => _withFlight = true);
-                _recount();
-              },
+              selected: _f.withFlight == true,
+              onTap: () => _update(
+                _f.withFlight == true
+                    ? _f.copyWith(clearFlight: true)
+                    : _f.copyWith(withFlight: true),
+              ),
             ),
             option(
-              label: 'Without Flight',
+              label: 'Without Flight (${_facets.withoutFlight})',
               icon: Icons.flight_land,
-              selected: !_withFlight,
-              onTap: () {
-                setState(() => _withFlight = false);
-                _recount();
-              },
+              selected: _f.withFlight == false,
+              onTap: () => _update(
+                _f.withFlight == false
+                    ? _f.copyWith(clearFlight: true)
+                    : _f.copyWith(withFlight: false),
+              ),
             ),
           ],
         ),
@@ -476,84 +539,51 @@ class _DiyFilterScreenState extends State<DiyFilterScreen> {
   }
 
   Widget _nightsSection() {
+    final floor = _nightsFloor;
+    final ceiling = _nightsCeiling;
+
+    // Every package here is the same length: a slider with one stop is noise.
+    if (ceiling <= floor) {
+      return _section(
+        title: 'Duration in Nights',
+        child: Text(
+          'All packages are $floor night${floor == 1 ? '' : 's'}',
+          style: TextStyle(fontSize: context.fs(13), color: DiyTokens.navy),
+        ),
+      );
+    }
+
+    final value = (_f.nightsMax ?? ceiling).clamp(floor, ceiling).toDouble();
     return _section(
-      title: 'Duration  in Nights',
+      title: 'Duration in Nights',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Align(
-            alignment: Alignment.center,
-            child: Container(
-              padding: EdgeInsets.symmetric(
-                horizontal: context.w(10),
-                vertical: context.h(4),
-              ),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(context.r(6)),
-                border: Border.all(color: DiyTokens.line),
-              ),
-              child: Text(
-                '${_nights.round()} N',
-                style: TextStyle(
-                  fontSize: context.fs(13),
-                  fontWeight: FontWeight.w700,
-                  color: DiyTokens.navy,
-                ),
-              ),
-            ),
-          ),
+          _valueTag('Up to ${value.round()} N'),
           SliderTheme(
-            data: SliderTheme.of(context).copyWith(
-              activeTrackColor: DiyTokens.blue,
-              inactiveTrackColor: const Color(0xFFE3E6EC),
-              thumbColor: Colors.white,
-              overlayColor: DiyTokens.blue.withOpacity(0.12),
-              trackHeight: 4,
-              thumbShape: const RoundSliderThumbShape(
-                enabledThumbRadius: 11,
-                elevation: 2,
-              ),
-            ),
+            data: _sliderTheme(),
             child: Slider(
-              min: _minNights,
-              max: _maxNights,
-              divisions: (_maxNights - _minNights).round(),
-              value: _nights.clamp(_minNights, _maxNights),
-              onChanged: (v) => setState(() => _nights = v),
+              min: floor.toDouble(),
+              max: ceiling.toDouble(),
+              divisions: ceiling - floor,
+              value: value,
+              onChanged: (v) => setState(
+                () => _f = v.round() >= ceiling
+                    ? _f.copyWith(clearNights: true)
+                    : _f.copyWith(nightsMax: v.round()),
+              ),
               onChangeEnd: (_) => _recount(),
             ),
           ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                '${_minNights.round()} N',
-                style: TextStyle(
-                  fontSize: context.fs(12),
-                  color: DiyTokens.subGrey,
-                ),
-              ),
-              Text(
-                '${_maxNights.round()} N',
-                style: TextStyle(
-                  fontSize: context.fs(12),
-                  color: DiyTokens.subGrey,
-                ),
-              ),
-            ],
-          ),
+          _rangeLabels('$floor N', '$ceiling N'),
         ],
       ),
     );
   }
 
   Widget _hotelCategorySection() {
-    const options = <int, String>{
-      2: '< 3 Star',
-      3: '3 Star',
-      4: '4 Star',
-      5: '5 Star',
+    final counts = {
+      for (final o in _facets.hotelStars) int.tryParse(o.value) ?? 0: o.count,
     };
 
     return _section(
@@ -562,21 +592,146 @@ class _DiyFilterScreenState extends State<DiyFilterScreen> {
         spacing: context.w(10),
         runSpacing: context.h(10),
         children: [
-          for (final entry in options.entries)
+          for (final entry in _starOptions.entries)
             _chip(
-              label: entry.value,
+              label: counts.containsKey(entry.key)
+                  ? '${entry.value} (${counts[entry.key]})'
+                  : entry.value,
               leading: Icon(
                 Icons.star_rounded,
                 size: context.w(15),
                 color: const Color(0xFFFFC107),
               ),
-              selected: _stars == entry.key,
+              selected: _f.stars.contains(entry.key),
               onTap: () {
-                setState(
-                  () => _stars = _stars == entry.key ? null : entry.key,
-                );
-                _recount();
+                final next = {..._f.stars};
+                next.contains(entry.key)
+                    ? next.remove(entry.key)
+                    : next.add(entry.key);
+                _update(_f.copyWith(stars: next));
               },
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _citiesSection() {
+    return _section(
+      title: 'Cities',
+      child: Wrap(
+        spacing: context.w(10),
+        runSpacing: context.h(10),
+        children: [
+          for (final city in _facets.cities)
+            _chip(
+              label: '${city.label} (${city.count})',
+              leading: Icon(
+                Icons.location_city_rounded,
+                size: context.w(15),
+                color: DiyTokens.blue,
+              ),
+              selected: _f.cities.contains(city.value),
+              onTap: () {
+                final next = {..._f.cities};
+                next.contains(city.value)
+                    ? next.remove(city.value)
+                    : next.add(city.value);
+                _update(_f.copyWith(cities: next));
+              },
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _sortSection() {
+    Widget card(DiySortOption option) {
+      final selected = _f.sort == option;
+      return Expanded(
+        child: GestureDetector(
+          onTap: () => _update(_f.copyWith(sort: option)),
+          behavior: HitTestBehavior.opaque,
+          child: Container(
+            padding: EdgeInsets.symmetric(vertical: context.h(10)),
+            decoration: BoxDecoration(
+              color: selected ? const Color(0xFFE8F4FC) : Colors.white,
+              borderRadius: BorderRadius.circular(context.r(8)),
+              border: Border.all(
+                color: selected ? DiyTokens.blue : DiyTokens.line,
+              ),
+            ),
+            child: Column(
+              children: [
+                Icon(
+                  option.icon,
+                  size: context.w(18),
+                  color: selected ? DiyTokens.blue : DiyTokens.navy,
+                ),
+                SizedBox(height: context.h(4)),
+                Text(
+                  option.label,
+                  style: TextStyle(
+                    fontSize: context.fs(12.5),
+                    fontWeight: FontWeight.w600,
+                    color: selected ? DiyTokens.blue : DiyTokens.navy,
+                  ),
+                ),
+                Text(
+                  option.caption,
+                  style: TextStyle(
+                    fontSize: context.fs(9.5),
+                    color: DiyTokens.subGrey,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return _section(
+      title: 'Sort By',
+      child: Row(
+        children: [
+          card(DiySortOption.popularity),
+          SizedBox(width: context.w(10)),
+          card(DiySortOption.priceLowToHigh),
+          SizedBox(width: context.w(10)),
+          card(DiySortOption.priceHighToLow),
+        ],
+      ),
+    );
+  }
+
+  Widget _themeSection() {
+    return _section(
+      title: 'Theme',
+      child: Wrap(
+        spacing: context.w(10),
+        runSpacing: context.h(10),
+        children: [
+          if (_facets.trending > 0)
+            _chip(
+              label: 'Trending (${_facets.trending})',
+              leading: Icon(
+                Icons.local_fire_department_rounded,
+                size: context.w(15),
+                color: DiyTokens.orange,
+              ),
+              selected: _f.trending,
+              onTap: () => _update(_f.copyWith(trending: !_f.trending)),
+            ),
+          for (final theme in _facets.themes)
+            _chip(
+              label: '${theme.label} (${theme.count})',
+              selected: _f.theme == theme.value,
+              onTap: () => _update(
+                _f.theme == theme.value
+                    ? _f.copyWith(clearTheme: true)
+                    : _f.copyWith(theme: theme.value),
+              ),
             ),
         ],
       ),
@@ -623,6 +778,9 @@ class _DiyFilterScreenState extends State<DiyFilterScreen> {
   }
 
   Widget _applyBar() {
+    final found = _found;
+    final total = _total;
+
     return Container(
       padding: EdgeInsets.fromLTRB(
         context.w(16),
@@ -656,9 +814,11 @@ class _DiyFilterScreenState extends State<DiyFilterScreen> {
                         child: const CircularProgressIndicator(strokeWidth: 2),
                       )
                     : Text(
-                        _foundCount == null
+                        found == null
                             ? '— Packages'
-                            : '$_foundCount Package${_foundCount == 1 ? '' : 's'}',
+                            // The design's "25/63 Packages".
+                            : '$found/${total ?? found} '
+                                'Package${(total ?? found) == 1 ? '' : 's'}',
                         style: TextStyle(
                           fontSize: context.fs(19),
                           fontWeight: FontWeight.w700,
@@ -671,8 +831,8 @@ class _DiyFilterScreenState extends State<DiyFilterScreen> {
           SizedBox(
             width: context.w(160),
             child: DiyPrimaryButton(
-              label: 'APPLY FILTER',
-              onPressed: () => Navigator.of(context).pop(_current),
+              label: 'APPLY',
+              onPressed: () => Navigator.of(context).pop(_f),
             ),
           ),
         ],

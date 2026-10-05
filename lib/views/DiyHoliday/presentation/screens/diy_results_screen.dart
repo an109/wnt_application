@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 
 import '../../../../core/resources/app_colours.dart';
@@ -8,6 +7,7 @@ import '../../../../injection_container.dart';
 import '../../../MainApi/presentation/bloc/general_setting_bloc.dart';
 import '../../../MainApi/presentation/bloc/general_settings_event.dart';
 import '../../../MainApi/presentation/bloc/general_settings_state.dart';
+import '../widgets/diy_compact_search_bar.dart';
 import '../widgets/diy_edit_search_drawer.dart';
 import '../widgets/diy_flight_choice_sheet.dart';
 import '../widgets/diy_sort_sheet.dart';
@@ -18,14 +18,18 @@ import '../../data/models/diy_models.dart';
 import '../widgets/diy_common.dart';
 import 'diy_filter_screen.dart';
 import '../widgets/diy_package_card.dart';
+import '../widgets/diy_share_sheet.dart';
+import '../widgets/diy_theme_section.dart';
 import 'diy_package_detail_screen.dart';
+import 'diy_trip_screen.dart';
 
-/// Search results — **API 3: GET /packages/**.
+/// Search results — **POST /packages/search/**.
 ///
-/// The departure date the user chose is deliberately not sent: every package
-/// carries a fixed date and filtering on one returns nothing. The date is
-/// carried forward instead and applied on the detail screen through
-/// **API 5 — POST /packages/{share_id}/price/**.
+/// The whole form goes in the body. The origin and date are echoed by the
+/// backend, not filtered on: every package can be taken from any city on any
+/// date. They are carried forward and applied on the detail screen through
+/// **API 5 — POST /packages/{share_id}/price/**, which prices the customer's
+/// own city and dates live.
 class DiyResultsScreen extends StatefulWidget {
   final DiySearchQuery query;
   final DiyFilters filters;
@@ -49,12 +53,13 @@ class _DiyResultsScreenState extends State<DiyResultsScreen> {
   /// keeps its own copy rather than reading [widget.query] directly.
   late DiySearchQuery _query;
 
-  /// Client-side ordering — the search endpoint takes no sort parameter.
-  DiySortOption _sort = DiySortOption.recommended;
-
   /// The holidays hero from site settings — the same artwork the Holidays
   /// screen's search card uses, so the two headers match.
   String? _heroImage;
+
+  /// The searched destination's own picture, from the search. Wins over the
+  /// generic Holidays artwork once it is known.
+  String _destinationHero = '';
 
   final List<DiyPackageSummary> _packages = [];
 
@@ -63,6 +68,10 @@ class _DiyResultsScreenState extends State<DiyResultsScreen> {
   bool _hasNext = false;
   int _page = 1;
   int _count = 0;
+
+  /// Packages the destination has before any filter — the "/63" half.
+  int _total = 0;
+  DiySearchFacets _facets = DiySearchFacets.empty;
   String? _error;
 
   @override
@@ -73,9 +82,9 @@ class _DiyResultsScreenState extends State<DiyResultsScreen> {
     _scrollController.addListener(_onScroll);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      context
-          .read<GeneralSettingsBloc>()
-          .add(const LoadSectionHeroes(domain: 'thewandernova.com'));
+      context.read<GeneralSettingsBloc>().add(
+        const LoadSectionHeroes(domain: 'thewandernova.com'),
+      );
     });
     _load();
   }
@@ -87,7 +96,12 @@ class _DiyResultsScreenState extends State<DiyResultsScreen> {
     super.dispose();
   }
 
+  /// The hero has scrolled away — show the folded search bar.
+  bool _compact = false;
+
   void _onScroll() {
+    final compact = _scrollController.offset > context.h(290);
+    if (compact != _compact) setState(() => _compact = compact);
     if (!_hasNext || _loadingMore || _loading) return;
     if (_scrollController.position.pixels >=
         _scrollController.position.maxScrollExtent - 300) {
@@ -95,16 +109,15 @@ class _DiyResultsScreenState extends State<DiyResultsScreen> {
     }
   }
 
-  Future<DiyPackagePage> _fetch(int page) {
-    return sl<DiyHolidayApi>().searchPackages(
+  Future<DiySearchResult> _fetch(int page) {
+    return sl<DiyHolidayApi>().searchPackagesByBody(
       origin: _query.origin.slug,
       destination: _query.destination?.slug,
-      adults: _query.adults,
-      children: _query.children > 0 ? _query.children : null,
-      theme: _filters.theme,
-      flight: _filters.withFlight ? 'with' : 'without',
-      maxPrice: _filters.maxPrice,
-      nights: _filters.nights,
+      departureDate: _query.departureDate,
+      rooms: _query.roomsPayload,
+      withFlight: _filters.withFlight,
+      filters: _filters.toApi(),
+      sort: _filters.sort.apiValue,
       page: page,
     );
   }
@@ -115,17 +128,19 @@ class _DiyResultsScreenState extends State<DiyResultsScreen> {
       _error = null;
     });
     try {
-      final page = await _fetch(1);
+      final result = await _fetch(1);
       if (!mounted) return;
       setState(() {
         _packages
           ..clear()
-          ..addAll(page.results);
-        _count = page.count;
-        _hasNext = page.hasNext;
+          ..addAll(result.page.results);
+        _count = result.page.count;
+        _total = result.total;
+        _facets = result.facets;
+        if (result.heroImage.isNotEmpty) _destinationHero = result.heroImage;
+        _hasNext = result.page.hasNext;
         _page = 1;
         _loading = false;
-        _applySort();
       });
     } catch (e) {
       if (!mounted) return;
@@ -139,13 +154,12 @@ class _DiyResultsScreenState extends State<DiyResultsScreen> {
   Future<void> _loadMore() async {
     setState(() => _loadingMore = true);
     try {
-      final page = await _fetch(_page + 1);
+      final result = await _fetch(_page + 1);
       if (!mounted) return;
       setState(() {
-        _packages.addAll(page.results);
-        _hasNext = page.hasNext;
+        _packages.addAll(result.page.results);
+        _hasNext = result.page.hasNext;
         _page += 1;
-        _applySort();
       });
     } catch (e) {
       if (mounted) diySnack(context, e.toString(), isError: true);
@@ -158,10 +172,7 @@ class _DiyResultsScreenState extends State<DiyResultsScreen> {
     final result = await openDiyFilterScreen(
       context,
       initial: _filters,
-      origin: _query.origin.slug,
-      destination: _query.destination?.slug,
-      adults: _query.adults,
-      children: _query.children,
+      query: _query,
     );
     if (result != null && mounted) {
       setState(() => _filters = result);
@@ -169,26 +180,93 @@ class _DiyResultsScreenState extends State<DiyResultsScreen> {
     }
   }
 
-  /// Tapping a card asks which fare to open it on. Both figures are already
-  /// on the search row, so the sheet costs no extra request, and the answer —
-  /// not the list's current filter — is what the detail screen is priced on.
-  Future<void> _openPackage(DiyPackageSummary package) async {
-    final withFlight = await showDiyFlightChoiceSheet(
-      context,
-      package: package,
-    );
-    if (withFlight == null || !mounted) return;
+  /// Pricing a package without flights before its trip screen opens.
+  bool _opening = false;
 
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => DiyPackageDetailScreen(
-          shareId: package.shareId,
-          query: _query,
-          withFlight: withFlight,
-          previewImage: package.image,
+  /// Every package opens on the same trip screen — the Figma card view —
+  /// with or without flights; without them the flight cards are simply
+  /// absent.
+  ///
+  /// A land package opens straight away. One saved with flights asks first,
+  /// and the sheet prices the flight option live from the customer's own city
+  /// on their date while they look at it; picking it once priced opens that
+  /// trip as is. Without flights is priced here — a tenth of a second — and
+  /// opens the same way.
+  Future<void> _openPackage(DiyPackageSummary package) async {
+    var withFlight = false;
+    if (package.includesFlight) {
+      final picked = await showDiyFlightChoiceSheet(
+        context,
+        package: package,
+        query: _query,
+      );
+      if (picked == null || !mounted) return;
+      final trip = picked.trip;
+      if (trip != null) {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => DiyTripScreen(
+              trip: trip,
+              query: _query,
+              shareId: package.shareId,
+            ),
+          ),
+        );
+        return;
+      }
+      withFlight = picked.withFlight;
+    }
+
+    // Picked with flights before the sheet's own price came back: the
+    // package screen prices it, with the fare-search wait it needs.
+    if (withFlight) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => DiyPackageDetailScreen(
+            shareId: package.shareId,
+            query: _query,
+            withFlight: true,
+            priceLiveOnOpen: true,
+            previewImage: package.image,
+          ),
         ),
-      ),
-    );
+      );
+      return;
+    }
+
+    final date = _query.departureDate;
+    if (date == null) {
+      diySnack(context, 'Pick a starting date first', isError: true);
+      return;
+    }
+    setState(() => _opening = true);
+    try {
+      final trip = await sl<DiyHolidayApi>().priceForDates(
+        shareId: package.shareId,
+        departureDate: date,
+        adults: _query.adults,
+        children: _query.children,
+        rooms: _query.roomsPayload,
+        origin: _query.origin.slug,
+        withFlight: false,
+      );
+      if (!mounted) return;
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => DiyTripScreen(
+            trip: trip,
+            query: _query,
+            shareId: package.shareId,
+            // A package saved with flights can have them put back.
+            canAddFlights: package.includesFlight,
+          ),
+        ),
+      );
+    } catch (e) {
+      if (mounted) diySnack(context, e.toString(), isError: true);
+    } finally {
+      if (mounted) setState(() => _opening = false);
+    }
   }
 
   @override
@@ -210,12 +288,34 @@ class _DiyResultsScreenState extends State<DiyResultsScreen> {
       // the app bar.
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       floatingActionButton: _packages.isEmpty ? null : _sortFilterPill(),
-      body: _body(),
+      body: Stack(
+        children: [
+          _body(),
+          if (_opening)
+            Positioned.fill(
+              child: ColoredBox(
+                color: Colors.white.withValues(alpha: 0.85),
+                child: const DiyLoading(message: 'Preparing your package…'),
+              ),
+            ),
+          // Figma `on scroll select Holiday 2`.
+          if (_compact && _packages.isNotEmpty)
+            Positioned(
+              left: 0,
+              right: 0,
+              top: 0,
+              child: DiyCompactSearchBar(
+                query: _query,
+                onBack: () => Navigator.of(context).maybePop(),
+                onEdit: _openEditSearch,
+              ),
+            ),
+        ],
+      ),
     );
   }
 
   // ------------------------------------------------------------ Figma header
-
 
   Widget _heroHeader() {
     final destination = _query.destination;
@@ -304,8 +404,11 @@ class _DiyResultsScreenState extends State<DiyResultsScreen> {
             left: context.w(6),
             top: MediaQuery.of(context).padding.top + context.h(2),
             child: IconButton(
-              icon: Icon(Icons.arrow_back,
-                  color: Colors.white, size: context.w(22)),
+              icon: Icon(
+                Icons.arrow_back,
+                color: Colors.white,
+                size: context.w(22),
+              ),
               onPressed: () => Navigator.of(context).maybePop(),
             ),
           ),
@@ -328,8 +431,8 @@ class _DiyResultsScreenState extends State<DiyResultsScreen> {
     );
   }
 
-  /// Same source and fallback as the Holidays search card's backdrop: the
-  /// `holidays` section hero, with the brand gradient standing in until it
+  /// The searched destination's picture (Kerala for a Kerala search), else
+  /// the Holidays section hero, with the brand gradient standing in until one
   /// loads (or if it fails).
   Widget _heroBackdrop() {
     const fallback = DecoratedBox(
@@ -342,7 +445,7 @@ class _DiyResultsScreenState extends State<DiyResultsScreen> {
       ),
     );
 
-    final hero = _heroImage;
+    final hero = _destinationHero.isNotEmpty ? _destinationHero : _heroImage;
     if (hero == null || hero.isEmpty) return fallback;
 
     return Image.network(
@@ -368,8 +471,11 @@ class _DiyResultsScreenState extends State<DiyResultsScreen> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.wb_sunny_rounded,
-              size: context.w(13), color: const Color(0xFFFFC53D)),
+          Icon(
+            Icons.wb_sunny_rounded,
+            size: context.w(13),
+            color: const Color(0xFFFFC53D),
+          ),
           SizedBox(width: context.w(5)),
           Text(
             _query.destination?.name ?? '',
@@ -422,8 +528,11 @@ class _DiyResultsScreenState extends State<DiyResultsScreen> {
                   SizedBox(height: context.h(4)),
                   Row(
                     children: [
-                      Icon(Icons.calendar_today_rounded,
-                          size: context.w(11), color: DiyTokens.subGrey),
+                      Icon(
+                        Icons.calendar_today_rounded,
+                        size: context.w(11),
+                        color: DiyTokens.subGrey,
+                      ),
                       SizedBox(width: context.w(5)),
                       Flexible(
                         child: Text(
@@ -481,12 +590,12 @@ class _DiyResultsScreenState extends State<DiyResultsScreen> {
   }
 
   /// The "All Packages / Honeymoon / Beach Side Stays …" chip row. Built from
-  /// the themes actually present in the results, so a chip never leads to an
-  /// empty list.
+  /// the destination's theme counts, so a chip never leads to an empty list.
   Widget _categoryChips() {
-    final themes = <String>{for (final p in _packages) ...p.themes}.toList()
-      ..sort();
-    if (themes.isEmpty) return const SizedBox.shrink();
+    final themes = _facets.themes;
+    if (themes.isEmpty && _facets.trending == 0) {
+      return const SizedBox.shrink();
+    }
 
     Widget chip(String label, bool selected, VoidCallback onTap) {
       return Padding(
@@ -524,13 +633,30 @@ class _DiyResultsScreenState extends State<DiyResultsScreen> {
         scrollDirection: Axis.horizontal,
         padding: EdgeInsets.symmetric(horizontal: context.w(14)),
         children: [
-          chip('All Packages', _filters.theme == null, () {
-            setState(() => _filters = _filters.copyWith(clearTheme: true));
-            _load();
-          }),
+          chip(
+            'All Packages',
+            _filters.theme == null && !_filters.trending,
+            () {
+              setState(
+                () => _filters = _filters.copyWith(
+                  clearTheme: true,
+                  trending: false,
+                ),
+              );
+              _load();
+            },
+          ),
+          if (_facets.trending > 0)
+            chip('Trending', _filters.trending, () {
+              setState(
+                () =>
+                    _filters = _filters.copyWith(trending: !_filters.trending),
+              );
+              _load();
+            }),
           for (final t in themes)
-            chip(t, _filters.theme == t, () {
-              setState(() => _filters = _filters.copyWith(theme: t));
+            chip(t.label, _filters.theme == t.value, () {
+              setState(() => _filters = _filters.copyWith(theme: t.value));
               _load();
             }),
         ],
@@ -587,11 +713,7 @@ class _DiyResultsScreenState extends State<DiyResultsScreen> {
         mainAxisSize: MainAxisSize.min,
         children: [
           half(Icons.swap_vert_rounded, 'Sort', _openSort),
-          Container(
-            width: 1,
-            height: context.h(20),
-            color: DiyTokens.line,
-          ),
+          Container(width: 1, height: context.h(20), color: DiyTokens.line),
           half(Icons.tune_rounded, 'Filter', _openFilters),
         ],
       ),
@@ -614,23 +736,41 @@ class _DiyResultsScreenState extends State<DiyResultsScreen> {
       final label = f.theme![0].toUpperCase() + f.theme!.substring(1);
       out.add(('Theme: $label', f.copyWith(clearTheme: true)));
     }
-    if (f.nights != null) {
+    if (f.trending) {
+      out.add(('Trending', f.copyWith(trending: false)));
+    }
+    if (f.nightsMax != null) {
       out.add((
-        '${f.nights} night${f.nights == 1 ? '' : 's'}',
+        'Up to ${f.nightsMax} night${f.nightsMax == 1 ? '' : 's'}',
         f.copyWith(clearNights: true),
       ));
     }
-    if (f.maxPrice != null) {
+    if (f.budgetMin != null || f.budgetMax != null) {
+      final label = f.budgetMax == null
+          ? 'Over ${diyMoney(f.budgetMin!)}/person'
+          : f.budgetMin == null
+          ? 'Under ${diyMoney(f.budgetMax!)}/person'
+          : '${diyMoney(f.budgetMin!)} - ${diyMoney(f.budgetMax!)}/person';
+      out.add((label, f.withBudget(null, null)));
+    }
+    if (f.stars.isNotEmpty) {
+      final sorted = f.stars.toList()..sort();
       out.add((
-        'Under ${diyMoney(f.maxPrice!)}',
-        f.copyWith(clearMaxPrice: true),
+        sorted.map((s) => s < 3 ? '<3' : '$s').join(', ') + ' star hotels',
+        f.copyWith(stars: const {}),
       ));
     }
-    if (f.stars != null) {
-      out.add(('${f.stars}-star hotels', f.copyWith(clearStars: true)));
+    if (f.cities.isNotEmpty) {
+      out.add((
+        '${f.cities.length} cit${f.cities.length == 1 ? 'y' : 'ies'}',
+        f.copyWith(cities: const {}),
+      ));
     }
-    if (!f.withFlight) {
-      out.add(('Without flight', f.copyWith(withFlight: true)));
+    if (f.withFlight != null) {
+      out.add((
+        f.withFlight! ? 'With flight' : 'Land packages',
+        f.copyWith(clearFlight: true),
+      ));
     }
     return out;
   }
@@ -653,8 +793,11 @@ class _DiyResultsScreenState extends State<DiyResultsScreen> {
           Padding(
             padding: EdgeInsets.only(left: context.w(6), top: context.h(2)),
             child: IconButton(
-              icon: Icon(Icons.arrow_back,
-                  color: DiyTokens.navy, size: context.w(22)),
+              icon: Icon(
+                Icons.arrow_back,
+                color: DiyTokens.navy,
+                size: context.w(22),
+              ),
               onPressed: () => Navigator.of(context).maybePop(),
             ),
           ),
@@ -692,8 +835,8 @@ class _DiyResultsScreenState extends State<DiyResultsScreen> {
         Text(
           active.isEmpty
               ? 'We have nothing for ${_query.destination?.name ?? 'this destination'} '
-                  'from ${_query.origin.name} yet. Try another destination or '
-                  'starting city.'
+                    'from ${_query.origin.name} yet. Try another destination or '
+                    'starting city.'
               : 'These filters are narrowing it down. Tap one to remove it.',
           textAlign: TextAlign.center,
           style: TextStyle(
@@ -748,11 +891,7 @@ class _DiyResultsScreenState extends State<DiyResultsScreen> {
           SizedBox(height: context.h(18)),
           Center(
             child: TextButton(
-              onPressed: () => _applyFilters(
-                // Keep the flight preference — it is the one choice the
-                // customer made on the search form, not in the filters.
-                DiyFilters(withFlight: _filters.withFlight),
-              ),
+              onPressed: () => _applyFilters(DiyFilters(sort: _filters.sort)),
               child: Text(
                 'Clear all filters',
                 style: TextStyle(
@@ -782,56 +921,27 @@ class _DiyResultsScreenState extends State<DiyResultsScreen> {
 
   /// Same idiom as the hotel screens' share action.
   void _sharePackage(DiyPackageSummary package) {
-    Share.share(
-      '${package.title} — ${diyMoney(package.priceFor(_filters.withFlight), currency: package.currency)} '
-      'for ${package.adults} adult${package.adults == 1 ? '' : 's'}. '
-      'Check it out on Wander Nova!',
+    showDiyShareSheet(
+      context,
+      text:
+          '${package.title} — ${diyMoney(package.priceFor(false), currency: package.currency)} '
+          'for ${package.adults} adult${package.adults == 1 ? '' : 's'}, without flights. '
+          'Check it out on Wander Nova!',
     );
   }
 
-  /// Sorting is client-side: the search endpoint takes no ordering parameter,
-  /// so the list is reordered in place and nothing is re-fetched.
+  /// Sorting is done by the backend, so the order holds across every page
+  /// rather than only the cards already loaded.
   Future<void> _openSort() async {
     final picked = await showDiySortSheet(
       context,
-      current: _sort,
-      shown: _packages.length,
-      total: _count,
+      current: _filters.sort,
+      shown: _count,
+      total: _total,
     );
-    if (picked == null || !mounted) return;
-
-    // "Recommended" is the backend's own order, which a client-side sort
-    // cannot reconstruct once the list has been shuffled — so re-fetch for it
-    // rather than pretending the current order is still the original.
-    if (picked == DiySortOption.recommended) {
-      setState(() => _sort = picked);
-      await _load();
-      return;
-    }
-    setState(() {
-      _sort = picked;
-      _applySort();
-    });
-  }
-
-  /// Reapplies the chosen order to [_packages]. Called after every load too,
-  /// so paging in more results or clearing a filter does not silently drop
-  /// the sort the customer picked.
-  void _applySort() {
-    switch (_sort) {
-      case DiySortOption.recommended:
-        break; // already in the order the backend returned
-      case DiySortOption.priceLowToHigh:
-        _packages.sort((a, b) => a
-            .priceFor(_filters.withFlight)
-            .compareTo(b.priceFor(_filters.withFlight)));
-      case DiySortOption.priceHighToLow:
-        _packages.sort((a, b) => b
-            .priceFor(_filters.withFlight)
-            .compareTo(a.priceFor(_filters.withFlight)));
-      case DiySortOption.durationShortest:
-        _packages.sort((a, b) => a.nights.compareTo(b.nights));
-    }
+    if (picked == null || !mounted || picked == _filters.sort) return;
+    setState(() => _filters = _filters.copyWith(sort: picked));
+    await _load();
   }
 
   Widget _body() {
@@ -870,8 +980,12 @@ class _DiyResultsScreenState extends State<DiyResultsScreen> {
                 context.h(4),
               ),
               child: Text(
-                '$_count package${_count == 1 ? '' : 's'} found'
-                '${_filters.withFlight ? ' · with flight' : ' · without flight'}',
+                '$_count/$_total package${_total == 1 ? '' : 's'}'
+                '${switch (_filters.withFlight) {
+                  true => ' · flight option',
+                  false => ' · land only',
+                  null => '',
+                }} · prices without flight',
                 style: TextStyle(
                   fontSize: context.fs(12),
                   fontWeight: FontWeight.w600,
@@ -889,7 +1003,7 @@ class _DiyResultsScreenState extends State<DiyResultsScreen> {
           }
 
           final package = _packages[index - headerRows];
-          return Padding(
+          final card = Padding(
             padding: EdgeInsets.fromLTRB(
               context.w(14),
               context.h(6),
@@ -898,11 +1012,37 @@ class _DiyResultsScreenState extends State<DiyResultsScreen> {
             ),
             child: DiyPackageCard(
               package: package,
-              withFlight: _filters.withFlight,
+              // Every card is priced without flights; flights are chosen,
+              // and priced live, once a package is opened.
+              withFlight: false,
               onTap: () => _openPackage(package),
               onShare: () => _sharePackage(package),
             ),
           );
+          // Figma `select Holiday`: the Collection mosaic after the second
+          // card, filtering this list by theme in place.
+          if (index - headerRows == 1 && _facets.themes.isNotEmpty) {
+            return Column(
+              children: [
+                card,
+                Padding(
+                  padding: EdgeInsets.symmetric(vertical: context.h(16)),
+                  child: DiyThemeSection(
+                    query: _query,
+                    title: 'Collection',
+                    onlySlugs: {for (final t in _facets.themes) t.value},
+                    onPick: (theme) {
+                      setState(
+                        () => _filters = _filters.copyWith(theme: theme.slug),
+                      );
+                      _load();
+                    },
+                  ),
+                ),
+              ],
+            );
+          }
+          return card;
         },
       ),
     );

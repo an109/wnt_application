@@ -15,8 +15,11 @@ import 'diy_trip_screen.dart';
 
 /// The saved package — **API 4: GET /packages/{share_id}/?flight=with|without**.
 ///
+/// A land package opens here at its fixed price. One sold with flights opens
+/// here only for a moment: [priceLiveOnOpen] sends it straight on to the live
+/// price for the customer's city and date.
+///
 /// From here the customer can:
-///  * flip flight in/out (re-fetches API 4, price changes with it);
 ///  * pick add-ons and see a live quote — **API 14: POST /customise/** —
 ///    without a trip being created;
 ///  * reprice against their own dates, which creates the trip —
@@ -28,12 +31,18 @@ class DiyPackageDetailScreen extends StatefulWidget {
   final bool withFlight;
   final String previewImage;
 
+  /// Go straight to the live price once the package has loaded — how a
+  /// package sold with flights opens: the fares are searched from the
+  /// customer's city on their date, and the trip screen shows the real cost.
+  final bool priceLiveOnOpen;
+
   const DiyPackageDetailScreen({
     super.key,
     required this.shareId,
     required this.query,
     this.withFlight = true,
     this.previewImage = '',
+    this.priceLiveOnOpen = false,
   });
 
   @override
@@ -55,6 +64,7 @@ class _DiyPackageDetailScreenState extends State<DiyPackageDetailScreen> {
   Timer? _quoteDebounce;
 
   bool _creatingTrip = false;
+  bool _pricedOnOpen = false;
 
   @override
   void initState() {
@@ -84,11 +94,19 @@ class _DiyPackageDetailScreenState extends State<DiyPackageDetailScreen> {
           Future.value(_addons),
       ]);
       if (!mounted) return;
+      final package = results[0] as DiyPackageDetail;
       setState(() {
-        _package = results[0] as DiyPackageDetail;
+        _package = package;
         _addons = results[1] as List<DiyAddon>;
+        // Flights only on a package saved with them, and only when the
+        // customer chose them — a land package has none to price.
+        _withFlight = package.includesFlight && widget.withFlight;
         _loading = false;
       });
+      if (widget.priceLiveOnOpen && !_pricedOnOpen) {
+        _pricedOnOpen = true;
+        _customiseForMyDates(replace: true);
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -96,13 +114,6 @@ class _DiyPackageDetailScreenState extends State<DiyPackageDetailScreen> {
         _loading = false;
       });
     }
-  }
-
-  Future<void> _setFlightMode(bool withFlight) async {
-    if (_withFlight == withFlight) return;
-    setState(() => _withFlight = withFlight);
-    await _load();
-    if (_selectedAddons.isNotEmpty) _requestQuote();
   }
 
   // ------------------------------------------------- API 14: customise
@@ -152,7 +163,9 @@ class _DiyPackageDetailScreenState extends State<DiyPackageDetailScreen> {
 
   // -------------------------------------- API 5: real price → creates trip
 
-  Future<void> _customiseForMyDates() async {
+  /// [replace] swaps this screen for the trip, so back from the live price
+  /// returns to the results rather than to a package page nobody asked for.
+  Future<void> _customiseForMyDates({bool replace = false}) async {
     final date = widget.query.departureDate;
     if (date == null) {
       diySnack(context, 'Pick a starting date first', isError: true);
@@ -166,20 +179,28 @@ class _DiyPackageDetailScreenState extends State<DiyPackageDetailScreen> {
         departureDate: date,
         adults: widget.query.adults,
         children: widget.query.children,
+        rooms: widget.query.roomsPayload,
+        // The customer's own city: the flights are searched from here, not
+        // from wherever the package happened to be saved.
+        origin: widget.query.origin.slug,
         withFlight: _withFlight,
       );
       if (!mounted) return;
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => DiyTripScreen(
-            trip: trip,
-            query: widget.query,
-            shareId: widget.shareId,
-            addons: _addons,
-            preselectedAddonIds: _selectedAddons.toList(),
-          ),
+      final route = MaterialPageRoute<void>(
+        builder: (_) => DiyTripScreen(
+          trip: trip,
+          query: widget.query,
+          shareId: widget.shareId,
+          addons: _addons,
+          preselectedAddonIds: _selectedAddons.toList(),
+          canAddFlights: _package?.includesFlight ?? false,
         ),
       );
+      if (replace) {
+        Navigator.of(context).pushReplacement(route);
+      } else {
+        Navigator.of(context).push(route);
+      }
     } catch (e) {
       if (mounted) diySnack(context, e.toString(), isError: true);
     } finally {
@@ -223,8 +244,8 @@ class _DiyPackageDetailScreenState extends State<DiyPackageDetailScreen> {
         appBar: diyAppBar(context, title: 'Pricing your trip'),
         body: DiyLoading(
           message: _withFlight
-              ? 'Checking live fares for your dates…'
-              : 'Repricing for your dates…',
+              ? 'Searching live flights from ${widget.query.origin.name}…'
+              : 'Preparing your package…',
           hint: _withFlight
               ? 'Flight pricing takes a few seconds.'
               : null,
@@ -315,7 +336,7 @@ class _DiyPackageDetailScreenState extends State<DiyPackageDetailScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _flightToggle(),
+                _packageTypeNote(package),
                 SizedBox(height: context.h(12)),
                 _summaryStrip(package),
                 if (package.cab.isIncluded) ...[
@@ -353,60 +374,41 @@ class _DiyPackageDetailScreenState extends State<DiyPackageDetailScreen> {
     );
   }
 
-  Widget _flightToggle() {
-    Widget option(String label, IconData icon, bool selected, bool value) {
-      return Expanded(
-        child: GestureDetector(
-          onTap: () => _setFlightMode(value),
-          behavior: HitTestBehavior.opaque,
-          child: Container(
-            padding: EdgeInsets.symmetric(vertical: context.h(10)),
-            decoration: BoxDecoration(
-              color: selected ? Colors.white : Colors.transparent,
-              borderRadius: BorderRadius.circular(context.r(8)),
-              boxShadow: selected
-                  ? [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.06),
-                        blurRadius: context.w(8),
-                      ),
-                    ]
-                  : null,
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  icon,
-                  size: context.w(16),
-                  color: selected ? DiyTokens.blue : DiyTokens.subGrey,
-                ),
-                SizedBox(width: context.w(8)),
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: context.fs(13),
-                    fontWeight: FontWeight.w600,
-                    color: selected ? DiyTokens.blue : DiyTokens.subGrey,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
-
+  /// What kind of package this is, in one line: a land package is sold as
+  /// shown, one with flights has its air priced live in the next step.
+  Widget _packageTypeNote(DiyPackageDetail package) {
+    final live = _withFlight;
     return Container(
-      padding: EdgeInsets.all(context.w(4)),
+      width: double.infinity,
+      padding: EdgeInsets.symmetric(
+        horizontal: context.w(12),
+        vertical: context.h(10),
+      ),
       decoration: BoxDecoration(
-        color: const Color(0xFFF1F4F9),
+        color: live ? const Color(0xFFE8F4FC) : const Color(0xFFF1F8EE),
         borderRadius: BorderRadius.circular(context.r(10)),
       ),
       child: Row(
         children: [
-          option('With Flight', Icons.flight_takeoff, _withFlight, true),
-          option('Without Flight', Icons.flight_land, !_withFlight, false),
+          Icon(
+            live ? Icons.flight_takeoff : Icons.landscape_rounded,
+            size: context.w(18),
+            color: live ? DiyTokens.blue : const Color(0xFF3B8B3A),
+          ),
+          SizedBox(width: context.w(10)),
+          Expanded(
+            child: Text(
+              live
+                  ? 'Flights from ${widget.query.origin.name} are priced live '
+                      'for your date in the next step.'
+                  : package.includesFlight
+                      ? 'Without flights — hotels, transfers, sightseeing and '
+                          'activities at a fixed price.'
+                      : 'Land package — hotels, transfers, sightseeing and '
+                          'activities at a fixed price.',
+              style: TextStyle(fontSize: context.fs(12), color: DiyTokens.navy),
+            ),
+          ),
         ],
       ),
     );
@@ -596,18 +598,48 @@ class _DiyPackageDetailScreenState extends State<DiyPackageDetailScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      _quote != null ? 'With your add-ons' : 'Package total',
+                      _quote != null
+                          ? 'With your add-ons'
+                          : _withFlight
+                              ? 'Starting from'
+                              : 'Fixed price',
                       style: TextStyle(
                         fontSize: context.fs(10),
                         color: DiyTokens.labelGrey,
                       ),
                     ),
+                    RichText(
+                      text: TextSpan(
+                        children: [
+                          TextSpan(
+                            text: diyMoney(
+                              package.adults > 0
+                                  ? _currentTotal / package.adults
+                                  : _currentTotal,
+                              currency: package.currency,
+                            ),
+                            style: TextStyle(
+                              fontSize: context.fs(20),
+                              fontWeight: FontWeight.w800,
+                              color: DiyTokens.navy,
+                            ),
+                          ),
+                          TextSpan(
+                            text: '/person',
+                            style: TextStyle(
+                              fontSize: context.fs(10),
+                              fontWeight: FontWeight.w600,
+                              color: DiyTokens.subGrey,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                     Text(
-                      diyMoney(_currentTotal, currency: package.currency),
+                      'Total ${diyMoney(_currentTotal, currency: package.currency)}',
                       style: TextStyle(
-                        fontSize: context.fs(20),
-                        fontWeight: FontWeight.w800,
-                        color: DiyTokens.navy,
+                        fontSize: context.fs(10),
+                        color: DiyTokens.subGrey,
                       ),
                     ),
                   ],
@@ -616,7 +648,7 @@ class _DiyPackageDetailScreenState extends State<DiyPackageDetailScreen> {
               SizedBox(
                 width: context.w(190),
                 child: DiyPrimaryButton(
-                  label: 'CHECK MY DATES',
+                  label: _withFlight ? 'GET LIVE PRICE' : 'CONTINUE',
                   onPressed: _customiseForMyDates,
                 ),
               ),

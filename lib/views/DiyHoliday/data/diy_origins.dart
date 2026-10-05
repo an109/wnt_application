@@ -27,9 +27,19 @@ class DiyOrigin {
         'lng': lng,
       };
 
+  /// Slugs earlier builds shipped that the backend does not know. A search
+  /// saved on one of those builds is read back under the backend's slug, or
+  /// the price call would answer "We do not fly from bengaluru-in".
+  static const Map<String, String> _renamed = {
+    'bengaluru-in': 'bangalore-in',
+    'kochi-in': 'cochin-in',
+    'bhubaneswar-in': 'bhubaneshwar-in',
+  };
+
   static DiyOrigin? fromJson(dynamic json) {
     if (json is! Map) return null;
-    final slug = json['slug']?.toString() ?? '';
+    final raw = json['slug']?.toString() ?? '';
+    final slug = _renamed[raw] ?? raw;
     if (slug.isEmpty) return null;
     return DiyOrigin(
       slug: slug,
@@ -67,7 +77,7 @@ class DiyOrigins {
       lng: 72.8777,
     ),
     DiyOrigin(
-      slug: 'bengaluru-in',
+      slug: 'bangalore-in',
       name: 'Bengaluru',
       state: 'Karnataka',
       lat: 12.9716,
@@ -130,7 +140,7 @@ class DiyOrigins {
       lng: 76.7794,
     ),
     DiyOrigin(
-      slug: 'kochi-in',
+      slug: 'cochin-in',
       name: 'Kochi',
       state: 'Kerala',
       lat: 9.9312,
@@ -158,7 +168,7 @@ class DiyOrigins {
       lng: 91.7362,
     ),
     DiyOrigin(
-      slug: 'bhubaneswar-in',
+      slug: 'bhubaneshwar-in',
       name: 'Bhubaneswar',
       state: 'Odisha',
       lat: 20.2961,

@@ -121,6 +121,7 @@ flutter:
     - assets/animation/Plane_animation.json
     - assets/animation/
     - assets/NewIcons/
+    - assets/diy_holiday/
     - assets/Newgif/
     - assets/Newimage/
     - assets/HbookImage/

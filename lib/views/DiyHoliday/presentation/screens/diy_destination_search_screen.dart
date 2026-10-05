@@ -64,7 +64,11 @@ class _DiyDestinationSearchScreenState
   }
 
   void _reload() {
-    setState(() => _future = sl<DiyHolidayApi>().getDestinations());
+    // A block body, not `=>`: the arrow form returns the Future it assigns,
+    // and setState refuses a callback that returns one.
+    setState(() {
+      _future = sl<DiyHolidayApi>().getDestinations();
+    });
   }
 
   void _select(DiyDestination destination) {
