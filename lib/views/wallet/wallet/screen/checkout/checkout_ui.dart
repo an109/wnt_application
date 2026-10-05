@@ -6,10 +6,10 @@ import 'package:wander_nova/core/resources/app_colours.dart';
 /// Shared look for the wallet checkout (MakeMyTrip-style accordion).
 class CheckoutColors {
   static const primary = AppColors.AppBlue;
-  static const ink = Color(0xFF0F172A);
+  static const ink = AppColors.black;
   static const muted = AppColors.subhead;
-  static const stroke = Color(0xFFE6E8EC);
-  static const page = Color(0xFFF2F4F7);
+  static const stroke = AppColors.lightsubhead;
+  static const page = AppColors.white;
   static const offer = Color(0xFF16A34A);
   static const error = Color(0xFFB42318);
   static const chip = Color(0xFFF1F5F9);
@@ -369,6 +369,68 @@ class LogoAvatar extends StatelessWidget {
 String bankLogoUrl(String code) => 'https://cdn.razorpay.com/bank/$code.gif';
 String walletLogoUrl(String code) =>
     'https://cdn.razorpay.com/wallet/$code.png';
+
+/// Lets a checkout screen drive a section's submit from its own call to
+/// action instead of the pay button the section draws for itself.
+///
+/// A section handed a controller hides its inline button and reports, through
+/// [canSubmit] and [hint], whether it has enough to pay with — so the screen's
+/// own button can enable and label itself. A section handed none behaves
+/// exactly as before, which is how every checkout but the wallet top-up still
+/// works.
+class CheckoutSubmitController extends ChangeNotifier {
+  VoidCallback? _onSubmit;
+  bool _canSubmit = false;
+  String? _hint;
+  bool _disposed = false;
+
+  bool get canSubmit => _canSubmit;
+
+  /// What the section is still missing, e.g. `Select a bank`. Null when ready.
+  String? get hint => _hint;
+
+  /// Called by the section from its build. Listeners are notified after the
+  /// frame, never during it.
+  void bind({
+    required VoidCallback onSubmit,
+    required bool canSubmit,
+    String? hint,
+  }) {
+    _onSubmit = onSubmit;
+    if (canSubmit == _canSubmit && hint == _hint) return;
+    _canSubmit = canSubmit;
+    _hint = hint;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_disposed) notifyListeners();
+    });
+  }
+
+  /// Drops the current section's submit and resets readiness.
+  ///
+  /// The incoming section may not bind until its own data loads (net banking
+  /// waits on the enabled-methods lookup), so readiness has to fall back to
+  /// false in the meantime — otherwise the screen's button stays lit from the
+  /// section that just closed.
+  void unbind() {
+    _onSubmit = null;
+    if (!_canSubmit && _hint == null) return;
+    _canSubmit = false;
+    _hint = null;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_disposed) notifyListeners();
+    });
+  }
+
+  void submit() {
+    if (_canSubmit) _onSubmit?.call();
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
+}
 
 class CheckoutPayButton extends StatelessWidget {
   final String label;

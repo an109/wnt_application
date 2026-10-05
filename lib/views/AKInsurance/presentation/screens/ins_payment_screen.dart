@@ -74,6 +74,17 @@ class _InsPaymentScreenState extends State<InsPaymentScreen> {
 
   String? _orderId;
   String? _keyId;
+
+  /// The order's amount in paise exactly as the gateway minted it.
+  ///
+  /// The charge has to be for this number, not for a second client-side
+  /// conversion of the rupee premium: Razorpay rejects a payment whose amount
+  /// does not match its order, and the two do not always agree. The insurer
+  /// quotes fractional paise — a 478.6198 premium becomes 47861 paise on the
+  /// order (truncated) but `(478.6198 * 100).round()` is 47862 here, so
+  /// authorising the locally computed figure fails the order by one paisa.
+  int? _orderAmountPaise;
+
   bool _summaryOpen = false;
 
   /// Which method panel is expanded, or null when all are collapsed. One at
@@ -126,6 +137,8 @@ class _InsPaymentScreenState extends State<InsPaymentScreen> {
     return '$m :$s';
   }
 
+  /// Only a fallback for an order that came back without an amount — see
+  /// [_orderAmountPaise] for why the gateway's own figure is preferred.
   int get _amountInPaise => (widget.amount * 100).round();
 
   // ------------------------------------------------------------- 1. order
@@ -156,6 +169,7 @@ class _InsPaymentScreenState extends State<InsPaymentScreen> {
 
       final orderId = res.data['order_id'] as String?;
       final keyId = res.data['key_id'] as String?;
+      final orderAmount = (res.data['amount'] as num?)?.round();
       if (!mounted) return false;
 
       if (orderId == null || keyId == null) {
@@ -170,6 +184,7 @@ class _InsPaymentScreenState extends State<InsPaymentScreen> {
         _busy = false;
         _orderId = orderId;
         _keyId = keyId;
+        _orderAmountPaise = orderAmount;
       });
       return true;
     } on DioException catch (_) {
@@ -235,7 +250,7 @@ class _InsPaymentScreenState extends State<InsPaymentScreen> {
       final result = await _checkout.submitPayment(
         keyId: _keyId!,
         data: {
-          'amount': _amountInPaise,
+          'amount': _orderAmountPaise ?? _amountInPaise,
           'currency': 'INR',
           'order_id': _orderId,
           'email': widget.details.proposer.email,
@@ -247,6 +262,10 @@ class _InsPaymentScreenState extends State<InsPaymentScreen> {
       if (!mounted) return;
       await _verifyAndIssue(result);
     } on RazorpayCustomCheckoutException catch (e) {
+      // Logged as well as shown: a gateway refusal used to reach the error
+      // card and nothing else, which left a failed charge looking on the
+      // console exactly like a charge that simply never came back.
+      debugPrint('[ins] payment failed (${e.code}): ${e.message}');
       if (!mounted) return;
       // Backing out of the SDK is not a failure worth an error card.
       if (e.message.toLowerCase().contains('cancel')) {
@@ -307,6 +326,7 @@ class _InsPaymentScreenState extends State<InsPaymentScreen> {
       );
       if (!mounted) return;
       if (verify.data is Map && verify.data['success'] != true) {
+        debugPrint('[ins] verify rejected the charge: ${verify.data}');
         setState(() {
           _busy = false;
           _error = 'We could not verify this payment. Please contact support '
@@ -605,7 +625,7 @@ class _InsPaymentScreenState extends State<InsPaymentScreen> {
                                   child: Text(
                                     'Total Due',
                                     style: TextStyle(
-                                      fontSize: context.fs(24),
+                                      fontSize: context.fs(20),
                                       fontWeight: FontWeight.w700,
                                       color: InsTokens.navy,
                                     ),
@@ -614,7 +634,7 @@ class _InsPaymentScreenState extends State<InsPaymentScreen> {
                                 Text(
                                   InsTokens.rupees(widget.amount),
                                   style: TextStyle(
-                                    fontSize: context.fs(24),
+                                    fontSize: context.fs(20),
                                     fontWeight: FontWeight.w700,
                                     color: InsTokens.navy,
                                   ),

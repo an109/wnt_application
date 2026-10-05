@@ -11,11 +11,17 @@ class CardForm extends StatefulWidget {
   final bool busy;
   final ValueChanged<Map<String, dynamic>> onSubmit;
 
+  /// When given, the form drops its own pay button and is submitted by the
+  /// screen's call to action instead. Left null everywhere else, so those
+  /// checkouts keep the inline button.
+  final CheckoutSubmitController? submitController;
+
   const CardForm({
     super.key,
     required this.payLabel,
     required this.busy,
     required this.onSubmit,
+    this.submitController,
   });
 
   @override
@@ -33,6 +39,7 @@ class _CardFormState extends State<CardForm> {
 
   @override
   void dispose() {
+    widget.submitController?.unbind();
     _number.dispose();
     _expiry.dispose();
     _cvv.dispose();
@@ -104,6 +111,13 @@ class _CardFormState extends State<CardForm> {
   @override
   Widget build(BuildContext context) {
     final gap = SizedBox(height: context.h(12));
+    // The fields validate on submit, so the card is always "ready to try" —
+    // a half-filled form reports its own errors rather than greying the
+    // screen's button out.
+    widget.submitController?.bind(
+      onSubmit: _submit,
+      canSubmit: !widget.busy,
+    );
     return Form(
       key: _formKey,
       child: Column(
@@ -195,12 +209,14 @@ class _CardFormState extends State<CardForm> {
             'Your card details are sent securely to Razorpay and never stored by us.',
             icon: Icons.lock_outline_rounded,
           ),
-          SizedBox(height: context.h(14)),
-          CheckoutPayButton(
-            label: widget.payLabel,
-            loading: widget.busy,
-            onPressed: _submit,
-          ),
+          if (widget.submitController == null) ...[
+            SizedBox(height: context.h(14)),
+            CheckoutPayButton(
+              label: widget.payLabel,
+              loading: widget.busy,
+              onPressed: _submit,
+            ),
+          ],
         ],
       ),
     );

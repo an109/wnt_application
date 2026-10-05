@@ -453,7 +453,7 @@ class _AddMoneyDialogState extends State<AddMoneyDialog> {
     final payable = double.parse(amount.toStringAsFixed(2));
     final credited = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
-        builder: (_) => WalletTopUpCheckoutScreen(amount: payable),
+        builder: (_) => WalletTopUpCheckoutScreen(initialAmount: payable),
       ),
     );
 

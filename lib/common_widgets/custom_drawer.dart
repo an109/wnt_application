@@ -23,6 +23,7 @@ import '../views/LogOut/presentation/bloc/logout_bloc.dart';
 import '../views/LogOut/presentation/bloc/logout_event.dart';
 import '../views/LogOut/presentation/bloc/logout_state.dart';
 import '../views/DeleteAccount/presentation/screen/delete_account_screen.dart';
+import '../views/wallet/wallet/screen/rewards_screen.dart';
 import '../views/wallet/wallet/screen/wallet_screen.dart';
 import '../views/login/presentation/screen/login.dart';
 import '../views/travel_stories/presentation/screen/all_travel_stories.dart';
@@ -406,6 +407,16 @@ class _CustomDrawerState extends State<CustomDrawer>
                 },
               ),
             ),
+          ),
+          // Refer & Earn and Loyalty Tier used to sit inside the wallet
+          // screen. The redesign leaves that screen as balance plus history,
+          // so both live on their own screen reached from here.
+          _buildMenuItem(
+            context,
+            icon: Icons.card_giftcard_outlined,
+            title: 'Rewards',
+            subtitle: 'Refer & Earn and your loyalty tier',
+            onTap: () => _navigateTo(context, '/rewards'),
           ),
         ],
       ),
@@ -846,6 +857,12 @@ class _CustomDrawerState extends State<CustomDrawer>
           Navigator.push(
             context,
             MaterialPageRoute(builder: (_) => WalletScreen()),
+          );
+          break;
+        case '/rewards':
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const RewardsScreen()),
           );
           break;
         case '/stories':

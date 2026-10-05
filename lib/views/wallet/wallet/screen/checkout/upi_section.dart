@@ -16,6 +16,10 @@ class UpiSection extends StatefulWidget {
   final ValueChanged<String> onPayWithVpa;
   final Widget? qrPanel;
 
+  /// When given, the section drops its own pay button and is submitted by the
+  /// screen's call to action instead.
+  final CheckoutSubmitController? submitController;
+
   const UpiSection({
     super.key,
     required this.amount,
@@ -24,6 +28,7 @@ class UpiSection extends StatefulWidget {
     required this.onPayWithApp,
     required this.onPayWithVpa,
     this.qrPanel,
+    this.submitController,
   });
 
   @override
@@ -39,8 +44,16 @@ class _UpiSectionState extends State<UpiSection> {
 
   @override
   void dispose() {
+    widget.submitController?.unbind();
     _vpa.dispose();
     super.dispose();
+  }
+
+  void _submitVpa() {
+    FocusScope.of(context).unfocus();
+    if (_vpaKey.currentState?.validate() ?? false) {
+      widget.onPayWithVpa(_vpa.text.trim());
+    }
   }
 
   @override
@@ -64,6 +77,17 @@ class _UpiSectionState extends State<UpiSection> {
             child: current == 'Scan QR' ? qrPanel : _upiIdTab(context),
           ),
         ),
+        if (widget.submitController != null && current == 'Scan QR')
+          Builder(
+            builder: (context) {
+              widget.submitController!.bind(
+                onSubmit: () {},
+                canSubmit: false,
+                hint: 'Scan the QR with any UPI app',
+              );
+              return const SizedBox.shrink();
+            },
+          ),
       ],
     );
   }
@@ -99,16 +123,24 @@ class _UpiSectionState extends State<UpiSection> {
           const InlineNote(
             'A payment request will be sent to your UPI app. Approve it within 5 minutes.',
           ),
-          SizedBox(height: context.h(14)),
-          CheckoutPayButton(
-            label: 'Verify & Pay ${formatInr(widget.amount)}',
-            loading: widget.busy,
-            onPressed: () {
-              FocusScope.of(context).unfocus();
-              if (_vpaKey.currentState!.validate())
-                widget.onPayWithVpa(_vpa.text.trim());
-            },
-          ),
+          if (widget.submitController != null)
+            Builder(
+              builder: (context) {
+                widget.submitController!.bind(
+                  onSubmit: _submitVpa,
+                  canSubmit: !widget.busy,
+                );
+                return const SizedBox.shrink();
+              },
+            ),
+          if (widget.submitController == null) ...[
+            SizedBox(height: context.h(14)),
+            CheckoutPayButton(
+              label: 'Verify & Pay ${formatInr(widget.amount)}',
+              loading: widget.busy,
+              onPressed: _submitVpa,
+            ),
+          ],
         ],
       ),
     );

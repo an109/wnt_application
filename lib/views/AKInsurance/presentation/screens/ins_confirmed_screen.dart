@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:lottie/lottie.dart';
 
 import '../../../../UI_helper/responsive_layout.dart';
 import '../../domain/entity/AKInsurance_entity.dart';
@@ -106,25 +108,60 @@ class InsConfirmedScreen extends StatelessWidget {
   Widget _headline(BuildContext context) {
     return Column(
       children: [
-        Text(
-          issuePending ? 'Payment Received!' : 'Payment Successful!',
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: context.fs(30),
-            fontWeight: FontWeight.w700,
-            color: InsTokens.blue,
+        SizedBox(
+          height: context.h(150),            // was 180 in Akbar, trimmed a bit
+          child: Lottie.asset(
+            'assets/animation/celebrate.json',
+            repeat: true,
+            fit: BoxFit.contain,
+            errorBuilder: (_, __, ___) => Center(
+              child: Container(
+                width: context.w(74),
+                height: context.w(74),
+                decoration: const BoxDecoration(
+                  color: Color(0xFFEAFBF1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  issuePending
+                      ? Icons.hourglass_top_rounded
+                      : Icons.check_circle_rounded,
+                  color: issuePending
+                      ? InsTokens.orange
+                      : const Color(0xFF16A34A),
+                  size: context.w(44),
+                ),
+              ),
+            ),
+          ),
+        ),
+        SizedBox(height: context.h(4)),
+        ShaderMask(
+          shaderCallback: (rect) => const LinearGradient(
+            colors: [Color(0xFF00A1E4), Color(0xFF0088FF)],
+          ).createShader(rect),
+          child: Text(
+            issuePending ? 'Payment Received!' : 'Payment Successful!',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.pottaOne(
+              fontSize: context.fs(24),
+              fontWeight: FontWeight.w400,
+              color: Colors.white,          // ShaderMask needs white to tint
+              letterSpacing: -0.6,
+            ),
           ),
         ),
         SizedBox(height: context.h(6)),
         Text(
-          issuePending
-              ? 'Your policy is being issued.'
-              : 'Your booking is confirmed.',
+          issuePending ? 'Your policy is being issued.' : 'Your booking is confirmed.',
+          textAlign: TextAlign.center,
           style: TextStyle(
-            fontSize: context.fs(16),
-            color: InsTokens.subGrey,
+            fontSize: context.fs(14),
+            fontWeight: FontWeight.w500,
+            color: InsTokens.subGrey,       // closest analogue of _muted
           ),
         ),
+
       ],
     );
   }

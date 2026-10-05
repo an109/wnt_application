@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -52,6 +53,13 @@ class UpiApp {
 class RazorpayCustomCheckoutService {
   static const _channel = MethodChannel('wander_nova/razorpay_custom');
 
+  /// Both lookups are one-shot callbacks into the native SDK, and the UPI one
+  /// reaches out to Razorpay over the network. A callback the SDK never fires
+  /// would otherwise leave the future unresolved for good — the checkout
+  /// screen then sits on its spinner, or a Google Pay tap that awaits the app
+  /// list does nothing at all. Neither is allowed to hang.
+  static const _lookupTimeout = Duration(seconds: 15);
+
   bool get isSupported => Platform.isAndroid || Platform.isIOS;
 
   /// Payment methods enabled on this Razorpay account (doc step 1.4) — used
@@ -60,7 +68,14 @@ class RazorpayCustomCheckoutService {
   Future<Map<String, dynamic>> getPaymentMethods({required String keyId}) async {
     _assertSupported();
     try {
-      final raw = await _channel.invokeMethod<String>('getPaymentMethods', {'keyId': keyId});
+      final raw = await _channel
+          .invokeMethod<String>('getPaymentMethods', {'keyId': keyId})
+          .timeout(
+            _lookupTimeout,
+            onTimeout: () => throw const RazorpayCustomCheckoutException(
+              'The payment gateway did not respond. Please try again.',
+            ),
+          );
       if (raw == null || raw.isEmpty) return {};
       return (jsonDecode(raw) as Map).cast<String, dynamic>();
     } on PlatformException catch (e) {
@@ -77,7 +92,11 @@ class RazorpayCustomCheckoutService {
   Future<List<UpiApp>> getUpiApps() async {
     _assertSupported();
     try {
-      final raw = await _channel.invokeListMethod<dynamic>('getUpiApps');
+      // No UPI apps is a perfectly normal answer, so a slow lookup degrades
+      // to the empty list rather than failing the screen.
+      final raw = await _channel
+          .invokeListMethod<dynamic>('getUpiApps')
+          .timeout(_lookupTimeout, onTimeout: () => const <dynamic>[]);
       return (raw ?? const [])
           .whereType<Map>()
           .map((m) => UpiApp(

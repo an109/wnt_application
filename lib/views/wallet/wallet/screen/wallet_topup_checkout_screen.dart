@@ -29,10 +29,12 @@ import 'checkout/upi_section.dart';
 ///
 /// Pops `true` only once the wallet backend confirms the credit.
 class WalletTopUpCheckoutScreen extends StatefulWidget {
-  /// Top-up amount in INR.
-  final double amount;
+  /// Amount to start on, in INR. The traveller edits it here — the design
+  /// puts the amount and the methods on one screen — so this is only a
+  /// starting point, not the amount that gets charged.
+  final double? initialAmount;
 
-  const WalletTopUpCheckoutScreen({super.key, required this.amount});
+  const WalletTopUpCheckoutScreen({super.key, this.initialAmount});
 
   @override
   State<WalletTopUpCheckoutScreen> createState() =>
@@ -45,7 +47,13 @@ class _WalletTopUpCheckoutScreenState extends State<WalletTopUpCheckoutScreen> {
   bool _processing = false;
   String _statusMessage = '';
   String? _errorMessage;
-  String? _open = 'upi'; // expanded accordion section
+  /// Which method row is selected. The design shows exactly one open at a
+  /// time, with its body inline under the row.
+  String? _open = 'card';
+
+  /// Lets the screen's PAY NOW submit the open method. Each section binds its
+  /// own submit here while it is on screen.
+  final _submit = CheckoutSubmitController();
 
   // Created once per checkout by /wallet/add-money/ and reused across
   // attempts/methods — one order, one payment.
@@ -64,20 +72,65 @@ class _WalletTopUpCheckoutScreenState extends State<WalletTopUpCheckoutScreen> {
   );
   Future<Map<String, dynamic>>? _methods;
 
-  // Lives as long as this screen, so a QR keeps being polled while its tab
-  // is hidden or the UPI section is collapsed.
-  late final QrPayController _qr = QrPayController(
-    amount: _amount,
-    onPaid: _creditFromQr,
-  );
+  /// The amount being topped up, in rupees. Mutable because it is entered on
+  /// this screen.
+  double _amount = 0;
+  late final TextEditingController _amountCtrl;
 
-  double get _amount => double.parse(widget.amount.toStringAsFixed(2));
+  /// The quick-add chips under the amount field, as the design lists them.
+  static const _quickAmounts = <int>[20, 50, 100, 250, 500];
+
+  // Lives as long as this screen, so a QR keeps being polled while its tab
+  // is hidden or the UPI section is collapsed. Rebuilt whenever the amount
+  // changes, because a QR poster is minted for one amount.
+  late QrPayController _qr;
+
   bool get _busy => _processing;
+
+  /// The amount is only payable once it is a real, positive figure — the
+  /// gateway rejects a zero order, and an empty field should not look
+  /// chargeable.
+  bool get _amountIsPayable => _amount > 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _amount = double.parse(((widget.initialAmount ?? 0)).toStringAsFixed(2));
+    _amountCtrl = TextEditingController(
+      text: _amount > 0 ? _amount.toStringAsFixed(0) : '',
+    );
+    _qr = QrPayController(amount: _amount, onPaid: _creditFromQr);
+  }
 
   @override
   void dispose() {
+    _submit.dispose();
+    _amountCtrl.dispose();
     _qr.dispose();
     super.dispose();
+  }
+
+  /// Applies a new amount and throws away everything minted for the old one.
+  ///
+  /// The order, its key and its reference are all created for a specific
+  /// figure, so reusing them after an edit would authorise one amount against
+  /// an order for another — which the gateway refuses. The QR poster is
+  /// per-amount too, so it is rebuilt rather than left showing a stale total.
+  void _applyAmount(double value) {
+    final next = double.parse(value.toStringAsFixed(2));
+    if (next == _amount) return;
+
+    final oldQr = _qr;
+    setState(() {
+      _amount = next;
+      _orderId = null;
+      _keyId = null;
+      _reference = null;
+      _methods = null;
+      _errorMessage = null;
+      _qr = QrPayController(amount: next, onPaid: _creditFromQr);
+    });
+    oldQr.dispose();
   }
 
   // ==================== ORDER / DETAILS ====================
@@ -191,6 +244,15 @@ class _WalletTopUpCheckoutScreenState extends State<WalletTopUpCheckoutScreen> {
   Future<void> _pay(Map<String, dynamic> method) async {
     if (_processing) return;
     FocusScope.of(context).unfocus();
+    // The amount is entered on this screen, so a method can be reached before
+    // one has been typed. The gateway rejects a zero order; say so here
+    // rather than letting it fail downstream.
+    if (!_amountIsPayable) {
+      setState(
+        () => _errorMessage = 'Enter the amount you want to add first.',
+      );
+      return;
+    }
     setState(() => _errorMessage = null);
 
     if (!await _ensureContactDetails() || !mounted) return;
@@ -348,7 +410,14 @@ class _WalletTopUpCheckoutScreenState extends State<WalletTopUpCheckoutScreen> {
     });
   }
 
-  void _toggle(String id) => setState(() => _open = _open == id ? null : id);
+  /// Selects a method. Radio rows, so tapping the open one keeps it open —
+  /// there is always a method selected for PAY NOW to act on.
+  void _select(String id) {
+    if (_open == id) return;
+    // The outgoing section's submit must not linger on the controller.
+    _submit.unbind();
+    setState(() => _open = id);
+  }
 
   // ==================== UI ====================
 
@@ -357,7 +426,7 @@ class _WalletTopUpCheckoutScreenState extends State<WalletTopUpCheckoutScreen> {
     return PopScope(
       canPop: !_processing,
       child: Scaffold(
-        backgroundColor: CheckoutColors.page,
+        backgroundColor: AppColors.white,
         body: SafeArea(
           child: Stack(
             children: [
@@ -381,24 +450,27 @@ class _WalletTopUpCheckoutScreenState extends State<WalletTopUpCheckoutScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           _amountCard(context),
-                          SizedBox(height: context.h(16)),
+                          SizedBox(height: context.h(20)),
                           if (_errorMessage != null) ...[
                             _errorBanner(context, _errorMessage!),
                             SizedBox(height: context.h(14)),
                           ],
-                          _sectionLabel(context, 'Recommended'),
-                          SizedBox(height: context.h(10)),
+                          // Not in the Figma frame, but kept: this tile is the
+                          // only way into the UPI *intent* flow (paying by
+                          // opening a UPI app), which the UPI row's body does
+                          // not offer. Removing it would drop a payment path.
                           _googlePayTile(context),
-                          SizedBox(height: context.h(8)),
-                          _sectionLabel(context, 'All Payment Options'),
-                          SizedBox(height: context.h(10)),
+                          SizedBox(height: context.h(14)),
                           ..._sections(context),
                           _trustFooter(context),
                         ],
                       ),
                     ),
                   ),
-                  _bottomBar(context),
+                  ListenableBuilder(
+                    listenable: _submit,
+                    builder: (context, _) => _bottomBar(context),
+                  ),
                 ],
               ),
               if (_processing) _processingOverlay(context),
@@ -409,58 +481,86 @@ class _WalletTopUpCheckoutScreenState extends State<WalletTopUpCheckoutScreen> {
     );
   }
 
+  /// The method rows, in the design's order: cards first (the row it shows
+  /// open), then UPI, Net Banking, EMI and Wallet & Pay Later.
+  ///
+  /// EMI is not drawn in the Figma frame but is kept — it is a payment option
+  /// this screen already offered, and dropping it would take functionality
+  /// away. It uses the same row as the rest.
   List<Widget> _sections(BuildContext context) {
     return [
-      CheckoutAccordion(
+      _MethodRow(
+        id: 'card',
+        title: 'Credit & Debit Cards',
+        selected: _open == 'card',
+        onTap: () => _select('card'),
+        leading: const CheckoutIcon('assets/NewIcons/credit.png'),
+        brands: const [
+          _Brand('VISA', Color(0xFF1A1F71), Color(0xFFEAF0FB)),
+          _Brand('MC', Color(0xFFEB001B), Color(0xFF111111)),
+          _Brand('AMEX', Colors.white, Color(0xFF2E77BC)),
+          _Brand('RuPay', Colors.white, Color(0xFF0B2B5B)),
+        ],
+        child: CardForm(
+          payLabel: 'Pay ${formatInr(_amount)}',
+          busy: _busy,
+          submitController: _submit,
+          onSubmit: (card) => _pay({'method': 'card', 'card': card}),
+        ),
+      ),
+      _MethodRow(
+        id: 'upi',
         title: 'UPI',
-        subtitle: 'Google Pay, PhonePe, Paytm & more · Scan QR',
-        badge: 'INSTANT',
+        subtitle: 'Pay Directly From Your Bank Account',
+        selected: _open == 'upi',
+        onTap: () => _select('upi'),
         leading: const CheckoutIcon('assets/NewIcons/upi.png'),
-        expanded: _open == 'upi',
-        onTap: () => _toggle('upi'),
+        brands: const [
+          _Brand('GPay', Color(0xFF1A73E8), Color(0xFFEAF1FE)),
+          _Brand('PhonePe', Colors.white, Color(0xFF5F259F)),
+          _Brand('Paytm', Colors.white, Color(0xFF002970)),
+        ],
         child: UpiSection(
           amount: _amount,
           busy: _busy,
           apps: _upiApps,
           onPayWithApp: _payWithUpiApp,
+          submitController: _submit,
           onPayWithVpa: (vpa) =>
               _pay({'method': 'upi', '_[flow]': 'collect', 'vpa': vpa}),
-          qrPanel: QrPayPanel(controller: _qr),
+          qrPanel: _amountIsPayable ? QrPayPanel(controller: _qr) : null,
         ),
       ),
-      CheckoutAccordion(
-        title: 'Credit / Debit Card',
-        subtitle: 'Visa, Mastercard, RuPay, Amex & more',
-        leading: const CheckoutIcon('assets/NewIcons/credit.png'),
-        expanded: _open == 'card',
-        onTap: () => _toggle('card'),
-        child: CardForm(
-          payLabel: 'Pay ${formatInr(_amount)}',
-          busy: _busy,
-          onSubmit: (card) => _pay({'method': 'card', 'card': card}),
-        ),
-      ),
-      CheckoutAccordion(
+      _MethodRow(
+        id: 'netbanking',
         title: 'Net Banking',
-        subtitle: 'All major banks available',
+        subtitle: '40+ Banks available',
+        selected: _open == 'netbanking',
+        onTap: () => _select('netbanking'),
         leading: const CheckoutIcon('assets/NewIcons/net_banking.png'),
-        expanded: _open == 'netbanking',
-        onTap: () => _toggle('netbanking'),
+        brands: const [
+          _Brand('HDFC', Colors.white, Color(0xFFE02020)),
+          _Brand('ICICI', Colors.white, Color(0xFFF37920)),
+          _Brand('SBI', Colors.white, Color(0xFF22409A)),
+          _Brand('AXIS', Colors.white, Color(0xFF97144D)),
+        ],
         child: _open == 'netbanking'
             ? NetbankingSection(
                 amount: _amount,
                 busy: _busy,
                 methods: _loadMethods(),
+                submitController: _submit,
                 onPay: (bank) => _pay({'method': 'netbanking', 'bank': bank}),
               )
             : null,
       ),
-      CheckoutAccordion(
+      _MethodRow(
+        id: 'emi',
         title: 'EMI',
         subtitle: 'Easy monthly instalments on credit cards',
+        selected: _open == 'emi',
+        onTap: () => _select('emi'),
         leading: _emiIcon(context),
-        expanded: _open == 'emi',
-        onTap: () => _toggle('emi'),
         child: _open == 'emi'
             ? EmiSection(
                 amount: _amount,
@@ -472,19 +572,25 @@ class _WalletTopUpCheckoutScreenState extends State<WalletTopUpCheckoutScreen> {
                   'card': card,
                 }),
               )
-            : const SizedBox.shrink(),
+            : null,
       ),
-      CheckoutAccordion(
-        title: 'Wallets & Pay Later',
-        subtitle: 'Paytm, PhonePe, Amazon Pay · LazyPay, Simpl & more',
+      _MethodRow(
+        id: 'wallet',
+        title: 'Wallet & Pay Later',
+        subtitle: 'Airtel Money, Mobikwik, Ola Money',
+        selected: _open == 'wallet',
+        onTap: () => _select('wallet'),
         leading: const CheckoutIcon('assets/NewIcons/wallet.png'),
-        expanded: _open == 'wallet',
-        onTap: () => _toggle('wallet'),
+        brands: const [
+          _Brand('Airtel', Colors.white, Color(0xFFE40000)),
+          _Brand('Mobik', Colors.white, Color(0xFF2E6CB5)),
+        ],
         child: _open == 'wallet'
             ? WalletsPayLaterSection(
                 amount: _amount,
                 busy: _busy,
                 methods: _loadMethods(),
+                submitController: _submit,
                 onPayWallet: (wallet) =>
                     _pay({'method': 'wallet', 'wallet': wallet}),
                 onPayLater: (provider) =>
@@ -556,24 +662,24 @@ class _WalletTopUpCheckoutScreenState extends State<WalletTopUpCheckoutScreen> {
                 ),
               ),
               SizedBox(width: context.w(8)),
-              Container(
-                padding: EdgeInsets.symmetric(
-                  horizontal: context.w(12),
-                  vertical: context.h(7),
-                ),
-                decoration: BoxDecoration(
-                  color: CheckoutColors.primary,
-                  borderRadius: BorderRadius.circular(context.r(8)),
-                ),
-                child: Text(
-                  'PAY',
-                  style: TextStyle(
-                    fontSize: context.fs(12),
-                    fontWeight: FontWeight.w800,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
+              // Container(
+              //   padding: EdgeInsets.symmetric(
+              //     horizontal: context.w(12),
+              //     vertical: context.h(7),
+              //   ),
+              //   decoration: BoxDecoration(
+              //     color: CheckoutColors.primary,
+              //     borderRadius: BorderRadius.circular(context.r(8)),
+              //   ),
+              //   child: Text(
+              //     'PAY',
+              //     style: TextStyle(
+              //       fontSize: context.fs(12),
+              //       fontWeight: FontWeight.w800,
+              //       color: Colors.white,
+              //     ),
+              //   ),
+              // ),
             ],
           ),
         ),
@@ -585,8 +691,8 @@ class _WalletTopUpCheckoutScreenState extends State<WalletTopUpCheckoutScreen> {
     return Container(
       color: Colors.white,
       padding: EdgeInsets.symmetric(
-        horizontal: context.w(16),
-        vertical: context.h(12),
+        horizontal: context.w(14),
+        vertical: context.h(10),
       ),
       child: Row(
         children: [
@@ -606,43 +712,14 @@ class _WalletTopUpCheckoutScreenState extends State<WalletTopUpCheckoutScreen> {
           SizedBox(width: context.w(12)),
           Expanded(
             child: Text(
-              'Add Money',
+              'Add Top Up',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                fontSize: context.fs(20),
+                fontSize: context.fs(19),
                 fontWeight: FontWeight.w600,
-                color: Colors.black,
+                color: AppColors.black,
               ),
-            ),
-          ),
-          Container(
-            padding: EdgeInsets.symmetric(
-              horizontal: context.w(8),
-              vertical: context.h(4),
-            ),
-            decoration: BoxDecoration(
-              color: CheckoutColors.offer.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(context.r(999)),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.lock_rounded,
-                  size: context.w(12),
-                  color: CheckoutColors.offer,
-                ),
-                SizedBox(width: context.w(4)),
-                Text(
-                  'Secure',
-                  style: TextStyle(
-                    fontSize: context.fs(11),
-                    fontWeight: FontWeight.w700,
-                    color: CheckoutColors.offer,
-                  ),
-                ),
-              ],
             ),
           ),
         ],
@@ -650,156 +727,141 @@ class _WalletTopUpCheckoutScreenState extends State<WalletTopUpCheckoutScreen> {
     );
   }
 
+  /// The amount entry at the top of the design: a centred `₹ 250` field, the
+  /// fee note, then the quick-add chips.
   Widget _amountCard(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.all(context.w(16)),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFFFFFFFF), Color(0xFFD9F3FF)],
-        ),
-        borderRadius: BorderRadius.circular(context.r(14)),
-        border: Border.all(color: CheckoutColors.stroke),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: context.w(40),
-                height: context.w(40),
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: CheckoutColors.primary,
-                  borderRadius: BorderRadius.circular(context.r(10)),
-                ),
-                child: Icon(
-                  Icons.account_balance_wallet_rounded,
-                  size: context.w(22),
-                  color: Colors.white,
-                ),
-              ),
-              SizedBox(width: context.w(12)),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      'WanderNova Wallet',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: context.fs(15),
-                        fontWeight: FontWeight.w700,
-                        color: CheckoutColors.ink,
-                      ),
-                    ),
-                    SizedBox(height: context.h(2)),
-                    Text(
-                      'Money is added instantly after payment',
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: context.fs(12),
-                        color: CheckoutColors.muted,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: context.h(14)),
-          const Divider(height: 1, color: CheckoutColors.stroke),
-          SizedBox(height: context.h(12)),
-          _fareLine(context, 'Recharge amount', formatInr(_amount)),
-          SizedBox(height: context.h(8)),
-          _fareLine(
-            context,
-            'Convenience fee',
-            'FREE',
-            valueColor: CheckoutColors.offer,
-          ),
-          SizedBox(height: context.h(12)),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'Total Due',
-                  style: TextStyle(
-                    fontSize: context.fs(18),
-                    fontWeight: FontWeight.w800,
-                    color: CheckoutColors.ink,
-                  ),
-                ),
-              ),
-              Flexible(
-                child: Align(
-                  alignment: Alignment.centerRight,
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Text(
-                      formatInr(_amount),
-                      style: TextStyle(
-                        fontSize: context.fs(20),
-                        fontWeight: FontWeight.w800,
-                        color: CheckoutColors.ink,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _fareLine(
-    BuildContext context,
-    String label,
-    String value, {
-    Color valueColor = CheckoutColors.ink,
-  }) {
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Expanded(
+        Center(
           child: Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+            'ENTER TOP UP AMOUNT',
             style: TextStyle(
-              fontSize: context.fs(13),
+              fontSize: context.fs(11),
+              fontWeight: FontWeight.w400,
               color: CheckoutColors.muted,
             ),
           ),
         ),
-        SizedBox(width: context.w(8)),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: context.fs(13),
-            fontWeight: FontWeight.w700,
-            color: valueColor,
-          ),
+        SizedBox(height: context.h(14)),
+        _amountField(context),
+        SizedBox(height: context.h(12)),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.security,
+              size: context.w(15),
+              color: CheckoutColors.offer,
+            ),
+            SizedBox(width: context.w(6)),
+            Flexible(
+              child: Text(
+                'No convenience fee · Added instantly',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: context.fs(11),
+                  fontWeight: FontWeight.w400,
+                  color: CheckoutColors.muted,
+                ),
+              ),
+            ),
+          ],
         ),
+        SizedBox(height: context.h(16)),
+        _quickAmountRow(context),
       ],
     );
   }
 
-  Widget _sectionLabel(BuildContext context, String text) => Text(
-    text,
-    style: TextStyle(
-      fontSize: context.fs(16),
-      fontWeight: FontWeight.w700,
-      color: CheckoutColors.ink,
-    ),
-  );
+  Widget _amountField(BuildContext context) {
+    return Center(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: context.w(240)),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Text(
+              '₹',
+              style: TextStyle(
+                fontSize: context.fs(22),
+                fontWeight: FontWeight.w700,
+                color: CheckoutColors.ink,
+              ),
+            ),
+            SizedBox(width: context.w(10)),
+            Flexible(
+              child: TextField(
+                controller: _amountCtrl,
+                enabled: !_busy,
+                autofocus: _amount <= 0,
+                textAlign: TextAlign.center,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
+                ],
+                onChanged: (value) =>
+                    _applyAmount(double.tryParse(value.trim()) ?? 0),
+                style: TextStyle(
+                  fontSize: context.fs(24),
+                  fontWeight: FontWeight.w700,
+                  color: CheckoutColors.ink,
+                ),
+                decoration: InputDecoration(
+                  hintText: '0',
+                  hintStyle: TextStyle(
+                    fontSize: context.fs(24),
+                    fontWeight: FontWeight.w700,
+                    color: CheckoutColors.muted.withValues(alpha: 0.5),
+                  ),
+                  isDense: true,
+                  contentPadding: EdgeInsets.symmetric(
+                    vertical: context.h(6),
+                  ),
+                  enabledBorder: const UnderlineInputBorder(
+                    borderSide: BorderSide(color: CheckoutColors.stroke),
+                  ),
+                  focusedBorder: const UnderlineInputBorder(
+                    borderSide: BorderSide(color: CheckoutColors.primary),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// `+₹20 … +₹500`. Each chip adds to what is already entered, as the `+`
+  /// says — tapping ₹100 twice tops up ₹200.
+  Widget _quickAmountRow(BuildContext context) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          for (final value in _quickAmounts) ...[
+            _QuickAmountChip(
+              label: '+₹$value',
+              onTap: _busy
+                  ? null
+                  : () {
+                      final next = _amount + value;
+                      _amountCtrl.text = next
+                          .toStringAsFixed(next % 1 == 0 ? 0 : 2);
+                      _applyAmount(next);
+                    },
+            ),
+            if (value != _quickAmounts.last) SizedBox(width: context.w(19)),
+          ],
+        ],
+      ),
+    );
+  }
 
   Widget _trustFooter(BuildContext context) {
     return Padding(
@@ -829,11 +891,19 @@ class _WalletTopUpCheckoutScreenState extends State<WalletTopUpCheckoutScreen> {
     );
   }
 
+  /// The design's orange call to action.
+  ///
+  /// Each method still submits through its own section — a card needs its
+  /// form, net banking needs a bank — so this bar carries the total and
+  /// points at the chosen method rather than pretending to charge on its own.
   Widget _bottomBar(BuildContext context) {
+    final ready = _amountIsPayable;
     return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: context.w(16),
-        vertical: context.h(12),
+      padding: EdgeInsets.fromLTRB(
+        context.w(16),
+        context.h(12),
+        context.w(16),
+        context.h(12),
       ),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -845,61 +915,81 @@ class _WalletTopUpCheckoutScreenState extends State<WalletTopUpCheckoutScreen> {
           ),
         ],
       ),
-      child: Row(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    formatInr(_amount),
-                    style: TextStyle(
-                      fontSize: context.fs(20),
-                      fontWeight: FontWeight.w800,
-                      color: CheckoutColors.ink,
-                    ),
-                  ),
-                ),
-                Text(
-                  'Amount to be added',
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  !ready
+                      ? 'Enter an amount to continue'
+                      : (_submit.hint ??
+                            'Adding ${formatInr(_amount)} to your wallet'),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: context.fs(11),
+                    fontSize: context.fs(11.5),
                     color: CheckoutColors.muted,
                   ),
                 ),
-              ],
-            ),
-          ),
-          SizedBox(width: context.w(12)),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
+              ),
               Icon(
                 Icons.lock_outline_rounded,
-                size: context.w(14),
+                size: context.w(13),
                 color: CheckoutColors.offer,
               ),
               SizedBox(width: context.w(4)),
               Text(
                 'Secured by Razorpay',
                 style: TextStyle(
-                  fontSize: context.fs(11.5),
+                  fontSize: context.fs(11),
                   fontWeight: FontWeight.w600,
                   color: CheckoutColors.muted,
                 ),
               ),
             ],
           ),
+          SizedBox(height: context.h(10)),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: (!ready || _busy || !_submit.canSubmit)
+                  ? null
+                  : _submit.submit,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.OrangeColor,
+                foregroundColor: Colors.white,
+                disabledBackgroundColor: const Color(0xFFE6E8EC),
+                disabledForegroundColor: CheckoutColors.muted,
+                elevation: 0,
+                padding: EdgeInsets.symmetric(vertical: context.h(16)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(context.r(12)),
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    'PAY NOW',
+                    style: TextStyle(
+                      fontSize: context.fs(15),
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.6,
+                    ),
+                  ),
+                  SizedBox(width: context.w(10)),
+                  Icon(Icons.arrow_forward_rounded, size: context.w(18)),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );
   }
+
 
   Widget _processingOverlay(BuildContext context) {
     return Positioned.fill(
@@ -1144,3 +1234,208 @@ class _ContactDetailsSheetState extends State<_ContactDetailsSheet> {
     );
   }
 }
+
+/// One `+₹100` chip under the amount field.
+class _QuickAmountChip extends StatelessWidget {
+  final String label;
+  final VoidCallback? onTap;
+
+  const _QuickAmountChip({required this.label, this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(context.r(8)),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Container(
+          padding: EdgeInsets.symmetric(
+            horizontal: context.w(8),
+            vertical: context.h(7),
+          ),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(context.r(8)),
+            border: Border.all(color: CheckoutColors.stroke, width: 0.5),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: context.fs(13),
+              fontWeight: FontWeight.w400,
+              color: CheckoutColors.ink,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A small brand mark drawn as a chip, so the row shows the schemes the
+/// design lists without needing a logo asset per network.
+class _Brand {
+  final String label;
+  final Color fg;
+  final Color bg;
+
+  const _Brand(this.label, this.fg, this.bg);
+}
+
+class _BrandCluster extends StatelessWidget {
+  final List<_Brand> brands;
+
+  const _BrandCluster(this.brands);
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (final b in brands)
+          Container(
+            margin: EdgeInsets.only(left: context.w(4)),
+            padding: EdgeInsets.symmetric(
+              horizontal: context.w(5),
+              vertical: context.h(3),
+            ),
+            decoration: BoxDecoration(
+              color: b.bg,
+              borderRadius: BorderRadius.circular(context.r(4)),
+            ),
+            child: Text(
+              b.label,
+              style: TextStyle(
+                fontSize: context.fs(8),
+                fontWeight: FontWeight.w800,
+                color: b.fg,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+/// One payment method, as the design draws it: a radio, the method's icon,
+/// its name and subtitle, the scheme chips, and — when selected — its own
+/// section inline underneath.
+///
+/// Replaces the chevron accordion on this screen only. The body is whatever
+/// section widget the screen passes in, unchanged, so each method still pays
+/// exactly as it did.
+class _MethodRow extends StatelessWidget {
+  final String id;
+  final String title;
+  final String? subtitle;
+  final bool selected;
+  final VoidCallback onTap;
+  final Widget leading;
+  final List<_Brand> brands;
+  final Widget? child;
+
+  const _MethodRow({
+    required this.id,
+    required this.title,
+    required this.selected,
+    required this.onTap,
+    required this.leading,
+    this.subtitle,
+    this.brands = const [],
+    this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final body = child;
+    return Container(
+      margin: EdgeInsets.only(bottom: context.h(12)),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(context.r(14)),
+        // Only the open row is boxed, as in the design — the collapsed ones
+        // are plain rows separated by their own spacing.
+        border: selected
+            ? Border.all(color: CheckoutColors.stroke)
+            : Border.all(color: Colors.transparent),
+      ),
+      padding: EdgeInsets.symmetric(
+        horizontal: context.w(12),
+        vertical: context.h(10),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(context.r(10)),
+            child: Row(
+              children: [
+                Icon(
+                  selected
+                      ? Icons.radio_button_checked_rounded
+                      : Icons.radio_button_off_rounded,
+                  size: context.w(20),
+                  color: selected
+                      ? CheckoutColors.primary
+                      : const Color(0xFFC6CDD6),
+                ),
+                SizedBox(width: context.w(10)),
+                leading,
+                SizedBox(width: context.w(10)),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: context.fs(14.5),
+                          fontWeight: FontWeight.w700,
+                          color: CheckoutColors.ink,
+                        ),
+                      ),
+                      if (subtitle != null) ...[
+                        SizedBox(height: context.h(2)),
+                        Text(
+                          subtitle!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: context.fs(11.5),
+                            color: CheckoutColors.muted,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                if (brands.isNotEmpty) ...[
+                  SizedBox(width: context.w(6)),
+                  _BrandCluster(brands),
+                ],
+              ],
+            ),
+          ),
+          if (selected && body != null) ...[
+            SizedBox(height: context.h(14)),
+            Container(
+              padding: EdgeInsets.all(context.w(12)),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFBFCFD),
+                borderRadius: BorderRadius.circular(context.r(12)),
+                border: Border.all(color: CheckoutColors.stroke),
+              ),
+              child: body,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+

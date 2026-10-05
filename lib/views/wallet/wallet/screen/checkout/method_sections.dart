@@ -47,6 +47,10 @@ class NetbankingSection extends StatefulWidget {
   final bool busy;
   final Future<Map<String, dynamic>> methods;
   final ValueChanged<String> onPay; // bank code
+  /// When given, this section drops its own pay button and is submitted by
+  /// the screen's call to action instead. Null everywhere but the wallet
+  /// top-up, so the other checkouts are unchanged.
+  final CheckoutSubmitController? submitController;
 
   const NetbankingSection({
     super.key,
@@ -54,6 +58,7 @@ class NetbankingSection extends StatefulWidget {
     required this.busy,
     required this.methods,
     required this.onPay,
+    this.submitController,
   });
 
   @override
@@ -152,16 +157,25 @@ class _NetbankingSectionState extends State<NetbankingSection> {
                           _bankRow(context, all[i].key, all[i].value),
                     ),
             ),
-            SizedBox(height: context.h(12)),
-            CheckoutPayButton(
-              label: _selected == null
-                  ? 'Select a bank'
-                  : 'Pay ${formatInr(widget.amount)} via ${banks[_selected] ?? _selected}',
-              loading: widget.busy,
-              onPressed: _selected == null
-                  ? null
-                  : () => widget.onPay(_selected!),
-            ),
+            if (widget.submitController != null)
+              _Bind(
+                controller: widget.submitController!,
+                canSubmit: _selected != null && !widget.busy,
+                hint: _selected == null ? 'Select a bank' : null,
+                onSubmit: () => widget.onPay(_selected!),
+              ),
+            if (widget.submitController == null) ...[
+              SizedBox(height: context.h(12)),
+              CheckoutPayButton(
+                label: _selected == null
+                    ? 'Select a bank'
+                    : 'Pay ${formatInr(widget.amount)} via ${banks[_selected] ?? _selected}',
+                loading: widget.busy,
+                onPressed: _selected == null
+                    ? null
+                    : () => widget.onPay(_selected!),
+              ),
+            ],
           ],
         );
       },
@@ -513,6 +527,9 @@ class WalletsSection extends StatefulWidget {
   final bool busy;
   final Future<Map<String, dynamic>> methods;
   final ValueChanged<String> onPay; // wallet code
+  /// When given, this section drops its own pay button and is submitted by
+  /// the screen's call to action instead.
+  final CheckoutSubmitController? submitController;
 
   const WalletsSection({
     super.key,
@@ -520,6 +537,7 @@ class WalletsSection extends StatefulWidget {
     required this.busy,
     required this.methods,
     required this.onPay,
+    this.submitController,
   });
 
   @override
@@ -600,16 +618,25 @@ class _WalletsSectionState extends State<WalletsSection> {
                   ),
                 ),
               ),
-            SizedBox(height: context.h(10)),
-            CheckoutPayButton(
-              label: _selected == null
-                  ? 'Select a wallet'
-                  : 'Pay ${formatInr(widget.amount)} with ${_names[_selected] ?? _selected}',
-              loading: widget.busy,
-              onPressed: _selected == null
-                  ? null
-                  : () => widget.onPay(_selected!),
-            ),
+            if (widget.submitController != null)
+              _Bind(
+                controller: widget.submitController!,
+                canSubmit: _selected != null && !widget.busy,
+                hint: _selected == null ? 'Select a wallet' : null,
+                onSubmit: () => widget.onPay(_selected!),
+              ),
+            if (widget.submitController == null) ...[
+              SizedBox(height: context.h(10)),
+              CheckoutPayButton(
+                label: _selected == null
+                    ? 'Select a wallet'
+                    : 'Pay ${formatInr(widget.amount)} with ${_names[_selected] ?? _selected}',
+                loading: widget.busy,
+                onPressed: _selected == null
+                    ? null
+                    : () => widget.onPay(_selected!),
+              ),
+            ],
           ],
         );
       },
@@ -624,6 +651,9 @@ class PayLaterSection extends StatefulWidget {
   final bool busy;
   final Future<Map<String, dynamic>> methods;
   final ValueChanged<String> onPay; // provider code
+  /// When given, this section drops its own pay button and is submitted by
+  /// the screen's call to action instead.
+  final CheckoutSubmitController? submitController;
 
   const PayLaterSection({
     super.key,
@@ -631,6 +661,7 @@ class PayLaterSection extends StatefulWidget {
     required this.busy,
     required this.methods,
     required this.onPay,
+    this.submitController,
   });
 
   @override
@@ -739,16 +770,25 @@ class _PayLaterSectionState extends State<PayLaterSection> {
               'Repayment is due as per your Pay Later plan.',
               icon: Icons.info_outline_rounded,
             ),
-            SizedBox(height: context.h(10)),
-            CheckoutPayButton(
-              label: _selected == null
-                  ? 'Select a provider'
-                  : 'Pay ${formatInr(widget.amount)} with ${_names[_selected] ?? _selected}',
-              loading: widget.busy,
-              onPressed: _selected == null
-                  ? null
-                  : () => widget.onPay(_selected!),
-            ),
+            if (widget.submitController != null)
+              _Bind(
+                controller: widget.submitController!,
+                canSubmit: _selected != null && !widget.busy,
+                hint: _selected == null ? 'Select a provider' : null,
+                onSubmit: () => widget.onPay(_selected!),
+              ),
+            if (widget.submitController == null) ...[
+              SizedBox(height: context.h(10)),
+              CheckoutPayButton(
+                label: _selected == null
+                    ? 'Select a provider'
+                    : 'Pay ${formatInr(widget.amount)} with ${_names[_selected] ?? _selected}',
+                loading: widget.busy,
+                onPressed: _selected == null
+                    ? null
+                    : () => widget.onPay(_selected!),
+              ),
+            ],
           ],
         );
       },
@@ -766,6 +806,9 @@ class WalletsPayLaterSection extends StatefulWidget {
   final Future<Map<String, dynamic>> methods;
   final ValueChanged<String> onPayWallet; // wallet code
   final ValueChanged<String> onPayLater; // provider code
+  /// When given, this section drops its own pay button and is submitted by
+  /// the screen's call to action instead.
+  final CheckoutSubmitController? submitController;
 
   const WalletsPayLaterSection({
     super.key,
@@ -774,6 +817,7 @@ class WalletsPayLaterSection extends StatefulWidget {
     required this.methods,
     required this.onPayWallet,
     required this.onPayLater,
+    this.submitController,
   });
 
   @override
@@ -800,18 +844,22 @@ class _WalletsPayLaterSectionState extends State<WalletsPayLaterSection> {
           duration: const Duration(milliseconds: 200),
           child: KeyedSubtree(
             key: ValueKey(_tab),
+            // Only the visible tab is handed the controller, so the screen's
+            // button always submits the tab being looked at.
             child: _tab == 0
                 ? WalletsSection(
                     amount: widget.amount,
                     busy: widget.busy,
                     methods: widget.methods,
                     onPay: widget.onPayWallet,
+                    submitController: widget.submitController,
                   )
                 : PayLaterSection(
                     amount: widget.amount,
                     busy: widget.busy,
                     methods: widget.methods,
                     onPay: widget.onPayLater,
+                    submitController: widget.submitController,
                   ),
           ),
         ),
@@ -828,3 +876,28 @@ Widget _label(BuildContext context, String text) => Text(
     color: CheckoutColors.ink,
   ),
 );
+
+/// Reports a section's submit state to a [CheckoutSubmitController].
+///
+/// A widget rather than a call in `build` because the state that decides
+/// readiness lives inside each section's `FutureBuilder`; this sits in the
+/// same subtree and draws nothing.
+class _Bind extends StatelessWidget {
+  final CheckoutSubmitController controller;
+  final bool canSubmit;
+  final String? hint;
+  final VoidCallback onSubmit;
+
+  const _Bind({
+    required this.controller,
+    required this.canSubmit,
+    required this.hint,
+    required this.onSubmit,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    controller.bind(onSubmit: onSubmit, canSubmit: canSubmit, hint: hint);
+    return const SizedBox.shrink();
+  }
+}
