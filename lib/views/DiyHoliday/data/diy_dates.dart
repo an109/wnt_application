@@ -3,9 +3,8 @@ import 'package:flutter/material.dart';
 /// Departure-date rules for the DIY flow.
 ///
 /// The price endpoint (**API 5 — POST /packages/{share_id}/price/**) refuses
-/// a departure that is not in the future — it answers
-/// `departure_date: Pick a date in the future…` — so the form, the calendar
-/// and the restored search all clamp to at least tomorrow.
+/// a departure that has already gone, so the form, the calendar and the
+/// restored search all clamp to at least today.
 class DiyDates {
   const DiyDates._();
 
@@ -15,9 +14,8 @@ class DiyDates {
 
   static DateTime today() => DateUtils.dateOnly(DateTime.now());
 
-  /// The earliest date the API will price.
-  static DateTime earliestDeparture() =>
-      today().add(const Duration(days: 1));
+  /// The earliest date the API will price: today.
+  static DateTime earliestDeparture() => today();
 
   /// What the search form opens on.
   static DateTime defaultDeparture() =>

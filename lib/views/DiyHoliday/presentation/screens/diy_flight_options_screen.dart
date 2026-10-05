@@ -48,8 +48,7 @@ class _Leg {
 
   _Leg(this.outbound);
 
-  DiyFlightOption? get pinned =>
-      options.where((o) => o.isSelected).firstOrNull;
+  DiyFlightOption? get pinned => options.where((o) => o.isSelected).firstOrNull;
   DiyFlightOption? get chosen =>
       options.where((o) => o.offerRef == chosenRef).firstOrNull ?? pinned;
   bool get changed => chosen != null && pinned != null && chosen != pinned;
@@ -77,8 +76,10 @@ class _DiyFlightOptionsScreenState extends State<DiyFlightOptionsScreen> {
       if (days.length > 1 && flies(days.lastOrNull)) _Leg(false),
     ];
     if (_legs.isEmpty) _legs.add(_Leg(widget.outbound));
-    _tab = _legs.firstWhere((l) => l.outbound == widget.outbound,
-        orElse: () => _legs.first);
+    _tab = _legs.firstWhere(
+      (l) => l.outbound == widget.outbound,
+      orElse: () => _legs.first,
+    );
     for (final leg in _legs) {
       _load(leg);
     }
@@ -155,7 +156,9 @@ class _DiyFlightOptionsScreenState extends State<DiyFlightOptionsScreen> {
     list.sort(switch (_sort) {
       _Sort.price => (a, b) => a.delta.compareTo(b.delta),
       _Sort.departure => byDeparture,
-      _Sort.duration => (a, b) => a.durationMinutes.compareTo(b.durationMinutes),
+      _Sort.duration => (a, b) => a.durationMinutes.compareTo(
+        b.durationMinutes,
+      ),
     });
     // The pinned flight stays at the top whatever the order.
     final pinned = leg.pinned;
@@ -183,7 +186,11 @@ class _DiyFlightOptionsScreenState extends State<DiyFlightOptionsScreen> {
         elevation: 2,
         shadowColor: Colors.black.withValues(alpha: 0.15),
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: Colors.black, size: context.w(24)),
+          icon: Icon(
+            Icons.arrow_back,
+            color: Colors.black,
+            size: context.w(24),
+          ),
           onPressed: () => Navigator.of(context).pop(),
         ),
         titleSpacing: 0,
@@ -234,9 +241,8 @@ class _DiyFlightOptionsScreenState extends State<DiyFlightOptionsScreen> {
   // --------------------------------------------------------------- summary
 
   Widget _summaryCard() {
-    String times(DiyFlightOption? o) => o == null
-        ? ''
-        : '${diyTime(o.departureAt)} - ${diyTime(o.arrivalAt)}';
+    String times(DiyFlightOption? o) =>
+        o == null ? '' : '${diyTime(o.departureAt)} - ${diyTime(o.arrivalAt)}';
 
     Widget legRow(_Leg leg) {
       final o = leg.chosen;
@@ -264,8 +270,11 @@ class _DiyFlightOptionsScreenState extends State<DiyFlightOptionsScreen> {
                 ),
                 Row(
                   children: [
-                    Icon(Icons.access_time_filled_rounded,
-                        size: context.w(9), color: DiyTripStyle.grey),
+                    Icon(
+                      Icons.access_time_filled_rounded,
+                      size: context.w(9),
+                      color: DiyTripStyle.grey,
+                    ),
                     SizedBox(width: context.w(3)),
                     Text(
                       times(o),
@@ -316,8 +325,10 @@ class _DiyFlightOptionsScreenState extends State<DiyFlightOptionsScreen> {
                     TextSpan(
                       children: [
                         TextSpan(
-                          text: diyMoney(_perPerson,
-                              currency: widget.trip.currency),
+                          text: diyMoney(
+                            _perPerson,
+                            currency: widget.trip.currency,
+                          ),
                           style: TextStyle(
                             fontSize: context.fs(19),
                             fontWeight: FontWeight.w700,
@@ -389,8 +400,11 @@ class _DiyFlightOptionsScreenState extends State<DiyFlightOptionsScreen> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.check_rounded,
-                      size: context.w(12), color: Colors.white),
+                  Icon(
+                    Icons.check_rounded,
+                    size: context.w(12),
+                    color: Colors.white,
+                  ),
                   SizedBox(width: context.w(4)),
                   Text(
                     'SELECTED',
@@ -421,7 +435,11 @@ class _DiyFlightOptionsScreenState extends State<DiyFlightOptionsScreen> {
 
     return Padding(
       padding: EdgeInsets.fromLTRB(
-          context.w(16), context.h(16), context.w(16), 0),
+        context.w(16),
+        context.h(16),
+        context.w(16),
+        0,
+      ),
       child: Container(
         decoration: const BoxDecoration(
           border: Border(bottom: BorderSide(color: DiyTripStyle.divider)),
@@ -528,20 +546,31 @@ class _DiyFlightOptionsScreenState extends State<DiyFlightOptionsScreen> {
         child: Column(
           crossAxisAlignment: a,
           children: [
-            Text(time,
-                style: TextStyle(
-                    fontSize: context.fs(22),
-                    fontWeight: FontWeight.w800,
-                    color: Colors.black)),
+            Text(
+              time,
+              style: TextStyle(
+                fontSize: context.fs(22),
+                fontWeight: FontWeight.w800,
+                color: Colors.black,
+              ),
+            ),
             SizedBox(height: context.h(4)),
-            Text(date,
-                style: TextStyle(
-                    fontSize: context.fs(12), color: DiyTripStyle.grey)),
-            Text(city,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                    fontSize: context.fs(12), color: DiyTripStyle.grey)),
+            Text(
+              date,
+              style: TextStyle(
+                fontSize: context.fs(12),
+                color: DiyTripStyle.grey,
+              ),
+            ),
+            Text(
+              city,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: context.fs(12),
+                color: DiyTripStyle.grey,
+              ),
+            ),
           ],
         ),
       );
@@ -606,8 +635,12 @@ class _DiyFlightOptionsScreenState extends State<DiyFlightOptionsScreen> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              end(diyTime(o.departureAt), day(dep), diyAirportCity(from),
-                  CrossAxisAlignment.start),
+              end(
+                diyTime(o.departureAt),
+                day(dep),
+                diyAirportCity(from),
+                CrossAxisAlignment.start,
+              ),
               Expanded(
                 child: Column(
                   children: [
@@ -632,8 +665,12 @@ class _DiyFlightOptionsScreenState extends State<DiyFlightOptionsScreen> {
                   ],
                 ),
               ),
-              end(diyTime(o.arrivalAt), day(arr), diyAirportCity(to),
-                  CrossAxisAlignment.end),
+              end(
+                diyTime(o.arrivalAt),
+                day(arr),
+                diyAirportCity(to),
+                CrossAxisAlignment.end,
+              ),
             ],
           ),
           SizedBox(height: context.h(14)),
@@ -643,16 +680,22 @@ class _DiyFlightOptionsScreenState extends State<DiyFlightOptionsScreen> {
                 message: o.baggageCabin.isNotEmpty
                     ? 'Cabin ${o.baggageCabin}'
                     : 'Cabin bag',
-                child: Icon(Icons.work_rounded,
-                    size: context.w(24), color: DiyTripStyle.grey),
+                child: Icon(
+                  Icons.work_rounded,
+                  size: context.w(24),
+                  color: DiyTripStyle.grey,
+                ),
               ),
               SizedBox(width: context.w(14)),
               Tooltip(
                 message: o.baggageChecked.isNotEmpty
                     ? 'Check-in ${o.baggageChecked}'
                     : 'Check-in bag',
-                child: Icon(Icons.luggage_rounded,
-                    size: context.w(24), color: DiyTripStyle.grey),
+                child: Icon(
+                  Icons.luggage_rounded,
+                  size: context.w(24),
+                  color: DiyTripStyle.grey,
+                ),
               ),
               if (o.baggageChecked.isNotEmpty) ...[
                 SizedBox(width: context.w(6)),
@@ -765,9 +808,16 @@ class _DiyFlightOptionsScreenState extends State<DiyFlightOptionsScreen> {
         children: [
           half(Icons.swap_vert_rounded, 'Sort', _openSort, false),
           Container(
-              width: 1, height: context.h(24), color: DiyTripStyle.divider),
-          half(Icons.tune_rounded, 'Filter', _openFilter,
-              _nonStopOnly || _refundableOnly),
+            width: 1,
+            height: context.h(24),
+            color: DiyTripStyle.divider,
+          ),
+          half(
+            Icons.tune_rounded,
+            'Filter',
+            _openFilter,
+            _nonStopOnly || _refundableOnly,
+          ),
         ],
       ),
     );
@@ -778,8 +828,9 @@ class _DiyFlightOptionsScreenState extends State<DiyFlightOptionsScreen> {
       context: context,
       backgroundColor: Colors.white,
       shape: RoundedRectangleBorder(
-        borderRadius:
-            BorderRadius.vertical(top: Radius.circular(context.r(18))),
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(context.r(18)),
+        ),
       ),
       builder: (sheetContext) => SafeArea(
         child: Column(
@@ -811,8 +862,9 @@ class _DiyFlightOptionsScreenState extends State<DiyFlightOptionsScreen> {
       context: context,
       backgroundColor: Colors.white,
       shape: RoundedRectangleBorder(
-        borderRadius:
-            BorderRadius.vertical(top: Radius.circular(context.r(18))),
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(context.r(18)),
+        ),
       ),
       builder: (sheetContext) => StatefulBuilder(
         builder: (sheetContext, setSheet) => SafeArea(

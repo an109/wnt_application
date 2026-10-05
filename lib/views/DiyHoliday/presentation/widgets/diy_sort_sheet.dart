@@ -14,32 +14,32 @@ enum DiySortOption {
 
   /// The backend's name for this order.
   String get apiValue => switch (this) {
-        DiySortOption.popularity => 'popularity',
-        DiySortOption.priceLowToHigh => 'price_low',
-        DiySortOption.priceHighToLow => 'price_high',
-        DiySortOption.durationShortest => 'duration_short',
-      };
+    DiySortOption.popularity => 'popularity',
+    DiySortOption.priceLowToHigh => 'price_low',
+    DiySortOption.priceHighToLow => 'price_high',
+    DiySortOption.durationShortest => 'duration_short',
+  };
 
   String get label => switch (this) {
-        DiySortOption.popularity => 'Popularity',
-        DiySortOption.priceLowToHigh => 'Price',
-        DiySortOption.priceHighToLow => 'Price',
-        DiySortOption.durationShortest => 'Duration',
-      };
+    DiySortOption.popularity => 'Popularity',
+    DiySortOption.priceLowToHigh => 'Price',
+    DiySortOption.priceHighToLow => 'Price',
+    DiySortOption.durationShortest => 'Duration',
+  };
 
   String get caption => switch (this) {
-        DiySortOption.popularity => 'High to Low',
-        DiySortOption.priceLowToHigh => 'Low to High',
-        DiySortOption.priceHighToLow => 'High to Low',
-        DiySortOption.durationShortest => 'Shortest first',
-      };
+    DiySortOption.popularity => 'High to Low',
+    DiySortOption.priceLowToHigh => 'Low to High',
+    DiySortOption.priceHighToLow => 'High to Low',
+    DiySortOption.durationShortest => 'Shortest first',
+  };
 
   IconData get icon => switch (this) {
-        DiySortOption.popularity => Icons.star_outline_rounded,
-        DiySortOption.priceLowToHigh => Icons.south_rounded,
-        DiySortOption.priceHighToLow => Icons.north_rounded,
-        DiySortOption.durationShortest => Icons.schedule_rounded,
-      };
+    DiySortOption.popularity => Icons.star_outline_rounded,
+    DiySortOption.priceLowToHigh => Icons.south_rounded,
+    DiySortOption.priceHighToLow => Icons.north_rounded,
+    DiySortOption.durationShortest => Icons.schedule_rounded,
+  };
 }
 
 /// Sort — a bottom drawer with the option grid, a live "shown/total" count,
@@ -57,11 +57,7 @@ Future<DiySortOption?> showDiySortSheet(
     context: context,
     backgroundColor: Colors.transparent,
     isScrollControlled: true,
-    builder: (_) => _DiySortSheet(
-      current: current,
-      shown: shown,
-      total: total,
-    ),
+    builder: (_) => _DiySortSheet(current: current, shown: shown, total: total),
   );
 }
 

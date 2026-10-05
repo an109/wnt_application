@@ -164,7 +164,9 @@ class _DiyEnquiryScreenState extends State<DiyEnquiryScreen> {
               keyboardType: TextInputType.emailAddress,
               validator: (v) {
                 final value = (v ?? '').trim();
-                final ok = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(value);
+                final ok = RegExp(
+                  r'^[^@\s]+@[^@\s]+\.[^@\s]+$',
+                ).hasMatch(value);
                 return ok ? null : 'Enter a valid email address';
               },
             ),
@@ -217,8 +219,7 @@ class _DiyEnquiryScreenState extends State<DiyEnquiryScreen> {
               if (date != null) diyFullDate(date),
               '${widget.query.adults} adult'
                   '${widget.query.adults == 1 ? '' : 's'}',
-              if (widget.query.children > 0)
-                '${widget.query.children} child',
+              if (widget.query.children > 0) '${widget.query.children} child',
               widget.withFlight ? 'with flight' : 'without flight',
               if (widget.addOnIds.isNotEmpty)
                 '${widget.addOnIds.length} add-on'
@@ -285,10 +286,7 @@ class _DiyEnquiryScreenState extends State<DiyEnquiryScreen> {
             keyboardType: keyboardType,
             maxLines: maxLines,
             validator: validator,
-            style: TextStyle(
-              fontSize: context.fs(14),
-              color: DiyTokens.navy,
-            ),
+            style: TextStyle(fontSize: context.fs(14), color: DiyTokens.navy),
             decoration: InputDecoration(
               hintText: hint,
               hintStyle: TextStyle(

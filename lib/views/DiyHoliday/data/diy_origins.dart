@@ -20,12 +20,12 @@ class DiyOrigin {
   });
 
   Map<String, dynamic> toJson() => {
-        'slug': slug,
-        'name': name,
-        'state': state,
-        'lat': lat,
-        'lng': lng,
-      };
+    'slug': slug,
+    'name': name,
+    'state': state,
+    'lat': lat,
+    'lng': lng,
+  };
 
   /// Slugs earlier builds shipped that the backend does not know. A search
   /// saved on one of those builds is read back under the backend's slug, or
@@ -208,9 +208,11 @@ class DiyOrigins {
     final q = query.trim().toLowerCase();
     if (q.isEmpty) return all;
     return all
-        .where((o) =>
-            o.name.toLowerCase().contains(q) ||
-            o.state.toLowerCase().contains(q))
+        .where(
+          (o) =>
+              o.name.toLowerCase().contains(q) ||
+              o.state.toLowerCase().contains(q),
+        )
         .toList();
   }
 

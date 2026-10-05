@@ -112,14 +112,17 @@ class _DiyHotelDetailScreenState extends State<DiyHotelDetailScreen> {
   Future<void> _pick(DiyRoomOption room) async {
     final hotel = _hotel;
     if (hotel == null || room.isSelected) return;
-    final hotelRef =
-        hotel.hotelRef.isNotEmpty ? hotel.hotelRef : (widget.hotelRef ?? '');
-    final name = hotel.hotelName.isNotEmpty ? hotel.hotelName : widget.hotelName;
+    final hotelRef = hotel.hotelRef.isNotEmpty
+        ? hotel.hotelRef
+        : (widget.hotelRef ?? '');
+    final name = hotel.hotelName.isNotEmpty
+        ? hotel.hotelName
+        : widget.hotelName;
 
     if (!_pinnedHotel) {
-      Navigator.of(context).pop(
-        DiyRoomPick(hotelRef: hotelRef, hotelName: name, room: room),
-      );
+      Navigator.of(
+        context,
+      ).pop(DiyRoomPick(hotelRef: hotelRef, hotelName: name, room: room));
       return;
     }
     setState(() => _applyingRef = room.roomRef);
@@ -133,7 +136,12 @@ class _DiyHotelDetailScreenState extends State<DiyHotelDetailScreen> {
       );
       if (!mounted) return;
       Navigator.of(context).pop(
-        DiyRoomPick(hotelRef: hotelRef, hotelName: name, room: room, trip: trip),
+        DiyRoomPick(
+          hotelRef: hotelRef,
+          hotelName: name,
+          room: room,
+          trip: trip,
+        ),
       );
     } catch (e) {
       if (mounted) diySnack(context, e.toString(), isError: true);
@@ -195,7 +203,11 @@ class _DiyHotelDetailScreenState extends State<DiyHotelDetailScreen> {
         elevation: 2,
         shadowColor: Colors.black.withValues(alpha: 0.15),
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: Colors.black, size: context.w(24)),
+          icon: Icon(
+            Icons.arrow_back,
+            color: Colors.black,
+            size: context.w(24),
+          ),
           onPressed: () => Navigator.of(context).pop(),
         ),
         titleSpacing: 0,
@@ -214,7 +226,10 @@ class _DiyHotelDetailScreenState extends State<DiyHotelDetailScreen> {
             ),
             Text(
               _dateLine,
-              style: TextStyle(fontSize: context.fs(10), color: DiyTripStyle.grey),
+              style: TextStyle(
+                fontSize: context.fs(10),
+                color: DiyTripStyle.grey,
+              ),
             ),
           ],
         ),
@@ -236,13 +251,15 @@ class _DiyHotelDetailScreenState extends State<DiyHotelDetailScreen> {
       body: _loading
           ? const DiyLoading(message: 'Loading rooms…')
           : _error != null
-              ? DiyErrorView(message: _error!, onRetry: _load)
-              : _content(hotel!),
+          ? DiyErrorView(message: _error!, onRetry: _load)
+          : _content(hotel!),
     );
   }
 
   Widget _content(DiyHotelRooms hotel) {
-    final images = hotel.images.isNotEmpty ? hotel.images : widget.previewImages;
+    final images = hotel.images.isNotEmpty
+        ? hotel.images
+        : widget.previewImages;
     final stars = (double.tryParse(hotel.starRating) ?? 0).round().clamp(0, 5);
     final guests = widget.trip.adults + widget.trip.children;
 
@@ -270,8 +287,11 @@ class _DiyHotelDetailScreenState extends State<DiyHotelDetailScreen> {
               ),
             ),
             for (var i = 0; i < stars; i++)
-              SvgPicture.asset(DiyTripStyle.star,
-                  width: context.w(15), height: context.w(15)),
+              SvgPicture.asset(
+                DiyTripStyle.star,
+                width: context.w(15),
+                height: context.w(15),
+              ),
             if (hotel.reviewRating.isNotEmpty) ...[
               SizedBox(width: context.w(4)),
               Text.rich(
@@ -311,8 +331,11 @@ class _DiyHotelDetailScreenState extends State<DiyHotelDetailScreen> {
                   color: const Color(0xFFEAF6EC),
                   borderRadius: BorderRadius.circular(context.r(4)),
                 ),
-                child: Icon(Icons.location_on_rounded,
-                    size: context.w(15), color: DiyTripStyle.orange),
+                child: Icon(
+                  Icons.location_on_rounded,
+                  size: context.w(15),
+                  color: DiyTripStyle.orange,
+                ),
               ),
               SizedBox(width: context.w(10)),
               Expanded(
@@ -333,8 +356,10 @@ class _DiyHotelDetailScreenState extends State<DiyHotelDetailScreen> {
           children: [
             _chip(Icons.calendar_month_rounded, _shortDates()),
             SizedBox(width: context.w(10)),
-            _chip(Icons.person_rounded,
-                '$guests Guest${guests == 1 ? '' : 's'}/$_roomCount room'),
+            _chip(
+              Icons.person_rounded,
+              '$guests Guest${guests == 1 ? '' : 's'}/$_roomCount room',
+            ),
           ],
         ),
         if (hotel.checkInTime.isNotEmpty || hotel.checkOutTime.isNotEmpty) ...[
@@ -385,7 +410,10 @@ class _DiyHotelDetailScreenState extends State<DiyHotelDetailScreen> {
         if (hotel.rooms.isEmpty)
           Text(
             'No rooms are available for these dates.',
-            style: TextStyle(fontSize: context.fs(12), color: DiyTripStyle.grey),
+            style: TextStyle(
+              fontSize: context.fs(12),
+              color: DiyTripStyle.grey,
+            ),
           ),
         for (final room in hotel.rooms)
           Padding(
@@ -447,8 +475,11 @@ class _DiyHotelDetailScreenState extends State<DiyHotelDetailScreen> {
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            SvgPicture.asset(DiyTripStyle.photo,
-                                width: context.w(16), height: context.w(16)),
+                            SvgPicture.asset(
+                              DiyTripStyle.photo,
+                              width: context.w(16),
+                              height: context.w(16),
+                            ),
                             SizedBox(height: context.h(4)),
                             Text(
                               'Property photos',
@@ -567,8 +598,9 @@ class _DiyHotelDetailScreenState extends State<DiyHotelDetailScreen> {
       backgroundColor: Colors.white,
       isScrollControlled: true,
       shape: RoundedRectangleBorder(
-        borderRadius:
-            BorderRadius.vertical(top: Radius.circular(context.r(18))),
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(context.r(18)),
+        ),
       ),
       builder: (_) => DraggableScrollableSheet(
         expand: false,
@@ -637,7 +669,10 @@ class _DiyHotelDetailScreenState extends State<DiyHotelDetailScreen> {
             subtitle,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(fontSize: context.fs(11), color: DiyTripStyle.grey),
+            style: TextStyle(
+              fontSize: context.fs(11),
+              color: DiyTripStyle.grey,
+            ),
           ),
           SizedBox(height: context.h(10)),
           Row(
@@ -668,8 +703,11 @@ class _DiyHotelDetailScreenState extends State<DiyHotelDetailScreen> {
                         ),
                         child: Row(
                           children: [
-                            Icon(Icons.photo_camera_outlined,
-                                size: context.w(10), color: DiyTokens.blue),
+                            Icon(
+                              Icons.photo_camera_outlined,
+                              size: context.w(10),
+                              color: DiyTokens.blue,
+                            ),
                             SizedBox(width: context.w(3)),
                             Text(
                               '${room.images.length}',
@@ -722,8 +760,11 @@ class _DiyHotelDetailScreenState extends State<DiyHotelDetailScreen> {
               children: [
                 Row(
                   children: [
-                    Icon(Icons.restaurant_rounded,
-                        size: context.w(14), color: DiyTripStyle.green),
+                    Icon(
+                      Icons.restaurant_rounded,
+                      size: context.w(14),
+                      color: DiyTripStyle.green,
+                    ),
                     SizedBox(width: context.w(6)),
                     Expanded(
                       child: Text(
@@ -761,8 +802,11 @@ class _DiyHotelDetailScreenState extends State<DiyHotelDetailScreen> {
                     padding: EdgeInsets.only(top: context.h(3)),
                     child: Row(
                       children: [
-                        Icon(Icons.check_rounded,
-                            size: context.w(12), color: DiyTripStyle.green),
+                        Icon(
+                          Icons.check_rounded,
+                          size: context.w(12),
+                          color: DiyTripStyle.green,
+                        ),
                         SizedBox(width: context.w(6)),
                         Expanded(
                           child: Text(
@@ -812,10 +856,14 @@ class _DiyHotelDetailScreenState extends State<DiyHotelDetailScreen> {
                       children: [
                         TextSpan(
                           text: room.delta == null
-                              ? diyMoney(room.total / adults,
-                                  currency: widget.trip.currency)
-                              : diyDelta(room.delta! / adults,
-                                  currency: widget.trip.currency),
+                              ? diyMoney(
+                                  room.total / adults,
+                                  currency: widget.trip.currency,
+                                )
+                              : diyDelta(
+                                  room.delta! / adults,
+                                  currency: widget.trip.currency,
+                                ),
                           style: TextStyle(
                             fontSize: context.fs(20),
                             fontWeight: FontWeight.w800,
@@ -882,7 +930,10 @@ class _DiyHotelDetailScreenState extends State<DiyHotelDetailScreen> {
               text,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: context.fs(11), color: DiyTripStyle.grey),
+              style: TextStyle(
+                fontSize: context.fs(11),
+                color: DiyTripStyle.grey,
+              ),
             ),
           ),
         ],
@@ -902,7 +953,9 @@ IconData diyFacilityIcon(String name) {
   if (n.contains('spa') || n.contains('sauna') || n.contains('steam')) {
     return Icons.spa_rounded;
   }
-  if (n.contains('wifi') || n.contains('wi-fi') || n.contains('internet') ||
+  if (n.contains('wifi') ||
+      n.contains('wi-fi') ||
+      n.contains('internet') ||
       n.contains('lan')) {
     return Icons.wifi_rounded;
   }

@@ -185,10 +185,7 @@ class DiyItinerary extends StatelessWidget {
                 ),
               ),
               if (onChangeFlight != null)
-                _changeButton(
-                  context,
-                  onTap: () => onChangeFlight!(outbound),
-                ),
+                _changeButton(context, onTap: () => onChangeFlight!(outbound)),
             ],
           ),
           SizedBox(height: context.h(8)),
@@ -227,7 +224,8 @@ class DiyItinerary extends StatelessWidget {
             [
               row.carrierName,
               row.flightNumber,
-              if (row.baggageChecked.isNotEmpty) '${row.baggageChecked} baggage',
+              if (row.baggageChecked.isNotEmpty)
+                '${row.baggageChecked} baggage',
             ].where((s) => s.isNotEmpty).join(' · '),
             style: TextStyle(
               fontSize: context.fs(11),

@@ -58,7 +58,11 @@ class DiyFlightDetailsScreen extends StatelessWidget {
         elevation: 2,
         shadowColor: Colors.black.withValues(alpha: 0.15),
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: Colors.black, size: context.w(24)),
+          icon: Icon(
+            Icons.arrow_back,
+            color: Colors.black,
+            size: context.w(24),
+          ),
           onPressed: () => Navigator.of(context).pop(),
         ),
         titleSpacing: 0,
@@ -142,17 +146,17 @@ class DiyFlightDetailsScreen extends StatelessWidget {
 
   Widget _routeCard(BuildContext context, String from, String to) {
     Widget link(String text, DiyFlightAction action) => GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: () => Navigator.of(context).pop(action),
-          child: Text(
-            text,
-            style: TextStyle(
-              fontSize: context.fs(14),
-              fontWeight: FontWeight.w600,
-              color: DiyTokens.blue,
-            ),
-          ),
-        );
+      behavior: HitTestBehavior.opaque,
+      onTap: () => Navigator.of(context).pop(action),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: context.fs(14),
+          fontWeight: FontWeight.w600,
+          color: DiyTokens.blue,
+        ),
+      ),
+    );
 
     return Container(
       padding: EdgeInsets.fromLTRB(
@@ -214,32 +218,51 @@ class DiyFlightDetailsScreen extends StatelessWidget {
     String day(DateTime? d) =>
         d == null ? '' : DateFormat('EEE, dd MMM').format(d);
 
-    Widget end(String code, String time, String date, String city,
-        CrossAxisAlignment align) {
+    Widget end(
+      String code,
+      String time,
+      String date,
+      String city,
+      CrossAxisAlignment align,
+    ) {
       return SizedBox(
         width: context.w(96),
         child: Column(
           crossAxisAlignment: align,
           children: [
-            Text(code,
-                style: TextStyle(
-                    fontSize: context.fs(14),
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black)),
-            Text(time,
-                style: TextStyle(
-                    fontSize: context.fs(24),
-                    fontWeight: FontWeight.w800,
-                    color: Colors.black)),
+            Text(
+              code,
+              style: TextStyle(
+                fontSize: context.fs(14),
+                fontWeight: FontWeight.w600,
+                color: Colors.black,
+              ),
+            ),
+            Text(
+              time,
+              style: TextStyle(
+                fontSize: context.fs(24),
+                fontWeight: FontWeight.w800,
+                color: Colors.black,
+              ),
+            ),
             SizedBox(height: context.h(4)),
-            Text(date,
-                style: TextStyle(
-                    fontSize: context.fs(12), color: DiyTripStyle.grey)),
-            Text(city,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                    fontSize: context.fs(12), color: DiyTripStyle.grey)),
+            Text(
+              date,
+              style: TextStyle(
+                fontSize: context.fs(12),
+                color: DiyTripStyle.grey,
+              ),
+            ),
+            Text(
+              city,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: context.fs(12),
+                color: DiyTripStyle.grey,
+              ),
+            ),
           ],
         ),
       );
@@ -248,17 +271,17 @@ class DiyFlightDetailsScreen extends StatelessWidget {
     final cabin = f.baggageCabin;
     final checked = f.baggageChecked;
     TextSpan label(String text) => TextSpan(
-          text: text,
-          style: TextStyle(fontSize: context.fs(13), color: DiyTripStyle.grey),
-        );
+      text: text,
+      style: TextStyle(fontSize: context.fs(13), color: DiyTripStyle.grey),
+    );
     TextSpan value(String text) => TextSpan(
-          text: text,
-          style: TextStyle(
-            fontSize: context.fs(13),
-            fontWeight: FontWeight.w600,
-            color: Colors.black,
-          ),
-        );
+      text: text,
+      style: TextStyle(
+        fontSize: context.fs(13),
+        fontWeight: FontWeight.w600,
+        color: Colors.black,
+      ),
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -298,8 +321,13 @@ class DiyFlightDetailsScreen extends StatelessWidget {
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            end(from, diyTime(f.departureAt), day(dep), diyAirportCity(from),
-                CrossAxisAlignment.start),
+            end(
+              from,
+              diyTime(f.departureAt),
+              day(dep),
+              diyAirportCity(from),
+              CrossAxisAlignment.start,
+            ),
             Expanded(
               child: Column(
                 children: [
@@ -318,8 +346,13 @@ class DiyFlightDetailsScreen extends StatelessWidget {
                 ],
               ),
             ),
-            end(to, diyTime(f.arrivalAt), day(arr), diyAirportCity(to),
-                CrossAxisAlignment.end),
+            end(
+              to,
+              diyTime(f.arrivalAt),
+              day(arr),
+              diyAirportCity(to),
+              CrossAxisAlignment.end,
+            ),
           ],
         ),
         if (cabin.isNotEmpty || checked.isNotEmpty) ...[
@@ -345,10 +378,7 @@ class DiyFlightDetailsScreen extends StatelessWidget {
           Text.rich(
             TextSpan(
               children: [
-                if (cabin.isNotEmpty) ...[
-                  label('Cabin : '),
-                  value(cabin),
-                ],
+                if (cabin.isNotEmpty) ...[label('Cabin : '), value(cabin)],
                 if (cabin.isNotEmpty && checked.isNotEmpty) label('  •  '),
                 if (checked.isNotEmpty) ...[
                   label('Check-in : '),

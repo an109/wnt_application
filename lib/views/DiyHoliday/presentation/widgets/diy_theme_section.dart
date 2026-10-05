@@ -86,8 +86,9 @@ class _DiyThemeSectionState extends State<DiyThemeSection> {
       MaterialPageRoute(
         builder: (_) => DiyResultsScreen(
           // Theme browsing is destination-agnostic — API 3 accepts `theme`
-          // on its own.
-          query: widget.query.copyWith(clearDestination: true),
+          // on its own — and opens on the shortcut defaults: New Delhi,
+          // today, 2 adults.
+          query: DiySearchQuery.quickStart(),
           filters: DiyFilters(theme: theme.slug),
         ),
       ),
@@ -206,8 +207,8 @@ class _DiyThemeSectionState extends State<DiyThemeSection> {
   }
 
   Widget _tile(DiyTheme theme) {
-    final colors = _gradients[theme.slug] ??
-        const [Color(0xFF1F3A5F), Color(0xFF4F7CAC)];
+    final colors =
+        _gradients[theme.slug] ?? const [Color(0xFF1F3A5F), Color(0xFF4F7CAC)];
     final icon = _icons[theme.slug] ?? Icons.explore_rounded;
 
     return GestureDetector(

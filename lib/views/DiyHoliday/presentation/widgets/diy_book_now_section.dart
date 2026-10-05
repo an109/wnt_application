@@ -5,14 +5,16 @@ import '../../../../injection_container.dart';
 import '../../data/diy_holiday_api.dart';
 import '../../data/diy_search_query.dart';
 import '../../data/models/diy_models.dart';
+import '../screens/diy_filter_screen.dart';
 import '../screens/diy_results_screen.dart';
 import 'diy_common.dart';
 
-/// "Book Now" — the round destination shortcuts under the hero.
+/// "Book Now" — the round shortcuts under the hero, for **trending** places.
 ///
-/// The destination list is **API 1 — GET /destinations/**; it carries no
-/// artwork, so each circle borrows the image of a package going there
-/// (**API 3 — GET /packages/**, one page, matched on destination name).
+/// **GET /destinations/trending/** lists only places that have packages marked
+/// trending, with cities folded into their state (Alleppey and Munnar inside
+/// Kerala) and a picture of the place itself. Tapping one opens that place's
+/// trending packages.
 class DiyBookNowSection extends StatefulWidget {
   final DiySearchQuery query;
 
@@ -24,7 +26,6 @@ class DiyBookNowSection extends StatefulWidget {
 
 class _DiyBookNowSectionState extends State<DiyBookNowSection> {
   List<DiyDestination> _destinations = const [];
-  Map<String, String> _images = const {};
   bool _loading = true;
 
   @override
@@ -35,20 +36,10 @@ class _DiyBookNowSectionState extends State<DiyBookNowSection> {
 
   Future<void> _load() async {
     try {
-      final api = sl<DiyHolidayApi>();
-      final destinations = await api.getDestinations();
-      final packages = await api.searchPackages();
+      final destinations = await sl<DiyHolidayApi>().getTrendingDestinations();
       if (!mounted) return;
-
-      final images = <String, String>{};
-      for (final p in packages.results) {
-        if (p.image.isEmpty) continue;
-        images.putIfAbsent(p.destination.toLowerCase(), () => p.image);
-      }
-
       setState(() {
         _destinations = destinations;
-        _images = images;
         _loading = false;
       });
     } catch (_) {
@@ -56,26 +47,26 @@ class _DiyBookNowSectionState extends State<DiyBookNowSection> {
     }
   }
 
-  String _imageFor(DiyDestination d) {
-    final direct = _images[d.name.toLowerCase()];
-    if (direct != null) return direct;
-    // A region ("Kerala") won't match a package's city ("Alleppey") — fall
-    // back to any city listed under it.
-    for (final city in d.cities) {
-      final match = _images[city.toLowerCase()];
-      if (match != null) return match;
-    }
-    return '';
-  }
-
   void _open(DiyDestination destination) {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => DiyResultsScreen(
-          query: widget.query.copyWith(destination: destination),
+          // Shortcuts open on fixed defaults (New Delhi, today, 2 adults)
+          // rather than whatever the form above happens to hold.
+          query: DiySearchQuery.quickStart(destination: destination),
+          filters: const DiyFilters(trending: true),
         ),
       ),
     );
+  }
+
+  /// "Munnar, Alleppey" under a region; the package count under a city.
+  String _caption(DiyDestination d) {
+    if (d.cities.isNotEmpty &&
+        !(d.cities.length == 1 && d.cities.first == d.name)) {
+      return d.cities.join(', ');
+    }
+    return '${d.packageCount} package${d.packageCount == 1 ? '' : 's'}';
   }
 
   @override
@@ -117,7 +108,7 @@ class _DiyBookNowSectionState extends State<DiyBookNowSection> {
         ),
         SizedBox(height: context.h(14)),
         SizedBox(
-          height: context.h(132),
+          height: context.h(150),
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             padding: EdgeInsets.symmetric(horizontal: context.w(16)),
@@ -134,7 +125,7 @@ class _DiyBookNowSectionState extends State<DiyBookNowSection> {
                     children: [
                       ClipOval(
                         child: DiyImage(
-                          url: _imageFor(destination),
+                          url: destination.image,
                           width: context.w(104),
                           height: context.w(104),
                         ),
@@ -148,6 +139,15 @@ class _DiyBookNowSectionState extends State<DiyBookNowSection> {
                           fontSize: context.fs(13),
                           fontWeight: FontWeight.w600,
                           color: DiyTokens.navy,
+                        ),
+                      ),
+                      Text(
+                        _caption(destination),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: context.fs(10.5),
+                          color: DiyTokens.subGrey,
                         ),
                       ),
                     ],

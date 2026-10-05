@@ -72,16 +72,16 @@ class DiyFilters {
   /// Both budget ends replaced at once — either may be null ("no floor",
   /// "no ceiling"), which [copyWith] cannot express.
   DiyFilters withBudget(double? min, double? max) => DiyFilters(
-        budgetMin: min,
-        budgetMax: max,
-        withFlight: withFlight,
-        nightsMax: nightsMax,
-        stars: stars,
-        cities: cities,
-        theme: theme,
-        trending: trending,
-        sort: sort,
-      );
+    budgetMin: min,
+    budgetMax: max,
+    withFlight: withFlight,
+    nightsMax: nightsMax,
+    stars: stars,
+    cities: cities,
+    theme: theme,
+    trending: trending,
+    sort: sort,
+  );
 
   /// Anything narrowing the list. Sort is a choice, not a filter.
   bool get isActive =>
@@ -97,14 +97,14 @@ class DiyFilters {
   /// The `filters` object of the search body. Whole rupees: the backend
   /// takes integers.
   Map<String, dynamic> toApi() => {
-        if (budgetMin != null) 'budget_min': budgetMin!.round(),
-        if (budgetMax != null) 'budget_max': budgetMax!.round(),
-        if (nightsMax != null) 'nights_max': nightsMax,
-        if (stars.isNotEmpty) 'hotel_stars': stars.toList()..sort(),
-        if (cities.isNotEmpty) 'cities': cities.toList(),
-        if (theme != null && theme!.isNotEmpty) 'themes': [theme],
-        if (trending) 'trending': true,
-      };
+    if (budgetMin != null) 'budget_min': budgetMin!.round(),
+    if (budgetMax != null) 'budget_max': budgetMax!.round(),
+    if (nightsMax != null) 'nights_max': nightsMax,
+    if (stars.isNotEmpty) 'hotel_stars': stars.toList()..sort(),
+    if (cities.isNotEmpty) 'cities': cities.toList(),
+    if (theme != null && theme!.isNotEmpty) 'themes': [theme],
+    if (trending) 'trending': true,
+  };
 }
 
 /// Opens Filters as its own screen and returns the chosen [DiyFilters], or
@@ -295,7 +295,11 @@ class _DiyFilterScreenState extends State<DiyFilterScreen> {
           GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: () => Navigator.of(context).pop(),
-            child: Icon(Icons.close, size: context.w(22), color: DiyTokens.navy),
+            child: Icon(
+              Icons.close,
+              size: context.w(22),
+              color: DiyTokens.navy,
+            ),
           ),
           SizedBox(width: context.w(14)),
           Text(
@@ -337,7 +341,10 @@ class _DiyFilterScreenState extends State<DiyFilterScreen> {
         children: [
           Text(
             title,
-            style: TextStyle(fontSize: context.fs(15), color: DiyTokens.subGrey),
+            style: TextStyle(
+              fontSize: context.fs(15),
+              color: DiyTokens.subGrey,
+            ),
           ),
           SizedBox(height: context.h(10)),
           child,
@@ -347,16 +354,16 @@ class _DiyFilterScreenState extends State<DiyFilterScreen> {
   }
 
   SliderThemeData _sliderTheme() => SliderTheme.of(context).copyWith(
-        activeTrackColor: DiyTokens.blue,
-        inactiveTrackColor: const Color(0xFFE3E6EC),
-        thumbColor: Colors.white,
-        overlayColor: DiyTokens.blue.withOpacity(0.12),
-        trackHeight: 4,
-        thumbShape: const RoundSliderThumbShape(
-          enabledThumbRadius: 11,
-          elevation: 2,
-        ),
-      );
+    activeTrackColor: DiyTokens.blue,
+    inactiveTrackColor: const Color(0xFFE3E6EC),
+    thumbColor: Colors.white,
+    overlayColor: DiyTokens.blue.withOpacity(0.12),
+    trackHeight: 4,
+    thumbShape: const RoundSliderThumbShape(
+      enabledThumbRadius: 11,
+      elevation: 2,
+    ),
+  );
 
   Widget _valueTag(String text) {
     return Align(
@@ -387,15 +394,20 @@ class _DiyFilterScreenState extends State<DiyFilterScreen> {
     final style = TextStyle(fontSize: context.fs(12), color: DiyTokens.subGrey);
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [Text(low, style: style), Text(high, style: style)],
+      children: [
+        Text(low, style: style),
+        Text(high, style: style),
+      ],
     );
   }
 
   Widget _budgetSection() {
     final floor = _budgetFloor;
     final ceiling = _budgetCeiling;
-    final value =
-        (_sliderBudget ?? _f.budgetMax ?? ceiling).clamp(floor, ceiling);
+    final value = (_sliderBudget ?? _f.budgetMax ?? ceiling).clamp(
+      floor,
+      ceiling,
+    );
 
     return _section(
       title: 'Budget (per person)',
@@ -426,11 +438,12 @@ class _DiyFilterScreenState extends State<DiyFilterScreen> {
               for (final (label, low, high) in _budgetPicks)
                 _chip(
                   label: label,
-                  selected: _f.budgetMin == low && _f.budgetMax == high &&
+                  selected:
+                      _f.budgetMin == low &&
+                      _f.budgetMax == high &&
                       (low != null || high != null),
                   onTap: () {
-                    final picked =
-                        _f.budgetMin == low && _f.budgetMax == high;
+                    final picked = _f.budgetMin == low && _f.budgetMax == high;
                     _update(
                       picked
                           ? _f.withBudget(null, null)
@@ -755,9 +768,7 @@ class _DiyFilterScreenState extends State<DiyFilterScreen> {
         decoration: BoxDecoration(
           color: selected ? const Color(0xFFE8F4FC) : Colors.white,
           borderRadius: BorderRadius.circular(context.r(8)),
-          border: Border.all(
-            color: selected ? DiyTokens.blue : DiyTokens.line,
-          ),
+          border: Border.all(color: selected ? DiyTokens.blue : DiyTokens.line),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -818,7 +829,7 @@ class _DiyFilterScreenState extends State<DiyFilterScreen> {
                             ? '— Packages'
                             // The design's "25/63 Packages".
                             : '$found/${total ?? found} '
-                                'Package${(total ?? found) == 1 ? '' : 's'}',
+                                  'Package${(total ?? found) == 1 ? '' : 's'}',
                         style: TextStyle(
                           fontSize: context.fs(19),
                           fontWeight: FontWeight.w700,

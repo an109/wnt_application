@@ -36,16 +36,14 @@ Future<DiySearchQuery?> showDiyEditSearchDrawer(
     pageBuilder: (_, __, ___) => _DiyEditSearchDrawer(query: query),
     transitionBuilder: (_, animation, __, child) {
       return SlideTransition(
-        position: Tween<Offset>(
-          begin: const Offset(0, -1),
-          end: Offset.zero,
-        ).animate(
-          CurvedAnimation(
-            parent: animation,
-            curve: Curves.easeOutCubic,
-            reverseCurve: Curves.easeInCubic,
-          ),
-        ),
+        position: Tween<Offset>(begin: const Offset(0, -1), end: Offset.zero)
+            .animate(
+              CurvedAnimation(
+                parent: animation,
+                curve: Curves.easeOutCubic,
+                reverseCurve: Curves.easeInCubic,
+              ),
+            ),
         child: child,
       );
     },
@@ -267,17 +265,17 @@ class _DiyEditSearchDrawerState extends State<_DiyEditSearchDrawer> {
   }
 
   TextStyle _valueStyle({bool muted = false}) => TextStyle(
-        fontSize: context.fs(15),
-        fontWeight: FontWeight.w600,
-        color: muted ? DiyTokens.labelGrey : DiyTokens.navy,
-      );
+    fontSize: context.fs(15),
+    fontWeight: FontWeight.w600,
+    color: muted ? DiyTokens.labelGrey : DiyTokens.navy,
+  );
 
   TextStyle _labelStyle() => TextStyle(
-        fontSize: context.fs(9.5),
-        fontWeight: FontWeight.w600,
-        letterSpacing: 0.5,
-        color: DiyTokens.labelGrey,
-      );
+    fontSize: context.fs(9.5),
+    fontWeight: FontWeight.w600,
+    letterSpacing: 0.5,
+    color: DiyTokens.labelGrey,
+  );
 
   Widget _fieldBox({
     required String label,
@@ -413,11 +411,11 @@ class _DiyEditSearchDrawerState extends State<_DiyEditSearchDrawer> {
   }
 
   Widget _countDivider() => Container(
-        width: 0.5,
-        height: context.w(18),
-        margin: EdgeInsets.symmetric(horizontal: context.w(8)),
-        color: Colors.grey.shade300,
-      );
+    width: 0.5,
+    height: context.w(18),
+    margin: EdgeInsets.symmetric(horizontal: context.w(8)),
+    color: Colors.grey.shade300,
+  );
 
   Widget _countChip({IconData? icon, String? asset, required int count}) {
     return Row(

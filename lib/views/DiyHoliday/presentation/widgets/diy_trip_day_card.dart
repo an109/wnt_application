@@ -47,7 +47,15 @@ class DiyTripStyle {
 enum DiyDayFilter { all, transfers, hotels, meals }
 
 /// The section kinds of a day card, in the order the design stacks them.
-enum _Section { flight, transfer, sightseeing, hotel, meals, activity, checkout }
+enum _Section {
+  flight,
+  transfer,
+  sightseeing,
+  hotel,
+  meals,
+  activity,
+  checkout,
+}
 
 /// One "DAY n" card of the itinerary: the orange day pill and what the day
 /// includes, then a collapsible section per kind of row — Flight, Transfer,
@@ -119,12 +127,12 @@ class _DiyTripDayCardState extends State<DiyTripDayCard> {
       _day.rows.where((r) => r.kind == kind).toList();
 
   bool _shows(_Section section) => switch (widget.filter) {
-        DiyDayFilter.all => true,
-        DiyDayFilter.transfers => section == _Section.transfer,
-        DiyDayFilter.hotels =>
-          section == _Section.hotel || section == _Section.checkout,
-        DiyDayFilter.meals => section == _Section.meals,
-      };
+    DiyDayFilter.all => true,
+    DiyDayFilter.transfers => section == _Section.transfer,
+    DiyDayFilter.hotels =>
+      section == _Section.hotel || section == _Section.checkout,
+    DiyDayFilter.meals => section == _Section.meals,
+  };
 
   /// "Transfer • Hotel" — what the day includes, in the design's words.
   List<String> get _includes {
@@ -165,7 +173,8 @@ class _DiyTripDayCardState extends State<DiyTripDayCard> {
     add(_Section.activity, _activitySection());
     add(_Section.checkout, _checkoutSection());
 
-    final showAddActivity = widget.onAddActivity != null &&
+    final showAddActivity =
+        widget.onAddActivity != null &&
         widget.filter == DiyDayFilter.all &&
         !widget.isLastDay;
 
@@ -192,9 +201,7 @@ class _DiyTripDayCardState extends State<DiyTripDayCard> {
           ...sections,
           if (showAddActivity) ...[
             SizedBox(height: context.h(12)),
-            DiyAddActivityCard(
-              onAdd: () => widget.onAddActivity!(_day.day),
-            ),
+            DiyAddActivityCard(onAdd: () => widget.onAddActivity!(_day.day)),
           ],
         ],
       ),
@@ -277,8 +284,9 @@ class _DiyTripDayCardState extends State<DiyTripDayCard> {
           GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: collapsible
-                ? () => setState(() =>
-                    open ? _collapsed.add(kind) : _collapsed.remove(kind))
+                ? () => setState(
+                    () => open ? _collapsed.add(kind) : _collapsed.remove(kind),
+                  )
                 : null,
             child: Row(
               children: [
@@ -288,7 +296,11 @@ class _DiyTripDayCardState extends State<DiyTripDayCard> {
                   color: DiyTokens.blue,
                 ),
                 SizedBox(width: context.w(10)),
-                SvgPicture.asset(icon, width: context.w(12), height: context.w(12)),
+                SvgPicture.asset(
+                  icon,
+                  width: context.w(12),
+                  height: context.w(12),
+                ),
                 SizedBox(width: context.w(8)),
                 Expanded(child: _labelLine(labels)),
                 if (collapsible)
@@ -302,10 +314,7 @@ class _DiyTripDayCardState extends State<DiyTripDayCard> {
               ],
             ),
           ),
-          if (open) ...[
-            SizedBox(height: context.h(12)),
-            body,
-          ],
+          if (open) ...[SizedBox(height: context.h(12)), body],
         ],
       ),
     );
@@ -371,7 +380,9 @@ class _DiyTripDayCardState extends State<DiyTripDayCard> {
           for (var i = 0; i < flights.length; i++) ...[
             if (i > 0)
               DiyLayoverBand.rows(
-                  arriving: flights[i - 1], leaving: flights[i]),
+                arriving: flights[i - 1],
+                leaving: flights[i],
+              ),
             DiyFlightLegCard(
               flight: flights[i],
               outbound: outbound,
@@ -524,13 +535,18 @@ class _DiyTripDayCardState extends State<DiyTripDayCard> {
                     color: DiyTripStyle.border,
                   ),
                 if (widget.onModifyTransfer != null)
-                  _link('Modify', () => widget.onModifyTransfer!(first),
-                      size: 14),
+                  _link(
+                    'Modify',
+                    () => widget.onModifyTransfer!(first),
+                    size: 14,
+                  ),
                 const Spacer(),
                 if (widget.onTransferDetails != null)
-                  _link('View Details',
-                      () => widget.onTransferDetails!(first),
-                      size: 11),
+                  _link(
+                    'View Details',
+                    () => widget.onTransferDetails!(first),
+                    size: 11,
+                  ),
               ],
             ),
           ],
@@ -654,10 +670,10 @@ class _DiyTripDayCardState extends State<DiyTripDayCard> {
               onChange: widget.onChangeHotel == null
                   ? null
                   : () => widget.onChangeHotel!(
-                        h.destination.isNotEmpty
-                            ? h.destination
-                            : _day.destination,
-                      ),
+                      h.destination.isNotEmpty
+                          ? h.destination
+                          : _day.destination,
+                    ),
               onDetails: widget.onHotelDetails == null
                   ? null
                   : () => widget.onHotelDetails!(h),
@@ -679,7 +695,11 @@ class _DiyTripDayCardState extends State<DiyTripDayCard> {
     return _section(
       kind: _Section.meals,
       icon: DiyTripStyle.dining,
-      labels: ['Meals', meal, if (_day.destination.isNotEmpty) 'In ${_day.destination}'],
+      labels: [
+        'Meals',
+        meal,
+        if (_day.destination.isNotEmpty) 'In ${_day.destination}',
+      ],
       body: Padding(
         padding: EdgeInsets.only(left: context.w(10)),
         child: Column(
@@ -768,8 +788,11 @@ class _DiyTripDayCardState extends State<DiyTripDayCard> {
                         if (widget.onRemoveActivity != null &&
                             !a.complimentary) ...[
                           SizedBox(height: context.h(4)),
-                          _link('Remove', () => widget.onRemoveActivity!(a),
-                              size: 11),
+                          _link(
+                            'Remove',
+                            () => widget.onRemoveActivity!(a),
+                            size: 11,
+                          ),
                         ],
                       ],
                     ),
@@ -844,8 +867,9 @@ class DiyFlightLegCard extends StatelessWidget {
     final to = codes.length > 1 ? codes.last.trim() : '';
     String day(DateTime? d) =>
         d == null ? '' : DateFormat('EEE, dd MMM').format(d);
-    final duration =
-        f.flightDurationMinutes > 0 ? diyDuration(f.flightDurationMinutes) : '';
+    final duration = f.flightDurationMinutes > 0
+        ? diyDuration(f.flightDurationMinutes)
+        : '';
 
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: context.w(10)),
@@ -945,8 +969,13 @@ class DiyFlightLegCard extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _end(context, diyTime(f.departureAt), day(dep), diyAirportCity(from),
-                  CrossAxisAlignment.start),
+              _end(
+                context,
+                diyTime(f.departureAt),
+                day(dep),
+                diyAirportCity(from),
+                CrossAxisAlignment.start,
+              ),
               Expanded(
                 child: Column(
                   children: [
@@ -971,8 +1000,13 @@ class DiyFlightLegCard extends StatelessWidget {
                   ],
                 ),
               ),
-              _end(context, diyTime(f.arrivalAt), day(arr), diyAirportCity(to),
-                  CrossAxisAlignment.end),
+              _end(
+                context,
+                diyTime(f.arrivalAt),
+                day(arr),
+                diyAirportCity(to),
+                CrossAxisAlignment.end,
+              ),
             ],
           ),
           // ---- links
@@ -1000,8 +1034,12 @@ class DiyFlightLegCard extends StatelessWidget {
     );
   }
 
-  Widget _link(BuildContext context, String text, VoidCallback onTap,
-      {double size = 14}) {
+  Widget _link(
+    BuildContext context,
+    String text,
+    VoidCallback onTap, {
+    double size = 14,
+  }) {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
@@ -1039,7 +1077,10 @@ class DiyFlightLegCard extends StatelessWidget {
           SizedBox(height: context.h(4)),
           Text(
             date,
-            style: TextStyle(fontSize: context.fs(12), color: DiyTripStyle.grey),
+            style: TextStyle(
+              fontSize: context.fs(12),
+              color: DiyTripStyle.grey,
+            ),
           ),
           Text(
             city,
@@ -1048,7 +1089,10 @@ class DiyFlightLegCard extends StatelessWidget {
             textAlign: align == CrossAxisAlignment.end
                 ? TextAlign.right
                 : TextAlign.left,
-            style: TextStyle(fontSize: context.fs(12), color: DiyTripStyle.grey),
+            style: TextStyle(
+              fontSize: context.fs(12),
+              color: DiyTripStyle.grey,
+            ),
           ),
         ],
       ),
@@ -1192,8 +1236,8 @@ class DiyHotelStayCard extends StatelessWidget {
                         context,
                         DiyTripStyle.time,
                         '${when(checkIn)} - ${when(checkOut)} | '
-                            '${h.nights > 0 ? h.nights : checkOut.difference(checkIn).inDays} '
-                            'Night${h.nights == 1 ? '' : 's'}',
+                        '${h.nights > 0 ? h.nights : checkOut.difference(checkIn).inDays} '
+                        'Night${h.nights == 1 ? '' : 's'}',
                       ),
                   ],
                 ),
@@ -1239,7 +1283,12 @@ class DiyHotelStayCard extends StatelessWidget {
 
   static String _ordinal(int day) {
     if (day >= 11 && day <= 13) return 'th';
-    return switch (day % 10) { 1 => 'st', 2 => 'nd', 3 => 'rd', _ => 'th' };
+    return switch (day % 10) {
+      1 => 'st',
+      2 => 'nd',
+      3 => 'rd',
+      _ => 'th',
+    };
   }
 
   Widget _info(BuildContext context, String icon, String text) {

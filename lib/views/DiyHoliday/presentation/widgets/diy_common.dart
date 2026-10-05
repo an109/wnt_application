@@ -139,16 +139,15 @@ class DiyCard extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(context.r(14)),
         child: Container(
-          padding: padding ??
+          padding:
+              padding ??
               EdgeInsets.symmetric(
                 horizontal: context.w(14),
                 vertical: context.h(12),
               ),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(context.r(14)),
-            border: Border.all(
-              color: borderColor ?? DiyTokens.line,
-            ),
+            border: Border.all(color: borderColor ?? DiyTokens.line),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withOpacity(0.04),
@@ -343,7 +342,8 @@ PreferredSizeWidget diyAppBar(
     surfaceTintColor: Colors.white,
     elevation: 0,
     scrolledUnderElevation: 0.5,
-    leading: leading ??
+    leading:
+        leading ??
         IconButton(
           icon: Icon(
             closeIcon ? Icons.close : Icons.arrow_back,

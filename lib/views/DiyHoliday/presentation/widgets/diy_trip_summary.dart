@@ -172,46 +172,55 @@ class _DiyTripSummaryState extends State<DiyTripSummary> {
       final rows = day.rows;
       final checkIn = rows.where((r) => r.kind == 'HOTEL').firstOrNull;
       final meal = rows.where((r) => r.kind == 'MEAL').firstOrNull;
-      final checkout =
-          rows.where((r) => r.kind == 'HOTEL_CHECKOUT').firstOrNull;
+      final checkout = rows
+          .where((r) => r.kind == 'HOTEL_CHECKOUT')
+          .firstOrNull;
       final mealName = meal?.title.split(' in ').first ?? '';
       final dated = _dayLabel(day);
 
       if (checkout != null) {
-        out.add(_Step.day(
-          kind: _StepKind.checkout,
-          dayLabel: dated,
-          note: 'Checkout',
-          noteColor: DiyTripStyle.orange,
-          title: meal != null ? 'Day Meals: $mealName' : 'Hotel Checkout',
-          subtitle: hotel.isNotEmpty ? 'At $hotel' : '',
-        ));
+        out.add(
+          _Step.day(
+            kind: _StepKind.checkout,
+            dayLabel: dated,
+            note: 'Checkout',
+            noteColor: DiyTripStyle.orange,
+            title: meal != null ? 'Day Meals: $mealName' : 'Hotel Checkout',
+            subtitle: hotel.isNotEmpty ? 'At $hotel' : '',
+          ),
+        );
       }
       if (checkIn != null) {
-        hotel = checkIn.hotelName.isNotEmpty ? checkIn.hotelName : checkIn.title;
+        hotel = checkIn.hotelName.isNotEmpty
+            ? checkIn.hotelName
+            : checkIn.title;
         final stars = (double.tryParse(checkIn.starRating) ?? 0).round();
         hotelNote = [
           if (checkIn.location.isNotEmpty) checkIn.location,
           if (stars > 0) '$stars Star',
         ].join(', ');
         final time = (checkIn.detail['check_in_time'] ?? '').toString();
-        out.add(_Step.day(
-          kind: _StepKind.checkIn,
-          dayLabel: dated,
-          note: time.isNotEmpty ? '$time Check-in' : 'Check-in',
-          noteColor: DiyTripStyle.grey,
-          title: 'Check-in at $hotel',
-          subtitle: hotelNote,
-        ));
+        out.add(
+          _Step.day(
+            kind: _StepKind.checkIn,
+            dayLabel: dated,
+            note: time.isNotEmpty ? '$time Check-in' : 'Check-in',
+            noteColor: DiyTripStyle.grey,
+            title: 'Check-in at $hotel',
+            subtitle: hotelNote,
+          ),
+        );
       } else if (meal != null && checkout == null) {
-        out.add(_Step.day(
-          kind: _StepKind.meal,
-          dayLabel: dated,
-          note: 'Include',
-          noteColor: DiyTripStyle.green,
-          title: 'Day Meals: $mealName',
-          subtitle: hotel.isNotEmpty ? 'At $hotel' : '',
-        ));
+        out.add(
+          _Step.day(
+            kind: _StepKind.meal,
+            dayLabel: dated,
+            note: 'Include',
+            noteColor: DiyTripStyle.green,
+            title: 'Day Meals: $mealName',
+            subtitle: hotel.isNotEmpty ? 'At $hotel' : '',
+          ),
+        );
       }
     }
 
@@ -219,12 +228,14 @@ class _DiyTripSummaryState extends State<DiyTripSummary> {
         .where((r) => r.kind == 'TRANSFER' && r.transferKind == 'AIRPORT')
         .lastOrNull;
     if (drop != null && days.length > 1) {
-      out.add(_Step.drop(
-        title: drop.title,
-        subtitle: hotel.isNotEmpty
-            ? 'Scheduled private vehicle transfer from $hotel to Airport.'
-            : '',
-      ));
+      out.add(
+        _Step.drop(
+          title: drop.title,
+          subtitle: hotel.isNotEmpty
+              ? 'Scheduled private vehicle transfer from $hotel to Airport.'
+              : '',
+        ),
+      );
     }
     return out;
   }
@@ -298,15 +309,21 @@ class _DiyTripSummaryState extends State<DiyTripSummary> {
       case _StepKind.meal:
       case _StepKind.checkout:
         final icon = switch (step.kind) {
-          _StepKind.meal => Icon(Icons.restaurant_rounded,
-              size: context.w(13), color: DiyTripStyle.grey),
-          _StepKind.checkout => Icon(Icons.logout_rounded,
-              size: context.w(13), color: DiyTripStyle.grey),
+          _StepKind.meal => Icon(
+            Icons.restaurant_rounded,
+            size: context.w(13),
+            color: DiyTripStyle.grey,
+          ),
+          _StepKind.checkout => Icon(
+            Icons.logout_rounded,
+            size: context.w(13),
+            color: DiyTripStyle.grey,
+          ),
           _ => SvgPicture.asset(
-              DiyTripStyle.buildingOutline,
-              width: context.w(12),
-              height: context.w(12),
-            ),
+            DiyTripStyle.buildingOutline,
+            width: context.w(12),
+            height: context.w(12),
+          ),
         };
         return Container(
           width: size,
@@ -457,15 +474,14 @@ class _Step {
     required Color noteColor,
     required String title,
     required String subtitle,
-  }) =>
-      _Step._(
-        kind: kind,
-        dayLabel: dayLabel,
-        note: note,
-        noteColor: noteColor,
-        title: title,
-        subtitle: subtitle,
-      );
+  }) => _Step._(
+    kind: kind,
+    dayLabel: dayLabel,
+    note: note,
+    noteColor: noteColor,
+    title: title,
+    subtitle: subtitle,
+  );
 
   bool get isDay =>
       kind == _StepKind.checkIn ||

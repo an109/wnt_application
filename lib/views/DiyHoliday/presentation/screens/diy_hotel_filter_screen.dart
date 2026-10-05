@@ -67,21 +67,23 @@ class _DiyHotelFilterScreenState extends State<DiyHotelFilterScreen> {
   bool _allAmenities = false;
 
   void _reset() => setState(() {
-        _sort = DiyHotelSort.popularity;
-        _max = widget.priceMax;
-        _stars.clear();
-        _locations.clear();
-        _amenities.clear();
-      });
+    _sort = DiyHotelSort.popularity;
+    _max = widget.priceMax;
+    _stars.clear();
+    _locations.clear();
+    _amenities.clear();
+  });
 
   void _apply() {
-    Navigator.of(context).pop(DiyHotelFilters(
-      sort: _sort,
-      maxPerPerson: _max >= widget.priceMax ? null : _max,
-      stars: _stars,
-      locations: _locations,
-      amenities: _amenities,
-    ));
+    Navigator.of(context).pop(
+      DiyHotelFilters(
+        sort: _sort,
+        maxPerPerson: _max >= widget.priceMax ? null : _max,
+        stars: _stars,
+        locations: _locations,
+        amenities: _amenities,
+      ),
+    );
   }
 
   @override
@@ -124,14 +126,26 @@ class _DiyHotelFilterScreenState extends State<DiyHotelFilterScreen> {
             'Sort By',
             Row(
               children: [
-                _sortCard(DiyHotelSort.popularity, Icons.star_outline_rounded,
-                    'Popularity', 'Popular First'),
+                _sortCard(
+                  DiyHotelSort.popularity,
+                  Icons.star_outline_rounded,
+                  'Popularity',
+                  'Popular First',
+                ),
                 SizedBox(width: context.w(10)),
-                _sortCard(DiyHotelSort.priceLow, Icons.south_rounded, 'Price',
-                    'Low to High'),
+                _sortCard(
+                  DiyHotelSort.priceLow,
+                  Icons.south_rounded,
+                  'Price',
+                  'Low to High',
+                ),
                 SizedBox(width: context.w(10)),
-                _sortCard(DiyHotelSort.priceHigh, Icons.north_rounded, 'Price',
-                    'High to Low'),
+                _sortCard(
+                  DiyHotelSort.priceHigh,
+                  Icons.north_rounded,
+                  'Price',
+                  'High to Low',
+                ),
               ],
             ),
           ),
@@ -171,10 +185,14 @@ class _DiyHotelFilterScreenState extends State<DiyHotelFilterScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(diyDelta(widget.priceMin),
-                          style: TextStyle(fontSize: context.fs(11))),
-                      Text(diyDelta(widget.priceMax),
-                          style: TextStyle(fontSize: context.fs(11))),
+                      Text(
+                        diyDelta(widget.priceMin),
+                        style: TextStyle(fontSize: context.fs(11)),
+                      ),
+                      Text(
+                        diyDelta(widget.priceMax),
+                        style: TextStyle(fontSize: context.fs(11)),
+                      ),
                     ],
                   ),
                 ],
@@ -191,9 +209,14 @@ class _DiyHotelFilterScreenState extends State<DiyHotelFilterScreen> {
                     '$s Star',
                     _stars.contains(s),
                     () => setState(
-                        () => _stars.contains(s) ? _stars.remove(s) : _stars.add(s)),
-                    leading: Icon(Icons.star_rounded,
-                        size: context.w(14), color: const Color(0xFFF4B400)),
+                      () =>
+                          _stars.contains(s) ? _stars.remove(s) : _stars.add(s),
+                    ),
+                    leading: Icon(
+                      Icons.star_rounded,
+                      size: context.w(14),
+                      color: const Color(0xFFF4B400),
+                    ),
                   ),
               ],
             ),
@@ -265,7 +288,10 @@ class _DiyHotelFilterScreenState extends State<DiyHotelFilterScreen> {
         children: [
           Text(
             title,
-            style: TextStyle(fontSize: context.fs(14), color: DiyTripStyle.grey),
+            style: TextStyle(
+              fontSize: context.fs(14),
+              color: DiyTripStyle.grey,
+            ),
           ),
           SizedBox(height: context.h(12)),
           child,
@@ -275,7 +301,11 @@ class _DiyHotelFilterScreenState extends State<DiyHotelFilterScreen> {
   }
 
   Widget _sortCard(
-      DiyHotelSort sort, IconData icon, String label, String caption) {
+    DiyHotelSort sort,
+    IconData icon,
+    String label,
+    String caption,
+  ) {
     final selected = _sort == sort;
     return Expanded(
       child: GestureDetector(
@@ -291,9 +321,11 @@ class _DiyHotelFilterScreenState extends State<DiyHotelFilterScreen> {
           ),
           child: Column(
             children: [
-              Icon(icon,
-                  size: context.w(18),
-                  color: selected ? DiyTokens.blue : Colors.black),
+              Icon(
+                icon,
+                size: context.w(18),
+                color: selected ? DiyTokens.blue : Colors.black,
+              ),
               Text(
                 label,
                 style: TextStyle(
@@ -304,8 +336,10 @@ class _DiyHotelFilterScreenState extends State<DiyHotelFilterScreen> {
               ),
               Text(
                 caption,
-                style:
-                    TextStyle(fontSize: context.fs(9), color: DiyTripStyle.grey),
+                style: TextStyle(
+                  fontSize: context.fs(9),
+                  color: DiyTripStyle.grey,
+                ),
               ),
             ],
           ),
@@ -336,8 +370,11 @@ class _DiyHotelFilterScreenState extends State<DiyHotelFilterScreen> {
                 _chip(
                   item,
                   picked.contains(item),
-                  () => setState(() =>
-                      picked.contains(item) ? picked.remove(item) : picked.add(item)),
+                  () => setState(
+                    () => picked.contains(item)
+                        ? picked.remove(item)
+                        : picked.add(item),
+                  ),
                 ),
             ],
           ),
@@ -360,8 +397,12 @@ class _DiyHotelFilterScreenState extends State<DiyHotelFilterScreen> {
     );
   }
 
-  Widget _chip(String label, bool selected, VoidCallback onTap,
-      {Widget? leading}) {
+  Widget _chip(
+    String label,
+    bool selected,
+    VoidCallback onTap, {
+    Widget? leading,
+  }) {
     return GestureDetector(
       onTap: onTap,
       child: Container(

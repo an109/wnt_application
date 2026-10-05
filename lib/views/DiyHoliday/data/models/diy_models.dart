@@ -59,6 +59,9 @@ class DiyDestination {
   final int packageCount;
   final List<String> cities;
 
+  /// The place's own picture — only the trending list carries one.
+  final String image;
+
   const DiyDestination({
     required this.kind,
     required this.slug,
@@ -68,6 +71,7 @@ class DiyDestination {
     required this.countryCode,
     required this.packageCount,
     required this.cities,
+    this.image = '',
   });
 
   factory DiyDestination.fromJson(Map<String, dynamic> j) => DiyDestination(
@@ -79,6 +83,7 @@ class DiyDestination {
     countryCode: _str(j['country_code']),
     packageCount: _int(j['package_count']),
     cities: _strList(j['cities']),
+    image: _str(j['image']),
   );
 
   /// "State" / "Country" style label shown on the right of the search list.
@@ -1503,6 +1508,53 @@ class DiyPaymentLink {
       shortUrl: _str(j['short_url']),
       amount: _dbl(j['amount']),
       currency: _str(j['currency']).isEmpty ? 'INR' : _str(j['currency']),
+    );
+  }
+}
+
+/// A Razorpay order for one instalment — what the in-app checkout pays.
+class DiyCheckoutOrder {
+  final String keyId;
+  final String orderId;
+  final double amount;
+  final int amountPaise;
+  final String currency;
+  final int percent;
+  final String reference;
+  final String description;
+  final String name;
+  final String email;
+  final String contact;
+
+  const DiyCheckoutOrder({
+    required this.keyId,
+    required this.orderId,
+    required this.amount,
+    required this.amountPaise,
+    required this.currency,
+    required this.percent,
+    required this.reference,
+    required this.description,
+    required this.name,
+    required this.email,
+    required this.contact,
+  });
+
+  factory DiyCheckoutOrder.fromJson(dynamic data) {
+    final j = _map(data);
+    final prefill = _map(j['prefill']);
+    return DiyCheckoutOrder(
+      keyId: _str(j['key_id']),
+      orderId: _str(j['order_id']),
+      amount: _dbl(j['amount']),
+      amountPaise: _int(j['amount_paise']),
+      currency: _str(j['currency']).isEmpty ? 'INR' : _str(j['currency']),
+      percent: _int(j['percent']),
+      reference: _str(j['reference']),
+      description: _str(j['description']),
+      name: _str(prefill['name']),
+      email: _str(prefill['email']),
+      contact: _str(prefill['contact']),
     );
   }
 }

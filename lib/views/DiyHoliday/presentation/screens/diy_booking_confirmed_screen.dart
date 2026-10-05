@@ -89,9 +89,9 @@ class DiyBookingConfirmedScreen extends StatelessWidget {
               Text(
                 consultantPending
                     ? 'Your payment went through. A consultant will confirm '
-                        'the details with you shortly.'
+                          'the details with you shortly.'
                     : 'Your payment went through and your consultant has your '
-                        'trip. They will be in touch to confirm the details.',
+                          'trip. They will be in touch to confirm the details.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: context.fs(12.5),
@@ -107,8 +107,8 @@ class DiyBookingConfirmedScreen extends StatelessWidget {
               SizedBox(
                 height: context.h(48),
                 child: ElevatedButton(
-                  onPressed: () => Navigator.of(context)
-                      .popUntil((route) => route.isFirst),
+                  onPressed: () =>
+                      Navigator.of(context).popUntil((route) => route.isFirst),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: DiyTokens.orange,
                     foregroundColor: Colors.white,

@@ -42,8 +42,7 @@ class DiyPackageCard extends StatelessWidget {
     final perPerson = package.perPerson > 0
         ? package.perPerson
         : (package.adults > 0 ? saved / package.adults : saved);
-    final total =
-        package.totalForParty > 0 ? package.totalForParty : saved;
+    final total = package.totalForParty > 0 ? package.totalForParty : saved;
 
     return Material(
       color: Colors.white,
@@ -112,11 +111,7 @@ class DiyPackageCard extends StatelessWidget {
         // Figma: DEAL OF THE DAY ribbon. Needs a `deal { ends_at, label }` on
         // the search row before it can show a real countdown.
         if (DiyFeatures.dealOfTheDay)
-          Positioned(
-            left: 0,
-            top: context.h(10),
-            child: _dealRibbon(context),
-          )
+          Positioned(left: 0, top: context.h(10), child: _dealRibbon(context))
         else
           Positioned(
             left: context.w(10),
@@ -145,7 +140,7 @@ class DiyPackageCard extends StatelessWidget {
             right: context.w(10),
             top: context.h(10),
             child: _heartButton(context),
-          )
+          ),
         // else if (package.hasCabItinerary)
         //   Positioned(
         //     right: context.w(10),
@@ -247,11 +242,7 @@ class DiyPackageCard extends StatelessWidget {
   Widget _locationRow(BuildContext context) {
     return Row(
       children: [
-        Icon(
-          Icons.location_on,
-          size: context.w(13),
-          color: DiyTokens.subGrey,
-        ),
+        Icon(Icons.location_on, size: context.w(13), color: DiyTokens.subGrey),
         SizedBox(width: context.w(4)),
         Expanded(
           child: Text(
@@ -278,7 +269,7 @@ class DiyPackageCard extends StatelessWidget {
       package.nightsLabel.isNotEmpty
           ? '${package.nightsLabel} (${package.nights}N/${package.days}D)'
           : '${package.nights}N ${package.destination} '
-              '(${package.nights}N/${package.days}D)',
+                '(${package.nights}N/${package.days}D)',
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
       style: TextStyle(
@@ -407,8 +398,8 @@ class DiyPackageCard extends StatelessWidget {
                     withFlight
                         ? 'Price with flight'
                         : package.includesFlight
-                            ? 'Without flight · add flights\nwhen you open it'
-                            : 'Land package price',
+                        ? 'Without flight · add flights\nwhen you open it'
+                        : 'Land package price',
                     style: TextStyle(
                       fontSize: context.fs(10.5),
                       color: DiyTokens.subGrey,
@@ -468,10 +459,7 @@ class DiyPackageCard extends StatelessWidget {
         Expanded(
           child: Text(
             'Indicative price — we will reprice it for your dates.',
-            style: TextStyle(
-              fontSize: context.fs(10),
-              color: DiyTokens.orange,
-            ),
+            style: TextStyle(fontSize: context.fs(10), color: DiyTokens.orange),
           ),
         ),
       ],

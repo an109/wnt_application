@@ -14,17 +14,16 @@ import 'diy_trip_day_card.dart';
 Future<bool> showDiyRemoveFlightDialog(
   BuildContext context, {
   required bool outbound,
-}) =>
-    showDiyRemoveDialog(
-      context,
-      icon: Icons.flight_rounded,
-      title: 'Removing this\nFlight?',
-      message: outbound
-          ? 'You will need to reach the destination on your own. '
-              'The package price updates straight away.'
-          : 'You will need to make your own way back. '
-              'The package price updates straight away.',
-    );
+}) => showDiyRemoveDialog(
+  context,
+  icon: Icons.flight_rounded,
+  title: 'Removing this\nFlight?',
+  message: outbound
+      ? 'You will need to reach the destination on your own. '
+            'The package price updates straight away.'
+      : 'You will need to make your own way back. '
+            'The package price updates straight away.',
+);
 
 /// "Removing this Transfer?" — the cab goes, and every transfer and
 /// sightseeing drive with it, since they all run in the one car.
@@ -33,7 +32,8 @@ Future<bool> showDiyRemoveTransferDialog(BuildContext context) =>
       context,
       icon: Icons.directions_car_filled_rounded,
       title: 'Removing this\nTransfer?',
-      message: 'All road transfers including sightseeing will be removed '
+      message:
+          'All road transfers including sightseeing will be removed '
           'from this package. The price updates straight away.',
     );
 
@@ -47,8 +47,7 @@ Future<bool> showDiyRemoveDialog(
   final ok = await showDialog<bool>(
     context: context,
     barrierColor: Colors.black.withValues(alpha: 0.3),
-    builder: (_) =>
-        _RemoveDialog(icon: icon, title: title, message: message),
+    builder: (_) => _RemoveDialog(icon: icon, title: title, message: message),
   );
   return ok ?? false;
 }
@@ -107,11 +106,7 @@ class _RemoveDialog extends StatelessWidget {
                   alignment: Alignment.center,
                   child: Transform.rotate(
                     angle: icon == Icons.flight_rounded ? 0.785 : 0,
-                    child: Icon(
-                      icon,
-                      size: context.w(26),
-                      color: Colors.white,
-                    ),
+                    child: Icon(icon, size: context.w(26), color: Colors.white),
                   ),
                 ),
                 SizedBox(height: context.h(16)),
@@ -146,8 +141,9 @@ class _RemoveDialog extends StatelessWidget {
                           style: OutlinedButton.styleFrom(
                             side: const BorderSide(color: DiyTripStyle.border),
                             shape: RoundedRectangleBorder(
-                              borderRadius:
-                                  BorderRadius.circular(context.r(10)),
+                              borderRadius: BorderRadius.circular(
+                                context.r(10),
+                              ),
                             ),
                           ),
                           child: Text(
@@ -171,8 +167,9 @@ class _RemoveDialog extends StatelessWidget {
                             backgroundColor: DiyTripStyle.orange,
                             elevation: 0,
                             shape: RoundedRectangleBorder(
-                              borderRadius:
-                                  BorderRadius.circular(context.r(10)),
+                              borderRadius: BorderRadius.circular(
+                                context.r(10),
+                              ),
                             ),
                           ),
                           child: Text(

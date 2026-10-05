@@ -128,7 +128,8 @@ class _DiyHotelOptionsScreenState extends State<DiyHotelOptionsScreen> {
         '${DateFormat('EEE dd MMM').format(b)} (${days}D)';
   }
 
-  DiyHotelOption? get _current => _options.where((o) => o.isSelected).firstOrNull;
+  DiyHotelOption? get _current =>
+      _options.where((o) => o.isSelected).firstOrNull;
 
   // -------------------------------------------------------------- actions
 
@@ -227,7 +228,8 @@ class _DiyHotelOptionsScreenState extends State<DiyHotelOptionsScreen> {
   }
 
   /// "Vagator" out of "Vagator, North Goa, Goa".
-  static String _locality(DiyHotelOption o) => o.location.split(',').first.trim();
+  static String _locality(DiyHotelOption o) =>
+      o.location.split(',').first.trim();
 
   List<DiyHotelOption> get _visible {
     final query = _search.text.trim().toLowerCase();
@@ -257,9 +259,11 @@ class _DiyHotelOptionsScreenState extends State<DiyHotelOptionsScreen> {
     double rating(DiyHotelOption o) => double.tryParse(o.reviewRating) ?? 0;
     list.sort(switch (f.sort) {
       DiyHotelSort.popularity => (a, b) {
-          final byRating = rating(b).compareTo(rating(a));
-          return byRating != 0 ? byRating : b.reviewCount.compareTo(a.reviewCount);
-        },
+        final byRating = rating(b).compareTo(rating(a));
+        return byRating != 0
+            ? byRating
+            : b.reviewCount.compareTo(a.reviewCount);
+      },
       DiyHotelSort.priceLow => (a, b) => a.delta.compareTo(b.delta),
       DiyHotelSort.priceHigh => (a, b) => b.delta.compareTo(a.delta),
     });
@@ -289,7 +293,11 @@ class _DiyHotelOptionsScreenState extends State<DiyHotelOptionsScreen> {
         elevation: 2,
         shadowColor: Colors.black.withValues(alpha: 0.15),
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: Colors.black, size: context.w(24)),
+          icon: Icon(
+            Icons.arrow_back,
+            color: Colors.black,
+            size: context.w(24),
+          ),
           onPressed: () => Navigator.of(context).pop(),
         ),
         titleSpacing: 0,
@@ -311,7 +319,10 @@ class _DiyHotelOptionsScreenState extends State<DiyHotelOptionsScreen> {
                 if (date != null) DateFormat('MMM dd').format(date),
                 party,
               ].join(', '),
-              style: TextStyle(fontSize: context.fs(10), color: DiyTripStyle.grey),
+              style: TextStyle(
+                fontSize: context.fs(10),
+                color: DiyTripStyle.grey,
+              ),
             ),
           ],
         ),
@@ -321,8 +332,8 @@ class _DiyHotelOptionsScreenState extends State<DiyHotelOptionsScreen> {
       body: _loading
           ? const DiyLoading(message: 'Finding hotels for your dates…')
           : _error != null
-              ? DiyErrorView(message: _error!, onRetry: _load)
-              : _content(),
+          ? DiyErrorView(message: _error!, onRetry: _load)
+          : _content(),
     );
   }
 
@@ -342,11 +353,16 @@ class _DiyHotelOptionsScreenState extends State<DiyHotelOptionsScreen> {
           controller: _search,
           decoration: InputDecoration(
             isDense: true,
-            prefixIcon: Icon(Icons.search_rounded,
-                size: context.w(20), color: DiyTripStyle.grey),
+            prefixIcon: Icon(
+              Icons.search_rounded,
+              size: context.w(20),
+              color: DiyTripStyle.grey,
+            ),
             hintText: 'Search by hotel name, landmark or beach…',
-            hintStyle:
-                TextStyle(fontSize: context.fs(11), color: DiyTripStyle.grey),
+            hintStyle: TextStyle(
+              fontSize: context.fs(11),
+              color: DiyTripStyle.grey,
+            ),
             contentPadding: EdgeInsets.symmetric(vertical: context.h(12)),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(context.r(8)),
@@ -365,7 +381,10 @@ class _DiyHotelOptionsScreenState extends State<DiyHotelOptionsScreen> {
             child: Text(
               'No other hotels match. Try clearing the search or filters.',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: context.fs(12), color: DiyTripStyle.grey),
+              style: TextStyle(
+                fontSize: context.fs(12),
+                color: DiyTripStyle.grey,
+              ),
             ),
           ),
         for (final hotel in hotels)
@@ -502,8 +521,10 @@ class _DiyHotelOptionsScreenState extends State<DiyHotelOptionsScreen> {
                                     TextSpan(
                                       children: [
                                         TextSpan(
-                                          text: diyMoney(perPerson,
-                                              currency: widget.trip.currency),
+                                          text: diyMoney(
+                                            perPerson,
+                                            currency: widget.trip.currency,
+                                          ),
                                           style: TextStyle(
                                             fontSize: context.fs(16),
                                             fontWeight: FontWeight.w700,
@@ -533,8 +554,9 @@ class _DiyHotelOptionsScreenState extends State<DiyHotelOptionsScreen> {
                                     backgroundColor: DiyTripStyle.orange,
                                     elevation: 0,
                                     shape: RoundedRectangleBorder(
-                                      borderRadius:
-                                          BorderRadius.circular(context.r(6)),
+                                      borderRadius: BorderRadius.circular(
+                                        context.r(6),
+                                      ),
                                     ),
                                   ),
                                   child: _updating
@@ -543,9 +565,9 @@ class _DiyHotelOptionsScreenState extends State<DiyHotelOptionsScreen> {
                                           height: context.w(16),
                                           child:
                                               const CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                            color: Colors.white,
-                                          ),
+                                                strokeWidth: 2,
+                                                color: Colors.white,
+                                              ),
                                         )
                                       : Text(
                                           'UPDATE',
@@ -583,8 +605,11 @@ class _DiyHotelOptionsScreenState extends State<DiyHotelOptionsScreen> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.check_rounded,
-                      size: context.w(11), color: Colors.white),
+                  Icon(
+                    Icons.check_rounded,
+                    size: context.w(11),
+                    color: Colors.white,
+                  ),
                   SizedBox(width: context.w(3)),
                   Text(
                     'SELECTED',
@@ -614,7 +639,10 @@ class _DiyHotelOptionsScreenState extends State<DiyHotelOptionsScreen> {
               text,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: context.fs(9), color: DiyTripStyle.grey),
+              style: TextStyle(
+                fontSize: context.fs(9),
+                color: DiyTripStyle.grey,
+              ),
             ),
           ),
         ],
@@ -635,7 +663,8 @@ class _DiyHotelOptionsScreenState extends State<DiyHotelOptionsScreen> {
       _locality(o),
       if (o.distanceKm.isNotEmpty) '${o.distanceKm} km away',
     ].join(' • ');
-    final room = _roomNames[o.hotelRef] ??
+    final room =
+        _roomNames[o.hotelRef] ??
         (o.isSelected ? _stayRow?.roomName ?? '' : '');
     final delta = pickedHere && _pending?.room != null
         ? _pending!.delta
@@ -678,8 +707,11 @@ class _DiyHotelOptionsScreenState extends State<DiyHotelOptionsScreen> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.restaurant_rounded,
-                            size: context.w(11), color: Colors.white),
+                        Icon(
+                          Icons.restaurant_rounded,
+                          size: context.w(11),
+                          color: Colors.white,
+                        ),
                         SizedBox(width: context.w(4)),
                         Text(
                           'Free Breakfast',
@@ -712,8 +744,11 @@ class _DiyHotelOptionsScreenState extends State<DiyHotelOptionsScreen> {
               for (var i = 0; i < stars; i++)
                 Padding(
                   padding: EdgeInsets.only(right: context.w(2)),
-                  child: SvgPicture.asset(DiyTripStyle.star,
-                      width: context.w(16), height: context.w(16)),
+                  child: SvgPicture.asset(
+                    DiyTripStyle.star,
+                    width: context.w(16),
+                    height: context.w(16),
+                  ),
                 ),
               if (o.reviewRating.isNotEmpty)
                 Text.rich(
@@ -851,8 +886,10 @@ class _DiyHotelOptionsScreenState extends State<DiyHotelOptionsScreen> {
                           TextSpan(
                             children: [
                               TextSpan(
-                                text: diyDelta(delta / _adults,
-                                    currency: widget.trip.currency),
+                                text: diyDelta(
+                                  delta / _adults,
+                                  currency: widget.trip.currency,
+                                ),
                                 style: TextStyle(
                                   fontSize: context.fs(16),
                                   fontWeight: FontWeight.w700,
@@ -882,8 +919,9 @@ class _DiyHotelOptionsScreenState extends State<DiyHotelOptionsScreen> {
                               backgroundColor: DiyTripStyle.orange,
                               elevation: 0,
                               shape: RoundedRectangleBorder(
-                                borderRadius:
-                                    BorderRadius.circular(context.r(6)),
+                                borderRadius: BorderRadius.circular(
+                                  context.r(6),
+                                ),
                               ),
                             ),
                             child: Text(
@@ -898,10 +936,13 @@ class _DiyHotelOptionsScreenState extends State<DiyHotelOptionsScreen> {
                         : OutlinedButton(
                             onPressed: () => _pick(o),
                             style: OutlinedButton.styleFrom(
-                              side: const BorderSide(color: DiyTripStyle.orange),
+                              side: const BorderSide(
+                                color: DiyTripStyle.orange,
+                              ),
                               shape: RoundedRectangleBorder(
-                                borderRadius:
-                                    BorderRadius.circular(context.r(6)),
+                                borderRadius: BorderRadius.circular(
+                                  context.r(6),
+                                ),
                               ),
                             ),
                             child: Text(
@@ -974,7 +1015,10 @@ class _DiyHotelOptionsScreenState extends State<DiyHotelOptionsScreen> {
         children: [
           half(Icons.swap_vert_rounded, 'Sort', _openFilters, false),
           Container(
-              width: 1, height: context.h(22), color: DiyTripStyle.divider),
+            width: 1,
+            height: context.h(22),
+            color: DiyTripStyle.divider,
+          ),
           half(Icons.tune_rounded, 'Filter', _openFilters, _filters.isActive),
         ],
       ),

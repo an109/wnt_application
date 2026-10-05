@@ -109,7 +109,7 @@ class _DiyBookingPaymentScreenState extends State<DiyBookingPaymentScreen> {
           paymentId: '',
           enquiryReference: paid.balance > 0
               ? 'Balance ${diyMoney(paid.balance, currency: paid.currency)}'
-                  '${paid.balanceDueOn.isEmpty ? '' : ' due by ${diyDayDate(paid.balanceDueOn)}'}'
+                    '${paid.balanceDueOn.isEmpty ? '' : ' due by ${diyDayDate(paid.balanceDueOn)}'}'
               : null,
         ),
       ),

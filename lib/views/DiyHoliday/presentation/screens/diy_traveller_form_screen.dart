@@ -8,6 +8,7 @@ import '../../../../injection_container.dart';
 import '../../../Dashboard/Section/data/traveller_api_service.dart';
 import '../../data/diy_traveller.dart';
 import '../widgets/diy_common.dart';
+import '../widgets/diy_review_sheets.dart';
 
 /// "Add New Traveller" — the Figma traveller form.
 ///
@@ -29,11 +30,16 @@ class DiyTravellerFormScreen extends StatefulWidget {
   /// Which of [partyLabels] this form is filling.
   final int index;
 
+  /// What each chip shows once that traveller is filled in — "Anjli Singh
+  /// 21y" — or empty for one still to add.
+  final List<String> partyNames;
+
   const DiyTravellerFormScreen({
     super.key,
     this.initial,
     this.partyLabels = const [],
     this.index = 0,
+    this.partyNames = const [],
   });
 
   @override
@@ -53,7 +59,7 @@ class _DiyTravellerFormScreenState extends State<DiyTravellerFormScreen> {
   List<DiyTraveller> _saved = const [];
   bool _loadingSaved = true;
 
-  static const List<String> _genders = ['Male', 'Female', 'Other'];
+  static const List<String> _genders = ['Male', 'Female'];
 
   @override
   void initState() {
@@ -79,7 +85,9 @@ class _DiyTravellerFormScreenState extends State<DiyTravellerFormScreen> {
 
   Future<void> _loadSaved() async {
     try {
-      final email = sl<PreferencesManager>().getUserData()?['email']?.toString();
+      final email = sl<PreferencesManager>()
+          .getUserData()?['email']
+          ?.toString();
       if (email == null || email.isEmpty) {
         setState(() => _loadingSaved = false);
         return;
@@ -89,8 +97,8 @@ class _DiyTravellerFormScreenState extends State<DiyTravellerFormScreen> {
       final rows = data is List
           ? data
           : (data is Map && data['travellers'] is List
-              ? data['travellers'] as List
-              : const []);
+                ? data['travellers'] as List
+                : const []);
       if (!mounted) return;
       setState(() {
         _saved = rows
@@ -117,15 +125,22 @@ class _DiyTravellerFormScreenState extends State<DiyTravellerFormScreen> {
   }
 
   Future<void> _pickDob() async {
-    final now = DateTime.now();
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _dob ?? DateTime(now.year - 25),
-      firstDate: DateTime(now.year - 100),
-      lastDate: now,
-      helpText: 'Date of birth',
-    );
+    final picked = await showDiyDobPicker(context, initial: _dob);
     if (picked != null) setState(() => _dob = picked);
+  }
+
+  Future<void> _pickGender() async {
+    final picked = await showDiySelectSheet(
+      context,
+      options: _genders,
+      selected: _gender,
+    );
+    if (picked != null) setState(() => _gender = picked);
+  }
+
+  Future<void> _openSaved() async {
+    final picked = await showDiySavedTravellers(context, _saved);
+    if (picked != null) _applySaved(picked);
   }
 
   String _ymd(DateTime d) =>
@@ -140,6 +155,12 @@ class _DiyTravellerFormScreenState extends State<DiyTravellerFormScreen> {
         ? widget.partyLabels[widget.index]
         : 'Adult';
 
+    // Children are priced and booked on age, so their date of birth is a must.
+    if (label.toLowerCase().startsWith('child') && _dob == null) {
+      diySnack(context, 'Add the child\'s date of birth', isError: true);
+      return;
+    }
+
     final traveller = DiyTraveller(
       firstName: _firstName.text.trim(),
       lastName: _lastName.text.trim(),
@@ -153,7 +174,9 @@ class _DiyTravellerFormScreenState extends State<DiyTravellerFormScreen> {
     // Remember the traveller for next time. Best-effort by design: the
     // booking must not fail because the address book did.
     try {
-      final email = sl<PreferencesManager>().getUserData()?['email']?.toString();
+      final email = sl<PreferencesManager>()
+          .getUserData()?['email']
+          ?.toString();
       if (email != null && email.isNotEmpty) {
         await sl<TravellerApiService>().addTraveller({
           'paxType': traveller.paxType,
@@ -209,20 +232,7 @@ class _DiyTravellerFormScreenState extends State<DiyTravellerFormScreen> {
             context.h(24),
           ),
           children: [
-            if (_loadingSaved)
-              SizedBox(
-                height: context.h(34),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: SizedBox(
-                    width: context.w(18),
-                    height: context.w(18),
-                    child: const CircularProgressIndicator(strokeWidth: 2),
-                  ),
-                ),
-              )
-            else if (_saved.isNotEmpty)
-              _selectFromList(),
+            _selectFromList(),
             SizedBox(height: context.h(14)),
             if (widget.partyLabels.isNotEmpty) _partyChips(),
             SizedBox(height: context.h(18)),
@@ -246,8 +256,9 @@ class _DiyTravellerFormScreenState extends State<DiyTravellerFormScreen> {
             _field(
               label: 'LAST NAME',
               controller: _lastName,
-              validator: (v) =>
-                  (v == null || v.trim().isEmpty) ? 'Enter the last name' : null,
+              validator: (v) => (v == null || v.trim().isEmpty)
+                  ? 'Enter the last name'
+                  : null,
             ),
             SizedBox(height: context.h(12)),
             _phoneField(),
@@ -301,29 +312,20 @@ class _DiyTravellerFormScreenState extends State<DiyTravellerFormScreen> {
     );
   }
 
+  /// "Select From List" — opens the Saved Traveller List sheet.
   Widget _selectFromList() {
     return Align(
       alignment: Alignment.centerLeft,
-      child: PopupMenuButton<DiyTraveller>(
-        onSelected: _applySaved,
-        itemBuilder: (_) => [
-          for (final t in _saved)
-            PopupMenuItem<DiyTraveller>(
-              value: t,
-              child: Text(
-                t.fullName,
-                style: TextStyle(fontSize: context.fs(13)),
-              ),
-            ),
-        ],
+      child: GestureDetector(
+        onTap: _loadingSaved ? null : _openSaved,
         child: Container(
           padding: EdgeInsets.symmetric(
-            horizontal: context.w(12),
-            vertical: context.h(8),
+            horizontal: context.w(10),
+            vertical: context.h(6),
           ),
           decoration: BoxDecoration(
             border: Border.all(color: DiyTokens.blue),
-            borderRadius: BorderRadius.circular(context.r(8)),
+            borderRadius: BorderRadius.circular(context.r(6)),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -331,14 +333,23 @@ class _DiyTravellerFormScreenState extends State<DiyTravellerFormScreen> {
               Text(
                 'Select From List',
                 style: TextStyle(
-                  fontSize: context.fs(12.5),
-                  fontWeight: FontWeight.w600,
+                  fontSize: context.fs(11),
+                  fontWeight: FontWeight.w500,
                   color: DiyTokens.blue,
                 ),
               ),
               SizedBox(width: context.w(6)),
-              Icon(Icons.keyboard_arrow_down_rounded,
-                  size: context.w(18), color: DiyTokens.blue),
+              _loadingSaved
+                  ? SizedBox(
+                      width: context.w(12),
+                      height: context.w(12),
+                      child: const CircularProgressIndicator(strokeWidth: 1.5),
+                    )
+                  : Icon(
+                      Icons.keyboard_arrow_down_rounded,
+                      size: context.w(17),
+                      color: DiyTokens.blue,
+                    ),
             ],
           ),
         ),
@@ -346,45 +357,107 @@ class _DiyTravellerFormScreenState extends State<DiyTravellerFormScreen> {
     );
   }
 
+  /// The party across the top: a filled traveller shows their name and age
+  /// with a tick, the one being filled is outlined in blue, and the rest are
+  /// dashed placeholders.
   Widget _partyChips() {
     return SizedBox(
-      height: context.h(58),
+      height: context.h(56),
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
+        clipBehavior: Clip.none,
+        padding: EdgeInsets.only(top: context.h(6)),
         itemCount: widget.partyLabels.length,
-        separatorBuilder: (_, __) => SizedBox(width: context.w(10)),
+        separatorBuilder: (_, __) => SizedBox(width: context.w(8)),
         itemBuilder: (context, i) {
           final selected = i == widget.index;
-          return Container(
-            width: context.w(78),
+          final name = i < widget.partyNames.length ? widget.partyNames[i] : '';
+          final filled = name.isNotEmpty;
+          final chip = Container(
+            width: filled ? null : context.w(56),
+            constraints: BoxConstraints(minWidth: context.w(56)),
             padding: EdgeInsets.symmetric(horizontal: context.w(8)),
             decoration: BoxDecoration(
-              border: Border.all(
-                color: selected ? DiyTokens.blue : const Color(0xFFBFD7EA),
-                style: selected ? BorderStyle.solid : BorderStyle.none,
-              ),
-              borderRadius: BorderRadius.circular(context.r(8)),
-              color: selected
-                  ? DiyTokens.blue.withOpacity(0.06)
-                  : const Color(0xFFF7FAFD),
+              color: selected || filled
+                  ? const Color(0xFFEFF7FD)
+                  : Colors.white,
+              border: selected || filled
+                  ? Border.all(
+                      color: selected
+                          ? DiyTokens.blue
+                          : const Color(0xFFBFD7EA),
+                    )
+                  : null,
+              borderRadius: BorderRadius.circular(context.r(6)),
             ),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.person, size: context.w(17), color: DiyTokens.blue),
-                SizedBox(height: context.h(4)),
-                Text(
-                  widget.partyLabels[i],
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: context.fs(11),
-                    fontWeight: FontWeight.w600,
-                    color: DiyTokens.blue,
+              crossAxisAlignment: filled
+                  ? CrossAxisAlignment.start
+                  : CrossAxisAlignment.center,
+              children: filled
+                  ? [
+                      Text(
+                        name,
+                        maxLines: 2,
+                        style: TextStyle(
+                          fontSize: context.fs(9.5),
+                          height: 1.3,
+                          color: DiyTokens.navy,
+                        ),
+                      ),
+                    ]
+                  : [
+                      Icon(
+                        selected
+                            ? Icons.person_rounded
+                            : Icons.person_outline_rounded,
+                        size: context.w(15),
+                        color: DiyTokens.blue,
+                      ),
+                      SizedBox(height: context.h(3)),
+                      Text(
+                        widget.partyLabels[i],
+                        maxLines: 1,
+                        style: TextStyle(
+                          fontSize: context.fs(9.5),
+                          color: DiyTokens.blue,
+                        ),
+                      ),
+                    ],
+            ),
+          );
+          return Stack(
+            clipBehavior: Clip.none,
+            children: [
+              if (!selected && !filled)
+                CustomPaint(
+                  foregroundPainter: _DashedBorder(
+                    color: const Color(0xFF7FB8E6),
+                    radius: context.r(6),
+                  ),
+                  child: chip,
+                )
+              else
+                chip,
+              if (filled)
+                Positioned(
+                  top: -context.h(6),
+                  right: -context.w(5),
+                  child: Container(
+                    padding: EdgeInsets.all(context.w(2)),
+                    decoration: const BoxDecoration(
+                      color: DiyTokens.blue,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.check_rounded,
+                      size: context.w(9),
+                      color: Colors.white,
+                    ),
                   ),
                 ),
-              ],
-            ),
+            ],
           );
         },
       ),
@@ -491,14 +564,14 @@ class _DiyTravellerFormScreenState extends State<DiyTravellerFormScreen> {
           suffixIcon: Icon(
             Icons.keyboard_arrow_down_rounded,
             size: context.w(20),
-            color: DiyTokens.subGrey,
+            color: DiyTokens.blue,
           ),
         ),
         child: Text(
           _dob == null
               ? 'Select'
               : '${_dob!.day.toString().padLeft(2, '0')}/'
-                  '${_dob!.month.toString().padLeft(2, '0')}/${_dob!.year}',
+                    '${_dob!.month.toString().padLeft(2, '0')}/${_dob!.year}',
           style: TextStyle(
             fontSize: context.fs(14),
             color: _dob == null ? DiyTokens.labelGrey : DiyTokens.navy,
@@ -509,20 +582,64 @@ class _DiyTravellerFormScreenState extends State<DiyTravellerFormScreen> {
   }
 
   Widget _genderField() {
-    return DropdownButtonFormField<String>(
-      initialValue: _gender.isEmpty ? null : _gender,
-      decoration: _decoration('GENDER'),
-      icon: Icon(
-        Icons.keyboard_arrow_down_rounded,
-        size: context.w(20),
-        color: DiyTokens.subGrey,
+    return FormField<String>(
+      initialValue: _gender,
+      validator: (_) => _gender.isEmpty ? 'Select a gender' : null,
+      builder: (state) => InkWell(
+        onTap: () async {
+          await _pickGender();
+          state.didChange(_gender);
+        },
+        borderRadius: BorderRadius.circular(context.r(8)),
+        child: InputDecorator(
+          decoration: _decoration('GENDER').copyWith(
+            errorText: state.errorText,
+            suffixIcon: Icon(
+              Icons.keyboard_arrow_down_rounded,
+              size: context.w(20),
+              color: DiyTokens.blue,
+            ),
+          ),
+          child: Text(
+            _gender.isEmpty ? 'Select' : _gender,
+            style: TextStyle(
+              fontSize: context.fs(14),
+              color: _gender.isEmpty ? DiyTokens.labelGrey : DiyTokens.navy,
+            ),
+          ),
+        ),
       ),
-      style: TextStyle(fontSize: context.fs(14), color: DiyTokens.navy),
-      items: [
-        for (final g in _genders)
-          DropdownMenuItem(value: g, child: Text(g)),
-      ],
-      onChanged: (v) => setState(() => _gender = v ?? ''),
     );
   }
+}
+
+/// A rounded dashed outline — the Figma's not-yet-added traveller chips.
+class _DashedBorder extends CustomPainter {
+  final Color color;
+  final double radius;
+
+  _DashedBorder({required this.color, required this.radius});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+    final path = Path()
+      ..addRRect(
+        RRect.fromRectAndRadius(Offset.zero & size, Radius.circular(radius)),
+      );
+    for (final metric in path.computeMetrics()) {
+      var distance = 0.0;
+      while (distance < metric.length) {
+        canvas.drawPath(metric.extractPath(distance, distance + 4), paint);
+        distance += 7;
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _DashedBorder old) =>
+      old.color != color || old.radius != radius;
 }

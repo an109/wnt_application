@@ -246,9 +246,7 @@ class _DiyPackageDetailScreenState extends State<DiyPackageDetailScreen> {
           message: _withFlight
               ? 'Searching live flights from ${widget.query.origin.name}…'
               : 'Preparing your package…',
-          hint: _withFlight
-              ? 'Flight pricing takes a few seconds.'
-              : null,
+          hint: _withFlight ? 'Flight pricing takes a few seconds.' : null,
         ),
       );
     }
@@ -258,8 +256,8 @@ class _DiyPackageDetailScreenState extends State<DiyPackageDetailScreen> {
       body: _loading
           ? const DiyLoading(message: 'Loading package…')
           : _error != null
-              ? DiyErrorView(message: _error!, onRetry: _load)
-              : _content(),
+          ? DiyErrorView(message: _error!, onRetry: _load)
+          : _content(),
       bottomNavigationBar: _loading || _error != null ? null : _bottomBar(),
     );
   }
@@ -400,12 +398,12 @@ class _DiyPackageDetailScreenState extends State<DiyPackageDetailScreen> {
             child: Text(
               live
                   ? 'Flights from ${widget.query.origin.name} are priced live '
-                      'for your date in the next step.'
+                        'for your date in the next step.'
                   : package.includesFlight
-                      ? 'Without flights — hotels, transfers, sightseeing and '
-                          'activities at a fixed price.'
-                      : 'Land package — hotels, transfers, sightseeing and '
-                          'activities at a fixed price.',
+                  ? 'Without flights — hotels, transfers, sightseeing and '
+                        'activities at a fixed price.'
+                  : 'Land package — hotels, transfers, sightseeing and '
+                        'activities at a fixed price.',
               style: TextStyle(fontSize: context.fs(12), color: DiyTokens.navy),
             ),
           ),
@@ -601,8 +599,8 @@ class _DiyPackageDetailScreenState extends State<DiyPackageDetailScreen> {
                       _quote != null
                           ? 'With your add-ons'
                           : _withFlight
-                              ? 'Starting from'
-                              : 'Fixed price',
+                          ? 'Starting from'
+                          : 'Fixed price',
                       style: TextStyle(
                         fontSize: context.fs(10),
                         color: DiyTokens.labelGrey,

@@ -99,8 +99,8 @@ class _DiyAddActivityScreenState extends State<DiyAddActivityScreen> {
   bool _isPicked(DiyAddon a) => _picked.any((p) => p.id == a.id);
 
   void _toggle(DiyAddon a) => setState(() {
-        _isPicked(a) ? _picked.removeWhere((p) => p.id == a.id) : _picked.add(a);
-      });
+    _isPicked(a) ? _picked.removeWhere((p) => p.id == a.id) : _picked.add(a);
+  });
 
   /// The tab's add-ons: this day's city first, then the rest of the trip's.
   List<DiyAddon> get _visible {
@@ -110,10 +110,12 @@ class _DiyAddActivityScreenState extends State<DiyAddActivityScreen> {
         .where((a) => !a.isComplimentary && a.pricePerPerson > 0)
         .where((a) => a.isTransfer == _transfers)
         .where((a) => _categories.isEmpty || _categories.contains(a.category))
-        .where((a) =>
-            query.isEmpty ||
-            a.name.toLowerCase().contains(query) ||
-            a.shortDescription.toLowerCase().contains(query))
+        .where(
+          (a) =>
+              query.isEmpty ||
+              a.name.toLowerCase().contains(query) ||
+              a.shortDescription.toLowerCase().contains(query),
+        )
         .toList();
     int local(DiyAddon a) => a.destination.toLowerCase() == here ? 0 : 1;
     list.sort((a, b) {
@@ -158,8 +160,9 @@ class _DiyAddActivityScreenState extends State<DiyAddActivityScreen> {
         added[addon.id] = result.id;
       }
       if (mounted) {
-        Navigator.of(context)
-            .pop(DiyTripAddonsResult(trip: trip, addedIds: added));
+        Navigator.of(
+          context,
+        ).pop(DiyTripAddonsResult(trip: trip, addedIds: added));
       }
     } catch (e) {
       if (mounted) diySnack(context, e.toString(), isError: true);
@@ -201,7 +204,11 @@ class _DiyAddActivityScreenState extends State<DiyAddActivityScreen> {
         elevation: 2,
         shadowColor: Colors.black.withValues(alpha: 0.15),
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: Colors.black, size: context.w(24)),
+          icon: Icon(
+            Icons.arrow_back,
+            color: Colors.black,
+            size: context.w(24),
+          ),
           onPressed: () => Navigator.of(context).pop(),
         ),
         titleSpacing: 0,
@@ -213,7 +220,9 @@ class _DiyAddActivityScreenState extends State<DiyAddActivityScreen> {
                   isDense: true,
                   hintText: 'Search by Activity Name',
                   hintStyle: TextStyle(
-                      fontSize: context.fs(12), color: DiyTripStyle.grey),
+                    fontSize: context.fs(12),
+                    color: DiyTripStyle.grey,
+                  ),
                   contentPadding: EdgeInsets.symmetric(
                     horizontal: context.w(12),
                     vertical: context.h(10),
@@ -245,7 +254,9 @@ class _DiyAddActivityScreenState extends State<DiyAddActivityScreen> {
                       party,
                     ].join(', '),
                     style: TextStyle(
-                        fontSize: context.fs(10), color: DiyTripStyle.grey),
+                      fontSize: context.fs(10),
+                      color: DiyTripStyle.grey,
+                    ),
                   ),
                 ],
               ),
@@ -267,13 +278,14 @@ class _DiyAddActivityScreenState extends State<DiyAddActivityScreen> {
         ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-      floatingActionButton:
-          _picked.isEmpty && !_loading ? _sortFilterPill() : null,
+      floatingActionButton: _picked.isEmpty && !_loading
+          ? _sortFilterPill()
+          : null,
       body: _loading
           ? const DiyLoading(message: 'Loading activities…')
           : _error != null
-              ? DiyErrorView(message: _error!, onRetry: _load)
-              : _list(),
+          ? DiyErrorView(message: _error!, onRetry: _load)
+          : _list(),
       bottomNavigationBar: _picked.isEmpty ? null : _tray(),
     );
   }
@@ -426,18 +438,25 @@ class _DiyAddActivityScreenState extends State<DiyAddActivityScreen> {
               onPressed: () => _knowMore(a),
               child: Text(
                 'Know More  >',
-                style: TextStyle(fontSize: context.fs(11), color: DiyTokens.blue),
+                style: TextStyle(
+                  fontSize: context.fs(11),
+                  color: DiyTokens.blue,
+                ),
               ),
             ),
           ),
           _dashedLine(),
           SizedBox(height: context.h(10)),
           if (a.durationMinutes > 0)
-            _fact(Icons.access_time_filled_rounded,
-                'Duration ${diyDuration(a.durationMinutes)}'),
+            _fact(
+              Icons.access_time_filled_rounded,
+              'Duration ${diyDuration(a.durationMinutes)}',
+            ),
           if (a.pickupIncluded)
-            _fact(Icons.directions_car_filled_rounded,
-                'Pick up & Drop is included'),
+            _fact(
+              Icons.directions_car_filled_rounded,
+              'Pick up & Drop is included',
+            ),
           if (a.destination.isNotEmpty)
             _fact(Icons.location_on_rounded, a.destination),
           SizedBox(height: context.h(14)),
@@ -483,7 +502,9 @@ class _DiyAddActivityScreenState extends State<DiyAddActivityScreen> {
                       Text(
                         'price/person',
                         style: TextStyle(
-                            fontSize: context.fs(10), color: DiyTripStyle.grey),
+                          fontSize: context.fs(10),
+                          color: DiyTripStyle.grey,
+                        ),
                       ),
                     ],
                   ),
@@ -545,7 +566,10 @@ class _DiyAddActivityScreenState extends State<DiyAddActivityScreen> {
           Expanded(
             child: Text(
               text,
-              style: TextStyle(fontSize: context.fs(11), color: DiyTripStyle.grey),
+              style: TextStyle(
+                fontSize: context.fs(11),
+                color: DiyTripStyle.grey,
+              ),
             ),
           ),
         ],
@@ -582,8 +606,11 @@ class _DiyAddActivityScreenState extends State<DiyAddActivityScreen> {
                   padding: EdgeInsets.only(top: context.h(3)),
                   child: Row(
                     children: [
-                      Icon(Icons.local_activity_rounded,
-                          size: context.w(11), color: DiyTokens.blue),
+                      Icon(
+                        Icons.local_activity_rounded,
+                        size: context.w(11),
+                        color: DiyTokens.blue,
+                      ),
                       SizedBox(width: context.w(5)),
                       Expanded(
                         child: Text(
@@ -598,8 +625,11 @@ class _DiyAddActivityScreenState extends State<DiyAddActivityScreen> {
                       ),
                       GestureDetector(
                         onTap: () => _toggle(a),
-                        child: Icon(Icons.close_rounded,
-                            size: context.w(14), color: DiyTripStyle.grey),
+                        child: Icon(
+                          Icons.close_rounded,
+                          size: context.w(14),
+                          color: DiyTripStyle.grey,
+                        ),
                       ),
                     ],
                   ),
@@ -626,8 +656,10 @@ class _DiyAddActivityScreenState extends State<DiyAddActivityScreen> {
                       TextSpan(
                         children: [
                           TextSpan(
-                            text: diyMoney(newTotal / _adults,
-                                currency: widget.trip.currency),
+                            text: diyMoney(
+                              newTotal / _adults,
+                              currency: widget.trip.currency,
+                            ),
                             style: TextStyle(
                               fontSize: context.fs(20),
                               fontWeight: FontWeight.w800,
@@ -637,8 +669,9 @@ class _DiyAddActivityScreenState extends State<DiyAddActivityScreen> {
                           TextSpan(
                             text: '/person',
                             style: TextStyle(
-                                fontSize: context.fs(11),
-                                color: DiyTripStyle.grey),
+                              fontSize: context.fs(11),
+                              color: DiyTripStyle.grey,
+                            ),
                           ),
                         ],
                       ),
@@ -646,7 +679,9 @@ class _DiyAddActivityScreenState extends State<DiyAddActivityScreen> {
                     Text(
                       'Total Price ${diyMoney(newTotal, currency: widget.trip.currency)}',
                       style: TextStyle(
-                          fontSize: context.fs(9), color: DiyTripStyle.grey),
+                        fontSize: context.fs(9),
+                        color: DiyTripStyle.grey,
+                      ),
                     ),
                   ],
                 ),
@@ -742,7 +777,10 @@ class _DiyAddActivityScreenState extends State<DiyAddActivityScreen> {
         children: [
           half(Icons.swap_vert_rounded, 'Sort', false),
           Container(
-              width: 1, height: context.h(22), color: DiyTripStyle.divider),
+            width: 1,
+            height: context.h(22),
+            color: DiyTripStyle.divider,
+          ),
           half(Icons.tune_rounded, 'Filter', _categories.isNotEmpty),
         ],
       ),
@@ -751,12 +789,13 @@ class _DiyAddActivityScreenState extends State<DiyAddActivityScreen> {
 
   /// Sort & Filter — the order, and the catalogue categories on this tab.
   Future<void> _openSortFilter() async {
-    final categories = _addons
-        .where((a) => a.isTransfer == _transfers && a.category.isNotEmpty)
-        .map((a) => a.category)
-        .toSet()
-        .toList()
-      ..sort();
+    final categories =
+        _addons
+            .where((a) => a.isTransfer == _transfers && a.category.isNotEmpty)
+            .map((a) => a.category)
+            .toSet()
+            .toList()
+          ..sort();
     var sort = _sort;
     final picked = {..._categories};
 
@@ -768,13 +807,18 @@ class _DiyAddActivityScreenState extends State<DiyAddActivityScreen> {
       backgroundColor: Colors.white,
       isScrollControlled: true,
       shape: RoundedRectangleBorder(
-        borderRadius:
-            BorderRadius.vertical(top: Radius.circular(context.r(18))),
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(context.r(18)),
+        ),
       ),
       builder: (sheetContext) => StatefulBuilder(
         builder: (sheetContext, setSheet) {
-          Widget sortCard(_Sort value, IconData icon, String title,
-              String caption) {
+          Widget sortCard(
+            _Sort value,
+            IconData icon,
+            String title,
+            String caption,
+          ) {
             final selected = sort == value;
             return Expanded(
               child: GestureDetector(
@@ -790,9 +834,11 @@ class _DiyAddActivityScreenState extends State<DiyAddActivityScreen> {
                   ),
                   child: Column(
                     children: [
-                      Icon(icon,
-                          size: context.w(18),
-                          color: selected ? DiyTokens.blue : Colors.black),
+                      Icon(
+                        icon,
+                        size: context.w(18),
+                        color: selected ? DiyTokens.blue : Colors.black,
+                      ),
                       Text(
                         title,
                         style: TextStyle(
@@ -804,7 +850,9 @@ class _DiyAddActivityScreenState extends State<DiyAddActivityScreen> {
                       Text(
                         caption,
                         style: TextStyle(
-                            fontSize: context.fs(9), color: DiyTripStyle.grey),
+                          fontSize: context.fs(9),
+                          color: DiyTripStyle.grey,
+                        ),
                       ),
                     ],
                   ),
@@ -840,28 +888,47 @@ class _DiyAddActivityScreenState extends State<DiyAddActivityScreen> {
                     ],
                   ),
                   SizedBox(height: context.h(8)),
-                  Text('Sort By',
-                      style: TextStyle(
-                          fontSize: context.fs(13), color: DiyTripStyle.grey)),
+                  Text(
+                    'Sort By',
+                    style: TextStyle(
+                      fontSize: context.fs(13),
+                      color: DiyTripStyle.grey,
+                    ),
+                  ),
                   SizedBox(height: context.h(10)),
                   Row(
                     children: [
-                      sortCard(_Sort.popularity, Icons.star_outline_rounded,
-                          'Popularity', 'Popular First'),
+                      sortCard(
+                        _Sort.popularity,
+                        Icons.star_outline_rounded,
+                        'Popularity',
+                        'Popular First',
+                      ),
                       SizedBox(width: context.w(10)),
-                      sortCard(_Sort.priceLow, Icons.south_rounded, 'Price',
-                          'Low to High'),
+                      sortCard(
+                        _Sort.priceLow,
+                        Icons.south_rounded,
+                        'Price',
+                        'Low to High',
+                      ),
                       SizedBox(width: context.w(10)),
-                      sortCard(_Sort.priceHigh, Icons.north_rounded, 'Price',
-                          'High to Low'),
+                      sortCard(
+                        _Sort.priceHigh,
+                        Icons.north_rounded,
+                        'Price',
+                        'High to Low',
+                      ),
                     ],
                   ),
                   if (categories.isNotEmpty) ...[
                     SizedBox(height: context.h(18)),
-                    Text('Category',
-                        style: TextStyle(
-                            fontSize: context.fs(13),
-                            color: DiyTripStyle.grey)),
+                    Text(
+                      'Category',
+                      style: TextStyle(
+                        fontSize: context.fs(13),
+                        color: DiyTripStyle.grey,
+                      ),
+                    ),
                     SizedBox(height: context.h(10)),
                     Wrap(
                       spacing: context.w(8),
@@ -869,8 +936,11 @@ class _DiyAddActivityScreenState extends State<DiyAddActivityScreen> {
                       children: [
                         for (final c in categories)
                           GestureDetector(
-                            onTap: () => setSheet(() =>
-                                picked.contains(c) ? picked.remove(c) : picked.add(c)),
+                            onTap: () => setSheet(
+                              () => picked.contains(c)
+                                  ? picked.remove(c)
+                                  : picked.add(c),
+                            ),
                             child: Container(
                               padding: EdgeInsets.symmetric(
                                 horizontal: context.w(10),
@@ -880,8 +950,9 @@ class _DiyAddActivityScreenState extends State<DiyAddActivityScreen> {
                                 color: picked.contains(c)
                                     ? const Color(0xFFE8F4FC)
                                     : Colors.white,
-                                borderRadius:
-                                    BorderRadius.circular(context.r(4)),
+                                borderRadius: BorderRadius.circular(
+                                  context.r(4),
+                                ),
                                 border: Border.all(
                                   color: picked.contains(c)
                                       ? DiyTokens.blue

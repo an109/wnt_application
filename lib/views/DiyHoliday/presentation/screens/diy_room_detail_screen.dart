@@ -72,7 +72,11 @@ class _DiyRoomDetailScreenState extends State<DiyRoomDetailScreen> {
         elevation: 2,
         shadowColor: Colors.black.withValues(alpha: 0.15),
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: Colors.black, size: context.w(24)),
+          icon: Icon(
+            Icons.arrow_back,
+            color: Colors.black,
+            size: context.w(24),
+          ),
           onPressed: () => Navigator.of(context).pop(),
         ),
         titleSpacing: 0,
@@ -108,8 +112,10 @@ class _DiyRoomDetailScreenState extends State<DiyRoomDetailScreen> {
             spacing: context.w(16),
             runSpacing: context.h(4),
             children: [
-              _fact(Icons.people_alt_outlined,
-                  'Sleeps ${(widget.adults / (widget.rooms > 0 ? widget.rooms : 1)).ceil()}'),
+              _fact(
+                Icons.people_alt_outlined,
+                'Sleeps ${(widget.adults / (widget.rooms > 0 ? widget.rooms : 1)).ceil()}',
+              ),
               if (room != null && room.beds.isNotEmpty)
                 _fact(Icons.bed_outlined, room.beds),
             ],
@@ -118,7 +124,10 @@ class _DiyRoomDetailScreenState extends State<DiyRoomDetailScreen> {
             SizedBox(height: context.h(8)),
             Text(
               room.description,
-              style: TextStyle(fontSize: context.fs(11), color: DiyTripStyle.grey),
+              style: TextStyle(
+                fontSize: context.fs(11),
+                color: DiyTripStyle.grey,
+              ),
             ),
           ],
           SizedBox(height: context.h(12)),
@@ -159,7 +168,9 @@ class _DiyRoomDetailScreenState extends State<DiyRoomDetailScreen> {
                     Padding(
                       padding: EdgeInsets.symmetric(vertical: context.h(14)),
                       child: const Divider(
-                          height: 1, color: DiyTripStyle.divider),
+                        height: 1,
+                        color: DiyTripStyle.divider,
+                      ),
                     ),
                   _plan(widget.plans[i]),
                 ],
@@ -249,8 +260,8 @@ class _DiyRoomDetailScreenState extends State<DiyRoomDetailScreen> {
       child: Column(
         children: [
           InkWell(
-            onTap: () => setState(
-                () => open ? _open.remove(index) : _open.add(index)),
+            onTap: () =>
+                setState(() => open ? _open.remove(index) : _open.add(index)),
             child: Padding(
               padding: EdgeInsets.symmetric(
                 horizontal: context.w(10),
@@ -281,8 +292,10 @@ class _DiyRoomDetailScreenState extends State<DiyRoomDetailScreen> {
                       ),
                     ),
                   ),
-                  Icon(open ? Icons.remove_rounded : Icons.add_rounded,
-                      size: context.w(18)),
+                  Icon(
+                    open ? Icons.remove_rounded : Icons.add_rounded,
+                    size: context.w(18),
+                  ),
                 ],
               ),
             ),
@@ -302,8 +315,11 @@ class _DiyRoomDetailScreenState extends State<DiyRoomDetailScreen> {
                       padding: EdgeInsets.symmetric(vertical: context.h(5)),
                       child: Row(
                         children: [
-                          Icon(diyFacilityIcon(f),
-                              size: context.w(16), color: Colors.black87),
+                          Icon(
+                            diyFacilityIcon(f),
+                            size: context.w(16),
+                            color: Colors.black87,
+                          ),
                           SizedBox(width: context.w(8)),
                           Expanded(
                             child: Text(
@@ -331,7 +347,8 @@ class _DiyRoomDetailScreenState extends State<DiyRoomDetailScreen> {
       plan.refundable ? 'Free cancellation available' : 'Non-refundable',
     ];
     final roomsLabel = '${widget.rooms} Room${widget.rooms == 1 ? '' : 's'}';
-    final nightsLabel = '${widget.nights} Night${widget.nights == 1 ? '' : 's'}';
+    final nightsLabel =
+        '${widget.nights} Night${widget.nights == 1 ? '' : 's'}';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

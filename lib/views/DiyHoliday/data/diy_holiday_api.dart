@@ -38,24 +38,25 @@ class DiyHolidayApi {
   final Dio _dio;
 
   DiyHolidayApi({Dio? dio})
-      : _dio = dio ??
-            Dio(
-              BaseOptions(
-                baseUrl: baseUrl,
-                // Hotel options take ~19s on a cold stop; keep generous room.
-                connectTimeout: const Duration(seconds: 30),
-                receiveTimeout: const Duration(seconds: 120),
-                sendTimeout: const Duration(seconds: 60),
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Accept': 'application/json',
-                },
-                // Every POST goes out as raw JSON — the API rejects
-                // form/text bodies with "Expected a dictionary, but got str."
-                contentType: Headers.jsonContentType,
-                responseType: ResponseType.json,
-              ),
-            );
+    : _dio =
+          dio ??
+          Dio(
+            BaseOptions(
+              baseUrl: baseUrl,
+              // Hotel options take ~19s on a cold stop; keep generous room.
+              connectTimeout: const Duration(seconds: 30),
+              receiveTimeout: const Duration(seconds: 120),
+              sendTimeout: const Duration(seconds: 60),
+              headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+              },
+              // Every POST goes out as raw JSON — the API rejects
+              // form/text bodies with "Expected a dictionary, but got str."
+              contentType: Headers.jsonContentType,
+              responseType: ResponseType.json,
+            ),
+          );
 
   // ------------------------------------------------------------- plumbing
 
@@ -63,8 +64,8 @@ class DiyHolidayApi {
     try {
       final res = await _dio.get(
         path,
-        queryParameters: (query?..removeWhere((_, v) => v == null))?.isEmpty ??
-                true
+        queryParameters:
+            (query?..removeWhere((_, v) => v == null))?.isEmpty ?? true
             ? null
             : query,
       );
@@ -147,6 +148,13 @@ class DiyHolidayApi {
     return unwrapList(data).map(DiyDestination.fromJson).toList();
   }
 
+  /// GET /destinations/trending/ — the Book Now row: only places with
+  /// trending packages, each with its own picture.
+  Future<List<DiyDestination>> getTrendingDestinations() async {
+    final data = await _get(HolidayUrls.trendingDestinations);
+    return unwrapList(data).map(DiyDestination.fromJson).toList();
+  }
+
   // ------------------------------------------------------------ 2. themes
 
   /// GET /themes/ — the "Holiday By Theme" tiles.
@@ -179,20 +187,23 @@ class DiyHolidayApi {
     int? nights,
     int? page,
   }) async {
-    final data = await _get(HolidayUrls.packages, query: {
-      'origin': origin,
-      'destination': destination,
-      'adults': adults,
-      'children': children,
-      'theme': theme,
-      'flight': flight,
-      // Must go out as a whole number: the backend silently ignores
-      // `max_price=15000.0` (returns every package) but honours
-      // `max_price=15000`, and Dio would serialise a double with the `.0`.
-      'max_price': maxPrice?.round(),
-      'nights': nights,
-      'page': page,
-    });
+    final data = await _get(
+      HolidayUrls.packages,
+      query: {
+        'origin': origin,
+        'destination': destination,
+        'adults': adults,
+        'children': children,
+        'theme': theme,
+        'flight': flight,
+        // Must go out as a whole number: the backend silently ignores
+        // `max_price=15000.0` (returns every package) but honours
+        // `max_price=15000`, and Dio would serialise a double with the `.0`.
+        'max_price': maxPrice?.round(),
+        'nights': nights,
+        'page': page,
+      },
+    );
     return DiyPackagePage.fromJson(data);
   }
 
@@ -309,11 +320,12 @@ class DiyHolidayApi {
     required String tripId,
     required bool outbound,
   }) async {
-    final data =
-await _get(HolidayUrls.tripFlights(
-      tripId,
-      HolidayUrls.flightDirection(outbound: outbound),
-    ));
+    final data = await _get(
+      HolidayUrls.tripFlights(
+        tripId,
+        HolidayUrls.flightDirection(outbound: outbound),
+      ),
+    );
     return unwrapList(data).map(DiyFlightOption.fromJson).toList();
   }
 
@@ -342,10 +354,12 @@ await _get(HolidayUrls.tripFlights(
     required bool outbound,
     DiyTrip? previous,
   }) async {
-    final data = await _delete(HolidayUrls.tripFlights(
-      tripId,
-      HolidayUrls.flightDirection(outbound: outbound),
-    ));
+    final data = await _delete(
+      HolidayUrls.tripFlights(
+        tripId,
+        HolidayUrls.flightDirection(outbound: outbound),
+      ),
+    );
     return DiyTrip.fromJson(data, previous: previous);
   }
 
@@ -357,10 +371,12 @@ await _get(HolidayUrls.tripFlights(
     required bool outbound,
     DiyTrip? previous,
   }) async {
-    final data = await _put(HolidayUrls.tripFlights(
-      tripId,
-      HolidayUrls.flightDirection(outbound: outbound),
-    ));
+    final data = await _put(
+      HolidayUrls.tripFlights(
+        tripId,
+        HolidayUrls.flightDirection(outbound: outbound),
+      ),
+    );
     return DiyTrip.fromJson(data, previous: previous);
   }
 
@@ -559,11 +575,38 @@ await _get(HolidayUrls.tripFlights(
     required String bookingId,
     required int percent,
   }) async {
-    final data = await _post(
-      HolidayUrls.bookingPay(bookingId),
-      {'percent': percent},
-    );
+    final data = await _post(HolidayUrls.bookingPay(bookingId), {
+      'percent': percent,
+    });
     return DiyPaymentLink.fromJson(data);
+  }
+
+  /// POST /bookings/{booking_id}/order/ — a Razorpay order for one
+  /// instalment, for the in-app (Custom Checkout) payment screen.
+  Future<DiyCheckoutOrder> createBookingOrder({
+    required String bookingId,
+    required int percent,
+  }) async {
+    final data = await _post(HolidayUrls.bookingOrder(bookingId), {
+      'percent': percent,
+    });
+    return DiyCheckoutOrder.fromJson(data);
+  }
+
+  /// POST /bookings/{booking_id}/verify/ — Razorpay's signature checked and
+  /// the captured payment recorded on the booking.
+  Future<DiyBooking> verifyBookingPayment({
+    required String bookingId,
+    required String orderId,
+    required String paymentId,
+    required String signature,
+  }) async {
+    final data = await _post(HolidayUrls.bookingVerify(bookingId), {
+      'razorpay_order_id': orderId,
+      'razorpay_payment_id': paymentId,
+      'razorpay_signature': signature,
+    });
+    return DiyBooking.fromJson(data);
   }
 
   /// POST /bookings/{booking_id}/sync/ — records anything paid on the

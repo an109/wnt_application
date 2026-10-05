@@ -10,10 +10,11 @@ import '../../data/diy_search_query.dart';
 import '../../data/diy_traveller.dart';
 import '../../data/models/diy_models.dart';
 import '../widgets/diy_common.dart';
-import 'diy_enquiry_screen.dart';
 import '../../data/diy_holiday_api.dart';
-import 'diy_booking_payment_screen.dart';
+import 'diy_holiday_payment_screen.dart';
+import 'diy_policies_screen.dart';
 import 'diy_traveller_form_screen.dart';
+import '../widgets/diy_review_sheets.dart';
 
 /// Review — the last screen before payment, built to the Figma.
 ///
@@ -23,9 +24,6 @@ import 'diy_traveller_form_screen.dart';
 /// charges through the app's own Razorpay stack and records the booking on the
 /// main API. The enquiry is still submitted after a successful payment so the
 /// consultant picks the trip up with the same details.
-///
-/// "Talk to a consultant instead" keeps the original enquiry-only path intact
-/// for customers who would rather not pay online.
 ///
 /// Sections with no data behind them on the DIY API — insurance, coupons and
 /// the prose policy text — are gated in [DiyFeatures]. Package Inclusions is
@@ -84,15 +82,24 @@ class _DiyReviewScreenState extends State<DiyReviewScreen> {
   bool _acceptedTerms = false;
   String _openSection = '';
 
+  /// The tab-strip chip last tapped — outlined in blue, as in the design.
+  String _activeTab = 'Traveller details';
+
   /// How the party arrives and leaves — the Figma's Arrival / Departure
   /// Information. Pre-set to FLIGHT when the package flies them.
-  late final _Leg _arrival = _Leg(widget.withFlight ? 'FLIGHT' : '');
-  late final _Leg _departure = _Leg(widget.withFlight ? 'FLIGHT' : '');
-  String _gstState = '';
 
   late final Future<DiyPolicies> _policies = sl<DiyHolidayApi>().getPolicies();
   DiyBooking? _booking;
   bool _bookingInFlight = false;
+
+  /// Set once CONTINUE was pressed with someone missing, so the rows still to
+  /// fill turn red rather than only a toast saying so.
+  bool _showMissing = false;
+
+  /// Everything a ticket or voucher needs: both names and a gender, and for a
+  /// child the date of birth, because children are priced and booked on age.
+  bool _ready(DiyTraveller t) =>
+      t.isComplete && t.gender.isNotEmpty && (!t.isChild || t.dob.isNotEmpty);
 
   @override
   void initState() {
@@ -134,8 +141,6 @@ class _DiyReviewScreenState extends State<DiyReviewScreen> {
   void dispose() {
     _email.dispose();
     _phone.dispose();
-    _arrival.dispose();
-    _departure.dispose();
     super.dispose();
   }
 
@@ -153,6 +158,12 @@ class _DiyReviewScreenState extends State<DiyReviewScreen> {
           initial: _travellers[index].isComplete ? _travellers[index] : null,
           partyLabels: _partyLabels,
           index: index,
+          partyNames: [
+            for (final t in _travellers)
+              t.isComplete
+                  ? '${t.fullName}${t.age == null ? '' : '\n${t.age}y'}'
+                  : '',
+          ],
         ),
       ),
     );
@@ -177,14 +188,25 @@ class _DiyReviewScreenState extends State<DiyReviewScreen> {
       _scrollTo(_travellerDetailsKey);
       return;
     }
-    if (!_travellers.first.isComplete) {
-      diySnack(context, 'Add the lead traveller\'s details', isError: true);
+    // Every traveller, not just the lead: the booking goes nowhere until each
+    // one has their details in.
+    final missing = [
+      for (var i = 0; i < _travellers.length; i++)
+        if (!_ready(_travellers[i])) i,
+    ];
+    if (missing.isNotEmpty) {
+      setState(() => _showMissing = true);
       _scrollTo(_travellerDetailsKey);
-      return;
-    }
-    if (_gstState.isEmpty) {
-      diySnack(context, 'Select your GST state', isError: true);
-      _scrollTo(_travellerDetailsKey);
+      diySnack(
+        context,
+        missing.length == 1
+            ? 'Add the details of Travellers ${missing.first + 1}'
+            : 'Add the details of all ${_travellers.length} travellers '
+                  '(${missing.length} still to add)',
+        isError: true,
+      );
+      // Straight into the first one still to fill.
+      await _editTraveller(missing.first);
       return;
     }
     if (!_acceptedTerms) {
@@ -208,13 +230,11 @@ class _DiyReviewScreenState extends State<DiyReviewScreen> {
         customerName: _leadName,
         customerPhone: _phone.text.trim(),
         customerEmail: _email.text.trim(),
-        gstState: _gstState,
+        gstState: '',
         travellers: [
           for (final t in _travellers.where((t) => t.isComplete))
             t.toBookingJson(),
         ],
-        arrival: _arrival.toJson(),
-        departure: _departure.toJson(),
         termsAccepted: _acceptedTerms,
       );
       if (!mounted) return;
@@ -274,45 +294,20 @@ class _DiyReviewScreenState extends State<DiyReviewScreen> {
     );
     if (picked == null || !mounted) return;
 
-    setState(() => _bookingInFlight = true);
-    try {
-      final link = await sl<DiyHolidayApi>().payBooking(
-        bookingId: booking.bookingId,
-        percent: picked.percent,
-      );
-      if (!mounted) return;
-      await Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => DiyBookingPaymentScreen(
-            booking: booking,
-            link: link,
-            packageTitle: widget.packageTitle,
-            destination: widget.destination,
-            departureDate: widget.query.departureDate,
-            nights: widget.nights,
-            travellers: _travellers.length,
-          ),
-        ),
-      );
-    } catch (e) {
-      if (mounted) diySnack(context, e.toString(), isError: true);
-    } finally {
-      if (mounted) setState(() => _bookingInFlight = false);
-    }
-  }
-
-  void _talkToConsultant() {
-    Navigator.of(context).push(
+    // The in-app checkout (UPI, cards, net banking, EMI, wallets), the same
+    // seamless Razorpay flow as flights; it falls back to the hosted page by
+    // itself on a device the native SDK does not support.
+    await Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => DiyEnquiryScreen(
-          shareId: widget.shareId,
-          query: widget.query,
-          withFlight: widget.withFlight,
-          addOnIds: widget.addOnIds,
-          quotedTotal: widget.quotedTotal,
-          currency: widget.currency,
+        builder: (_) => DiyHolidayPaymentScreen(
+          booking: booking,
+          instalment: picked,
           packageTitle: widget.packageTitle,
-          tripId: widget.tripId,
+          origin: widget.query.origin.name,
+          destination: widget.destination,
+          departureDate: widget.query.departureDate,
+          nights: widget.nights,
+          travellers: _travellers,
         ),
       ),
     );
@@ -323,7 +318,7 @@ class _DiyReviewScreenState extends State<DiyReviewScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: DiyTokens.pageBg,
+      backgroundColor: Colors.white,
       appBar: diyAppBar(context, title: 'Review'),
       body: Form(
         key: _formKey,
@@ -365,20 +360,6 @@ class _DiyReviewScreenState extends State<DiyReviewScreen> {
               ],
               SizedBox(height: context.h(12)),
               _importantInformation(),
-              SizedBox(height: context.h(10)),
-              Center(
-                child: TextButton(
-                  onPressed: _talkToConsultant,
-                  child: Text(
-                    'Talk to a consultant instead',
-                    style: TextStyle(
-                      fontSize: context.fs(12.5),
-                      fontWeight: FontWeight.w600,
-                      color: DiyTokens.blue,
-                    ),
-                  ),
-                ),
-              ),
             ],
           ),
         ),
@@ -406,28 +387,66 @@ class _DiyReviewScreenState extends State<DiyReviewScreen> {
                 child: Text(
                   widget.packageTitle,
                   style: TextStyle(
-                    fontSize: context.fs(15.5),
+                    fontSize: context.fs(17),
                     fontWeight: FontWeight.w700,
-                    color: DiyTokens.navy,
+                    color: Colors.black,
                   ),
                 ),
               ),
-              Icon(
-                Icons.verified_rounded,
-                size: context.w(18),
-                color: DiyTokens.blue,
+              Container(
+                width: context.w(30),
+                height: context.w(30),
+                decoration: const BoxDecoration(
+                  color: Color(0xFFE3F1FC),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.beach_access_rounded,
+                  size: context.w(16),
+                  color: DiyTokens.blue,
+                ),
               ),
             ],
           ),
-          SizedBox(height: context.h(7)),
+          SizedBox(height: context.h(6)),
           Row(
             children: [
-              _pill('Customizable', DiyTokens.blue),
-              SizedBox(width: context.w(6)),
+              Container(
+                padding: EdgeInsets.symmetric(
+                  horizontal: context.w(6),
+                  vertical: context.h(2),
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE3F1FC),
+                  borderRadius: BorderRadius.circular(context.r(4)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.tune_rounded,
+                      size: context.w(11),
+                      color: DiyTokens.blue,
+                    ),
+                    SizedBox(width: context.w(4)),
+                    Text(
+                      'Customizable',
+                      style: TextStyle(
+                        fontSize: context.fs(10),
+                        color: DiyTokens.blue,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(width: context.w(8)),
               if (widget.nights > 0)
-                _pill(
+                Text(
                   '${widget.nights}N ${widget.destination}'.trim(),
-                  DiyTokens.blue,
+                  style: TextStyle(
+                    fontSize: context.fs(10.5),
+                    color: DiyTokens.blue,
+                  ),
                 ),
             ],
           ),
@@ -446,19 +465,19 @@ class _DiyReviewScreenState extends State<DiyReviewScreen> {
               SizedBox(width: context.w(6)),
               Text(
                 '${_travellers.length} Traveller'
-                '${_travellers.length == 1 ? '' : 's'}',
+                '${_travellers.length == 1 ? '' : 's'}:',
                 style: TextStyle(
-                  fontSize: context.fs(12),
-                  fontWeight: FontWeight.w700,
+                  fontSize: context.fs(11.5),
+                  fontWeight: FontWeight.w600,
                   color: DiyTokens.navy,
                 ),
               ),
-              SizedBox(width: context.w(8)),
+              SizedBox(width: context.w(5)),
               Expanded(
                 child: Text(
                   '${widget.query.adults} Adult'
                   '${widget.query.adults == 1 ? '' : 's'}'
-                  '${widget.query.children > 0 ? ' · ${widget.query.children} Child' : ''}'
+                  '${widget.query.children > 0 ? ', ${widget.query.children} Child' : ''}'
                   ' / From ${widget.query.origin.name}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -513,18 +532,43 @@ class _DiyReviewScreenState extends State<DiyReviewScreen> {
             padding: EdgeInsets.symmetric(horizontal: context.w(8)),
             child: Column(
               children: [
-                Text(
-                  widget.nights > 0
-                      ? '${widget.nights + 1}D/${widget.nights}N'
-                      : '',
-                  style: TextStyle(
-                    fontSize: context.fs(10),
-                    fontWeight: FontWeight.w700,
-                    color: DiyTokens.orange,
+                if (widget.nights > 0)
+                  Container(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: context.w(8),
+                      vertical: context.h(1),
+                    ),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: const Color(0xFFD5D8DE)),
+                      borderRadius: BorderRadius.circular(context.r(5)),
+                    ),
+                    child: Text(
+                      '${widget.nights + 1}D/${widget.nights}N',
+                      style: TextStyle(
+                        fontSize: context.fs(9.5),
+                        color: DiyTokens.subGrey,
+                      ),
+                    ),
                   ),
+                SizedBox(height: context.h(4)),
+                Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Container(
+                      height: 1.5,
+                      margin: EdgeInsets.symmetric(horizontal: context.w(6)),
+                      color: DiyTokens.orange,
+                    ),
+                    Container(
+                      width: context.w(6),
+                      height: context.w(6),
+                      decoration: const BoxDecoration(
+                        color: DiyTokens.blue,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  ],
                 ),
-                SizedBox(height: context.h(3)),
-                Container(height: 2, color: DiyTokens.orange),
               ],
             ),
           ),
@@ -545,7 +589,7 @@ class _DiyReviewScreenState extends State<DiyReviewScreen> {
     };
 
     return SizedBox(
-      height: context.h(32),
+      height: context.h(26),
       child: ListView(
         scrollDirection: Axis.horizontal,
         children: [
@@ -553,23 +597,31 @@ class _DiyReviewScreenState extends State<DiyReviewScreen> {
             Padding(
               padding: EdgeInsets.only(right: context.w(8)),
               child: GestureDetector(
-                onTap: () => _scrollTo(entry.value),
+                onTap: () {
+                  setState(() => _activeTab = entry.key);
+                  _scrollTo(entry.value);
+                },
                 child: Container(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: context.w(12),
-                    vertical: context.h(6),
-                  ),
+                  alignment: Alignment.center,
+                  padding: EdgeInsets.symmetric(horizontal: context.w(8)),
                   decoration: BoxDecoration(
-                    color: Colors.white,
-                    border: Border.all(color: DiyTokens.line),
-                    borderRadius: BorderRadius.circular(context.r(7)),
+                    color: entry.key == _activeTab
+                        ? const Color(0xFFEFF7FD)
+                        : Colors.white,
+                    border: Border.all(
+                      color: entry.key == _activeTab
+                          ? DiyTokens.blue
+                          : const Color(0xFFB9BEC7),
+                    ),
+                    borderRadius: BorderRadius.circular(context.r(5)),
                   ),
                   child: Text(
                     entry.key,
                     style: TextStyle(
-                      fontSize: context.fs(11.5),
-                      fontWeight: FontWeight.w600,
-                      color: DiyTokens.navy,
+                      fontSize: context.fs(10.5),
+                      color: entry.key == _activeTab
+                          ? DiyTokens.blue
+                          : const Color(0xFF5B6270),
                     ),
                   ),
                 ),
@@ -609,44 +661,47 @@ class _DiyReviewScreenState extends State<DiyReviewScreen> {
               ),
             ],
           ),
-          SizedBox(height: context.h(10)),
+          SizedBox(height: context.h(18)),
           Text(
             '${_travellers.length} Traveller'
             '${_travellers.length == 1 ? '' : 's'}',
             style: TextStyle(
-              fontSize: context.fs(12.5),
+              fontSize: context.fs(11.5),
               fontWeight: FontWeight.w600,
-              color: DiyTokens.navy,
+              color: Colors.black,
             ),
           ),
           Text(
             '${widget.query.rooms} Room'
-            '${widget.query.rooms == 1 ? '' : 's'} · '
+            '${widget.query.rooms == 1 ? '' : 's'} : '
             '${widget.query.adults} Adult'
             '${widget.query.adults == 1 ? '' : 's'}'
-            '${widget.query.children > 0 ? ' · ${widget.query.children} Child' : ''}',
+            '${widget.query.children > 0 ? ', ${widget.query.children} Child' : ''}',
             style: TextStyle(
-              fontSize: context.fs(11),
+              fontSize: context.fs(10.5),
               color: DiyTokens.subGrey,
             ),
           ),
           SizedBox(height: context.h(12)),
+          const Divider(height: 1, color: DiyTokens.line),
+          SizedBox(height: context.h(24)),
           Text(
             'Booking For',
             style: TextStyle(
-              fontSize: context.fs(11),
-              color: DiyTokens.labelGrey,
+              fontSize: context.fs(11.5),
+              fontWeight: FontWeight.w500,
+              color: Colors.black,
             ),
           ),
-          SizedBox(height: context.h(5)),
+          SizedBox(height: context.h(18)),
           Row(
             children: [
               Expanded(
                 child: Text(
                   _leadName.isEmpty ? 'Add the lead traveller' : _leadName,
                   style: TextStyle(
-                    fontSize: context.fs(13.5),
-                    fontWeight: FontWeight.w600,
+                    fontSize: context.fs(11.5),
+                    fontWeight: FontWeight.w400,
                     color: _leadName.isEmpty
                         ? DiyTokens.labelGrey
                         : DiyTokens.navy,
@@ -657,17 +712,20 @@ class _DiyReviewScreenState extends State<DiyReviewScreen> {
                 onTap: () => _editTraveller(0),
                 behavior: HitTestBehavior.opaque,
                 child: Icon(
-                  Icons.edit_outlined,
-                  size: context.w(17),
+                  Icons.edit_square,
+                  size: context.w(16),
                   color: DiyTokens.blue,
                 ),
               ),
             ],
           ),
-          SizedBox(height: context.h(6)),
+          SizedBox(height: context.h(12)),
           const Divider(height: 1, color: DiyTokens.line),
-          for (var i = 0; i < _travellers.length; i++) _travellerRow(i),
-          SizedBox(height: context.h(14)),
+          for (var i = 0; i < _travellers.length; i++) ...[
+            _travellerRow(i),
+            const Divider(height: 1, color: DiyTokens.line),
+          ],
+          SizedBox(height: context.h(20)),
           Text(
             'Contact Information',
             style: TextStyle(
@@ -718,6 +776,11 @@ class _DiyReviewScreenState extends State<DiyReviewScreen> {
                         color: DiyTokens.navy,
                       ),
                     ),
+                    Icon(
+                      Icons.keyboard_arrow_down_rounded,
+                      size: context.w(16),
+                      color: DiyTokens.labelGrey,
+                    ),
                   ],
                 ),
               ),
@@ -744,251 +807,66 @@ class _DiyReviewScreenState extends State<DiyReviewScreen> {
               ),
             ],
           ),
-          SizedBox(height: context.h(14)),
-          _legBox(
-            'ARRIVAL INFORMATION',
-            'ARRIVAL',
-            _arrival,
-            locationLabel: 'PICKUP LOCATION',
-            timeLabel: 'ARRIVAL TIME',
-          ),
-          SizedBox(height: context.h(12)),
-          _legBox(
-            'DEPARTURE INFORMATION',
-            'DEPARTURE',
-            _departure,
-            locationLabel: 'DROP-OFF LOCATION',
-            timeLabel: 'DEPARTURE TIME',
-          ),
-          SizedBox(height: context.h(12)),
-          _pickerField(
-            label: 'GST STATE*',
-            value: _gstState,
-            hint: 'Select state',
-            onTap: () async {
-              final picked = await _selectSheet(
-                'Select GST State',
-                _indianStates,
-              );
-              if (picked != null) setState(() => _gstState = picked);
-            },
-          ),
         ],
       ),
     );
   }
 
-  /// One of the Arrival / Departure boxes: transport, its number, where to
-  /// be met or dropped, and when.
-  Widget _legBox(
-    String heading,
-    String prefix,
-    _Leg leg, {
-    required String locationLabel,
-    required String timeLabel,
-  }) {
-    return Container(
-      padding: EdgeInsets.all(context.w(12)),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(context.r(10)),
-        border: Border.all(color: DiyTokens.line),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            heading,
-            style: TextStyle(
-              fontSize: context.fs(10),
-              color: DiyTokens.subGrey,
-            ),
-          ),
-          SizedBox(height: context.h(10)),
-          _pickerField(
-            label: '$prefix TRANSPORT',
-            value: _modeLabel(leg.mode),
-            hint: 'Select',
-            onTap: () async {
-              final picked = await _selectSheet('Select - -', const [
-                'FLIGHT',
-                'TRAIN',
-                'BUS',
-                'OTHERS',
-              ]);
-              if (picked != null) setState(() => leg.mode = picked);
-            },
-          ),
-          SizedBox(height: context.h(10)),
-          TextFormField(
-            controller: leg.number,
-            style: TextStyle(fontSize: context.fs(13), color: DiyTokens.navy),
-            decoration: _inputDecoration('$prefix FLIGHT/TRAIN/BUS NO.'),
-          ),
-          SizedBox(height: context.h(10)),
-          TextFormField(
-            controller: leg.location,
-            style: TextStyle(fontSize: context.fs(13), color: DiyTokens.navy),
-            decoration: _inputDecoration(locationLabel),
-          ),
-          SizedBox(height: context.h(10)),
-          _pickerField(
-            label: timeLabel,
-            value: leg.time,
-            hint: 'Select time',
-            icon: Icons.access_time_rounded,
-            onTap: () async {
-              final t = await showTimePicker(
-                context: context,
-                initialTime: const TimeOfDay(hour: 10, minute: 0),
-              );
-              if (t != null) {
-                setState(
-                  () => leg.time =
-                      '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}',
-                );
-              }
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  static String _modeLabel(String mode) =>
-      mode.isEmpty ? '' : mode[0] + mode.substring(1).toLowerCase();
-
-  /// A read-only field that opens a picker, styled like the text fields.
-  Widget _pickerField({
-    required String label,
-    required String value,
-    required String hint,
-    required VoidCallback onTap,
-    IconData icon = Icons.keyboard_arrow_down_rounded,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(context.r(8)),
-      child: InputDecorator(
-        decoration: _inputDecoration(
-          label,
-        ).copyWith(suffixIcon: Icon(icon, color: DiyTokens.blue)),
-        child: Text(
-          value.isEmpty ? hint : value,
-          style: TextStyle(
-            fontSize: context.fs(13),
-            color: value.isEmpty ? DiyTokens.labelGrey : DiyTokens.navy,
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// The design's "Select - -" sheet: a list, one tap picks.
-  Future<String?> _selectSheet(String title, List<String> options) {
-    return showModalBottomSheet<String>(
-      context: context,
-      backgroundColor: Colors.white,
-      isScrollControlled: true,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(context.r(20)),
-        ),
-      ),
-      builder: (sheetContext) => ConstrainedBox(
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(sheetContext).size.height * 0.6,
-        ),
-        child: SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SizedBox(height: context.h(10)),
-              Center(
-                child: Container(
-                  width: context.w(48),
-                  height: context.h(4),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFD9DDE4),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                ),
-              ),
-              Padding(
-                padding: EdgeInsets.fromLTRB(
-                  context.w(20),
-                  context.h(16),
-                  context.w(20),
-                  context.h(6),
-                ),
-                child: Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: context.fs(15),
-                    fontWeight: FontWeight.w700,
-                    color: Colors.black,
-                  ),
-                ),
-              ),
-              Flexible(
-                child: ListView(
-                  shrinkWrap: true,
-                  children: [
-                    for (final o in options)
-                      ListTile(
-                        dense: true,
-                        title: Text(
-                          o,
-                          style: TextStyle(fontSize: context.fs(13)),
-                        ),
-                        onTap: () => Navigator.of(sheetContext).pop(o),
-                      ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
+  /// "+ Travellers 1" until filled, then the name and age with a tick.
   Widget _travellerRow(int i) {
     final t = _travellers[i];
-    final label = i < _partyLabels.length
-        ? _partyLabels[i]
-        : 'Traveller ${i + 1}';
     final age = t.age;
+    final ready = _ready(t);
+    final flagged = _showMissing && !ready;
+    const red = Color(0xFFE23744);
 
     return InkWell(
       onTap: () => _editTraveller(i),
       child: Padding(
-        padding: EdgeInsets.symmetric(vertical: context.h(11)),
+        padding: EdgeInsets.symmetric(vertical: context.h(14)),
         child: Row(
           children: [
             Icon(
-              t.isComplete ? Icons.check_circle_rounded : Icons.add,
+              ready
+                  ? Icons.check_circle_rounded
+                  : (flagged ? Icons.error_rounded : Icons.add_rounded),
               size: context.w(17),
-              color: t.isComplete ? const Color(0xFF17A46A) : DiyTokens.blue,
+              color: ready
+                  ? const Color(0xFF17A46A)
+                  : (flagged ? red : DiyTokens.blue),
             ),
             SizedBox(width: context.w(8)),
             Expanded(
-              child: Text(
-                t.isComplete
-                    ? '${t.fullName}${age == null ? '' : ' · ${age}y'}'
-                    : label,
-                style: TextStyle(
-                  fontSize: context.fs(12.5),
-                  fontWeight: FontWeight.w600,
-                  color: t.isComplete ? DiyTokens.navy : DiyTokens.blue,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    t.isComplete
+                        ? '${t.fullName}${age == null ? '' : ' · ${age}y'}'
+                        : 'Travellers ${i + 1}',
+                    style: TextStyle(
+                      fontSize: context.fs(11.5),
+                      color: ready
+                          ? DiyTokens.navy
+                          : (flagged ? red : DiyTokens.blue),
+                    ),
+                  ),
+                  if (flagged)
+                    Text(
+                      t.isComplete
+                          ? 'Add ${t.gender.isEmpty ? 'gender' : 'date of birth'} to continue'
+                          : 'Details required to continue',
+                      style: TextStyle(fontSize: context.fs(9.5), color: red),
+                    ),
+                ],
               ),
             ),
-            Icon(
-              Icons.chevron_right_rounded,
-              size: context.w(18),
-              color: DiyTokens.labelGrey,
-            ),
+            if (t.isComplete)
+              Icon(
+                Icons.edit_square,
+                size: context.w(15),
+                color: DiyTokens.blue,
+              ),
           ],
         ),
       ),
@@ -1210,15 +1088,18 @@ class _DiyReviewScreenState extends State<DiyReviewScreen> {
               ),
               SizedBox(width: context.w(9)),
               Expanded(
-                child: Text(
-                  'I confirm that I have read and I accept the Cancellation '
-                  'Policy, User Agreement, Terms of Service and Privacy '
-                  'Policy of The Wander Nova.',
-                  style: TextStyle(
-                    fontSize: context.fs(11),
-                    height: 1.45,
-                    color: DiyTokens.subGrey,
-                  ),
+                child: Wrap(
+                  children: [
+                    _infoText('I confirm that I have read and I accept '),
+                    _infoLink('Cancellation Policy', DiyPolicyPage.policies),
+                    _infoText(', Nova\'s '),
+                    _infoLink('User Agreement', DiyPolicyPage.terms),
+                    _infoText(', '),
+                    _infoLink('Terms of Service', DiyPolicyPage.terms),
+                    _infoText(' and '),
+                    _infoLink('Privacy Policy', DiyPolicyPage.terms),
+                    _infoText(' Of The Wander Nova'),
+                  ],
                 ),
               ),
             ],
@@ -1227,6 +1108,29 @@ class _DiyReviewScreenState extends State<DiyReviewScreen> {
       ),
     );
   }
+
+  Widget _infoText(String text) => Text(
+    text,
+    style: TextStyle(
+      fontSize: context.fs(10.5),
+      height: 1.5,
+      color: DiyTokens.subGrey,
+    ),
+  );
+
+  Widget _infoLink(String text, DiyPolicyPage page) => GestureDetector(
+    onTap: () => Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => DiyPoliciesScreen(page: page))),
+    child: Text(
+      text,
+      style: TextStyle(
+        fontSize: context.fs(10.5),
+        height: 1.5,
+        color: DiyTokens.blue,
+      ),
+    ),
+  );
 
   // ---------------------------------------------------------------- bottom
 
@@ -1256,15 +1160,6 @@ class _DiyReviewScreenState extends State<DiyReviewScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    'Grand Total · ${_travellers.length} Traveller'
-                    '${_travellers.length == 1 ? '' : 's'}',
-                    style: TextStyle(
-                      fontSize: context.fs(9.5),
-                      color: DiyTokens.labelGrey,
-                    ),
-                  ),
-                  SizedBox(height: context.h(1)),
                   Row(
                     children: [
                       Text(
@@ -1273,9 +1168,9 @@ class _DiyReviewScreenState extends State<DiyReviewScreen> {
                           currency: widget.currency,
                         ),
                         style: TextStyle(
-                          fontSize: context.fs(19),
-                          fontWeight: FontWeight.w800,
-                          color: DiyTokens.navy,
+                          fontSize: context.fs(21),
+                          fontWeight: FontWeight.w700,
+                          color: Colors.black,
                         ),
                       ),
                       SizedBox(width: context.w(6)),
@@ -1284,10 +1179,18 @@ class _DiyReviewScreenState extends State<DiyReviewScreen> {
                         child: Icon(
                           Icons.info_rounded,
                           size: context.w(16),
-                          color: DiyTokens.labelGrey,
+                          color: const Color(0xFFC4C8CF),
                         ),
                       ),
                     ],
+                  ),
+                  Text(
+                    'Grand Total - ${_travellers.length} Traveller'
+                    '${_travellers.length == 1 ? '' : 's'}',
+                    style: TextStyle(
+                      fontSize: context.fs(9),
+                      color: DiyTokens.subGrey,
+                    ),
                   ),
                 ],
               ),
@@ -1333,109 +1236,15 @@ class _DiyReviewScreenState extends State<DiyReviewScreen> {
   /// "Fare Breakup" — before tax, the tax, the total.
   void _fareBreakup() {
     final b = _booking;
-    final sub = b?.subTotal ?? widget.subTotal;
-    final tax = b?.tax ?? widget.tax;
-    final rate = b?.taxPercent ?? widget.taxPercent;
-    final total = b?.grandTotal ?? widget.quotedTotal;
-    final adults = widget.query.adults > 0 ? widget.query.adults : 1;
-
-    Widget row(
-      String title,
-      String caption,
-      double value, {
-      bool strong = false,
-    }) {
-      return Padding(
-        padding: EdgeInsets.symmetric(vertical: context.h(10)),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: context.fs(strong ? 15 : 13),
-                      fontWeight: strong ? FontWeight.w700 : FontWeight.w500,
-                      color: Colors.black,
-                    ),
-                  ),
-                  if (caption.isNotEmpty)
-                    Text(
-                      caption,
-                      style: TextStyle(
-                        fontSize: context.fs(11),
-                        color: DiyTokens.subGrey,
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            Text(
-              diyMoney(value, currency: widget.currency),
-              style: TextStyle(
-                fontSize: context.fs(strong ? 17 : 13),
-                fontWeight: strong ? FontWeight.w800 : FontWeight.w600,
-                color: strong ? DiyTokens.blue : Colors.black,
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(context.r(20)),
-        ),
-      ),
-      builder: (_) => SafeArea(
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(
-            context.w(20),
-            context.h(16),
-            context.w(20),
-            context.h(16),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Fare Breakup',
-                style: TextStyle(
-                  fontSize: context.fs(17),
-                  fontWeight: FontWeight.w700,
-                  color: Colors.black,
-                ),
-              ),
-              SizedBox(height: context.h(6)),
-              if (sub > 0) ...[
-                row(
-                  'Base Fare',
-                  'Adult(s) (${adults} × ${diyMoney(sub / adults, currency: widget.currency)})',
-                  sub,
-                ),
-                const Divider(height: 1, color: DiyTokens.line),
-                row(
-                  'Taxes & Surcharges',
-                  rate > 0
-                      ? 'GST ${rate.toStringAsFixed(rate % 1 == 0 ? 0 : 1)}%'
-                      : '',
-                  tax,
-                ),
-                const Divider(height: 1, color: DiyTokens.line),
-              ],
-              row('Total Amount', '', total, strong: true),
-            ],
-          ),
-        ),
-      ),
+    showDiyFareBreakup(
+      context,
+      subTotal: b?.subTotal ?? widget.subTotal,
+      tax: b?.tax ?? widget.tax,
+      taxPercent: b?.taxPercent ?? widget.taxPercent,
+      total: b?.grandTotal ?? widget.quotedTotal,
+      travellers: _travellers.length,
+      adultsOnly: widget.query.children == 0,
+      currency: widget.currency,
     );
   }
 
@@ -1447,30 +1256,10 @@ class _DiyReviewScreenState extends State<DiyReviewScreen> {
       padding: EdgeInsets.all(context.w(14)),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(context.r(12)),
+        border: Border.all(color: const Color(0xFFE1E4EA)),
+        borderRadius: BorderRadius.circular(context.r(10)),
       ),
       child: child,
-    );
-  }
-
-  Widget _pill(String text, Color color) {
-    return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: context.w(8),
-        vertical: context.h(3),
-      ),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
-        borderRadius: BorderRadius.circular(context.r(5)),
-      ),
-      child: Text(
-        text,
-        style: TextStyle(
-          fontSize: context.fs(10),
-          fontWeight: FontWeight.w600,
-          color: color,
-        ),
-      ),
     );
   }
 
@@ -1483,7 +1272,8 @@ class _DiyReviewScreenState extends State<DiyReviewScreen> {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(context.r(12)),
+        border: Border.all(color: const Color(0xFFE1E4EA)),
+        borderRadius: BorderRadius.circular(context.r(10)),
       ),
       child: Column(
         children: [
@@ -1502,8 +1292,8 @@ class _DiyReviewScreenState extends State<DiyReviewScreen> {
                       title,
                       style: TextStyle(
                         fontSize: context.fs(13.5),
-                        fontWeight: FontWeight.w600,
-                        color: DiyTokens.navy,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.black,
                       ),
                     ),
                   ),
@@ -1512,7 +1302,7 @@ class _DiyReviewScreenState extends State<DiyReviewScreen> {
                         ? Icons.keyboard_arrow_up_rounded
                         : Icons.keyboard_arrow_down_rounded,
                     size: context.w(20),
-                    color: DiyTokens.subGrey,
+                    color: DiyTokens.blue,
                   ),
                 ],
               ),
@@ -1562,68 +1352,6 @@ class _DiyReviewScreenState extends State<DiyReviewScreen> {
   }
 }
 
-/// One of the arrival / departure boxes.
-class _Leg {
-  String mode;
-  String time = '';
-  final TextEditingController number = TextEditingController();
-  final TextEditingController location = TextEditingController();
-
-  _Leg(this.mode);
-
-  Map<String, dynamic> toJson() => {
-    'mode': mode,
-    'number': number.text.trim(),
-    'location': location.text.trim(),
-    'time': time,
-  };
-
-  void dispose() {
-    number.dispose();
-    location.dispose();
-  }
-}
-
-/// GST states and union territories, for the invoice's place of supply.
-const List<String> _indianStates = [
-  'Andaman and Nicobar Islands',
-  'Andhra Pradesh',
-  'Arunachal Pradesh',
-  'Assam',
-  'Bihar',
-  'Chandigarh',
-  'Chhattisgarh',
-  'Dadra and Nagar Haveli and Daman and Diu',
-  'Delhi',
-  'Goa',
-  'Gujarat',
-  'Haryana',
-  'Himachal Pradesh',
-  'Jammu and Kashmir',
-  'Jharkhand',
-  'Karnataka',
-  'Kerala',
-  'Ladakh',
-  'Lakshadweep',
-  'Madhya Pradesh',
-  'Maharashtra',
-  'Manipur',
-  'Meghalaya',
-  'Mizoram',
-  'Nagaland',
-  'Odisha',
-  'Puducherry',
-  'Punjab',
-  'Rajasthan',
-  'Sikkim',
-  'Tamil Nadu',
-  'Telangana',
-  'Tripura',
-  'Uttar Pradesh',
-  'Uttarakhand',
-  'West Bengal',
-];
-
 /// "Booking Options" — each instalment the booking allows, one picked, and
 /// PAY NOW.
 class _BookingOptionsSheet extends StatefulWidget {
@@ -1636,154 +1364,203 @@ class _BookingOptionsSheet extends StatefulWidget {
   State<_BookingOptionsSheet> createState() => _BookingOptionsSheetState();
 }
 
+/// Figma `Booking option`: each instalment the booking allows as a radio —
+/// a part payment with its two-step timeline (pay now, the rest before the
+/// due date), or the whole amount at once — then the amount and PAY NOW.
 class _BookingOptionsSheetState extends State<_BookingOptionsSheet> {
-  late DiyInstalment? _picked = widget.booking.instalments.isEmpty
-      ? null
-      : widget.booking.instalments.last;
+  // The smallest share first in the design; the full payment preselected.
+  late final List<DiyInstalment> _options = [...widget.booking.instalments]
+    ..sort((a, b) => a.percent.compareTo(b.percent));
+  late DiyInstalment? _picked = _options.isEmpty ? null : _options.last;
+
+  String _money(double v) => diyMoney(v, currency: widget.booking.currency);
 
   @override
   Widget build(BuildContext context) {
     final b = widget.booking;
     final radius = Radius.circular(context.r(22));
     return SafeArea(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          Padding(
-            padding: EdgeInsets.only(
-              right: context.w(16),
-              bottom: context.h(10),
-            ),
-            child: GestureDetector(
-              onTap: () => Navigator.of(context).pop(),
-              child: Container(
-                width: context.w(34),
-                height: context.w(34),
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.close_rounded,
-                  size: context.w(19),
-                  color: Colors.black87,
-                ),
+      top: false,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.85,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Padding(
+              padding: EdgeInsets.only(
+                right: context.w(16),
+                bottom: context.h(10),
               ),
-            ),
-          ),
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.only(
-                topLeft: radius,
-                topRight: radius,
-              ),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: EdgeInsets.fromLTRB(
-                    context.w(20),
-                    context.h(18),
-                    context.w(20),
-                    context.h(6),
-                  ),
-                  child: Text(
-                    'Booking Options',
-                    style: TextStyle(
-                      fontSize: context.fs(16),
-                      fontWeight: FontWeight.w700,
-                      color: Colors.black,
-                    ),
-                  ),
-                ),
-                for (final i in b.instalments) _option(i),
-                if (b.policyIsProvisional)
-                  Padding(
-                    padding: EdgeInsets.fromLTRB(
-                      context.w(20),
-                      0,
-                      context.w(20),
-                      context.h(10),
-                    ),
-                    child: Text(
-                      'Cancellation charges are confirmed in writing before your '
-                      'trip is issued.',
-                      style: TextStyle(
-                        fontSize: context.fs(10.5),
-                        color: DiyTokens.subGrey,
-                      ),
-                    ),
-                  ),
-                Container(
-                  padding: EdgeInsets.fromLTRB(
-                    context.w(20),
-                    context.h(14),
-                    context.w(20),
-                    context.h(14),
-                  ),
+              child: GestureDetector(
+                onTap: () => Navigator.of(context).pop(),
+                child: Container(
+                  width: context.w(32),
+                  height: context.w(32),
                   decoration: const BoxDecoration(
-                    border: Border(top: BorderSide(color: DiyTokens.line)),
+                    color: Colors.white,
+                    shape: BoxShape.circle,
                   ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              diyMoney(
-                                _picked?.payNow ?? b.balance,
-                                currency: b.currency,
-                              ),
-                              style: TextStyle(
-                                fontSize: context.fs(20),
-                                fontWeight: FontWeight.w800,
-                                color: Colors.black,
-                              ),
-                            ),
-                            Text(
-                              'Grand Total ${diyMoney(b.grandTotal, currency: b.currency)}'
-                              ' - ${widget.travellers} Traveller${widget.travellers == 1 ? '' : 's'}',
-                              style: TextStyle(
-                                fontSize: context.fs(10),
-                                color: DiyTokens.subGrey,
-                              ),
-                            ),
-                          ],
+                  child: Icon(
+                    Icons.close_rounded,
+                    size: context.w(18),
+                    color: Colors.black87,
+                  ),
+                ),
+              ),
+            ),
+            Flexible(
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.only(
+                    topLeft: radius,
+                    topRight: radius,
+                  ),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    SizedBox(height: context.h(10)),
+                    Center(
+                      child: Container(
+                        width: context.w(64),
+                        height: context.h(5),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFD5D8DE),
+                          borderRadius: BorderRadius.circular(4),
                         ),
                       ),
-                      SizedBox(
-                        width: context.w(140),
-                        height: context.h(44),
-                        child: ElevatedButton(
-                          onPressed: _picked == null
-                              ? null
-                              : () => Navigator.of(context).pop(_picked),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: DiyTokens.orange,
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(context.r(8)),
-                            ),
-                          ),
-                          child: Text(
-                            'PAY NOW',
+                    ),
+                    Flexible(
+                      child: ListView(
+                        shrinkWrap: true,
+                        padding: EdgeInsets.fromLTRB(
+                          context.w(12),
+                          context.h(20),
+                          context.w(12),
+                          context.h(10),
+                        ),
+                        children: [
+                          Text(
+                            'Booking Options',
                             style: TextStyle(
-                              fontSize: context.fs(14),
-                              fontWeight: FontWeight.w700,
-                              color: Colors.white,
+                              fontSize: context.fs(13.5),
+                              fontWeight: FontWeight.w500,
+                              color: Colors.black,
                             ),
                           ),
-                        ),
+                          SizedBox(height: context.h(10)),
+                          for (var k = 0; k < _options.length; k++) ...[
+                            if (k > 0)
+                              const Divider(height: 1, color: DiyTokens.line),
+                            _option(_options[k]),
+                          ],
+                          if (b.policyIsProvisional)
+                            Padding(
+                              padding: EdgeInsets.only(top: context.h(6)),
+                              child: Text(
+                                'Cancellation charges are confirmed in writing '
+                                'before your trip is issued.',
+                                style: TextStyle(
+                                  fontSize: context.fs(10),
+                                  color: DiyTokens.subGrey,
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
-                    ],
+                    ),
+                    _footer(b),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _footer(DiyBooking b) {
+    return Container(
+      padding: EdgeInsets.fromLTRB(
+        context.w(14),
+        context.h(14),
+        context.w(14),
+        context.h(14),
+      ),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.07),
+            blurRadius: 12,
+            offset: const Offset(0, -3),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      _money(_picked?.payNow ?? b.balance),
+                      style: TextStyle(
+                        fontSize: context.fs(19),
+                        fontWeight: FontWeight.w700,
+                        color: Colors.black,
+                      ),
+                    ),
+                    SizedBox(width: context.w(6)),
+                    Icon(
+                      Icons.info_rounded,
+                      size: context.w(14),
+                      color: const Color(0xFFC4C8CF),
+                    ),
+                  ],
+                ),
+                Text(
+                  'Grand Total - ${widget.travellers} Traveller'
+                  '${widget.travellers == 1 ? '' : 's'}',
+                  style: TextStyle(
+                    fontSize: context.fs(9),
+                    color: DiyTokens.subGrey,
                   ),
                 ),
               ],
+            ),
+          ),
+          SizedBox(
+            width: context.w(130),
+            height: context.h(42),
+            child: ElevatedButton(
+              onPressed: _picked == null
+                  ? null
+                  : () => Navigator.of(context).pop(_picked),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: DiyTokens.orange,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(context.r(8)),
+                ),
+              ),
+              child: Text(
+                'PAY NOW',
+                style: TextStyle(
+                  fontSize: context.fs(13),
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
+              ),
             ),
           ),
         ],
@@ -1794,61 +1571,223 @@ class _BookingOptionsSheetState extends State<_BookingOptionsSheet> {
   Widget _option(DiyInstalment i) {
     final selected = _picked?.percent == i.percent;
     final full = i.balance <= 0;
-    final due = i.balanceDueOn.isEmpty ? '' : diyDayDate(i.balanceDueOn);
+    final due = i.balanceDueOn.isEmpty
+        ? ''
+        : DateFormat('d MMMM').format(DateTime.parse(i.balanceDueOn));
+
+    final radio = Container(
+      width: context.w(16),
+      height: context.w(16),
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: selected ? DiyTokens.blue : const Color(0xFFB9BEC7),
+          width: selected ? 4.5 : 1.2,
+        ),
+      ),
+    );
+
     return InkWell(
       onTap: () => setState(() => _picked = i),
       child: Padding(
-        padding: EdgeInsets.symmetric(
-          horizontal: context.w(20),
-          vertical: context.h(10),
-        ),
-        child: Row(
+        padding: EdgeInsets.symmetric(vertical: context.h(14)),
+        child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(
-              selected
-                  ? Icons.radio_button_checked_rounded
-                  : Icons.radio_button_off_rounded,
-              size: context.w(20),
-              color: selected ? DiyTokens.blue : DiyTokens.labelGrey,
-            ),
-            SizedBox(width: context.w(10)),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    full ? 'Pay in full' : 'Pay ${i.percent}% now',
+            Row(
+              children: [
+                radio,
+                SizedBox(width: context.w(10)),
+                Expanded(
+                  child: Text(
+                    full ? 'Pay in full' : 'Book Now @${_money(i.payNow)}',
                     style: TextStyle(
-                      fontSize: context.fs(14),
-                      fontWeight: FontWeight.w600,
-                      color: selected ? DiyTokens.blue : Colors.black,
+                      fontSize: context.fs(13.5),
+                      fontWeight: FontWeight.w500,
+                      color: DiyTokens.blue,
                     ),
                   ),
+                ),
+                if (full)
                   Text(
-                    full
-                        ? 'The entire amount in one payment.'
-                        : 'Remaining ${diyMoney(i.balance, currency: widget.booking.currency)}'
-                              '${due.isEmpty ? '' : ' before $due'}',
+                    _money(i.payNow),
                     style: TextStyle(
-                      fontSize: context.fs(11),
+                      fontSize: context.fs(12.5),
+                      fontWeight: FontWeight.w700,
+                      color: Colors.black,
+                    ),
+                  ),
+              ],
+            ),
+            if (full)
+              Padding(
+                padding: EdgeInsets.only(
+                  left: context.w(26),
+                  top: context.h(4),
+                ),
+                child: Text.rich(
+                  TextSpan(
+                    style: TextStyle(
+                      fontSize: context.fs(10.5),
+                      height: 1.4,
                       color: DiyTokens.subGrey,
                     ),
+                    children: const [
+                      TextSpan(
+                        text: 'The entire amount will be deducted in a ',
+                      ),
+                      TextSpan(
+                        text: 'one time payment',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black,
+                        ),
+                      ),
+                      TextSpan(text: '.'),
+                    ],
                   ),
-                ],
+                ),
+              )
+            else
+              Padding(
+                padding: EdgeInsets.only(top: context.h(12)),
+                child: Column(
+                  children: [
+                    _step(
+                      1,
+                      'Pay to Book',
+                      'Book Package @ ${_money(i.payNow)} (${i.percent}%)',
+                      i.payNow,
+                      connect: true,
+                    ),
+                    _step(
+                      2,
+                      due.isEmpty ? 'Before departure' : 'Before $due',
+                      'Remaining balance',
+                      i.balance,
+                    ),
+                  ],
+                ),
               ),
-            ),
-            Text(
-              diyMoney(i.payNow, currency: widget.booking.currency),
-              style: TextStyle(
-                fontSize: context.fs(14),
-                fontWeight: FontWeight.w700,
-                color: Colors.black,
-              ),
-            ),
           ],
         ),
       ),
     );
   }
+
+  /// One step of a part payment: a numbered dot, the dashed rule down to the
+  /// next step, what it is, and how much.
+  Widget _step(
+    int number,
+    String title,
+    String caption,
+    double amount, {
+    bool connect = false,
+  }) {
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SizedBox(
+            width: context.w(16),
+            child: Column(
+              children: [
+                Container(
+                  width: context.w(16),
+                  height: context.w(16),
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: number == 1 ? const Color(0xFFE3F1FC) : Colors.white,
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: number == 1
+                          ? const Color(0xFFE3F1FC)
+                          : const Color(0xFFB9BEC7),
+                    ),
+                  ),
+                  child: Text(
+                    '$number',
+                    style: TextStyle(
+                      fontSize: context.fs(8.5),
+                      color: number == 1 ? DiyTokens.blue : Colors.black87,
+                    ),
+                  ),
+                ),
+                if (connect)
+                  Expanded(
+                    child: CustomPaint(
+                      size: const Size(1, double.infinity),
+                      painter: _DashedLine(),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          SizedBox(width: context.w(10)),
+          Expanded(
+            child: Padding(
+              padding: EdgeInsets.only(bottom: connect ? context.h(26) : 0),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          style: TextStyle(
+                            fontSize: context.fs(12),
+                            fontWeight: FontWeight.w500,
+                            color: Colors.black,
+                          ),
+                        ),
+                        SizedBox(height: context.h(2)),
+                        Text(
+                          caption,
+                          style: TextStyle(
+                            fontSize: context.fs(9.5),
+                            color: DiyTokens.subGrey,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Text(
+                    _money(amount),
+                    style: TextStyle(
+                      fontSize: context.fs(12.5),
+                      fontWeight: FontWeight.w700,
+                      color: Colors.black,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DashedLine extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = const Color(0xFFB9BEC7)
+      ..strokeWidth = 1;
+    var y = 3.0;
+    while (y < size.height - 3) {
+      canvas.drawLine(
+        Offset(size.width / 2, y),
+        Offset(size.width / 2, y + 3),
+        paint,
+      );
+      y += 6;
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

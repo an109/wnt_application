@@ -10,18 +10,21 @@
 /// Same shape as [Urls]: a base, then one member per endpoint — plain
 /// constants where the path is fixed, functions where an id is interpolated.
 class HolidayUrls {
-   static const String baseUrl = 'http://192.168.1.6:8000/api/v1/app/';
+  static const String baseUrl = 'http://192.168.1.6:8000//api/v1/app/';
   //static const String baseUrl = 'https://diy.thewandernova.com/api/v1/app/';
 
   /// No trailing slash — for callers that append their own path.
   static const String basesUrl = 'http://192.168.1.6:8000/api/v1/app';
-  // static const String basesUrl = 'https://diy.thewandernova.com/api/v1/app';
+   //static const String basesUrl = 'https://diy.thewandernova.com/api/v1/app';
   
   // ----- Discovery (no trip yet) -----
 
   /// The "Travelling to" list: regions ("kerala") and cities ("alleppey-in").
   /// The `slug` of a chosen row feeds [packages].
   static const String destinations = '$basesUrl/destinations/';
+
+  /// Places with trending packages, cities folded into their state.
+  static const String trendingDestinations = '$basesUrl/destinations/trending/';
 
   /// The "Holiday By Theme" tiles.
   static const String themes = '$basesUrl/themes/';
@@ -113,6 +116,14 @@ class HolidayUrls {
       '$basesUrl/bookings/$bookingId/pay/';
 
   /// Records payments the webhook may not have, and returns the booking.
+  /// A Razorpay order for one instalment, for the in-app checkout.
+  static String bookingOrder(String bookingId) =>
+      '$basesUrl/bookings/$bookingId/order/';
+
+  /// Signature check + record for an in-app payment.
+  static String bookingVerify(String bookingId) =>
+      '$basesUrl/bookings/$bookingId/verify/';
+
   static String bookingSync(String bookingId) =>
       '$basesUrl/bookings/$bookingId/sync/';
 

@@ -243,8 +243,8 @@ class _DiyFlightChoiceSheetState extends State<_DiyFlightChoiceSheet> {
       footer: _pricing
           ? 'Checking live fares for ${_dateLabel()}. This takes a few seconds.'
           : (_error != null && _trip == null)
-              ? _error
-              : null,
+          ? _error
+          : null,
     );
   }
 
@@ -266,8 +266,9 @@ class _DiyFlightChoiceSheetState extends State<_DiyFlightChoiceSheet> {
             )
           : _note('Not available', ''),
       onTap: available
-          ? () => Navigator.of(context)
-              .pop(const DiyFlightChoice(withFlight: false))
+          ? () => Navigator.of(
+              context,
+            ).pop(const DiyFlightChoice(withFlight: false))
           : null,
     );
   }

@@ -66,7 +66,7 @@ class DiyEnquirySuccessScreen extends StatelessWidget {
                   message.isNotEmpty
                       ? message
                       : 'A holiday consultant will call you shortly about '
-                          '"$packageTitle".',
+                            '"$packageTitle".',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: context.fs(13),

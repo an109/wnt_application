@@ -38,13 +38,26 @@ class DiySearchQuery {
     this.childAges = const [],
   });
 
+  /// What a shortcut opens with — Book Now, Holiday By Theme: from New Delhi,
+  /// today, one room of two adults. The customer changes any of it from the
+  /// results screen's search bar.
+  factory DiySearchQuery.quickStart({DiyDestination? destination}) =>
+      DiySearchQuery(
+        origin: DiyOrigins.defaultOrigin,
+        destination: destination,
+        departureDate: DiyDates.today(),
+        rooms: 1,
+        adults: 2,
+        children: 0,
+      );
+
   /// [childAges] padded or trimmed to exactly [children] entries.
   List<int> get childAgesFilled => fitChildAges(childAges, children);
 
   static List<int> fitChildAges(List<int> ages, int children) => [
-        for (var i = 0; i < children; i++)
-          i < ages.length ? ages[i] : defaultChildAge,
-      ];
+    for (var i = 0; i < children; i++)
+      i < ages.length ? ages[i] : defaultChildAge,
+  ];
 
   /// The party as the backend's `rooms` list: adults spread as evenly as
   /// possible over [rooms], children handed out one per room in turn.
@@ -55,8 +68,7 @@ class DiySearchQuery {
   /// more than [maxAdultsPerRoom], which no hotel supplier will take.
   List<Map<String, dynamic>> get roomsPayload {
     final needed = (adults + maxAdultsPerRoom - 1) ~/ maxAdultsPerRoom;
-    final count =
-        rooms.clamp(needed < 1 ? 1 : needed, adults < 1 ? 1 : adults);
+    final count = rooms.clamp(needed < 1 ? 1 : needed, adults < 1 ? 1 : adults);
     final out = List.generate(
       count,
       (i) => <String, dynamic>{
@@ -95,14 +107,14 @@ class DiySearchQuery {
   bool get isComplete => destination != null;
 
   Map<String, dynamic> toJson() => {
-        'origin': origin.toJson(),
-        'destination': destination?.toJson(),
-        'departureDate': departureDate?.toIso8601String(),
-        'rooms': rooms,
-        'adults': adults,
-        'children': children,
-        'childAges': childAges,
-      };
+    'origin': origin.toJson(),
+    'destination': destination?.toJson(),
+    'departureDate': departureDate?.toIso8601String(),
+    'rooms': rooms,
+    'adults': adults,
+    'children': children,
+    'childAges': childAges,
+  };
 
   static DiySearchQuery fromJson(Map<String, dynamic> j) {
     final dest = j['destination'];
@@ -132,7 +144,8 @@ class DiySearchQuery {
 /// holiday search never clobbers — or gets clobbered by — a flight search.
 class DiySearchStore {
   static const String _lastSearchKey = 'diy_holiday_last_search';
-  static const String _recentDestinationsKey = 'diy_holiday_recent_destinations';
+  static const String _recentDestinationsKey =
+      'diy_holiday_recent_destinations';
   static const String _recentOriginsKey = 'diy_holiday_recent_origins';
   static const int _maxRecent = 6;
 
@@ -156,10 +169,7 @@ class DiySearchStore {
             'city': destination.kind == 'city' ? destination.name : '',
             'country': destination.countryName,
           },
-          'origin': {
-            'id': query.origin.slug,
-            'name': query.origin.name,
-          },
+          'origin': {'id': query.origin.slug, 'name': query.origin.name},
           'departureDate': query.departureDate?.toIso8601String(),
           'adults': query.adults,
           'children': query.children,
@@ -176,8 +186,9 @@ class DiySearchStore {
     try {
       final raw = (await _prefs()).getString(_lastSearchKey);
       if (raw == null || raw.isEmpty) return null;
-      final query =
-          DiySearchQuery.fromJson(jsonDecode(raw) as Map<String, dynamic>);
+      final query = DiySearchQuery.fromJson(
+        jsonDecode(raw) as Map<String, dynamic>,
+      );
       // Never restore a departure the price API would reject.
       final clamped = DiyDates.clampToFuture(query.departureDate);
       if (clamped != query.departureDate) {

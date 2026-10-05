@@ -154,21 +154,22 @@ class _DiyPaymentScreenState extends State<DiyPaymentScreen> {
     if (_busy) return;
     if (!await _ensureOrder() || !mounted) return;
 
-    final result = await Navigator.of(context).push<RazorpayCustomPaymentResult>(
-      MaterialPageRoute(
-        builder: (_) => AkUnifiedCheckoutScreen(
-          args: AkCustomCheckoutArgs(
-            keyId: _keyId!,
-            orderId: _orderId!,
-            amountInInr: widget.amount,
-            name: _leadName,
-            email: widget.contactEmail,
-            contact: widget.contactPhone,
-            description: widget.packageTitle,
+    final result = await Navigator.of(context)
+        .push<RazorpayCustomPaymentResult>(
+          MaterialPageRoute(
+            builder: (_) => AkUnifiedCheckoutScreen(
+              args: AkCustomCheckoutArgs(
+                keyId: _keyId!,
+                orderId: _orderId!,
+                amountInInr: widget.amount,
+                name: _leadName,
+                email: widget.contactEmail,
+                contact: widget.contactPhone,
+                description: widget.packageTitle,
+              ),
+            ),
           ),
-        ),
-      ),
-    );
+        );
 
     // Customer backed out of the method screen — not an error.
     if (result == null || !mounted) return;
@@ -435,8 +436,11 @@ class _DiyPaymentScreenState extends State<DiyPaymentScreen> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.error_outline_rounded,
-              size: context.w(17), color: const Color(0xFFD23B3B)),
+          Icon(
+            Icons.error_outline_rounded,
+            size: context.w(17),
+            color: const Color(0xFFD23B3B),
+          ),
           SizedBox(width: context.w(8)),
           Expanded(
             child: Text(

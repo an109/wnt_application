@@ -14,11 +14,7 @@ class DiyCalendarScreen extends StatefulWidget {
   final DateTime? initialDate;
   final int monthsAhead;
 
-  const DiyCalendarScreen({
-    super.key,
-    this.initialDate,
-    this.monthsAhead = 12,
-  });
+  const DiyCalendarScreen({super.key, this.initialDate, this.monthsAhead = 12});
 
   @override
   State<DiyCalendarScreen> createState() => _DiyCalendarScreenState();
@@ -264,8 +260,8 @@ class _DiyCalendarScreenState extends State<DiyCalendarScreen> {
                 color: isSelected
                     ? Colors.white
                     : isPast
-                        ? const Color(0xFFD8DDE5)
-                        : DiyTokens.subGrey,
+                    ? const Color(0xFFD8DDE5)
+                    : DiyTokens.subGrey,
               ),
             ),
           ),

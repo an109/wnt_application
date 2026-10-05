@@ -114,13 +114,16 @@ class _DiyDestinationSearchScreenState
                   final filtered = query.isEmpty
                       ? all
                       : all
-                          .where((d) =>
-                              d.name.toLowerCase().contains(query) ||
-                              d.state.toLowerCase().contains(query) ||
-                              d.countryName.toLowerCase().contains(query) ||
-                              d.cities.any((c) =>
-                                  c.toLowerCase().contains(query)))
-                          .toList();
+                            .where(
+                              (d) =>
+                                  d.name.toLowerCase().contains(query) ||
+                                  d.state.toLowerCase().contains(query) ||
+                                  d.countryName.toLowerCase().contains(query) ||
+                                  d.cities.any(
+                                    (c) => c.toLowerCase().contains(query),
+                                  ),
+                            )
+                            .toList();
 
                   final showRecent = query.isEmpty && _recent.isNotEmpty;
 

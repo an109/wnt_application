@@ -45,8 +45,14 @@ class _RoomsSheetState extends State<_RoomsSheet> {
 
   @override
   Widget build(BuildContext context) {
-    Widget row(String title, String subtitle, int value, int min, int max,
-        ValueChanged<int> onChanged) {
+    Widget row(
+      String title,
+      String subtitle,
+      int value,
+      int min,
+      int max,
+      ValueChanged<int> onChanged,
+    ) {
       Widget step(IconData icon, bool enabled, VoidCallback onTap) {
         return GestureDetector(
           onTap: enabled ? onTap : null,
@@ -58,9 +64,11 @@ class _RoomsSheetState extends State<_RoomsSheet> {
               borderRadius: BorderRadius.circular(context.r(8)),
               border: Border.all(color: DiyTripStyle.divider),
             ),
-            child: Icon(icon,
-                size: context.w(20),
-                color: enabled ? DiyTokens.blue : const Color(0xFFC7CCD6)),
+            child: Icon(
+              icon,
+              size: context.w(20),
+              color: enabled ? DiyTokens.blue : const Color(0xFFC7CCD6),
+            ),
           ),
         );
       }
@@ -102,7 +110,9 @@ class _RoomsSheetState extends State<_RoomsSheet> {
                       child: Text(
                         subtitle,
                         style: TextStyle(
-                            fontSize: context.fs(10), color: DiyTripStyle.grey),
+                          fontSize: context.fs(10),
+                          color: DiyTripStyle.grey,
+                        ),
                       ),
                     ),
                   ],
@@ -156,10 +166,15 @@ class _RoomsSheetState extends State<_RoomsSheet> {
                 style: TextStyle(fontSize: context.fs(13), color: Colors.black),
               ),
               SizedBox(height: context.h(14)),
-              row('Rooms', '', _rooms, 1, 9,
-                  (v) => setState(() => _rooms = v)),
-              row('Adults', '', _adults, 1, 20,
-                  (v) => setState(() => _adults = v)),
+              row('Rooms', '', _rooms, 1, 9, (v) => setState(() => _rooms = v)),
+              row(
+                'Adults',
+                '',
+                _adults,
+                1,
+                20,
+                (v) => setState(() => _adults = v),
+              ),
               row('Children', '0-17y', _children, 0, 10, (v) {
                 setState(() {
                   _children = v;

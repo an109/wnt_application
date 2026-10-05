@@ -42,7 +42,8 @@ class _DiyImageSearchScreenState extends State<DiyImageSearchScreen> {
         _destinations = sl<DiyHolidayApi>().getDestinations();
       });
     } catch (e) {
-      if (mounted) diySnack(context, 'Could not open that image.', isError: true);
+      if (mounted)
+        diySnack(context, 'Could not open that image.', isError: true);
     } finally {
       if (mounted) setState(() => _picking = false);
     }
@@ -56,9 +57,7 @@ class _DiyImageSearchScreenState extends State<DiyImageSearchScreen> {
       body: Column(
         children: [
           const Divider(height: 1, color: DiyTokens.line),
-          Expanded(
-            child: _picked == null ? _emptyState() : _matchState(),
-          ),
+          Expanded(child: _picked == null ? _emptyState() : _matchState()),
           Padding(
             padding: EdgeInsets.fromLTRB(
               context.w(16),
@@ -151,7 +150,11 @@ class _DiyImageSearchScreenState extends State<DiyImageSearchScreen> {
           ),
           Align(
             alignment: Alignment.bottomLeft,
-            child: tile('assets/images/TransHeroImage.png', -0.7, context.w(96)),
+            child: tile(
+              'assets/images/TransHeroImage.png',
+              -0.7,
+              context.w(96),
+            ),
           ),
           Align(
             alignment: Alignment.bottomRight,

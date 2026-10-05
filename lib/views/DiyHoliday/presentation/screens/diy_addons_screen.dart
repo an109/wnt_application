@@ -177,9 +177,11 @@ class _DiyTripAddonsScreenState extends State<DiyTripAddonsScreen> {
   /// destination first.
   Future<int?> _pickDay(DiyAddon addon) {
     final matching = widget.days
-        .where((d) =>
-            addon.destination.isEmpty ||
-            d.destination.toLowerCase() == addon.destination.toLowerCase())
+        .where(
+          (d) =>
+              addon.destination.isEmpty ||
+              d.destination.toLowerCase() == addon.destination.toLowerCase(),
+        )
         .toList();
     final days = matching.isEmpty ? widget.days : matching;
 
@@ -187,7 +189,9 @@ class _DiyTripAddonsScreenState extends State<DiyTripAddonsScreen> {
       context: context,
       backgroundColor: Colors.white,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(context.r(18))),
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(context.r(18)),
+        ),
       ),
       builder: (sheetContext) => SafeArea(
         child: Column(
@@ -241,9 +245,9 @@ class _DiyTripAddonsScreenState extends State<DiyTripAddonsScreen> {
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) return;
-        Navigator.of(context).pop(
-          DiyTripAddonsResult(trip: _latestTrip, addedIds: _added),
-        );
+        Navigator.of(
+          context,
+        ).pop(DiyTripAddonsResult(trip: _latestTrip, addedIds: _added));
       },
       child: Scaffold(
         backgroundColor: DiyTokens.pageBg,
@@ -411,8 +415,9 @@ class DiyAddonTile extends StatelessWidget {
                           SizedBox(
                             width: context.w(18),
                             height: context.w(18),
-                            child:
-                                const CircularProgressIndicator(strokeWidth: 2),
+                            child: const CircularProgressIndicator(
+                              strokeWidth: 2,
+                            ),
                           )
                         else
                           Container(
@@ -424,8 +429,9 @@ class DiyAddonTile extends StatelessWidget {
                               color: selected
                                   ? DiyTokens.blue
                                   : Colors.transparent,
-                              borderRadius:
-                                  BorderRadius.circular(context.r(20)),
+                              borderRadius: BorderRadius.circular(
+                                context.r(20),
+                              ),
                               border: Border.all(color: DiyTokens.blue),
                             ),
                             child: Text(
@@ -433,8 +439,7 @@ class DiyAddonTile extends StatelessWidget {
                               style: TextStyle(
                                 fontSize: context.fs(11.5),
                                 fontWeight: FontWeight.w700,
-                                color:
-                                    selected ? Colors.white : DiyTokens.blue,
+                                color: selected ? Colors.white : DiyTokens.blue,
                               ),
                             ),
                           ),

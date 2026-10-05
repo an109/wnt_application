@@ -31,12 +31,11 @@ class DiyTraveller {
 
   bool get isChild => paxType.toLowerCase() == 'child';
 
-  String get fullName => [firstName, lastName]
-      .where((p) => p.trim().isNotEmpty)
-      .join(' ')
-      .trim();
+  String get fullName =>
+      [firstName, lastName].where((p) => p.trim().isNotEmpty).join(' ').trim();
 
-  bool get isComplete => firstName.trim().isNotEmpty && lastName.trim().isNotEmpty;
+  bool get isComplete =>
+      firstName.trim().isNotEmpty && lastName.trim().isNotEmpty;
 
   /// Whole years between [dob] and today; null when no usable date of birth.
   int? get age {
@@ -44,7 +43,8 @@ class DiyTraveller {
     if (born == null) return null;
     final now = DateTime.now();
     var years = now.year - born.year;
-    final hadBirthday = now.month > born.month ||
+    final hadBirthday =
+        now.month > born.month ||
         (now.month == born.month && now.day >= born.day);
     if (!hadBirthday) years--;
     return years < 0 ? null : years;
@@ -71,24 +71,24 @@ class DiyTraveller {
   }
 
   Map<String, dynamic> toJson() => {
-        'title': title,
-        'firstName': firstName,
-        'lastName': lastName,
-        'dob': dob,
-        'gender': gender,
-        'phone': phone,
-        'paxType': paxType,
-      };
+    'title': title,
+    'firstName': firstName,
+    'lastName': lastName,
+    'dob': dob,
+    'gender': gender,
+    'phone': phone,
+    'paxType': paxType,
+  };
 
   /// The booking API's shape — POST /trips/{id}/book/ `travellers[]`.
   Map<String, dynamic> toBookingJson() => {
-        'first_name': firstName.trim(),
-        'last_name': lastName.trim(),
-        'gender': gender,
-        if (dob.isNotEmpty) 'dob': dob,
-        'pax_type': isChild ? 'Child' : 'Adult',
-        'phone': phone,
-      };
+    'first_name': firstName.trim(),
+    'last_name': lastName.trim(),
+    'gender': gender,
+    if (dob.isNotEmpty) 'dob': dob,
+    'pax_type': isChild ? 'Child' : 'Adult',
+    'phone': phone,
+  };
 
   /// Reads both the saved-traveller shape (camelCase, as
   /// `Urls.travellers` returns) and a plain snake_case row.

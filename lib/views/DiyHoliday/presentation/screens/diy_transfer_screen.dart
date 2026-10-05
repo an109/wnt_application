@@ -67,7 +67,8 @@ class _DiyTransferScreenState extends State<DiyTransferScreen> {
       if (!mounted) return;
       setState(() {
         _cabs = cabs;
-        _chosen = cabs.options.where((o) => o.isSelected).firstOrNull?.code ??
+        _chosen =
+            cabs.options.where((o) => o.isSelected).firstOrNull?.code ??
             cabs.selected;
         _loading = false;
       });
@@ -138,10 +139,10 @@ class _DiyTransferScreenState extends State<DiyTransferScreen> {
   }
 
   String get _travellers => [
-        '${_trip.adults} Adult${_trip.adults == 1 ? '' : 's'}',
-        if (_trip.children > 0)
-          '${_trip.children} Child${_trip.children == 1 ? '' : 'ren'}',
-      ].join(', ');
+    '${_trip.adults} Adult${_trip.adults == 1 ? '' : 's'}',
+    if (_trip.children > 0)
+      '${_trip.children} Child${_trip.children == 1 ? '' : 'ren'}',
+  ].join(', ');
 
   String get _carName =>
       [_cab.selected, if (_cab.label.isNotEmpty) _cab.label].join(' · ');
@@ -158,7 +159,11 @@ class _DiyTransferScreenState extends State<DiyTransferScreen> {
         elevation: 2,
         shadowColor: Colors.black.withValues(alpha: 0.15),
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: Colors.black, size: context.w(24)),
+          icon: Icon(
+            Icons.arrow_back,
+            color: Colors.black,
+            size: context.w(24),
+          ),
           onPressed: () => Navigator.of(context).pop(),
         ),
         titleSpacing: 0,
@@ -227,7 +232,9 @@ class _DiyTransferScreenState extends State<DiyTransferScreen> {
   }
 
   Widget _carImage() {
-    final image = _picked?.image.isNotEmpty == true ? _picked!.image : _cab.image;
+    final image = _picked?.image.isNotEmpty == true
+        ? _picked!.image
+        : _cab.image;
     return SizedBox(
       height: context.h(150),
       child: Stack(
@@ -415,8 +422,11 @@ class _DiyTransferScreenState extends State<DiyTransferScreen> {
                       shape: BoxShape.circle,
                       color: DiyTokens.blue.withValues(alpha: 0.12),
                     ),
-                    child: Icon(Icons.check_rounded,
-                        size: context.w(12), color: DiyTokens.blue),
+                    child: Icon(
+                      Icons.check_rounded,
+                      size: context.w(12),
+                      color: DiyTokens.blue,
+                    ),
                   ),
                   SizedBox(width: context.w(10)),
                   Expanded(
@@ -447,8 +457,10 @@ class _DiyTransferScreenState extends State<DiyTransferScreen> {
     } else if (_error != null) {
       body = Column(
         children: [
-          Text(_error!,
-              style: TextStyle(fontSize: context.fs(12), color: DiyTripStyle.red)),
+          Text(
+            _error!,
+            style: TextStyle(fontSize: context.fs(12), color: DiyTripStyle.red),
+          ),
           TextButton(onPressed: _load, child: const Text('Retry')),
         ],
       );
@@ -476,7 +488,10 @@ class _DiyTransferScreenState extends State<DiyTransferScreen> {
           ? null
           : Text(
               '${options.length} Available',
-              style: TextStyle(fontSize: context.fs(11), color: DiyTripStyle.grey),
+              style: TextStyle(
+                fontSize: context.fs(11),
+                color: DiyTripStyle.grey,
+              ),
             ),
       child: body,
     );
@@ -514,19 +529,26 @@ class _DiyTransferScreenState extends State<DiyTransferScreen> {
               SizedBox(height: context.h(4)),
               Row(
                 children: [
-                  Icon(Icons.event_seat_rounded,
-                      size: context.w(12), color: DiyTripStyle.grey),
+                  Icon(
+                    Icons.event_seat_rounded,
+                    size: context.w(12),
+                    color: DiyTripStyle.grey,
+                  ),
                   SizedBox(width: context.w(4)),
                   Text(
                     '${o.seats} seats • ${o.luggage} bags',
                     style: TextStyle(
-                        fontSize: context.fs(11), color: DiyTripStyle.grey),
+                      fontSize: context.fs(11),
+                      color: DiyTripStyle.grey,
+                    ),
                   ),
                   SizedBox(width: context.w(8)),
                   Text(
                     '• Private',
                     style: TextStyle(
-                        fontSize: context.fs(11), color: DiyTripStyle.green),
+                      fontSize: context.fs(11),
+                      color: DiyTripStyle.green,
+                    ),
                   ),
                 ],
               ),
@@ -535,14 +557,19 @@ class _DiyTransferScreenState extends State<DiyTransferScreen> {
               SizedBox(height: context.h(8)),
               Row(
                 children: [
-                  Icon(Icons.local_taxi_rounded,
-                      size: context.w(14), color: DiyTripStyle.orange),
+                  Icon(
+                    Icons.local_taxi_rounded,
+                    size: context.w(14),
+                    color: DiyTripStyle.orange,
+                  ),
                   SizedBox(width: context.w(6)),
                   Expanded(
                     child: Text(
                       'Dedicated door-to-door private cab (No ride sharing)',
                       style: TextStyle(
-                          fontSize: context.fs(11), color: DiyTripStyle.grey),
+                        fontSize: context.fs(11),
+                        color: DiyTripStyle.grey,
+                      ),
                     ),
                   ),
                 ],
@@ -563,8 +590,9 @@ class _DiyTransferScreenState extends State<DiyTransferScreen> {
                               disabledBackgroundColor: DiyTripStyle.orange,
                               elevation: 0,
                               shape: RoundedRectangleBorder(
-                                borderRadius:
-                                    BorderRadius.circular(context.r(8)),
+                                borderRadius: BorderRadius.circular(
+                                  context.r(8),
+                                ),
                               ),
                             ),
                             child: Text(
@@ -581,10 +609,13 @@ class _DiyTransferScreenState extends State<DiyTransferScreen> {
                                 ? null
                                 : () => setState(() => _chosen = o.code),
                             style: OutlinedButton.styleFrom(
-                              side: const BorderSide(color: DiyTripStyle.orange),
+                              side: const BorderSide(
+                                color: DiyTripStyle.orange,
+                              ),
                               shape: RoundedRectangleBorder(
-                                borderRadius:
-                                    BorderRadius.circular(context.r(8)),
+                                borderRadius: BorderRadius.circular(
+                                  context.r(8),
+                                ),
                               ),
                             ),
                             child: Text(
@@ -646,7 +677,9 @@ class _DiyTransferScreenState extends State<DiyTransferScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          o.isSelected ? 'Included' : '${diyDelta(delta / adults, currency: _trip.currency)}/person',
+          o.isSelected
+              ? 'Included'
+              : '${diyDelta(delta / adults, currency: _trip.currency)}/person',
           style: TextStyle(
             fontSize: context.fs(17),
             fontWeight: FontWeight.w800,
@@ -666,7 +699,10 @@ class _DiyTransferScreenState extends State<DiyTransferScreen> {
       if (_carName.isNotEmpty) ('Vehicle', _carName),
       if (_cab.seats > 0) ('Seats', '${_cab.seats}'),
       if (_cab.luggage > 0)
-        ('Luggage Allowance', '${_cab.luggage} Bag${_cab.luggage == 1 ? '' : 's'}'),
+        (
+          'Luggage Allowance',
+          '${_cab.luggage} Bag${_cab.luggage == 1 ? '' : 's'}',
+        ),
       ('Shared with others', 'No — private'),
     ];
     return Container(
@@ -697,7 +733,9 @@ class _DiyTransferScreenState extends State<DiyTransferScreen> {
                     child: Text(
                       label,
                       style: TextStyle(
-                          fontSize: context.fs(12), color: DiyTripStyle.grey),
+                        fontSize: context.fs(12),
+                        color: DiyTripStyle.grey,
+                      ),
                     ),
                   ),
                   Text(
@@ -756,7 +794,10 @@ class _DiyTransferScreenState extends State<DiyTransferScreen> {
                       TextSpan(
                         text: changed
                             ? diyDelta(perPersonDelta, currency: _trip.currency)
-                            : diyMoney(total / adults, currency: _trip.currency),
+                            : diyMoney(
+                                total / adults,
+                                currency: _trip.currency,
+                              ),
                         style: TextStyle(
                           fontSize: context.fs(22),
                           fontWeight: FontWeight.w800,

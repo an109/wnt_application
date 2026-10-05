@@ -30,7 +30,9 @@ class _DiyOriginSearchScreenState extends State<DiyOriginSearchScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _focusNode.requestFocus());
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _focusNode.requestFocus(),
+    );
     DiySearchStore.recentOrigins().then((value) {
       if (mounted) setState(() => _recent = value);
     });
@@ -64,8 +66,9 @@ class _DiyOriginSearchScreenState extends State<DiyOriginSearchScreen> {
       }
 
       final position = await Geolocator.getCurrentPosition(
-        locationSettings:
-            const LocationSettings(accuracy: LocationAccuracy.medium),
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.medium,
+        ),
       );
       if (!mounted) return;
       _select(DiyOrigins.nearest(position.latitude, position.longitude));
@@ -208,11 +211,7 @@ class _DiyOriginSearchScreenState extends State<DiyOriginSearchScreen> {
                 ),
               )
             else
-              Icon(
-                Icons.near_me,
-                size: context.w(18),
-                color: DiyTokens.navy,
-              ),
+              Icon(Icons.near_me, size: context.w(18), color: DiyTokens.navy),
             SizedBox(width: context.w(12)),
             Text(
               _locating ? 'Finding you…' : 'Use current location',

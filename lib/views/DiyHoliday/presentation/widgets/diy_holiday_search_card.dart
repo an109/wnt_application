@@ -64,9 +64,9 @@ class DiyHolidaySearchCardState extends State<DiyHolidaySearchCard> {
     _departureDate = DiyDates.defaultDeparture();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      context
-          .read<GeneralSettingsBloc>()
-          .add(const LoadSectionHeroes(domain: 'thewandernova.com'));
+      context.read<GeneralSettingsBloc>().add(
+        const LoadSectionHeroes(domain: 'thewandernova.com'),
+      );
     });
     _restoreLastSearch();
   }
@@ -77,7 +77,8 @@ class DiyHolidaySearchCardState extends State<DiyHolidaySearchCard> {
     setState(() {
       _origin = saved.origin;
       _destination = saved.destination;
-      _departureDate = DiyDates.clampToFuture(saved.departureDate) ?? _departureDate;
+      _departureDate =
+          DiyDates.clampToFuture(saved.departureDate) ?? _departureDate;
       _rooms = saved.rooms;
       _adults = saved.adults;
       _children = saved.children;
@@ -86,14 +87,14 @@ class DiyHolidaySearchCardState extends State<DiyHolidaySearchCard> {
   }
 
   DiySearchQuery get _query => DiySearchQuery(
-        origin: _origin,
-        destination: _destination,
-        departureDate: _departureDate,
-        rooms: _rooms,
-        adults: _adults,
-        children: _children,
-        childAges: _childAges,
-      );
+    origin: _origin,
+    destination: _destination,
+    departureDate: _departureDate,
+    rooms: _rooms,
+    adults: _adults,
+    children: _children,
+    childAges: _childAges,
+  );
 
   // ------------------------------------------------------------ actions
 
@@ -370,16 +371,16 @@ class DiyHolidaySearchCardState extends State<DiyHolidaySearchCard> {
   // ------------------------------------------------------------- fields
 
   BoxDecoration get _fieldDecoration => BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(context.r(12)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: context.w(14),
-            offset: Offset(0, context.h(4)),
-          ),
-        ],
-      );
+    color: Colors.white,
+    borderRadius: BorderRadius.circular(context.r(12)),
+    boxShadow: [
+      BoxShadow(
+        color: Colors.black.withOpacity(0.08),
+        blurRadius: context.w(14),
+        offset: Offset(0, context.h(4)),
+      ),
+    ],
+  );
 
   Widget _fieldLabel(String text, {bool chevron = false}) {
     return Row(
@@ -613,11 +614,11 @@ class DiyHolidaySearchCardState extends State<DiyHolidaySearchCard> {
   }
 
   Widget _countDivider() => Container(
-        width: 0.5,
-        height: context.w(18),
-        margin: EdgeInsets.symmetric(horizontal: context.w(8)),
-        color: Colors.grey.shade300,
-      );
+    width: 0.5,
+    height: context.w(18),
+    margin: EdgeInsets.symmetric(horizontal: context.w(8)),
+    color: Colors.grey.shade300,
+  );
 
   Widget _countChip({IconData? icon, String? asset, required int count}) {
     return Row(

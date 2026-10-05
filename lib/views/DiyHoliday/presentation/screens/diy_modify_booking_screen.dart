@@ -131,7 +131,11 @@ class _DiyModifyBookingScreenState extends State<DiyModifyBookingScreen> {
         elevation: 2,
         shadowColor: Colors.black.withValues(alpha: 0.15),
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: Colors.black, size: context.w(24)),
+          icon: Icon(
+            Icons.arrow_back,
+            color: Colors.black,
+            size: context.w(24),
+          ),
           onPressed: () => Navigator.of(context).pop(),
         ),
         titleSpacing: 0,
@@ -149,7 +153,9 @@ class _DiyModifyBookingScreenState extends State<DiyModifyBookingScreen> {
               message: widget.withFlight
                   ? 'Searching live flights from ${_query.origin.name}…'
                   : 'Repricing your package…',
-              hint: widget.withFlight ? 'Flight pricing takes a few seconds.' : null,
+              hint: widget.withFlight
+                  ? 'Flight pricing takes a few seconds.'
+                  : null,
             )
           : ListView(
               padding: EdgeInsets.fromLTRB(
@@ -159,8 +165,11 @@ class _DiyModifyBookingScreenState extends State<DiyModifyBookingScreen> {
                 context.h(24),
               ),
               children: [
-                _field('FROM', Text(_query.origin.name, style: _value),
-                    _pickOrigin),
+                _field(
+                  'FROM',
+                  Text(_query.origin.name, style: _value),
+                  _pickOrigin,
+                ),
                 _field(
                   'STARTING ON',
                   Text.rich(
@@ -239,10 +248,10 @@ class _DiyModifyBookingScreenState extends State<DiyModifyBookingScreen> {
   }
 
   TextStyle get _value => TextStyle(
-        fontSize: context.fs(13),
-        fontWeight: FontWeight.w600,
-        color: Colors.black,
-      );
+    fontSize: context.fs(13),
+    fontWeight: FontWeight.w600,
+    color: Colors.black,
+  );
 
   Widget _field(String label, Widget value, VoidCallback onChange) {
     return Padding(

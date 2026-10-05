@@ -61,7 +61,9 @@ class DiyCompactSearchBar extends StatelessWidget {
             context.w(14),
             context.h(12),
           ),
-          child: onEdit != null ? _editVariant(context) : _searchVariant(context),
+          child: onEdit != null
+              ? _editVariant(context)
+              : _searchVariant(context),
         ),
       ),
     );
@@ -80,8 +82,11 @@ class DiyCompactSearchBar extends StatelessWidget {
                 onTap: onBack,
                 child: Padding(
                   padding: EdgeInsets.only(right: context.w(10)),
-                  child: Icon(Icons.arrow_back,
-                      size: context.w(20), color: Colors.black),
+                  child: Icon(
+                    Icons.arrow_back,
+                    size: context.w(20),
+                    color: Colors.black,
+                  ),
                 ),
               ),
             Text(
@@ -111,7 +116,10 @@ class DiyCompactSearchBar extends StatelessWidget {
               ),
               Text(
                 _details,
-                style: TextStyle(fontSize: context.fs(10), color: DiyTripStyle.grey),
+                style: TextStyle(
+                  fontSize: context.fs(10),
+                  color: DiyTripStyle.grey,
+                ),
               ),
             ],
           ),
@@ -161,8 +169,11 @@ class DiyCompactSearchBar extends StatelessWidget {
               onTap: onBack,
               child: Padding(
                 padding: EdgeInsets.only(right: context.w(10)),
-                child: Icon(Icons.arrow_back,
-                    size: context.w(20), color: Colors.black),
+                child: Icon(
+                  Icons.arrow_back,
+                  size: context.w(20),
+                  color: Colors.black,
+                ),
               ),
             ),
           Expanded(
@@ -187,7 +198,9 @@ class DiyCompactSearchBar extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                        fontSize: context.fs(9), color: DiyTripStyle.grey),
+                      fontSize: context.fs(9),
+                      color: DiyTripStyle.grey,
+                    ),
                   ),
                 ],
               ),
@@ -195,8 +208,11 @@ class DiyCompactSearchBar extends StatelessWidget {
           ),
           GestureDetector(
             onTap: onEdit,
-            child: Icon(Icons.edit_rounded,
-                size: context.w(18), color: DiyTokens.blue),
+            child: Icon(
+              Icons.edit_rounded,
+              size: context.w(18),
+              color: DiyTokens.blue,
+            ),
           ),
         ],
       ),

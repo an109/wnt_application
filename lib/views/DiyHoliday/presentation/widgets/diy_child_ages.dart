@@ -45,7 +45,10 @@ class DiyChildAgesPanel extends StatelessWidget {
         children: [
           Text(
             'Age of children',
-            style: TextStyle(fontSize: context.fs(11), color: DiyTokens.subGrey),
+            style: TextStyle(
+              fontSize: context.fs(11),
+              color: DiyTokens.subGrey,
+            ),
           ),
           SizedBox(height: context.h(4)),
           for (var i = 0; i < ages.length; i++)

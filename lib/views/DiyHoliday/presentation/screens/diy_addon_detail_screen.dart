@@ -59,7 +59,11 @@ class _DiyAddonDetailScreenState extends State<DiyAddonDetailScreen> {
         elevation: 2,
         shadowColor: Colors.black.withValues(alpha: 0.15),
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: Colors.black, size: context.w(24)),
+          icon: Icon(
+            Icons.arrow_back,
+            color: Colors.black,
+            size: context.w(24),
+          ),
           onPressed: () => Navigator.of(context).pop(),
         ),
         titleSpacing: 0,
@@ -105,8 +109,12 @@ class _DiyAddonDetailScreenState extends State<DiyAddonDetailScreen> {
               ),
               SizedBox(width: context.w(10)),
               Expanded(
-                child: _factBox(Icons.groups_rounded, DiyTripStyle.green,
-                    'TRAVELLERS', party),
+                child: _factBox(
+                  Icons.groups_rounded,
+                  DiyTripStyle.green,
+                  'TRAVELLERS',
+                  party,
+                ),
               ),
             ],
           ),
@@ -147,8 +155,11 @@ class _DiyAddonDetailScreenState extends State<DiyAddonDetailScreen> {
                               shape: BoxShape.circle,
                               color: DiyTokens.blue.withValues(alpha: 0.12),
                             ),
-                            child: Icon(Icons.check_rounded,
-                                size: context.w(12), color: DiyTokens.blue),
+                            child: Icon(
+                              Icons.check_rounded,
+                              size: context.w(12),
+                              color: DiyTokens.blue,
+                            ),
                           ),
                           SizedBox(width: context.w(10)),
                           Expanded(
@@ -177,7 +188,10 @@ class _DiyAddonDetailScreenState extends State<DiyAddonDetailScreen> {
             _option(),
             trailing: Text(
               '1 Available',
-              style: TextStyle(fontSize: context.fs(11), color: DiyTripStyle.grey),
+              style: TextStyle(
+                fontSize: context.fs(11),
+                color: DiyTripStyle.grey,
+              ),
             ),
           ),
           SizedBox(height: context.h(16)),
@@ -193,7 +207,11 @@ class _DiyAddonDetailScreenState extends State<DiyAddonDetailScreen> {
     final radius = BorderRadius.circular(context.r(10));
     if (images.isEmpty) {
       return DiyImage(
-          url: '', width: double.infinity, height: context.h(190), radius: radius);
+        url: '',
+        width: double.infinity,
+        height: context.h(190),
+        radius: radius,
+      );
     }
     return SizedBox(
       height: context.h(190),
@@ -262,17 +280,23 @@ class _DiyAddonDetailScreenState extends State<DiyAddonDetailScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label,
-                    style: TextStyle(
-                        fontSize: context.fs(8),
-                        fontWeight: FontWeight.w600,
-                        color: DiyTripStyle.grey)),
-                Text(value,
-                    maxLines: 2,
-                    style: TextStyle(
-                        fontSize: context.fs(11),
-                        fontWeight: FontWeight.w600,
-                        color: Colors.black)),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: context.fs(8),
+                    fontWeight: FontWeight.w600,
+                    color: DiyTripStyle.grey,
+                  ),
+                ),
+                Text(
+                  value,
+                  maxLines: 2,
+                  style: TextStyle(
+                    fontSize: context.fs(11),
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black,
+                  ),
+                ),
               ],
             ),
           ),
@@ -281,8 +305,13 @@ class _DiyAddonDetailScreenState extends State<DiyAddonDetailScreen> {
     );
   }
 
-  Widget _card(IconData icon, Color color, String title, Widget child,
-      {Widget? trailing}) {
+  Widget _card(
+    IconData icon,
+    Color color,
+    String title,
+    Widget child, {
+    Widget? trailing,
+  }) {
     return Container(
       padding: EdgeInsets.all(context.w(14)),
       decoration: BoxDecoration(
@@ -324,7 +353,9 @@ class _DiyAddonDetailScreenState extends State<DiyAddonDetailScreen> {
       padding: EdgeInsets.all(context.w(12)),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(context.r(10)),
-        border: Border.all(color: _picked ? DiyTokens.blue : DiyTripStyle.divider),
+        border: Border.all(
+          color: _picked ? DiyTokens.blue : DiyTripStyle.divider,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -341,12 +372,18 @@ class _DiyAddonDetailScreenState extends State<DiyAddonDetailScreen> {
             SizedBox(height: context.h(4)),
             Row(
               children: [
-                Icon(Icons.access_time_filled_rounded,
-                    size: context.w(12), color: DiyTripStyle.grey),
+                Icon(
+                  Icons.access_time_filled_rounded,
+                  size: context.w(12),
+                  color: DiyTripStyle.grey,
+                ),
                 SizedBox(width: context.w(4)),
                 Text(
                   'Duration ${diyDuration(_a.durationMinutes)}',
-                  style: TextStyle(fontSize: context.fs(11), color: DiyTripStyle.grey),
+                  style: TextStyle(
+                    fontSize: context.fs(11),
+                    color: DiyTripStyle.grey,
+                  ),
                 ),
               ],
             ),
@@ -355,14 +392,19 @@ class _DiyAddonDetailScreenState extends State<DiyAddonDetailScreen> {
             SizedBox(height: context.h(8)),
             Row(
               children: [
-                Icon(Icons.local_taxi_rounded,
-                    size: context.w(14), color: DiyTripStyle.orange),
+                Icon(
+                  Icons.local_taxi_rounded,
+                  size: context.w(14),
+                  color: DiyTripStyle.orange,
+                ),
                 SizedBox(width: context.w(6)),
                 Expanded(
                   child: Text(
                     'Pick up & Drop is included',
                     style: TextStyle(
-                        fontSize: context.fs(11), color: DiyTripStyle.grey),
+                      fontSize: context.fs(11),
+                      color: DiyTripStyle.grey,
+                    ),
                   ),
                 ),
               ],
@@ -388,7 +430,9 @@ class _DiyAddonDetailScreenState extends State<DiyAddonDetailScreen> {
                     Text(
                       'price/person (Total ${diyMoney(total, currency: _a.currency)})',
                       style: TextStyle(
-                          fontSize: context.fs(10), color: DiyTripStyle.grey),
+                        fontSize: context.fs(10),
+                        color: DiyTripStyle.grey,
+                      ),
                     ),
                   ],
                 ),
@@ -446,7 +490,8 @@ class _DiyAddonDetailScreenState extends State<DiyAddonDetailScreen> {
   Widget _additionalInfo() {
     String label(String category) => category.isEmpty
         ? ''
-        : category[0] + category.substring(1).toLowerCase().replaceAll('_', ' ');
+        : category[0] +
+              category.substring(1).toLowerCase().replaceAll('_', ' ');
     final rows = <(String, String)>[
       if (_a.category.isNotEmpty) ('Category', label(_a.category)),
       if (_a.durationMinutes > 0) ('Duration', diyDuration(_a.durationMinutes)),
@@ -481,9 +526,13 @@ class _DiyAddonDetailScreenState extends State<DiyAddonDetailScreen> {
                 children: [
                   SizedBox(
                     width: context.w(110),
-                    child: Text(k,
-                        style: TextStyle(
-                            fontSize: context.fs(12), color: DiyTripStyle.grey)),
+                    child: Text(
+                      k,
+                      style: TextStyle(
+                        fontSize: context.fs(12),
+                        color: DiyTripStyle.grey,
+                      ),
+                    ),
                   ),
                   Expanded(
                     child: Text(
@@ -539,8 +588,10 @@ class _DiyAddonDetailScreenState extends State<DiyAddonDetailScreen> {
                       TextSpan(
                         text: _picked
                             ? diyDelta(add / adults, currency: _a.currency)
-                            : diyMoney(widget.trip.grandTotal / adults,
-                                currency: widget.trip.currency),
+                            : diyMoney(
+                                widget.trip.grandTotal / adults,
+                                currency: widget.trip.currency,
+                              ),
                         style: TextStyle(
                           fontSize: context.fs(20),
                           fontWeight: FontWeight.w800,
@@ -550,14 +601,19 @@ class _DiyAddonDetailScreenState extends State<DiyAddonDetailScreen> {
                       TextSpan(
                         text: '/person',
                         style: TextStyle(
-                            fontSize: context.fs(11), color: DiyTripStyle.grey),
+                          fontSize: context.fs(11),
+                          color: DiyTripStyle.grey,
+                        ),
                       ),
                     ],
                   ),
                 ),
                 Text(
                   'Total Price ${diyMoney(widget.trip.grandTotal + (_picked ? add : 0), currency: widget.trip.currency)}',
-                  style: TextStyle(fontSize: context.fs(9), color: DiyTripStyle.grey),
+                  style: TextStyle(
+                    fontSize: context.fs(9),
+                    color: DiyTripStyle.grey,
+                  ),
                 ),
               ],
             ),
