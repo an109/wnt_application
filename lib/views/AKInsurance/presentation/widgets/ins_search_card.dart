@@ -745,7 +745,7 @@ class _TypeTabs extends StatelessWidget {
         context.w(6),
         // Room for the badge to overhang without being cut off by the
         // Column above.
-        context.h(8),
+        context.h(6),
         context.w(6),
         context.h(8),
       ),
@@ -813,6 +813,7 @@ class _TypeTabs extends StatelessWidget {
     }
 
     return Stack(
+      clipBehavior: Clip.none,
       alignment: Alignment.topCenter,
       children: [
         Padding(padding: EdgeInsets.only(top: overhang), child: pill),

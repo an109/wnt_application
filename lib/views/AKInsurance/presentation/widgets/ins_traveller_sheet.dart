@@ -2,12 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../UI_helper/responsive_layout.dart';
+import '../../../../core/resources/app_colours.dart';
 import '../state/ins_search_query.dart';
 import '../tokens/ins_tokens.dart';
 import 'ins_common.dart';
 
-/// What the sheet hands back: the traveller rows, plus the tenure when the
-/// policy type is STUDENT (the sheet owns that stepper in the mock).
+/// What the box hands back: the traveller rows, plus the tenure when the
+/// policy type is STUDENT (the box owns that stepper in the mock).
 class InsTravellerResult {
   final List<InsTraveller> travellers;
   final int? tenureMonths;
@@ -18,27 +19,39 @@ class InsTravellerResult {
 /// "Add Traveller with Date of Birth" — Figma `Add Insurance travellers`,
 /// `… Student` and `… Friends, Family`.
 ///
-/// One sheet covers all three variants: the blue pill and the stepper's
-/// ceiling come from [InsPolicyType.maxTravellers], and the Tenure stepper
-/// only appears for a student policy.
+/// Shown as a centred alert box whose dismiss cross hangs outside its
+/// top-right corner. One box covers all three variants: the blue pill and
+/// the stepper's ceiling come from [InsPolicyType.maxTravellers], and the
+/// Tenure stepper only appears for a student policy.
 class InsTravellerSheet extends StatefulWidget {
   final InsSearchQuery query;
 
   const InsTravellerSheet({super.key, required this.query});
 
-  /// Opens the sheet; returns null when it is dismissed without DONE.
+  /// Opens the picker as a centred alert box; returns null when it is
+  /// dismissed without DONE.
   static Future<InsTravellerResult?> showGeneral(
     BuildContext context, {
     required InsSearchQuery query,
   }) {
-    return showModalBottomSheet<InsTravellerResult>(
+    return showGeneralDialog<InsTravellerResult>(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(context.r(20))),
-      ),
-      builder: (_) => InsTravellerSheet(query: query),
+      barrierDismissible: true,
+      barrierLabel: 'Add Traveller with Date of Birth',
+      barrierColor: Colors.black.withOpacity(0.55),
+      transitionDuration: const Duration(milliseconds: 200),
+      pageBuilder: (_, __, ___) => InsTravellerSheet(query: query),
+      transitionBuilder: (_, animation, __, child) {
+        final curved =
+            CurvedAnimation(parent: animation, curve: Curves.easeOutCubic);
+        return FadeTransition(
+          opacity: curved,
+          child: ScaleTransition(
+            scale: Tween<double>(begin: 0.96, end: 1.0).animate(curved),
+            child: child,
+          ),
+        );
+      },
     );
   }
 
@@ -121,69 +134,111 @@ class _InsTravellerSheetState extends State<InsTravellerSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      top: false,
-      child: Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
+    return Material(
+      type: MaterialType.transparency,
+      child: SafeArea(
+        child: Center(
+          child: Padding(
+            // Nothing in the box takes typed input today, but keeping the
+            // keyboard inset here means the box shrinks rather than clips
+            // its DONE button if a text field is ever added.
+            padding: EdgeInsets.fromLTRB(
+              context.w(18),
+              context.h(10),
+              context.w(18),
+              MediaQuery.of(context).viewInsets.bottom + context.h(10),
+            ),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: context.w(400)),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  // The cross lives on the barrier, just above the box's
+                  // top-right corner, rather than inside the box.
+                  _closeButton(context),
+                  SizedBox(height: context.h(10)),
+                  Flexible(child: _box(context)),
+                ],
+              ),
+            ),
+          ),
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Stack(
-              children: [
-                const InsSheetHandle(),
-                Positioned(
-                  right: context.w(8),
-                  top: context.h(2),
-                  child: GestureDetector(
-                    onTap: () => Navigator.of(context).pop(),
-                    behavior: HitTestBehavior.opaque,
-                    child: Padding(
-                      padding: EdgeInsets.all(context.w(8)),
-                      child: Icon(Icons.close_rounded,
-                          size: context.w(22), color: InsTokens.navy),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            Flexible(
-              child: SingleChildScrollView(
-                padding: EdgeInsets.fromLTRB(
-                  context.w(18),
-                  context.h(22),
-                  context.w(18),
-                  context.h(10),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _headerRow(context),
-                    SizedBox(height: context.h(26)),
-                    _countRow(context),
-                    SizedBox(height: context.h(18)),
-                    for (int i = 0; i < _travellers.length; i++)
-                      _travellerRow(context, i),
-                    if (_type.isStudent) ...[
-                      SizedBox(height: context.h(8)),
-                      _tenureRow(context),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-            Padding(
-              padding: EdgeInsets.fromLTRB(
-                context.w(18),
-                context.h(14),
-                context.w(18),
-                context.h(14),
-              ),
-              child: InsPrimaryButton(label: 'DONE', onPressed: _done),
+      ),
+    );
+  }
+
+  /// The dismiss cross that sits outside the alert box.
+  Widget _closeButton(BuildContext context) {
+    return GestureDetector(
+      onTap: () => Navigator.of(context).pop(),
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        width: context.r(32),
+        height: context.r(32),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.18),
+              blurRadius: context.r(8),
+              offset: Offset(0, context.h(2)),
             ),
           ],
         ),
+        child: Icon(Icons.close_rounded,
+            size: context.r(19), color: InsTokens.navy),
+      ),
+    );
+  }
+
+  Widget _box(BuildContext context) {
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(context.r(18)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Flexible(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.fromLTRB(
+                context.w(18),
+                context.h(20),
+                context.w(18),
+                context.h(10),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _headerRow(context),
+                  SizedBox(height: context.h(26)),
+                  _countRow(context),
+                  SizedBox(height: context.h(18)),
+                  for (int i = 0; i < _travellers.length; i++)
+                    _travellerRow(context, i),
+                  if (_type.isStudent) ...[
+                    SizedBox(height: context.h(8)),
+                    _tenureRow(context),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          Padding(
+            padding: EdgeInsets.fromLTRB(
+              context.w(18),
+              context.h(4),
+              context.w(18),
+              context.h(16),
+            ),
+            child: InsPrimaryButton(label: 'DONE', onPressed: _done),
+          ),
+        ],
       ),
     );
   }
@@ -195,8 +250,8 @@ class _InsTravellerSheetState extends State<InsTravellerSheet> {
           child: Text(
             'Add Traveller with Date of Birth',
             style: TextStyle(
-              fontSize: context.fs(16),
-              fontWeight: FontWeight.w700,
+              fontSize: context.fs(12),
+              fontWeight: FontWeight.w600,
               color: InsTokens.navy,
             ),
           ),
@@ -204,23 +259,25 @@ class _InsTravellerSheetState extends State<InsTravellerSheet> {
         SizedBox(width: context.w(10)),
         Container(
           padding: EdgeInsets.symmetric(
-            horizontal: context.w(10),
-            vertical: context.h(7),
+            horizontal: context.w(8),
+            vertical: context.h(2),
           ),
+          // color: AppColors.AppBlue.withAlpha(2),
           decoration: BoxDecoration(
-            border: Border.all(color: InsTokens.blue),
-            borderRadius: BorderRadius.circular(context.r(4)),
+            border: Border.all(color: InsTokens.blue, width: 0.2),
+            borderRadius: BorderRadius.circular(context.r(0)),
+            color: AppColors.AppBlue.withAlpha(2),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(Icons.info_rounded,
-                  size: context.w(15), color: InsTokens.blue),
+                  size: context.w(12), color: InsTokens.blue),
               SizedBox(width: context.w(6)),
               Text(
                 _type.travellerLimitLabel,
                 style: TextStyle(
-                  fontSize: context.fs(13),
+                  fontSize: context.fs(10),
                   color: InsTokens.blue,
                 ),
               ),
@@ -238,7 +295,7 @@ class _InsTravellerSheetState extends State<InsTravellerSheet> {
           child: Text(
             'Travellers',
             style: TextStyle(
-              fontSize: context.fs(21),
+              fontSize: context.fs(16),
               fontWeight: FontWeight.w700,
               color: InsTokens.navy,
             ),
@@ -265,7 +322,8 @@ class _InsTravellerSheetState extends State<InsTravellerSheet> {
                 child: Text(
                   'DOB of Traveller ${i + 1}',
                   style: TextStyle(
-                    fontSize: context.fs(14.5),
+                    fontSize: context.fs(12),
+                    fontWeight: FontWeight.w400,
                     color: InsTokens.navy,
                   ),
                 ),
@@ -293,15 +351,20 @@ class _InsTravellerSheetState extends State<InsTravellerSheet> {
                                 : DateFormat('dd/MM/yyyy')
                                     .format(_travellers[i].dob!),
                             style: TextStyle(
-                              fontSize: context.fs(15),
+                              fontSize: context.fs(12),
+                              fontWeight: FontWeight.w500,
                               color: _travellers[i].dob == null
                                   ? InsTokens.labelGrey
                                   : InsTokens.navy,
                             ),
                           ),
                         ),
-                        Icon(Icons.calendar_month_rounded,
-                            size: context.w(19), color: InsTokens.subGrey),
+                        Image.asset(
+                          'assets/NewIcons/calender.png',
+                          width: context.w(14),
+                          height: context.w(14),
+                          color: InsTokens.subGrey,
+                        ),
                       ],
                     ),
                   ),
@@ -322,7 +385,7 @@ class _InsTravellerSheetState extends State<InsTravellerSheet> {
                   child: Text(
                     'Relation',
                     style: TextStyle(
-                      fontSize: context.fs(14.5),
+                      fontSize: context.fs(12),
                       color: InsTokens.navy,
                     ),
                   ),

@@ -268,13 +268,13 @@ class InsPlanCard extends StatelessWidget {
                   right: 0,
                   child: Container(
                     padding: EdgeInsets.symmetric(
-                      horizontal: context.w(14),
-                      vertical: context.h(7),
+                      horizontal: context.w(10),
+                      vertical: context.h(2),
                     ),
                     decoration: BoxDecoration(
                       gradient: InsTokens.ribbon,
                       borderRadius: BorderRadius.only(
-                        bottomLeft: Radius.circular(context.r(12)),
+                        bottomLeft: Radius.circular(context.r(8)),
                       ),
                     ),
                     child: Text(

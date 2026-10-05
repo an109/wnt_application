@@ -37,7 +37,7 @@ PreferredSizeWidget insAppBar(
           title,
           style: TextStyle(
             fontSize: context.fs(18),
-            fontWeight: FontWeight.w700,
+            fontWeight: FontWeight.w600,
             color: InsTokens.navy,
           ),
         ),
@@ -263,12 +263,21 @@ class InsPrimaryButton extends StatelessWidget {
                     leading!,
                     SizedBox(width: context.w(8)),
                   ],
-                  Text(
-                    label,
-                    style: TextStyle(
-                      fontSize: context.fs(14),
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 0.4,
+                  // Flexible + ellipsis: a long label next to a leading icon
+                  // and a trailing arrow can exceed a narrow button (the
+                  // half-width CTAs on the sort sheet are only ~130px), and
+                  // an unbounded Text overflows rather than shrinking.
+                  Flexible(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: context.fs(14),
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.4,
+                      ),
                     ),
                   ),
                   if (trailing != null) ...[
@@ -425,12 +434,12 @@ class InsSheetHandle extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Container(
-        width: context.w(48),
-        height: context.h(5),
-        margin: EdgeInsets.only(top: context.h(10), bottom: context.h(6)),
+        width: context.w(103),
+        height: context.h(8),
+        margin: EdgeInsets.only(top: context.h(12), bottom: context.h(6)),
         decoration: BoxDecoration(
-          color: const Color(0xFFD4D8DF),
-          borderRadius: BorderRadius.circular(context.r(3)),
+          color: const Color(0xFFD1D1D6),
+          borderRadius: BorderRadius.circular(context.r(24)),
         ),
       ),
     );
