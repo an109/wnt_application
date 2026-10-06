@@ -6,7 +6,7 @@ import '../../../../UI_helper/responsive_layout.dart';
 import '../../../../core/resources/app_colours.dart';
 import '../../../../core/utils/storage/shared_preference.dart';
 import '../../../../injection_container.dart';
-import '../../../home/presentation/screens/home_screen.dart';
+import '../../../login/presentation/screen/loginsuccess.dart';
 import '../../../signup/domain/entity/signup_entity.dart';
 import '../../../signup/presentation/bloc/signup_bloc.dart';
 import '../../../signup/presentation/bloc/signup_event.dart';
@@ -80,11 +80,11 @@ class _CompleteProfilePopupState extends State<CompleteProfilePopup> {
         child: Form(
           key: _formKey,
           child: AuthScaffold(
-            onBack: Navigator.of(context).canPop()
-                ? () => Navigator.of(context).pop()
-                : null,
+            // onBack: Navigator.of(context).canPop()
+            //     ? () => Navigator.of(context).pop()
+            //     : null,
             children: [
-              SizedBox(height: context.w(28)),
+              // SizedBox(height: context.w(10)),
               Center(
                 child: Text(
                   'Set a new password',
@@ -295,22 +295,17 @@ class _CompleteProfilePopupState extends State<CompleteProfilePopup> {
         '${entity.user.firstname} ${entity.user.lastname}',
       );
 
-      // 2. Show success popup with the message from the response
+      // 2. Hand over to the confirmation screen, which owns the move to home.
       if (mounted) {
-        await _showSuccessPopup(entity.message);
-      }
-
-      // 3. Navigate using ROOT navigator (main app navigator, not dialog overlay)
-      if (mounted) {
-        final rootNavigator = Navigator.of(context, rootNavigator: true);
-
-        if (Navigator.canPop(context)) {
-          Navigator.of(context).pop();
-        }
-
-        // Then navigate to home, removing all previous auth routes
-        rootNavigator.pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const HomeScreen()),
+        Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
+          MaterialPageRoute(
+            builder: (_) => LoginSuccessScreen(
+              message: entity.message.isNotEmpty
+                  ? entity.message
+                  : 'Congratulations! Your account has been created. '
+                      'Click continue to book',
+            ),
+          ),
           (route) => false, // Remove ALL previous routes
         );
       }
@@ -318,67 +313,14 @@ class _CompleteProfilePopupState extends State<CompleteProfilePopup> {
       debugPrint('Navigation error in _handleSignupSuccess: $e');
       debugPrint('Stack trace: $stack');
 
-      // Fallback: try direct navigation if named route fails
+      // Fallback: still get the user through to the confirmation screen.
       if (mounted) {
         Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const HomeScreen()),
+          MaterialPageRoute(builder: (_) => const LoginSuccessScreen()),
           (route) => false,
         );
       }
     }
-  }
-
-  Future<void> _showSuccessPopup(String message) {
-    return showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) {
-        // Auto-dismiss the popup shortly after showing it so navigation continues.
-        Future.delayed(const Duration(milliseconds: 1200), () {
-          if (Navigator.of(dialogContext).canPop()) {
-            Navigator.of(dialogContext).pop();
-          }
-        });
-
-        return Dialog(
-          backgroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(dialogContext.w(20)),
-          ),
-          child: Padding(
-            padding: EdgeInsets.all(dialogContext.w(24)),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  height: dialogContext.w(64),
-                  width: dialogContext.w(64),
-                  decoration: BoxDecoration(
-                    color: AppColors.AppBlue.withOpacity(0.10),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.check_rounded,
-                    color: AppColors.AppBlue,
-                    size: dialogContext.w(34),
-                  ),
-                ),
-                SizedBox(height: dialogContext.w(16)),
-                Text(
-                  message,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: dialogContext.fs(14),
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.authInk,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
   }
 
   void _showError(String message) {

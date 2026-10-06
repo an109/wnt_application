@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:pinput/pinput.dart';
@@ -8,7 +7,8 @@ import '../../../../core/resources/app_colours.dart';
 import '../../../../UI_helper/responsive_layout.dart';
 import '../../../../core/utils/storage/shared_preference.dart'; // ← PreferencesManager
 import '../../../../injection_container.dart' as di; // ← GetIt
-import '../../../home/presentation/screens/home_screen.dart';
+import '../../../splash/widgets/auth_scaffold.dart';
+import 'loginsuccess.dart';
 import '../bloc/login_bloc.dart'; // ← LoginBloc
 import '../bloc/login_event.dart'; // ← LoginEvent
 import '../bloc/login_state.dart'; // ← LoginState
@@ -168,54 +168,12 @@ class _LoginPasswordPopupState extends State<LoginPasswordPopup> {
             },
           ),
         ],
-        child: Scaffold(
-          backgroundColor: Colors.transparent,
-          body: Stack(
-            children: [
-              // Full screen blur (unchanged)
-              BackdropFilter(
-                filter: ImageFilter.blur(
-                  sigmaX: context.wp(3),
-                  sigmaY: context.wp(3),
-                ),
-                child: Container(
-                  color: Colors.black.withOpacity(0.08),
-                ),
-              ),
-
-              // Popup content (unchanged UI)
-              SafeArea(
-                child: Center(
-                  child: Container(
-                    width: context.wp(90),
-                    constraints: BoxConstraints(
-                      maxHeight: context.hp(_forgotStage == _ForgotStage.none ? 60 : 78),
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(context.borderRadiusLarge + 6),
-                    ),
-                    child: SingleChildScrollView(
-                      physics: context.scrollPhysics,
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: context.wp(5),
-                          vertical: context.hp(2),
-                        ),
-                        child: _buildStageContent(context),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
+        child: _buildStage(context),
       ),
     );
   }
 
-  Widget _buildStageContent(BuildContext context) {
+  Widget _buildStage(BuildContext context) {
     switch (_forgotStage) {
       case _ForgotStage.none:
         return _buildLoginStage(context);
@@ -228,162 +186,161 @@ class _LoginPasswordPopupState extends State<LoginPasswordPopup> {
     }
   }
 
+  /// Heading pair shared by the forgot-password steps.
+  List<Widget> _stageHeading(
+    BuildContext context, {
+    required String title,
+    required String subtitle,
+  }) {
+    return [
+      SizedBox(height: context.w(28)),
+      Center(
+        child: Text(
+          title,
+          textAlign: TextAlign.center,
+          style: authDisplayStyle(context, size: 26),
+        ),
+      ),
+      SizedBox(height: context.w(10)),
+      Center(
+        child: Text(
+          subtitle,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: context.fs(13.5),
+            color: AppColors.authSubtle,
+            height: 1.4,
+          ),
+        ),
+      ),
+      SizedBox(height: context.w(34)),
+    ];
+  }
+
+  PinTheme _forgotPinTheme(BuildContext context, {Color? border, double width = 1}) {
+    return PinTheme(
+      width: context.w(52),
+      height: context.w(58),
+      textStyle: TextStyle(
+        fontSize: context.fs(20),
+        fontWeight: FontWeight.w600,
+        color: AppColors.authInk,
+      ),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(context.w(10)),
+        border: Border.all(
+          color: border ?? AppColors.authFieldBorder,
+          width: width,
+        ),
+      ),
+    );
+  }
+
   // ============================================================
-  // LOGIN STAGE (unchanged UI)
+  // LOGIN STAGE
   // ============================================================
   Widget _buildLoginStage(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // TOP ROW (unchanged)
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(width: context.wp(70)),
-            GestureDetector(
-              onTap: () => Navigator.pop(context),
-              child: Container(
-                height: context.hp(4.5),
-                width: context.hp(4.5),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.close,
-                  size: context.iconMedium,
+    return Form(
+      key: _formKey,
+      child: AuthScaffold(
+        onBack: Navigator.of(context).canPop()
+            ? () => Navigator.of(context).pop()
+            : null,
+        children: [
+          SizedBox(height: context.w(28)),
+          Center(
+            child: Text(
+              'Welcome back',
+              textAlign: TextAlign.center,
+              style: authDisplayStyle(context, size: 26),
+            ),
+          ),
+          SizedBox(height: context.w(10)),
+          Center(
+            child: Text(
+              'Enter your password for\n${widget.contact}',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: context.fs(13.5),
+                color: AppColors.authSubtle,
+                height: 1.4,
+              ),
+            ),
+          ),
+          SizedBox(height: context.w(34)),
+          TextFormField(
+            controller: _passwordController,
+            obscureText: _obscurePassword,
+            cursorColor: AppColors.AppBlue,
+            style: TextStyle(
+              fontSize: context.fs(14.5),
+              fontWeight: FontWeight.w500,
+              color: AppColors.authInk,
+            ),
+            decoration: authFieldDecoration(
+              context,
+              label: 'PASSWORD',
+              hintText: '••••••••',
+              suffix: Padding(
+                padding: EdgeInsets.only(right: context.w(6)),
+                child: IconButton(
+                  onPressed: () => setState(
+                    () => _obscurePassword = !_obscurePassword,
+                  ),
+                  splashRadius: context.w(20),
+                  icon: Icon(
+                    _obscurePassword
+                        ? Icons.visibility_off_outlined
+                        : Icons.visibility_outlined,
+                    size: context.w(20),
+                    color: AppColors.authSubtle,
+                  ),
                 ),
               ),
             ),
-          ],
-        ),
-
-        SizedBox(height: context.hp(2.5)),
-
-        // Title (unchanged)
-        Text(
-          'Welcome Back',
-          style: TextStyle(
-            fontSize: context.sp(22),
-            fontWeight: FontWeight.w800,
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return 'Password is required';
+              }
+              return null;
+            },
           ),
-          textAlign: TextAlign.center,
-        ),
-
-        SizedBox(height: context.hp(0.8)),
-
-        // Subtitle (unchanged)
-        Text(
-          'Enter your password for\n${widget.contact}',
-          style: TextStyle(
-            fontSize: context.sp(12),
-            color: Colors.grey.shade600,
-          ),
-          textAlign: TextAlign.center,
-        ),
-
-        SizedBox(height: context.hp(3)),
-
-        // Password Field (unchanged)
-        Form(
-          key: _formKey,
-          child: Column(
-            children: [
-              Container(
-                height: context.hp(6),
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey.shade300),
-                  borderRadius: BorderRadius.circular(context.borderRadiusMedium),
+          SizedBox(height: context.w(6)),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              onPressed: _openForgotPassword,
+              style: TextButton.styleFrom(
+                padding: EdgeInsets.symmetric(
+                  horizontal: context.w(6),
+                  vertical: context.w(4),
                 ),
-                child: TextField(
-                  controller: _passwordController,
-                  obscureText: _obscurePassword,
-                  style: TextStyle(fontSize: context.sp(15)),
-                  decoration: InputDecoration(
-                    hintText: 'Enter your password',
-                    hintStyle: TextStyle(color: Colors.grey.shade400),
-                    border: InputBorder.none,
-                    contentPadding: EdgeInsets.symmetric(
-                      horizontal: context.wp(4),
-                      vertical: context.hp(2),
-                    ),
-                    suffixIcon: IconButton(
-                      onPressed: () {
-                        setState(() {
-                          _obscurePassword = !_obscurePassword;
-                        });
-                      },
-                      icon: Icon(
-                        _obscurePassword
-                            ? Icons.visibility_off
-                            : Icons.visibility,
-                        color: Colors.grey.shade500,
-                        size: context.iconSmall,
-                      ),
-                    ),
-                  ),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              child: Text(
+                'Forgot Password?',
+                style: TextStyle(
+                  fontSize: context.fs(13),
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.AppBlue,
                 ),
               ),
-
-              Align(
-                alignment: Alignment.centerRight,
-                child: TextButton(
-                  onPressed: _openForgotPassword,
-                  child: Text(
-                    'Forgot Password?',
-                    style: TextStyle(
-                      fontSize: context.sp(13),
-                      color: AppColors.accent,
-                    ),
-                  ),
-                ),
-              ),
-
-              SizedBox(height: context.hp(2)),
-
-              // Login Button (UPDATED)
-              BlocBuilder<LoginBloc, LoginState>( // ← Use LoginBloc
-                builder: (context, state) {
-                  final isLoading = state is LoginLoading;
-                  return SizedBox(
-                    width: double.infinity,
-                    height: context.hp(6),
-                    child: ElevatedButton(
-                      onPressed: isLoading ? null : _login,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.accent,
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(context.borderRadiusMedium),
-                        ),
-                      ),
-                      child: isLoading
-                          ? SizedBox(
-                        height: context.hp(3),
-                        width: context.hp(3),
-                        child: CircularProgressIndicator(
-                          strokeWidth: context.dividerThin,
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                        ),
-                      )
-                          : Text(
-                        'Login',
-                        style: TextStyle(
-                          fontSize: context.sp(18),
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ],
+            ),
           ),
-        ),
-
-        SizedBox(height: context.hp(2)),
-      ],
+          SizedBox(height: context.w(26)),
+          BlocBuilder<LoginBloc, LoginState>(
+            builder: (context, state) {
+              return AuthPrimaryButton(
+                label: 'LOGIN',
+                isLoading: state is LoginLoading,
+                onPressed: _login,
+              );
+            },
+          ),
+        ],
+      ),
     );
   }
 
@@ -391,473 +348,212 @@ class _LoginPasswordPopupState extends State<LoginPasswordPopup> {
   // FORGOT PASSWORD — STEP 1: ENTER EMAIL
   // ============================================================
   Widget _buildForgotEmailStage(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
+    return AuthScaffold(
+      onBack: () => setState(() => _forgotStage = _ForgotStage.none),
       children: [
-        _buildStageTopRow(context, onBack: () => setState(() => _forgotStage = _ForgotStage.none)),
-
-        SizedBox(height: context.hp(2.5)),
-
-        Text(
-          'Forgot Password?',
+        ..._stageHeading(
+          context,
+          title: 'Forgot Password',
+          subtitle: 'Please enter your email to reset the password',
+        ),
+        TextField(
+          controller: _forgotEmailController,
+          keyboardType: TextInputType.emailAddress,
+          cursorColor: AppColors.AppBlue,
+          onChanged: (_) {
+            if (_forgotEmailError != null) {
+              setState(() => _forgotEmailError = null);
+            }
+          },
           style: TextStyle(
-            fontSize: context.sp(22),
-            fontWeight: FontWeight.w800,
+            fontSize: context.fs(14.5),
+            fontWeight: FontWeight.w500,
+            color: AppColors.authInk,
           ),
-          textAlign: TextAlign.center,
-        ),
-
-        SizedBox(height: context.hp(0.8)),
-
-        Text(
-          'Enter your registered email to receive\na verification code',
-          style: TextStyle(
-            fontSize: context.sp(12),
-            color: Colors.grey.shade600,
-          ),
-          textAlign: TextAlign.center,
-        ),
-
-        SizedBox(height: context.hp(3)),
-
-        Container(
-          height: context.hp(6),
-          decoration: BoxDecoration(
-            border: Border.all(color: Colors.grey.shade300),
-            borderRadius: BorderRadius.circular(context.borderRadiusMedium),
-          ),
-          child: TextField(
-            controller: _forgotEmailController,
-            keyboardType: TextInputType.emailAddress,
-            style: TextStyle(fontSize: context.sp(15)),
-            decoration: InputDecoration(
-              hintText: 'Enter your email',
-              hintStyle: TextStyle(color: Colors.grey.shade400),
-              border: InputBorder.none,
-              contentPadding: EdgeInsets.symmetric(
-                horizontal: context.wp(4),
-                vertical: context.hp(2),
-              ),
-              prefixIcon: Icon(
-                Icons.email_outlined,
-                color: Colors.grey.shade500,
-                size: context.iconSmall,
-              ),
-            ),
+          decoration: authFieldDecoration(
+            context,
+            label: 'EMAIL ADDRESS',
+            hintText: 'you@example.com',
+            icon: Icons.mail,
+            hasError: _forgotEmailError != null,
           ),
         ),
-
         if (_forgotEmailError != null) ...[
-          SizedBox(height: context.hp(0.8)),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              _forgotEmailError!,
-              style: TextStyle(
-                color: Colors.red,
-                fontSize: context.sp(11),
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
+          SizedBox(height: context.w(10)),
+          _ForgotError(message: _forgotEmailError!),
         ],
-
-        SizedBox(height: context.hp(2.5)),
-
+        SizedBox(height: context.w(26)),
         BlocBuilder<SendOtpBloc, SendOtpState>(
           builder: (context, state) {
-            final isLoading = state is SendOtpLoading;
-            return SizedBox(
-              width: double.infinity,
-              height: context.hp(6),
-              child: ElevatedButton(
-                onPressed: isLoading ? null : _sendForgotOtp,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.accent,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(context.borderRadiusMedium),
-                  ),
-                ),
-                child: isLoading
-                    ? SizedBox(
-                  height: context.hp(3),
-                  width: context.hp(3),
-                  child: CircularProgressIndicator(
-                    strokeWidth: context.dividerThin,
-                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                  ),
-                )
-                    : Text(
-                  'Send Verification Code',
-                  style: TextStyle(
-                    fontSize: context.sp(16),
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
+            return AuthPrimaryButton(
+              label: 'RESET PASSWORD',
+              isLoading: state is SendOtpLoading,
+              onPressed: _sendForgotOtp,
             );
           },
         ),
-
-        SizedBox(height: context.hp(2)),
       ],
     );
   }
 
   // ============================================================
-  // FORGOT PASSWORD — STEP 2: VERIFY OTP (pinput)
+  // FORGOT PASSWORD — STEP 2: ENTER CODE
   // ============================================================
   Widget _buildForgotOtpStage(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
+    return AuthScaffold(
+      onBack: () => setState(() => _forgotStage = _ForgotStage.email),
       children: [
-        _buildStageTopRow(context, onBack: () => setState(() => _forgotStage = _ForgotStage.email)),
-
-        SizedBox(height: context.hp(2.5)),
-
-        Text(
-          'Verify Your Email',
-          style: TextStyle(
-            fontSize: context.sp(22),
-            fontWeight: FontWeight.w800,
-          ),
-          textAlign: TextAlign.center,
+        ..._stageHeading(
+          context,
+          title: 'Forgot Password',
+          subtitle: 'Please enter your email to reset the password',
         ),
-
-        SizedBox(height: context.hp(0.8)),
-
-        Text(
-          'Enter the 6-digit code sent to\n${_forgotEmailController.text.trim()}',
-          style: TextStyle(
-            fontSize: context.sp(12),
-            color: Colors.grey.shade600,
+        Center(
+          child: Pinput(
+            length: 6,
+            defaultPinTheme: _forgotPinTheme(context),
+            focusedPinTheme:
+                _forgotPinTheme(context, border: AppColors.AppBlue, width: 1.6),
+            submittedPinTheme:
+                _forgotPinTheme(context, border: AppColors.AppBlue, width: 1.6),
+            errorPinTheme:
+                _forgotPinTheme(context, border: AppColors.OrangeColor),
+            mainAxisAlignment: MainAxisAlignment.center,
+            separatorBuilder: (_) => SizedBox(width: context.w(8)),
+            onChanged: (value) => setState(() => _otpCode = value),
+            onCompleted: (pin) {
+              setState(() => _otpCode = pin);
+              _verifyForgotOtp();
+            },
           ),
-          textAlign: TextAlign.center,
         ),
-
-        SizedBox(height: context.hp(3)),
-
-        Pinput(
-          length: 6,
-          defaultPinTheme: PinTheme(
-            width: context.wp(11),
-            height: context.hp(7),
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.grey.shade300),
-              borderRadius: BorderRadius.circular(context.borderRadiusMedium),
-            ),
-            textStyle: TextStyle(
-              fontSize: context.titleMedium,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          focusedPinTheme: PinTheme(
-            width: context.wp(11),
-            height: context.hp(7),
-            decoration: BoxDecoration(
-              border: Border.all(color: AppColors.accent, width: 2),
-              borderRadius: BorderRadius.circular(context.borderRadiusMedium),
-            ),
-            textStyle: TextStyle(
-              fontSize: context.titleMedium,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          submittedPinTheme: PinTheme(
-            width: context.wp(11),
-            height: context.hp(7),
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.green),
-              borderRadius: BorderRadius.circular(context.borderRadiusMedium),
-            ),
-            textStyle: TextStyle(
-              fontSize: context.titleMedium,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          errorPinTheme: PinTheme(
-            width: context.wp(11),
-            height: context.hp(7),
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.red),
-              borderRadius: BorderRadius.circular(context.borderRadiusMedium),
-            ),
-          ),
-          onChanged: (value) => setState(() => _otpCode = value),
-          onCompleted: (pin) {
-            setState(() => _otpCode = pin);
-            _verifyForgotOtp();
+        SizedBox(height: context.w(30)),
+        BlocBuilder<VerifyOtpBloc, VerifyOtpState>(
+          builder: (context, state) {
+            return AuthPrimaryButton(
+              label: 'VERIFY CODE',
+              isLoading: state is VerifyOtpLoading,
+              onPressed: _verifyForgotOtp,
+            );
           },
         ),
-
-        SizedBox(height: context.hp(2)),
-
+        SizedBox(height: context.w(18)),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(
-              "Didn't receive code? ",
+              "Haven't got the email yet? ",
               style: TextStyle(
-                fontSize: context.sp(13),
-                color: Colors.grey.shade600,
+                fontSize: context.fs(13),
+                color: AppColors.authSubtle,
               ),
             ),
-            BlocBuilder<SendOtpBloc, SendOtpState>(
-              builder: (context, state) {
-                final isResending = state is SendOtpLoading;
-                return TextButton(
-                  onPressed: isResending ? null : _sendForgotOtp,
-                  style: TextButton.styleFrom(padding: EdgeInsets.zero),
-                  child: Text(
-                    'Resend',
-                    style: TextStyle(
-                      fontSize: context.sp(13),
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.accent,
-                    ),
-                  ),
-                );
-              },
+            GestureDetector(
+              onTap: _sendForgotOtp,
+              child: Text(
+                'Resend email',
+                style: TextStyle(
+                  fontSize: context.fs(13),
+                  fontWeight: FontWeight.w500,
+                  decoration: TextDecoration.underline,
+                  decorationColor: AppColors.AppBlue,
+                  color: AppColors.AppBlue,
+                ),
+              ),
             ),
           ],
         ),
-
-        SizedBox(height: context.hp(2)),
-
-        BlocBuilder<VerifyOtpBloc, VerifyOtpState>(
-          builder: (context, state) {
-            final isLoading = state is VerifyOtpLoading;
-            return SizedBox(
-              width: double.infinity,
-              height: context.hp(6),
-              child: ElevatedButton(
-                onPressed: (isLoading || _otpCode.length != 6) ? null : _verifyForgotOtp,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.accent,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(context.borderRadiusMedium),
-                  ),
-                ),
-                child: isLoading
-                    ? SizedBox(
-                  height: context.hp(3),
-                  width: context.hp(3),
-                  child: CircularProgressIndicator(
-                    strokeWidth: context.dividerThin,
-                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                  ),
-                )
-                    : Text(
-                  'Verify Code',
-                  style: TextStyle(
-                    fontSize: context.sp(16),
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-            );
-          },
-        ),
-
-        SizedBox(height: context.hp(2)),
       ],
     );
   }
 
   // ============================================================
-  // FORGOT PASSWORD — STEP 3: NEW PASSWORD + CONFIRM
+  // FORGOT PASSWORD — STEP 3: SET A NEW PASSWORD
   // ============================================================
   Widget _buildForgotNewPasswordStage(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
+    return AuthScaffold(
+      onBack: () => setState(() => _forgotStage = _ForgotStage.otp),
       children: [
-        _buildStageTopRow(context, onBack: () => setState(() => _forgotStage = _ForgotStage.otp)),
-
-        SizedBox(height: context.hp(2.5)),
-
-        Text(
-          'Set New Password',
-          style: TextStyle(
-            fontSize: context.sp(20),
-            fontWeight: FontWeight.w600,
-          ),
-          textAlign: TextAlign.center,
+        ..._stageHeading(
+          context,
+          title: 'Set a new password',
+          subtitle: 'Create new password. Ensure it differs from previous '
+              'ones for security',
         ),
-
-        SizedBox(height: context.hp(0.8)),
-
-        Text(
-          'Create a new password for\n${_forgotEmailController.text.trim()}',
-          style: TextStyle(
-            fontSize: context.sp(10),
-            color: Colors.grey.shade600,
-          ),
-          textAlign: TextAlign.center,
+        _buildForgotPasswordField(
+          label: 'PASSWORD',
+          controller: _newPasswordController,
+          obscureText: _obscureNewPassword,
+          onToggle: () =>
+              setState(() => _obscureNewPassword = !_obscureNewPassword),
         ),
-
-        SizedBox(height: context.hp(3)),
-
-        Container(
-          height: context.hp(6),
-          decoration: BoxDecoration(
-            border: Border.all(color: Colors.grey.shade300),
-            borderRadius: BorderRadius.circular(context.borderRadiusMedium),
-          ),
-          child: TextField(
-            controller: _newPasswordController,
-            obscureText: _obscureNewPassword,
-            style: TextStyle(fontSize: context.sp(15)),
-            decoration: InputDecoration(
-              hintText: 'New password',
-              hintStyle: TextStyle(color: Colors.grey.shade400),
-              border: InputBorder.none,
-              contentPadding: EdgeInsets.symmetric(
-                horizontal: context.wp(4),
-                vertical: context.hp(2),
-              ),
-              suffixIcon: IconButton(
-                onPressed: () => setState(() => _obscureNewPassword = !_obscureNewPassword),
-                icon: Icon(
-                  _obscureNewPassword ? Icons.visibility_off : Icons.visibility,
-                  color: Colors.grey.shade500,
-                  size: context.iconSmall,
-                ),
-              ),
-            ),
+        SizedBox(height: context.w(18)),
+        _buildForgotPasswordField(
+          label: 'CONFIRM PASSWORD',
+          controller: _confirmPasswordController,
+          obscureText: _obscureConfirmPassword,
+          onToggle: () => setState(
+            () => _obscureConfirmPassword = !_obscureConfirmPassword,
           ),
         ),
-
-        SizedBox(height: context.hp(1.5)),
-
-        Container(
-          height: context.hp(6),
-          decoration: BoxDecoration(
-            border: Border.all(color: Colors.grey.shade300),
-            borderRadius: BorderRadius.circular(context.borderRadiusMedium),
-          ),
-          child: TextField(
-            controller: _confirmPasswordController,
-            obscureText: _obscureConfirmPassword,
-            style: TextStyle(fontSize: context.sp(15)),
-            decoration: InputDecoration(
-              hintText: 'Confirm new password',
-              hintStyle: TextStyle(color: Colors.grey.shade400),
-              border: InputBorder.none,
-              contentPadding: EdgeInsets.symmetric(
-                horizontal: context.wp(4),
-                vertical: context.hp(2),
-              ),
-              suffixIcon: IconButton(
-                onPressed: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
-                icon: Icon(
-                  _obscureConfirmPassword ? Icons.visibility_off : Icons.visibility,
-                  color: Colors.grey.shade500,
-                  size: context.iconSmall,
-                ),
-              ),
-            ),
-          ),
-        ),
-
         if (_newPasswordFieldError != null) ...[
-          SizedBox(height: context.hp(0.8)),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              _newPasswordFieldError!,
-              style: TextStyle(
-                color: Colors.red,
-                fontSize: context.sp(11),
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
+          SizedBox(height: context.w(10)),
+          _ForgotError(message: _newPasswordFieldError!),
         ],
-
-        SizedBox(height: context.hp(2.5)),
-
+        SizedBox(height: context.w(30)),
         BlocBuilder<ResetPasswordBloc, ResetPasswordState>(
           builder: (context, state) {
-            final isLoading = state is ResetPasswordLoading;
-            return SizedBox(
-              width: double.infinity,
-              height: context.hp(6),
-              child: ElevatedButton(
-                onPressed: isLoading ? null : _submitNewPassword,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.accent,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(context.borderRadiusMedium),
-                  ),
-                ),
-                child: isLoading
-                    ? SizedBox(
-                  height: context.hp(3),
-                  width: context.hp(3),
-                  child: CircularProgressIndicator(
-                    strokeWidth: context.dividerThin,
-                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                  ),
-                )
-                    : Text(
-                  'Reset Password',
-                  style: TextStyle(
-                    fontSize: context.sp(16),
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
+            return AuthPrimaryButton(
+              label: 'UPDATE PASSWORD',
+              isLoading: state is ResetPasswordLoading,
+              onPressed: _submitNewPassword,
             );
           },
         ),
-
-        SizedBox(height: context.hp(2)),
       ],
     );
   }
 
-  // Shared top row for every forgot-password step: back arrow + close button.
-  Widget _buildStageTopRow(BuildContext context, {required VoidCallback onBack}) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        GestureDetector(
-          onTap: onBack,
-          child: Container(
-            height: context.hp(4.5),
-            width: context.hp(4.5),
-            decoration: BoxDecoration(
-              color: Colors.grey.shade100,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              Icons.arrow_back,
-              size: context.iconMedium,
+  Widget _buildForgotPasswordField({
+    required String label,
+    required TextEditingController controller,
+    required bool obscureText,
+    required VoidCallback onToggle,
+  }) {
+    return TextField(
+      controller: controller,
+      obscureText: obscureText,
+      cursorColor: AppColors.AppBlue,
+      onChanged: (_) {
+        if (_newPasswordFieldError != null) {
+          setState(() => _newPasswordFieldError = null);
+        }
+      },
+      style: TextStyle(
+        fontSize: context.fs(14.5),
+        fontWeight: FontWeight.w500,
+        color: AppColors.authInk,
+      ),
+      decoration: authFieldDecoration(
+        context,
+        label: label,
+        hintText: '••••••••',
+        hasError: _newPasswordFieldError != null,
+        suffix: Padding(
+          padding: EdgeInsets.only(right: context.w(6)),
+          child: IconButton(
+            onPressed: onToggle,
+            splashRadius: context.w(20),
+            icon: Icon(
+              obscureText
+                  ? Icons.visibility_off_outlined
+                  : Icons.visibility_outlined,
+              size: context.w(20),
+              color: AppColors.authSubtle,
             ),
           ),
         ),
-        GestureDetector(
-          onTap: () => Navigator.pop(context),
-          child: Container(
-            height: context.hp(4.5),
-            width: context.hp(4.5),
-            decoration: BoxDecoration(
-              color: Colors.grey.shade100,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              Icons.close,
-              size: context.iconMedium,
-            ),
-          ),
-        ),
-      ],
+      ),
     );
   }
 
@@ -957,6 +653,9 @@ class _LoginPasswordPopupState extends State<LoginPasswordPopup> {
 
   // ← NEW: Handle login API call
   void _login() {
+    // The login stage is a Form now, so honour its validator before firing.
+    if (_formKey.currentState?.validate() == false) return;
+
     final password = _passwordController.text.trim();
 
     // ← Trigger LoginBloc event with contact + password
@@ -1012,22 +711,18 @@ class _LoginPasswordPopupState extends State<LoginPasswordPopup> {
 
     print('Login successful: User data saved');
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'Login Successful',
-          style: TextStyle(fontSize: context.bodyMedium),
-        ),
-        backgroundColor: Colors.red,
-      ),
-    );
     if (mounted) {
       // Clear the whole auth stack rather than popping a fixed number of
       // routes: this popup is reached both from the splash gate (where the
       // login screen is the only route) and from overlays elsewhere in the
       // app, so the depth below it varies.
       Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const HomeScreen()),
+        MaterialPageRoute(
+          builder: (_) => const LoginSuccessScreen(
+            message: 'Congratulations! You are signed in. '
+                'Click continue to book',
+          ),
+        ),
         (route) => false,
       );
     }
@@ -1044,5 +739,37 @@ class _LoginPasswordPopupState extends State<LoginPasswordPopup> {
     _verifyOtpBloc.close();
     _resetPasswordBloc.close();
     super.dispose();
+  }
+}
+
+/// Inline validation message used by the forgot-password steps.
+class _ForgotError extends StatelessWidget {
+  const _ForgotError({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(
+          Icons.error_outline,
+          size: context.w(16),
+          color: AppColors.OrangeColor,
+        ),
+        SizedBox(width: context.w(6)),
+        Expanded(
+          child: Text(
+            message,
+            style: TextStyle(
+              fontSize: context.fs(12.5),
+              color: AppColors.OrangeColor,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      ],
+    );
   }
 }

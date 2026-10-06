@@ -3,7 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import 'package:wander_nova/core/resources/app_colours.dart';
 
-import 'wander_logo.dart';
+import '../../../newUIWidgets/FooterImage.dart';
 
 /// Dial codes offered by the phone field on the auth screens.
 class AuthDial {
@@ -43,90 +43,76 @@ class AuthScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // The badge sits at the foot of the page, so the Scaffold's keyboard
+    // inset would otherwise carry it up the screen with the keyboard. Drop
+    // it while typing instead: it belongs at the bottom or nowhere.
+    final isKeyboardOpen = MediaQuery.of(context).viewInsets.bottom > 0;
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            return SingleChildScrollView(
-              physics: const ClampingScrollPhysics(),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(
-                      maxWidth: context.isMobile ? double.infinity : 460,
-                    ),
-                    child: Padding(
-                      padding: EdgeInsets.symmetric(horizontal: context.w(20)),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          SizedBox(height: context.w(8)),
-                          if (onBack != null)
-                            Align(
-                              alignment: Alignment.centerLeft,
-                              child: IconButton(
-                                onPressed: onBack,
-                                padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(),
-                                icon: Icon(
-                                  Icons.arrow_back,
-                                  size: context.w(22),
-                                  color: AppColors.authInk,
-                                ),
-                              ),
+        child: Column(                          // 👈 NEW
+          children: [
+            Expanded(                           // 👈 NEW
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  return SingleChildScrollView(
+                    physics: const ClampingScrollPhysics(),
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                      // Top-aligned, not centred: every screen in the design
+                      // starts at the top, with the badge pinned below.
+                      child: Align(
+                        alignment: Alignment.topCenter,
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            maxWidth: context.isMobile ? double.infinity : 460,
+                          ),
+                          child: Padding(
+                            padding: EdgeInsets.symmetric(horizontal: context.w(20)),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                SizedBox(height: context.w(8)),
+                                if (onBack != null)
+                                  Align(
+                                    alignment: Alignment.centerLeft,
+                                    child: IconButton(
+                                      onPressed: onBack,
+                                      padding: EdgeInsets.zero,
+                                      constraints: const BoxConstraints(),
+                                      icon: Icon(
+                                        Icons.arrow_back,
+                                        size: context.w(22),
+                                        color: AppColors.authInk,
+                                      ),
+                                    ),
+                                  ),
+                                ...children,
+                                SizedBox(height: context.w(28)),
+                                // 👇 footer lines REMOVED from here
+                              ],
                             ),
-                          ...children,
-                          SizedBox(height: context.w(28)),
-                          if (showBadge) const AuthFooterBadge(),
-                          SizedBox(height: context.w(16)),
-                        ],
+                          ),
+                        ),
                       ),
                     ),
-                  ),
-                ),
+                  );
+                },
               ),
-            );
-          },
+            ),
+            if (showBadge && !isKeyboardOpen)
+              Padding(
+                padding: EdgeInsets.only(bottom: context.w(2)),
+                child: const AuthFooterBadge(),
+              ),
+          ],
         ),
       ),
     );
   }
 }
 
-class AuthFooterBadge extends StatelessWidget {
-  const AuthFooterBadge({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Image.asset(
-        WanderLogoLayers.footerBadge,
-        width: context.w(210),
-        fit: BoxFit.contain,
-        filterQuality: FilterQuality.medium,
-      ),
-    );
-  }
-}
-
-/// The brush headline the designs use for "Hi, Traveller!", "Enter your code"
-/// and "Set a new password".
-///
-/// The export does not name its family; Caveat Brush, slanted, is the closest
-/// match. It is bundled in `assets/fonts`, so swapping it means dropping in a
-/// different file and changing the family here.
-// TextStyle authDisplayStyle(BuildContext context, {double size = 26}) {
-//   return TextStyle(
-//     fontFamily: 'CaveatBrush',
-//     fontSize: context.fs(size),
-//     fontWeight: FontWeight.w400,
-//     fontStyle: FontStyle.italic,
-//     color: AppColors.authInk,
-//     height: 1.2,
-//   );
-// }
 
 TextStyle authDisplayStyle(BuildContext context, {double size = 20}) {
   return GoogleFonts.merienda(
@@ -236,9 +222,9 @@ class AuthPrimaryButton extends StatelessWidget {
             : Text(
                 label,
                 style: TextStyle(
-                  fontSize: context.fs(14),
+                  fontSize: context.fs(13),
                   fontWeight: FontWeight.w600,
-                  letterSpacing: 0.4,
+                  // letterSpacing: 0.4,
                   color: Colors.white,
                 ),
               ),
@@ -451,9 +437,12 @@ Future<AuthDial?> showAuthDialPicker(BuildContext context) {
       borderRadius: BorderRadius.vertical(top: Radius.circular(context.w(20))),
     ),
     builder: (sheetContext) {
+      // A list, not a Column: eight rows are taller than the sheet's own
+      // max height on shorter devices, which overflowed instead of scrolling.
       return SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+        child: ListView(
+          shrinkWrap: true,
+          padding: EdgeInsets.zero,
           children: AuthDial.all.map((dial) {
             return ListTile(
               onTap: () => Navigator.of(sheetContext).pop(dial),

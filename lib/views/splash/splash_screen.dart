@@ -76,8 +76,8 @@ class SplashScreen extends StatefulWidget {
 
 class _SplashScreenState extends State<SplashScreen>
     with SingleTickerProviderStateMixin {
-  static const _buildDuration = Duration(milliseconds: 3200);
-  static const _hold = Duration(milliseconds: 700);
+  static const _buildDuration = Duration(milliseconds: 2000);
+  static const _hold = Duration(milliseconds: 380);
 
   late final AnimationController _controller;
   bool _started = false;
@@ -146,7 +146,7 @@ class _SplashScreenState extends State<SplashScreen>
           child: Hero(
             tag: WanderLogo.heroTag,
             child: WanderLogo(
-              width: context.w(230),
+              width: context.w(190),
               progress: _controller,
             ),
           ),

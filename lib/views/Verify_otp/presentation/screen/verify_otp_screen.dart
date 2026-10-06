@@ -115,16 +115,16 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
 
   PinTheme _pinTheme({Color? border, double width = 1}) {
     return PinTheme(
-      width: context.w(52),
-      height: context.w(58),
+      width: context.w(44),
+      height: context.w(44),
       textStyle: TextStyle(
         fontSize: context.fs(20),
         fontWeight: FontWeight.w600,
         color: AppColors.authInk,
       ),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(context.w(10)),
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(context.w(8)),
         border: Border.all(
           color: border ?? AppColors.authFieldBorder,
           width: width,
@@ -163,25 +163,26 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
         }
       },
       child: AuthScaffold(
-        onBack: () => Navigator.of(context).pop(),
+        // onBack: () => Navigator.of(context).pop(),
         children: [
           SizedBox(height: context.w(10)),
-          Center(child: WanderLogo.still(width: context.w(150))),
+          Center(child: WanderLogo.still(width: context.w(130))),
           SizedBox(height: context.w(38)),
           Center(
             child: Text(
               'Enter your code',
-              style: authDisplayStyle(context, size: 24),
+              style: authDisplayStyle(context, size: 20),
             ),
           ),
-          SizedBox(height: context.w(10)),
+          SizedBox(height: context.w(8)),
           Center(
             child: Text(
               'A $_otpLength digit code has been sent to '
               '${_isEmail ? 'your mail' : 'your phone'}',
               textAlign: TextAlign.center,
               style: TextStyle(
-                fontSize: context.fs(13.5),
+                fontSize: context.fs(12),
+                fontWeight: FontWeight.w400,
                 color: AppColors.authSubtle,
               ),
             ),
@@ -191,7 +192,8 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
             child: Text(
               widget.contact,
               style: TextStyle(
-                fontSize: context.fs(13.5),
+                fontSize: context.fs(12),
+                fontWeight: FontWeight.w400,
                 color: AppColors.AppBlue,
               ),
             ),
@@ -203,8 +205,8 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
               child: Pinput(
                 length: _otpLength,
                 defaultPinTheme: _pinTheme(),
-                focusedPinTheme: _pinTheme(border: AppColors.AppBlue, width: 1.6),
-                submittedPinTheme: _pinTheme(border: AppColors.AppBlue, width: 1.6),
+                focusedPinTheme: _pinTheme(border: AppColors.AppBlue, width: 1),
+                submittedPinTheme: _pinTheme(border: AppColors.AppBlue, width: 1),
                 errorPinTheme: _pinTheme(border: AppColors.OrangeColor),
                 mainAxisAlignment: MainAxisAlignment.center,
                 separatorBuilder: (_) => SizedBox(width: context.w(8)),
@@ -223,8 +225,8 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
               Text(
                 _countdown,
                 style: TextStyle(
-                  fontSize: context.fs(13.5),
-                  fontWeight: FontWeight.w500,
+                  fontSize: context.fs(12),
+                  fontWeight: FontWeight.w600,
                   color: AppColors.AppBlue,
                 ),
               ),
@@ -233,8 +235,8 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
                 child: Text(
                   'Resend Code',
                   style: TextStyle(
-                    fontSize: context.fs(13.5),
-                    fontWeight: FontWeight.w500,
+                    fontSize: context.fs(12),
+                    fontWeight: FontWeight.w400,
                     decoration: TextDecoration.underline,
                     decorationColor: _secondsLeft > 0
                         ? AppColors.authHint
