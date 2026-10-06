@@ -17,6 +17,7 @@ class PreferencesManager {
     return PreferencesManager._(prefs);
   }
 
+  static const String _selectedCountryKey = 'selected_country';
   static const String _preferredCurrencyKey = 'preferred_currency';
   static const String _exchangeRatesKey = 'exchange_rates_cache';
   static const String _currencyAutoDetectKey = 'currency_auto_detect';
@@ -238,6 +239,13 @@ class PreferencesManager {
     await _prefs.remove(_isSocialLoginKey);
     await _prefs.remove(_userPasswordKey);
   }
+
+  /// Country picked on the splash screen, as an ISO code ("IN", "US", …).
+  /// Null until the user has been through that screen once.
+  String? getSelectedCountry() => _prefs.getString(_selectedCountryKey);
+
+  Future<bool> saveSelectedCountry(String isoCode) =>
+      _prefs.setString(_selectedCountryKey, isoCode);
 
   String? getPreferredCurrency() => _prefs.getString(_preferredCurrencyKey);
 

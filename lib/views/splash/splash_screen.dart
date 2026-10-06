@@ -1,15 +1,72 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:wander_nova/core/resources/app_colours.dart';
-import '../../UI_helper/navigation_queue.dart';
+import 'package:wander_nova/injection_container.dart' as di;
+
 import '../../UI_helper/responsive_layout.dart';
+import '../../core/utils/storage/shared_preference.dart';
 import '../home/presentation/screens/home_screen.dart';
 import '../login/presentation/screen/login.dart';
-import '../auth/presentation/bloc/auth_bloc.dart';
-import '../auth/presentation/bloc/auth_state.dart';
+import 'screen/choose_country_screen.dart';
+import 'widgets/wander_logo.dart';
 
+/// Cross-fade between the screens of the splash flow.
+PageRouteBuilder<void> fadeRoute(Widget page) {
+  return PageRouteBuilder<void>(
+    transitionDuration: const Duration(milliseconds: 700),
+    reverseTransitionDuration: const Duration(milliseconds: 400),
+    pageBuilder: (_, animation, __) => FadeTransition(
+      opacity: CurvedAnimation(parent: animation, curve: Curves.easeOut),
+      child: page,
+    ),
+  );
+}
+
+/// Where the splash flow can send the user.
+enum SplashDestination { home, country, login }
+
+/// True when a signed-in session is already on the device.
+///
+/// This reads storage rather than [AuthBloc], deliberately. The bloc is a
+/// factory behind a lazy provider, so the first `read` of it is also what
+/// constructs it — its own startup check has not been handled yet at that
+/// point, the state is still [AuthInitial], and a signed-in user would be
+/// sent to the login screen. The condition here is the same one
+/// `AuthCheckStatusRequested` applies.
+bool hasStoredSession() {
+  final prefs = di.sl<PreferencesManager>();
+  return prefs.isLoggedIn() &&
+      prefs.getUserData() != null &&
+      prefs.getToken() != null;
+}
+
+/// Decides where the splash hands off to. Signed-in users go straight to the
+/// home screen — the country step is first-run onboarding, not a gate.
+SplashDestination splashDestination() {
+  if (hasStoredSession()) return SplashDestination.home;
+  if (di.sl<PreferencesManager>().getSelectedCountry() == null) {
+    return SplashDestination.country;
+  }
+  return SplashDestination.login;
+}
+
+/// Where the app goes once the splash flow is done: straight to the home
+/// screen for a session we already have, otherwise the login gate, which is
+/// the only way through.
+void continuePastSplash(BuildContext context) {
+  Navigator.of(context).pushReplacement(
+    fadeRoute(
+      hasStoredSession()
+          ? const HomeScreen()
+          : const LoginSignupScreen(isGate: true),
+    ),
+  );
+}
+
+/// Entry screen. Builds the Wander Nova mark a stroke at a time, then hands
+/// off: straight to the home screen for a user we already have a session for,
+/// otherwise to the login/signup gate, which is the only way through.
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
@@ -19,57 +76,59 @@ class SplashScreen extends StatefulWidget {
 
 class _SplashScreenState extends State<SplashScreen>
     with SingleTickerProviderStateMixin {
+  static const _buildDuration = Duration(milliseconds: 3200);
+  static const _hold = Duration(milliseconds: 700);
+
   late final AnimationController _controller;
+  bool _started = false;
+  bool _routed = false;
 
   @override
   void initState() {
     super.initState();
-
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 2800),
-    );
-
-    _controller.forward();
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      // The splash sits idle for ~3s before routing away. Spend that time
-      // pulling the home screen's hero photo out of the disk cache and into
-      // the decoded-image cache, so the home screen can paint it on its
-      // first frame instead of starting the fetch only once it's on screen.
-      if (mounted) HomeHeroBanner.warmUp(context);
-      _coordinateAppRouting();
-    });
+    _controller = AnimationController(vsync: this, duration: _buildDuration);
   }
 
-  void _coordinateAppRouting() async {
-    // wait slightly BEFORE navigation starts (sync with animation peak)
-    await Future.delayed(const Duration(milliseconds: 3000));
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_started) return;
+    _started = true;
+    unawaited(_run());
+  }
 
+  Future<void> _run() async {
+    // Decode the logo slices before the first frame of the build, but never
+    // let a slow decode hold the splash hostage.
+    await Future.any([
+      WanderLogoLayers.precache(context),
+      Future<void>.delayed(const Duration(milliseconds: 800)),
+    ]);
     if (!mounted) return;
 
-    final authState = context.read<AuthBloc>().state;
+    // The splash is idle for a couple of seconds — spend it pulling the home
+    // screen's hero photo into the decoded-image cache.
+    HomeHeroBanner.warmUp(context);
 
-    final Widget nextScreen = authState is AuthAuthenticated
-        ? const HomeScreen()
-        : const HomeScreenWrapper();
+    await _controller.forward();
+    await Future<void>.delayed(_hold);
+    if (!mounted) return;
+    _routeOnward();
+  }
 
-    Navigator.pushReplacement(
-      context,
-      PageRouteBuilder(
-        transitionDuration: const Duration(milliseconds: 900),
-        reverseTransitionDuration: const Duration(milliseconds: 500),
-        pageBuilder: (_, animation, __) {
-          return FadeTransition(
-            opacity: CurvedAnimation(
-              parent: animation,
-              curve: Curves.easeOut,
-            ),
-            child: nextScreen,
-          );
-        },
-      ),
-    );
+  void _routeOnward() {
+    if (_routed) return;
+    _routed = true;
+
+    switch (splashDestination()) {
+      case SplashDestination.home:
+      case SplashDestination.login:
+        continuePastSplash(context);
+      case SplashDestination.country:
+        Navigator.of(context).pushReplacement(
+          fadeRoute(ChooseCountryScreen(onContinue: continuePastSplash)),
+        );
+    }
   }
 
   @override
@@ -78,105 +137,21 @@ class _SplashScreenState extends State<SplashScreen>
     super.dispose();
   }
 
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // backgroundColor: Colors.white,
-      backgroundColor: AppColors.navy,
-      body: Stack(
-        children:[
-          Center(
-          child: AnimatedBuilder(
-            animation: _controller,
-            builder: (context, child) {
-              final t = Curves.easeInOutCubic.transform(_controller.value);
-
-              // smooth zoom progression
-              final scale = 0.6 + (t * 2);
-
-              return Transform.scale(
-                scale: scale,
-                child: Opacity(
-                  opacity: (1.0 - (_controller.value * 0.6)).clamp(0.0, 1.0),
-                  child: Image.asset(
-                    'assets/images/wander_logo.png',
-                    // 'assets/images/wander_nova_logo.jpg',
-                    height: context.h(150),
-                    fit: BoxFit.contain,
-                    filterQuality: FilterQuality.high,
-                  ),
-                ),
-              );
-            },
+      body: DecoratedBox(
+        decoration: const BoxDecoration(gradient: AppColors.splashGradient),
+        child: Center(
+          child: Hero(
+            tag: WanderLogo.heroTag,
+            child: WanderLogo(
+              width: context.w(230),
+              progress: _controller,
+            ),
           ),
-
         ),
-        ],
       ),
     );
-  }
-}
-
-// === PERSISTENT WRAPPER PANELS WITH SECURE POPUPS ===
-
-class HomeScreenWrapper extends StatefulWidget {
-  const HomeScreenWrapper({super.key});
-
-  @override
-  State<HomeScreenWrapper> createState() => _HomeScreenWrapperState();
-}
-
-class _HomeScreenWrapperState extends State<HomeScreenWrapper> {
-  @override
-  void initState() {
-    super.initState();
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final authState = context.read<AuthBloc>().state;
-
-      if (authState is! AuthAuthenticated) {
-        NavigationQueueService().setPendingNavigation(() {
-          if (context.mounted) {
-            debugPrint('User logged in successfully');
-          }
-        });
-
-        _showLoginPopup();
-      }
-    });
-  }
-
-  void _showLoginPopup() {
-    showGeneralDialog(
-      context: context,
-      barrierDismissible: false,
-      barrierLabel: "Login",
-      barrierColor: Colors.black.withOpacity(0.4),
-      transitionDuration: const Duration(milliseconds: 350),
-      pageBuilder: (_, __, ___) => const LoginSignupScreen(),
-      transitionBuilder: (_, animation, __, child) {
-        return FadeTransition(
-          opacity: animation,
-          child: ScaleTransition(
-            scale: Tween<double>(
-              begin: 0.95,
-              end: 1.0,
-            ).animate(
-              CurvedAnimation(
-                parent: animation,
-                curve: Curves.easeOutBack,
-              ),
-            ),
-            child: child,
-          ),
-        );
-      },
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return const HomeScreen();
   }
 }

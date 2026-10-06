@@ -115,6 +115,7 @@ flutter:
     - assets/images/wander_nova_logo.jpg
     - assets/images/flight-loader.gif
     - assets/images/
+    - assets/images/splash/
     - assets/icons/hotel.png
     - assets/icons/
     - assets/animation/successful.json
@@ -125,6 +126,13 @@ flutter:
     - assets/Newgif/
     - assets/Newimage/
     - assets/HbookImage/
+
+  fonts:
+    # Display face for the splash / auth headings. Bundled rather than fetched
+    # at runtime so it renders on a first launch with no network.
+    - family: CaveatBrush
+      fonts:
+        - asset: assets/fonts/CaveatBrush-Regular.ttf
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

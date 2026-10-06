@@ -1,6 +1,5 @@
-import 'dart:ui';
+import 'dart:async';
 
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:pinput/pinput.dart';
@@ -8,331 +7,261 @@ import 'package:wander_nova/UI_helper/responsive_layout.dart';
 
 import '../../../../UI_helper/contact_type.dart';
 import '../../../../core/resources/app_colours.dart';
+import '../../../Send_otp/presentation/bloc/send_otp_bloc.dart';
+import '../../../Send_otp/presentation/bloc/send_otp_event.dart';
+import '../../../splash/widgets/auth_scaffold.dart';
+import '../../../splash/widgets/social_auth.dart';
+import '../../../splash/widgets/wander_logo.dart';
 import '../bloc/verify_otp_bloc.dart';
 import '../bloc/verify_otp_event.dart';
 import '../bloc/verify_otp_state.dart';
-import 'complete_profile_screen.dart' hide ContactType;
+import 'complete_profile_screen.dart';
 
-
+/// The code step of the signup flow.
 class VerifyOtpScreen extends StatefulWidget {
-  final String contact;
-  final ContactType contactType;
-
   const VerifyOtpScreen({
     super.key,
     required this.contact,
     required this.contactType,
   });
 
+  final String contact;
+  final ContactType contactType;
+
   @override
   State<VerifyOtpScreen> createState() => _VerifyOtpScreenState();
 }
 
 class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
+  /// Length the API issues. The design draws five boxes, but the backend
+  /// sends six digits, so six it is.
+  static const _otpLength = 6;
+  static const _resendCooldown = 30;
+
   final _formKey = GlobalKey<FormState>();
   String _otpCode = '';
+
+  Timer? _timer;
+  int _secondsLeft = _resendCooldown;
+
+  @override
+  void initState() {
+    super.initState();
+    _startCooldown();
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  void _startCooldown() {
+    _timer?.cancel();
+    setState(() => _secondsLeft = _resendCooldown);
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) return timer.cancel();
+      if (_secondsLeft <= 1) {
+        timer.cancel();
+        setState(() => _secondsLeft = 0);
+      } else {
+        setState(() => _secondsLeft -= 1);
+      }
+    });
+  }
+
+  String get _countdown {
+    final m = (_secondsLeft ~/ 60).toString().padLeft(2, '0');
+    final s = (_secondsLeft % 60).toString().padLeft(2, '0');
+    return '$m:$s';
+  }
+
+  bool get _isEmail => widget.contactType == ContactType.email;
+
+  void _verifyOtp() {
+    if (_otpCode.length != _otpLength) {
+      _snack('Please enter the complete code', Colors.orange);
+      return;
+    }
+
+    context.read<VerifyOtpBloc>().add(
+          VerifyOtpRequested(
+            contact: widget.contact,
+            type: widget.contactType,
+            otp: _otpCode,
+          ),
+        );
+  }
+
+  void _resendOtp() {
+    if (_secondsLeft > 0) return;
+
+    context.read<SendOtpBloc>().add(
+          SendOtpRequested(
+            contact: widget.contact,
+            type: widget.contactType,
+            purpose: 'signup',
+          ),
+        );
+    _startCooldown();
+    _snack('Code sent again', Colors.green);
+  }
+
+  void _snack(String message, Color background) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: background),
+    );
+  }
+
+  PinTheme _pinTheme({Color? border, double width = 1}) {
+    return PinTheme(
+      width: context.w(52),
+      height: context.w(58),
+      textStyle: TextStyle(
+        fontSize: context.fs(20),
+        fontWeight: FontWeight.w600,
+        color: AppColors.authInk,
+      ),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(context.w(10)),
+        border: Border.all(
+          color: border ?? AppColors.authFieldBorder,
+          width: width,
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return BlocListener<VerifyOtpBloc, VerifyOtpState>(
       listener: (context, state) {
         if (state is VerifyOtpSuccess) {
-          // Close this popup, then show Complete Profile popup
-          Navigator.of(context).pop();
+          // Hand over to the profile step, which is a full page of its own.
+          final verifyBloc = context.read<VerifyOtpBloc>();
 
-          showDialog(
-            context: context,
-            barrierDismissible: false,
-            builder: (dialogContext) => BlocProvider.value(
-              value: context.read<VerifyOtpBloc>(),
-              child: CompleteProfilePopup(
-                contact: widget.contact,
-                contactType: widget.contactType,
-                isVerified: true,
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (_) => BlocProvider.value(
+                value: verifyBloc,
+                child: CompleteProfilePopup(
+                  contact: widget.contact,
+                  contactType: widget.contactType,
+                  isVerified: true,
+                ),
               ),
             ),
           );
         } else if (state is VerifyOtpFailed) {
-          String errorMessage = 'Invalid OTP. Please try again.';
+          var message = 'Invalid code. Please try again.';
           final error = state.dataState.error;
           if (error?.response?.data != null) {
-            errorMessage = error!.response!.data['error'] ?? errorMessage;
+            message = error!.response!.data['error'] ?? message;
           }
-
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(errorMessage),
-                backgroundColor: Colors.red,
-              ),
-            );
-          }
+          if (mounted) _snack(message, Colors.red);
         }
       },
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        body: Stack(
-          children: [
-            // Full screen blur
-            BackdropFilter(
-              filter: ImageFilter.blur(
-                sigmaX: context.wp(3),
-                sigmaY: context.wp(3),
-              ),
-              child: Container(
-                color: Colors.black.withOpacity(0.08),
+      child: AuthScaffold(
+        onBack: () => Navigator.of(context).pop(),
+        children: [
+          SizedBox(height: context.w(10)),
+          Center(child: WanderLogo.still(width: context.w(150))),
+          SizedBox(height: context.w(38)),
+          Center(
+            child: Text(
+              'Enter your code',
+              style: authDisplayStyle(context, size: 24),
+            ),
+          ),
+          SizedBox(height: context.w(10)),
+          Center(
+            child: Text(
+              'A $_otpLength digit code has been sent to '
+              '${_isEmail ? 'your mail' : 'your phone'}',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: context.fs(13.5),
+                color: AppColors.authSubtle,
               ),
             ),
-
-            // Popup content - matches your LoginSignupScreen style
-            SafeArea(
-              child: Center(
-                child: Container(
-                  width: context.wp(90),
-                  constraints: BoxConstraints(maxHeight: context.hp(70)),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(context.borderRadiusLarge + 6),
-                  ),
-                  child: SingleChildScrollView(
-                    physics: context.scrollPhysics,
-                    child: Padding(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: context.wp(5),
-                        vertical: context.hp(2),
-                      ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          // TOP ROW (same as LoginSignupScreen)
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // Container(
-                              //   height: context.hp(4.5),
-                              //   width: context.hp(4.5),
-                              //   decoration: BoxDecoration(
-                              //     color: const Color(0xffFFEAEA),
-                              //     borderRadius: BorderRadius.circular(12),
-                              //   ),
-                              //   child: Icon(
-                              //     Icons.flight_takeoff_rounded,
-                              //     color: const Color(0xffFF3B42),
-                              //     size: context.iconMedium,
-                              //   ),
-                              // ),
-                              SizedBox(width: context.wp(70)),
-
-                              GestureDetector(
-                                onTap: () => Navigator.pop(context),
-                                child: Container(
-                                  height: context.hp(4.5),
-                                  width: context.hp(4.5),
-                                  decoration: BoxDecoration(
-                                    color: Colors.grey.shade100,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: Icon(
-                                    Icons.close,
-                                    size: context.iconMedium,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-
-                          SizedBox(height: context.hp(2.5)),
-
-                          // Title
-                          Text(
-                            'Verify Your ${widget.contactType == ContactType.email ? "Email" : "Phone"}',
-                            style: TextStyle(
-                              fontSize: context.sp(22),
-                              fontWeight: FontWeight.w800,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-
-                          SizedBox(height: context.hp(0.8)),
-
-                          // Subtitle
-                          Text(
-                            'Enter the 6-digit code sent to\n${widget.contact}',
-                            style: TextStyle(
-                              fontSize: context.sp(12),
-                              color: Colors.grey.shade600,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-
-                          SizedBox(height: context.hp(3)),
-
-                          // OTP Input using pinput
-                          Form(
-                            key: _formKey,
-                            child: Pinput(
-                              length: 6,
-                              defaultPinTheme: PinTheme(
-                                width: context.wp(11),
-                                height: context.hp(7),
-                                decoration: BoxDecoration(
-                                  border: Border.all(color: Colors.grey.shade300),
-                                  borderRadius: BorderRadius.circular(context.borderRadiusMedium),
-                                ),
-                                textStyle: TextStyle(
-                                  fontSize: context.titleMedium,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                              focusedPinTheme: PinTheme(
-                                width: context.wp(11),
-                                height: context.hp(7),
-                                decoration: BoxDecoration(
-                                  border: Border.all(color: AppColors.accent, width: 2),
-                                  borderRadius: BorderRadius.circular(context.borderRadiusMedium),
-                                ),
-                                textStyle: TextStyle(
-                                  fontSize: context.titleMedium,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                              submittedPinTheme: PinTheme(
-                                width: context.wp(11),
-                                height: context.hp(7),
-                                decoration: BoxDecoration(
-                                  border: Border.all(color: Colors.green),
-                                  borderRadius: BorderRadius.circular(context.borderRadiusMedium),
-                                ),
-                                textStyle: TextStyle(
-                                  fontSize: context.titleMedium,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                              errorPinTheme: PinTheme(
-                                width: context.wp(11),
-                                height: context.hp(7),
-                                decoration: BoxDecoration(
-                                  border: Border.all(color: Colors.red),
-                                  borderRadius: BorderRadius.circular(context.borderRadiusMedium),
-                                ),
-                              ),
-                              onChanged: (value) {
-                                setState(() => _otpCode = value);
-                              },
-                              onCompleted: (pin) {
-                                setState(() => _otpCode = pin);
-                                _verifyOtp();
-                              },
-                            ),
-                          ),
-
-                          SizedBox(height: context.hp(2)),
-
-                          // Resend OTP
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                "Didn't receive code? ",
-                                style: TextStyle(
-                                  fontSize: context.sp(15),
-                                  color: Colors.grey.shade600,
-                                ),
-                              ),
-                              TextButton(
-                                onPressed: _resendOtp,
-                                style: TextButton.styleFrom(padding: EdgeInsets.zero),
-                                child: Text(
-                                  'Resend',
-                                  style: TextStyle(
-                                    fontSize: context.sp(15),
-                                    fontWeight: FontWeight.w700,
-                                    color: AppColors.accent,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-
-                          SizedBox(height: context.hp(3)),
-
-                          // Verify Button
-                          BlocBuilder<VerifyOtpBloc, VerifyOtpState>(
-                            builder: (context, state) {
-                              final isLoading = state is VerifyOtpLoading;
-                              return SizedBox(
-                                width: double.infinity,
-                                height: context.hp(6),
-                                child: ElevatedButton(
-                                  onPressed: isLoading || _otpCode.length != 6 ? null : _verifyOtp,
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: AppColors.accent,
-                                    elevation: 0,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(context.borderRadiusMedium),
-                                    ),
-                                  ),
-                                  child: isLoading
-                                      ? SizedBox(
-                                    height: context.hp(3),
-                                    width: context.hp(3),
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: context.dividerThin,
-                                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                                    ),
-                                  )
-                                      : Text(
-                                    'Verify & Continue',
-                                    style: TextStyle(
-                                      fontSize: context.sp(18),
-                                      fontWeight: FontWeight.w700,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-
-                          SizedBox(height: context.hp(2)),
-                        ],
-                      ),
-                    ),
+          ),
+          SizedBox(height: context.w(4)),
+          Center(
+            child: Text(
+              widget.contact,
+              style: TextStyle(
+                fontSize: context.fs(13.5),
+                color: AppColors.AppBlue,
+              ),
+            ),
+          ),
+          SizedBox(height: context.w(30)),
+          Form(
+            key: _formKey,
+            child: Center(
+              child: Pinput(
+                length: _otpLength,
+                defaultPinTheme: _pinTheme(),
+                focusedPinTheme: _pinTheme(border: AppColors.AppBlue, width: 1.6),
+                submittedPinTheme: _pinTheme(border: AppColors.AppBlue, width: 1.6),
+                errorPinTheme: _pinTheme(border: AppColors.OrangeColor),
+                mainAxisAlignment: MainAxisAlignment.center,
+                separatorBuilder: (_) => SizedBox(width: context.w(8)),
+                onChanged: (value) => setState(() => _otpCode = value),
+                onCompleted: (pin) {
+                  setState(() => _otpCode = pin);
+                  _verifyOtp();
+                },
+              ),
+            ),
+          ),
+          SizedBox(height: context.w(18)),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                _countdown,
+                style: TextStyle(
+                  fontSize: context.fs(13.5),
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.AppBlue,
+                ),
+              ),
+              GestureDetector(
+                onTap: _resendOtp,
+                child: Text(
+                  'Resend Code',
+                  style: TextStyle(
+                    fontSize: context.fs(13.5),
+                    fontWeight: FontWeight.w500,
+                    decoration: TextDecoration.underline,
+                    decorationColor: _secondsLeft > 0
+                        ? AppColors.authHint
+                        : AppColors.AppBlue,
+                    color: _secondsLeft > 0
+                        ? AppColors.authHint
+                        : AppColors.AppBlue,
                   ),
                 ),
               ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _verifyOtp() {
-    if (_otpCode.length != 6) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enter complete OTP'),
-          backgroundColor: Colors.orange,
-        ),
-      );
-      return;
-    }
-
-    context.read<VerifyOtpBloc>().add(
-      VerifyOtpRequested(
-        contact: widget.contact,
-        type: widget.contactType,
-        otp: _otpCode,
-      ),
-    );
-  }
-
-  void _resendOtp() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('OTP sent again'),
-        backgroundColor: Colors.green,
+            ],
+          ),
+          SizedBox(height: context.w(34)),
+          BlocBuilder<VerifyOtpBloc, VerifyOtpState>(
+            builder: (context, state) {
+              return AuthPrimaryButton(
+                label: 'VERIFY CODE',
+                isLoading: state is VerifyOtpLoading,
+                onPressed: _otpCode.length == _otpLength ? _verifyOtp : null,
+              );
+            },
+          ),
+          SizedBox(height: context.w(28)),
+          const AuthDivider(label: 'Or'),
+          SizedBox(height: context.w(18)),
+          const SocialAuthSection(),
+        ],
       ),
     );
   }

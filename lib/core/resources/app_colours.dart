@@ -35,4 +35,27 @@ class AppColors {
     end: Alignment.bottomRight,
     colors: [Color(0xFF0054A0), Color(0xFF0077CC)],
   );
+
+  // ---------------------------------------------------------------- splash
+  // Sampled from the Wander Nova splash / auth designs.
+  static const splashTop = Color(0xFFD4F2FF);
+  static const splashBottom = Color(0xFFFFFFFF);
+
+  static const splashGradient = LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [splashTop, splashBottom],
+    stops: [0.0, 0.95],
+  );
+
+  /// The third colour of the brand mark, beside [AppBlue] and [OrangeColor].
+  static const brandTeal = Color(0xFF0FA3A1);
+
+  // ------------------------------------------------------------ auth forms
+  static const authInk = Color(0xFF0F1010);
+  static const authSubtle = Color(0xFF6E6E73);
+  static const authFieldBorder = Color(0xFFE6E6E6);
+  static const authFieldLabel = Color(0xFF8E8E93);
+  static const authHint = Color(0xFF9A9A9F);
+  static const authFieldIcon = Color(0xFFC3C3C7);
 }

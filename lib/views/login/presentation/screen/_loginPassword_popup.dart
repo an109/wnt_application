@@ -682,8 +682,8 @@ class _LoginPasswordPopupState extends State<LoginPasswordPopup> {
         Text(
           'Set New Password',
           style: TextStyle(
-            fontSize: context.sp(22),
-            fontWeight: FontWeight.w800,
+            fontSize: context.sp(20),
+            fontWeight: FontWeight.w600,
           ),
           textAlign: TextAlign.center,
         ),
@@ -693,7 +693,7 @@ class _LoginPasswordPopupState extends State<LoginPasswordPopup> {
         Text(
           'Create a new password for\n${_forgotEmailController.text.trim()}',
           style: TextStyle(
-            fontSize: context.sp(12),
+            fontSize: context.sp(10),
             color: Colors.grey.shade600,
           ),
           textAlign: TextAlign.center,
@@ -1022,11 +1022,13 @@ class _LoginPasswordPopupState extends State<LoginPasswordPopup> {
       ),
     );
     if (mounted) {
-      Navigator.of(context).pop(); // Close popup
-      Navigator.of(context).pop(); // Close LoginSignupScreen dialog
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const HomeScreen()),
+      // Clear the whole auth stack rather than popping a fixed number of
+      // routes: this popup is reached both from the splash gate (where the
+      // login screen is the only route) and from overlays elsewhere in the
+      // app, so the depth below it varies.
+      Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const HomeScreen()),
+        (route) => false,
       );
     }
   }
