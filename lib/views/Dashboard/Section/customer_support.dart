@@ -1,11 +1,41 @@
-import 'package:flutter/material.dart';
-import 'package:wander_nova/UI_helper/responsive_layout.dart';
-import 'dart:io';
+import 'dart:math' as math;
+
 import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import 'package:wander_nova/core/resources/app_colours.dart';
 import 'package:wander_nova/injection_container.dart';
 import 'package:wander_nova/views/Dashboard/Section/data/support_api_service.dart';
+
+/// Palette lifted from the Customer Support design.
+const _kBlue = AppColors.AppBlue; // #00A1E4
+const _kOrange = AppColors.OrangeColor; // #FF6600
+const _kInk = AppColors.black;
+const _kSubtle = Color(0xFF6E6E73);
+const _kBorder = Color(0xFFE6E6E6);
+const _kLabel = AppColors.subhead;
+const _kHint = Color(0xFF9A9A9F);
+const _kFieldIcon = Color(0xFFC3C3C7);
+const _kToggleTrack = Color(0xFFF4F4F5);
+const _kToggleIdle = Color(0xFFBFBFC4);
+const _kScopeBg = Color(0xFFF0FBFF);
+const _kUploadCircle = Color(0xFFE6F5FD);
+const _kDash = Color(0xFFCDCDD2);
+const _kPeach = Color(0xFFFFEDE0);
+const _kGreenBg = Color(0xFFE7F8EB);
+const _kGreen = Color(0xFF34C759);
+const _kCardStroke = Color(0xFFEDEDF0);
+
+class _Dial {
+  final String flag;
+  final String code;
+  final String country;
+
+  const _Dial(this.flag, this.code, this.country);
+}
 
 class CustomerSupportSection extends StatefulWidget {
   const CustomerSupportSection({super.key});
@@ -15,154 +45,162 @@ class CustomerSupportSection extends StatefulWidget {
 }
 
 class _CustomerSupportSectionState extends State<CustomerSupportSection> {
+  static const String _supportNumber = '1800-102-3555';
+
+  static const List<_Dial> _dials = [
+    _Dial('🇮🇳', '+91', 'India'),
+    _Dial('🇦🇪', '+971', 'UAE'),
+    _Dial('🇺🇸', '+1', 'United States'),
+    _Dial('🇬🇧', '+44', 'United Kingdom'),
+    _Dial('🇸🇬', '+65', 'Singapore'),
+    _Dial('🇦🇺', '+61', 'Australia'),
+    _Dial('🇸🇦', '+966', 'Saudi Arabia'),
+    _Dial('🇶🇦', '+974', 'Qatar'),
+  ];
+
   bool _isEmailSupport = true;
   final _formKey = GlobalKey<FormState>();
-  String? _selectedQueryType;
   String _travelType = 'Domestic';
+  _Dial _dial = _dials.first;
 
-  // Controllers
   final _bookingRefController = TextEditingController();
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
-  final _messageController = TextEditingController();
+  final _queryController = TextEditingController();
 
   PlatformFile? _selectedFile;
   bool _isPickingFile = false;
   bool _isSubmitting = false;
-
-  Future<void> _pickFile() async {
-    try {
-      setState(() {
-        _isPickingFile = true;
-      });
-
-      FilePickerResult? result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: [
-          'pdf',
-          'jpg',
-          'jpeg',
-          'png',
-          'doc',
-          'docx',
-        ],
-        allowMultiple: false,
-      );
-
-      if (result != null && result.files.isNotEmpty) {
-        setState(() {
-          _selectedFile = result.files.first;
-        });
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Selected: ${_selectedFile!.name}',
-            ),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
-    } catch (e) {
-      print('Error picking file: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error picking file: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    } finally {
-      setState(() {
-        _isPickingFile = false;
-      });
-    }
-  }
-
-  final List<String> _queryTypes = [
-    'Cancellation',
-    'Flight Rescheduling Charges',
-    'Flight Booking Status',
-    'Flight Refund Status',
-    'Others',
-  ];
 
   @override
   void dispose() {
     _bookingRefController.dispose();
     _emailController.dispose();
     _phoneController.dispose();
-    _messageController.dispose();
+    _queryController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSegmentedToggle(),
+        SizedBox(height: context.w(32)),
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 300),
+          transitionBuilder: (child, animation) {
+            return FadeTransition(
+              opacity: animation,
+              child: SlideTransition(
+                position: Tween<Offset>(
+                  begin: const Offset(0.0, 0.02),
+                  end: Offset.zero,
+                ).animate(animation),
+                child: child,
+              ),
+            );
+          },
+          child: _isEmailSupport
+              ? KeyedSubtree(
+                  key: const ValueKey('email'),
+                  child: _buildEmailSupportForm(),
+                )
+              : KeyedSubtree(
+                  key: const ValueKey('call'),
+                  child: _buildCallSupportView(),
+                ),
+        ),
+      ],
+    );
+  }
+
+  // ---------------------------------------------------------------- toggle
+
+  Widget _buildSegmentedToggle() {
+    final height = context.w(48);
+    final radius = height / 2;
+
     return Container(
+      height: height,
+      padding: EdgeInsets.all(context.w(8)),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(context.borderRadiusMedium),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: context.shadowOffsetSmall,
+        color: _kToggleTrack,
+        borderRadius: BorderRadius.circular(radius),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _buildSegment(
+              label: 'Email',
+              icon: Icons.email,
+              isSelected: _isEmailSupport,
+              radius: radius - context.w(4),
+              onTap: () => setState(() => _isEmailSupport = true),
+            ),
+          ),
+          Expanded(
+            child: _buildSegment(
+              label: 'Call',
+              icon: Icons.call,
+              isSelected: !_isEmailSupport,
+              radius: radius - context.w(4),
+              onTap: () => setState(() => _isEmailSupport = false),
+            ),
           ),
         ],
       ),
-      child: Padding(
-        padding: context.responsivePadding,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+    );
+  }
+
+  Widget _buildSegment({
+    required String label,
+    required IconData icon,
+    required bool isSelected,
+    required double radius,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.white : Colors.transparent,
+          borderRadius: BorderRadius.circular(radius),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(
-              'Customer Support',
-              style: TextStyle(
-                fontSize: context.responsiveFontSize(20, 18, 16),
-                fontWeight: FontWeight.w600,
-                color: Colors.black87,
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOutCubic,
+              child: Icon(
+                icon,
+                size: context.w(18),
+                color: isSelected ? _kBlue : _kToggleIdle,
               ),
             ),
-            SizedBox(height: context.gapLarge),
-
-            // Support Type Tabs
-            Row(
-              children: [
-                Expanded(
-                  child: _buildSupportTypeTab('Email Support', Icons.email, true),
-                ),
-                SizedBox(width: context.gapMedium),
-                Expanded(
-                  child: _buildSupportTypeTab('Call Support', Icons.phone, false),
-                ),
-              ],
-            ),
-
-            SizedBox(height: context.gapLarge),
-
-            // Animated Switcher between Email and Call Support
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 300),
-              transitionBuilder: (Widget child, Animation<double> animation) {
-                return FadeTransition(
-                  opacity: animation,
-                  child: SlideTransition(
-                    position: Tween<Offset>(
-                      begin: const Offset(0.0, 0.02),
-                      end: Offset.zero,
-                    ).animate(animation),
-                    child: child,
-                  ),
-                );
-              },
-              child: _isEmailSupport
-                  ? _buildEmailSupportForm()
-                  : _buildCallSupportView(),
+            SizedBox(width: context.w(8)),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: context.fs(12),
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w600,
+                color: isSelected ? _kBlue : _kToggleIdle,
+              ),
             ),
           ],
         ),
       ),
     );
   }
+
+  // ------------------------------------------------------------ email form
 
   Widget _buildEmailSupportForm() {
     return Form(
@@ -170,197 +208,756 @@ class _CustomerSupportSectionState extends State<CustomerSupportSection> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Form Fields Row
-          Row(
-            children: [
-              Expanded(
-                child: _buildFormField(
-                  label: 'Booking Reference *',
-                  controller: _bookingRefController,
-                  hintText: 'Eg XXXXXXX',
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter booking reference';
-                    }
-                    return null;
-                  },
-                ),
-              ),
-              SizedBox(width: context.gapMedium),
-              Expanded(
-                child: _buildFormField(
-                  label: 'Email *',
-                  controller: _emailController,
-                  hintText: 'your@email.com',
-                  keyboardType: TextInputType.emailAddress,
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter email';
-                    }
-                    if (!value.contains('@')) {
-                      return 'Please enter valid email';
-                    }
-                    return null;
-                  },
-                ),
-              ),
-            ],
+          _buildOutlinedField(
+            label: 'AT - BOOKING REFERENCE',
+            controller: _bookingRefController,
+            hintText: 'AT 98765',
+            icon: Icons.confirmation_number_sharp,
+            validator: (value) {
+              if (value == null || value.trim().isEmpty) {
+                return 'Please enter booking reference';
+              }
+              return null;
+            },
           ),
-
-          SizedBox(height: context.gapMedium),
-
-          // Phone Number
+          SizedBox(height: context.w(20)),
+          _buildOutlinedField(
+            label: 'EMAIL ADDRESS',
+            controller: _emailController,
+            hintText: 'your@email.com',
+            icon: Icons.mail,
+            keyboardType: TextInputType.emailAddress,
+            validator: (value) {
+              if (value == null || value.trim().isEmpty) {
+                return 'Please enter email';
+              }
+              if (!value.contains('@')) {
+                return 'Please enter valid email';
+              }
+              return null;
+            },
+          ),
+          SizedBox(height: context.w(20)),
           _buildPhoneNumberField(),
+          SizedBox(height: context.w(28)),
+          _buildTripScope(),
+          SizedBox(height: context.w(20)),
+          _buildOutlinedField(
+            label: 'QUERY TYPE',
+            controller: _queryController,
+            hintText: 'Enter your query type.....',
+            maxLines: 6,
+            validator: (value) {
+              if (value == null || value.trim().isEmpty) {
+                return 'Please describe your query';
+              }
+              return null;
+            },
+          ),
+          SizedBox(height: context.w(22)),
+          _buildAttachmentBox(),
+          SizedBox(height: context.w(30)),
+          _buildSendButton(),
+        ],
+      ),
+    );
+  }
 
-          SizedBox(height: context.gapMedium),
+  Widget _buildOutlinedField({
+    required String label,
+    required TextEditingController controller,
+    required String hintText,
+    IconData? icon,
+    TextInputType? keyboardType,
+    int maxLines = 1,
+    String? Function(String?)? validator,
+  }) {
+    final isMultiline = maxLines > 1;
 
-          // Support Email Note
-          Text.rich(
-            TextSpan(
-              text: 'For any feedback and escalations please write to us at ',
-              style: TextStyle(
-                fontSize: context.responsiveFontSize(14, 13, 12),
-                color: Colors.grey[600],
-              ),
-              children: const [
-                TextSpan(
-                  text: 'info@wandernova.com',
+    return TextFormField(
+      controller: controller,
+      keyboardType: keyboardType,
+      maxLines: maxLines,
+      cursorColor: _kBlue,
+      textAlignVertical:
+      isMultiline ? TextAlignVertical.top : TextAlignVertical.center,
+      style: TextStyle(
+        fontSize: context.fs(11),
+        fontWeight: FontWeight.w500,
+        color: _kInk,
+        // height: 1.3,
+      ),
+      decoration: _fieldDecoration(
+        label: label,
+        hintText: hintText,
+        icon: icon,
+        isMultiline: isMultiline,
+      ),
+      validator: validator,
+    );
+  }
+
+  InputDecoration _fieldDecoration({
+    String? label,
+    required String hintText,
+    IconData? icon,
+    bool isMultiline = false,
+  }) {
+    final labelStyle = TextStyle(
+      fontSize: context.fs(10),
+      fontWeight: FontWeight.w600,
+      // letterSpacing: 0.6,
+      color: _kLabel,
+    );
+
+    OutlineInputBorder border(Color color, double width) => OutlineInputBorder(
+      borderRadius: BorderRadius.circular(context.w(8)),
+      borderSide: BorderSide(color: color, width: 0.5),
+    );
+
+    // Reserve consistent top padding for the floating label.
+    final topPad = isMultiline ? context.w(20) : context.w(14);
+
+    return InputDecoration(
+      labelText: label,
+      hintText: hintText,
+      floatingLabelBehavior: FloatingLabelBehavior.always,
+      labelStyle: labelStyle,
+      floatingLabelStyle: labelStyle,
+      hintStyle: TextStyle(
+        fontSize: context.fs(11),
+        fontWeight: FontWeight.w500,
+        color: _kHint,
+      ),
+      filled: true,
+      fillColor: Colors.white,
+      isDense: false,
+      prefixIcon: icon == null
+          ? null
+          : Icon(icon, size: context.w(18), color: _kFieldIcon),
+      prefixIconConstraints: BoxConstraints(
+        minWidth: context.w(44),
+        minHeight: 0,
+      ),
+      contentPadding: EdgeInsets.only(
+        left: icon == null ? context.w(16) : context.w(4),
+        right: context.w(16),
+        top: topPad,
+        bottom: context.w(14),
+      ),
+      border: border(_kBorder, 1),
+      enabledBorder: border(_kBorder, 1),
+      focusedBorder: border(_kBlue, 1.4),
+      errorBorder: border(AppColors.accent, 1),
+      focusedErrorBorder: border(AppColors.accent, 1.4),
+      errorMaxLines: 2,
+    );
+  }
+
+  Widget _buildPhoneNumberField() {
+    // Match the TextFormField's intrinsic height so the dial box lines up.
+    final fieldHeight = context.w(44);
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        GestureDetector(
+          onTap: _showDialPicker,
+          child: Container(
+            height: fieldHeight,
+            padding: EdgeInsets.symmetric(horizontal: context.w(8)),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(context.w(8)),
+              border: Border.all(color: _kBorder),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(_dial.flag, style: TextStyle(fontSize: context.fs(14))),
+                SizedBox(width: context.w(6)),
+                Text(
+                  _dial.code,
                   style: TextStyle(
-                    color: Colors.blue,
-                    decoration: TextDecoration.underline,
+                    fontSize: context.fs(11),
+                    fontWeight: FontWeight.w500,
+                    color: _kInk,
                   ),
+                ),
+                SizedBox(width: context.w(2)),
+                Icon(
+                  Icons.keyboard_arrow_down_rounded,
+                  size: context.w(20),
+                  color: _kFieldIcon,
                 ),
               ],
             ),
           ),
-
-          SizedBox(height: context.gapMedium),
-
-          // Query Type
-          Text(
-            'Query Type: Select one of below',
-            style: TextStyle(
-              fontSize: context.responsiveFontSize(15, 14, 13),
-              fontWeight: FontWeight.w500,
-              color: Colors.black87,
+        ),
+        SizedBox(width: context.w(10)),
+        Expanded(
+          child: SizedBox(
+            // Force both sides to the same height.
+            height: fieldHeight,
+            child: TextFormField(
+              controller: _phoneController,
+              keyboardType: TextInputType.phone,
+              cursorColor: _kBlue,
+              textAlignVertical: TextAlignVertical.center,
+              style: TextStyle(
+                fontSize: context.fs(11),
+                fontWeight: FontWeight.w500,
+                color: _kInk,
+              ),
+              decoration: _fieldDecoration(hintText: '9876543212'),
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'Please enter phone number';
+                }
+                if (value.trim().length < 10) {
+                  return 'Please enter valid phone number';
+                }
+                return null;
+              },
             ),
           ),
+        ),
+      ],
+    );
+  }
 
-          SizedBox(height: context.gapSmall),
+  Future<void> _showDialPicker() async {
+    FocusScope.of(context).unfocus();
 
-          Wrap(
-            spacing: context.gapSmall,
-            runSpacing: context.gapSmall,
-            children: _queryTypes.map((query) {
-              final isSelected = _selectedQueryType == query;
-              return GestureDetector(
-                onTap: () {
-                  setState(() {
-                    _selectedQueryType = query;
-                  });
-                },
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  padding: EdgeInsets.symmetric(
-                    horizontal: context.gapMedium,
-                    vertical: context.gapSmall,
+    final picked = await showModalBottomSheet<_Dial>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(context.w(20)),
+        ),
+      ),
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: _dials.map((dial) {
+              return ListTile(
+                onTap: () => Navigator.of(sheetContext).pop(dial),
+                leading: Text(
+                  dial.flag,
+                  style: TextStyle(fontSize: context.fs(20)),
+                ),
+                title: Text(
+                  dial.country,
+                  style: TextStyle(
+                    fontSize: context.fs(12),
+                    fontWeight: FontWeight.w500,
+                    color: _kInk,
                   ),
-                  decoration: BoxDecoration(
-                    color: isSelected
-                        ? (query == 'Cancellation' ? Colors.red[50] : Colors.blue[50])
-                        : Colors.grey[100],
-                    borderRadius: BorderRadius.circular(context.borderRadiusSmall),
-                    border: Border.all(
-                      color: isSelected
-                          ? (query == 'Cancellation' ? Colors.red[200]! : Colors.blue[200]!)
-                          : Colors.grey[300]!,
-                      width: isSelected ? 2 : 1,
-                    ),
-                  ),
-                  child: Text(
-                    query,
-                    style: TextStyle(
-                      fontSize: context.responsiveFontSize(13, 12, 11),
-                      color: isSelected
-                          ? (query == 'Cancellation' ? Colors.red[700] : Colors.blue[700])
-                          : Colors.grey[700],
-                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                    ),
+                ),
+                trailing: Text(
+                  dial.code,
+                  style: TextStyle(
+                    fontSize: context.fs(14.5),
+                    fontWeight: FontWeight.w600,
+                    color: _kSubtle,
                   ),
                 ),
               );
             }).toList(),
           ),
+        );
+      },
+    );
 
-          SizedBox(height: context.gapMedium),
+    if (picked != null && mounted) {
+      setState(() => _dial = picked);
+    }
+  }
 
-          // Domestic/International
+  Widget _buildTripScope() {
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: context.w(15),
+        vertical: context.w(11),
+      ),
+      decoration: BoxDecoration(
+        color: _kScopeBg,
+        borderRadius: BorderRadius.circular(context.w(8)),
+      ),
+      child: Row(
+        children: [
+          Text(
+            'Trip Scope:',
+            style: TextStyle(
+              fontSize: context.fs(12),
+              fontWeight: FontWeight.w500,
+              color: _kInk,
+            ),
+          ),
+          const Spacer(),
+          _buildScopeRadio('Domestic'),
+          const Spacer(),
+          _buildScopeRadio('International'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildScopeRadio(String value) {
+    final isSelected = _travelType == value;
+
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => setState(() => _travelType = value),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            width: context.w(17),
+            height: context.w(17),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: isSelected ? _kBlue : Colors.transparent,
+              border: isSelected
+                  ? null
+                  : Border.all(color: _kHint, width: 1.6),
+            ),
+            child: isSelected
+                ? Center(
+                    child: Container(
+                      width: context.w(7),
+                      height: context.w(7),
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white,
+                      ),
+                    ),
+                  )
+                : null,
+          ),
+          SizedBox(width: context.w(8)),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: context.fs(13),
+              fontWeight: FontWeight.w500,
+              color: isSelected ? _kInk : _kSubtle,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAttachmentBox() {
+    final hasFile = _selectedFile != null;
+
+    final labelStyle = TextStyle(
+      fontSize: context.fs(8),
+      fontWeight: FontWeight.w600,
+      // letterSpacing: 0.6,
+      color: _kLabel,
+    );
+
+    // Measure the notch label so the dashed stroke can be interrupted behind
+    // it, the way the outlined fields notch their own border.
+    final labelPainter = TextPainter(
+      text: TextSpan(text: 'ATTACHMENT', style: labelStyle),
+      textDirection: TextDirection.ltr,
+    )..layout();
+
+    final labelLeft = context.w(14);
+
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        CustomPaint(
+          painter: _DashedBorderPainter(
+            color: _kDash,
+            radius: context.w(12),
+            dashWidth: context.w(3),
+            dashGap: context.w(6),
+            strokeWidth: 1.2,
+            gapStart: labelLeft - context.w(5),
+            gapWidth: labelPainter.width + context.w(10),
+          ),
+          child: Container(
+            width: double.infinity,
+            padding: EdgeInsets.symmetric(
+              horizontal: context.w(12),
+              vertical: context.w(16),
+            ),
+            child: Column(
+              children: [
+                Container(
+                  width: context.w(40),
+                  height: context.w(40),
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: _kUploadCircle,
+                  ),
+                  child: _isPickingFile
+                      ? Padding(
+                          padding: EdgeInsets.all(context.w(14)),
+                          child: const CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: _kBlue,
+                          ),
+                        )
+                      : Icon(
+                          Icons.cloud_upload_outlined,
+                          size: context.w(20),
+                          color: _kBlue,
+                        ),
+                ),
+                SizedBox(height: context.w(14)),
+                Text(
+                  hasFile
+                      ? _selectedFile!.name
+                      : 'Attach documents / screenshots',
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: context.fs(13),
+                    fontWeight: FontWeight.w600,
+                    color: _kInk,
+                  ),
+                ),
+                SizedBox(height: context.w(2)),
+                Text(
+                  'PDF, JPG, PNG up to 10MB',
+                  style: TextStyle(
+                    fontSize: context.fs(11),
+                    fontWeight: FontWeight.w500,
+                    color: _kSubtle,
+                  ),
+                ),
+                SizedBox(height: context.w(13)),
+                _buildUploadButton(hasFile),
+                if (hasFile) ...[
+                  SizedBox(height: context.w(4)),
+                  TextButton.icon(
+                    onPressed: () => setState(() => _selectedFile = null),
+                    icon: Icon(
+                      Icons.close_rounded,
+                      size: context.w(14),
+                      color: AppColors.accent,
+                    ),
+                    label: Text(
+                      'Remove File',
+                      style: TextStyle(
+                        fontSize: context.fs(12),
+                        color: AppColors.accent,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+        Positioned(
+          left: labelLeft,
+          top: -labelPainter.height / 2,
+          child: Text('ATTACHMENT', style: labelStyle),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildUploadButton(bool hasFile) {
+    return GestureDetector(
+      onTap: _isPickingFile ? null : _pickFile,
+      child: Container(
+        padding: EdgeInsets.symmetric(
+          horizontal: context.w(12),
+          vertical: context.w(6),
+        ),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(context.w(8)),
+          border: Border.all(color: _kOrange, width: 1),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.add_rounded, size: context.w(12), color: _kOrange),
+            SizedBox(width: context.w(8)),
+            Text(
+              hasFile ? 'Change File' : 'Upload File',
+              style: TextStyle(
+                fontSize: context.fs(12),
+                fontWeight: FontWeight.w600,
+                color: _kOrange,
+              ),
+            ),
+            SizedBox(width: context.w(2)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSendButton() {
+    return SizedBox(
+      width: double.infinity,
+      height: context.w(44),
+      child: ElevatedButton(
+        onPressed: _isSubmitting ? null : _submitSupportForm,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: _kOrange,
+          disabledBackgroundColor: _kOrange.withOpacity(0.6),
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(context.w(12)),
+          ),
+        ),
+        child: _isSubmitting
+            ? SizedBox(
+                height: context.w(20),
+                width: context.w(20),
+                child: const CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
+              )
+            : Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Transform.rotate(
+                    angle: -math.pi / 12,
+                    child: Icon(
+                      Icons.send,
+                      size: context.w(16),
+                      color: Colors.white,
+                    ),
+                  ),
+                  SizedBox(width: context.w(12)),
+                  Text(
+                    'SEND',
+                    style: TextStyle(
+                      fontSize: context.fs(14),
+                      fontWeight: FontWeight.w600,
+                      // letterSpacing: 0.5,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+      ),
+    );
+  }
+
+  // ------------------------------------------------------------- call view
+
+  Widget _buildCallSupportView() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildPhoneStatusCard(),
+        SizedBox(height: context.w(26)),
+        _buildContactCard(),
+      ],
+    );
+  }
+
+  Widget _buildPhoneStatusCard() {
+    return Container(
+      padding: EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(context.w(12)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 14,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: context.w(11),
+            height: context.w(11),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: const RadialGradient(
+                colors: [Colors.white, _kBlue],
+                stops: [0.15, 1.0],
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: _kBlue.withOpacity(0.45),
+                  blurRadius: 8,
+                  spreadRadius: 1,
+                ),
+              ],
+            ),
+          ),
+          SizedBox(width: context.w(12)),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Phone Lines Active & Ready',
+                    maxLines: 1,
+                    softWrap: false,
+                    style: TextStyle(
+                      fontSize: context.fs(12),
+                      fontWeight: FontWeight.w600,
+                      color: _kInk,
+                    ),
+                  ),
+                ),
+                SizedBox(height: context.w(2)),
+                Text(
+                  'Avg. wait time: ~3 mins',
+                  style: TextStyle(
+                    fontSize: context.fs(10),
+                    fontWeight: FontWeight.w400,
+                    color: _kSubtle,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(width: context.w(10)),
+          Container(
+            padding: EdgeInsets.symmetric(
+              horizontal: context.w(8),
+              vertical: context.w(4),
+            ),
+            decoration: BoxDecoration(
+              color: _kPeach,
+              borderRadius: BorderRadius.circular(context.w(20)),
+            ),
+            child: Text(
+              '24×7 Active',
+              style: TextStyle(
+                fontSize: context.fs(11),
+                fontWeight: FontWeight.w500,
+                color: _kOrange,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildContactCard() {
+    return Container(
+      padding: EdgeInsets.all(context.w(16)),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(context.w(12)),
+        border: Border.all(color: _kCardStroke, width: 0.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: context.w(44),
+                height: context.w(44),
+                decoration: BoxDecoration(
+                  color: _kPeach,
+                  borderRadius: BorderRadius.circular(context.w(8)),
+                ),
+                child: Icon(
+                  Icons.headset_mic_outlined,
+                  size: context.w(20),
+                  color: _kOrange,
+                ),
+              ),
+              SizedBox(width: context.w(14)),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: context.w(8),
+                        vertical: context.w(2),
+                      ),
+                      decoration: BoxDecoration(
+                        color: _kGreenBg,
+                        borderRadius: BorderRadius.circular(context.w(24)),
+                      ),
+                      child: Text(
+                        'Toll-Free (All India)',
+                        style: TextStyle(
+                          fontSize: context.fs(11),
+                          fontWeight: FontWeight.w700,
+                          color: _kGreen,
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: context.w(10)),
+                    Text(
+                      _supportNumber,
+                      style: TextStyle(
+                        fontSize: context.fs(18),
+                        fontWeight: FontWeight.w600,
+                        color: _kInk,
+                      ),
+                    ),
+                    SizedBox(height: context.w(8)),
+                    Text(
+                      'Free from all domestic networks',
+                      style: TextStyle(
+                        fontSize: context.fs(12),
+                        fontWeight: FontWeight.w400,
+                        color: _kSubtle,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: context.w(19)),
           Row(
             children: [
               Expanded(
-                child: GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      _travelType = 'Domestic';
-                    });
-                  },
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    padding: EdgeInsets.symmetric(
-                      horizontal: context.gapMedium,
-                      vertical: context.gapSmall,
-                    ),
-                    decoration: BoxDecoration(
-                      color: _travelType == 'Domestic'
-                          ? Colors.blue[50]
-                          : Colors.grey[100],
-                      borderRadius: BorderRadius.circular(context.borderRadiusSmall),
-                      border: Border.all(
-                        color: _travelType == 'Domestic'
-                            ? Colors.blue[200]!
-                            : Colors.grey[300]!,
-                        width: _travelType == 'Domestic' ? 2 : 1,
+                child: SizedBox(
+                  height: context.w(44),
+                  child: ElevatedButton(
+                    onPressed: _callSupport,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _kOrange,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(context.w(12)),
                       ),
                     ),
                     child: Row(
-                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Container(
-                          width: 20,
-                          height: 20,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: _travelType == 'Domestic'
-                                  ? Colors.blue
-                                  : Colors.grey[400]!,
-                              width: 2,
-                            ),
-                          ),
-                          child: _travelType == 'Domestic'
-                              ? Center(
-                            child: Container(
-                              width: 10,
-                              height: 10,
-                              decoration: const BoxDecoration(
-                                color: Colors.blue,
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                          )
-                              : null,
+                        Icon(
+                          Icons.phone,
+                          size: context.w(17),
+                          color: Colors.white,
                         ),
-                        SizedBox(width: context.gapSmall),
+                        SizedBox(width: context.w(10)),
                         Text(
-                          'Domestic',
+                          'CALL NOW',
                           style: TextStyle(
-                            fontSize: context.responsiveFontSize(14, 13, 12),
-                            color: _travelType == 'Domestic'
-                                ? Colors.blue[700]
-                                : Colors.grey[700],
-                            fontWeight: _travelType == 'Domestic'
-                                ? FontWeight.w600
-                                : FontWeight.normal,
+                            fontSize: context.fs(14),
+                            fontWeight: FontWeight.w600,
+                            // letterSpacing: 0.3,
+                            color: Colors.white,
                           ),
                         ),
                       ],
@@ -368,575 +965,96 @@ class _CustomerSupportSectionState extends State<CustomerSupportSection> {
                   ),
                 ),
               ),
-              SizedBox(width: context.gapMedium),
-              Expanded(
-                child: GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      _travelType = 'International';
-                    });
-                  },
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    padding: EdgeInsets.symmetric(
-                      horizontal: context.gapMedium,
-                      vertical: context.gapSmall,
-                    ),
-                    decoration: BoxDecoration(
-                      color: _travelType == 'International'
-                          ? Colors.blue[50]
-                          : Colors.grey[100],
-                      borderRadius: BorderRadius.circular(context.borderRadiusSmall),
-                      border: Border.all(
-                        color: _travelType == 'International'
-                            ? Colors.blue[200]!
-                            : Colors.grey[300]!,
-                        width: _travelType == 'International' ? 2 : 1,
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: 20,
-                          height: 20,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: _travelType == 'International'
-                                  ? Colors.blue
-                                  : Colors.grey[400]!,
-                              width: 2,
-                            ),
-                          ),
-                          child: _travelType == 'International'
-                              ? Center(
-                            child: Container(
-                              width: 10,
-                              height: 10,
-                              decoration: const BoxDecoration(
-                                color: Colors.blue,
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                          )
-                              : null,
-                        ),
-                        SizedBox(width: context.gapSmall),
-                        Text(
-                          'International',
-                          style: TextStyle(
-                            fontSize: context.responsiveFontSize(14, 13, 12),
-                            color: _travelType == 'International'
-                                ? Colors.blue[700]
-                                : Colors.grey[700],
-                            fontWeight: _travelType == 'International'
-                                ? FontWeight.w600
-                                : FontWeight.normal,
-                          ),
-                        ),
-                      ],
-                    ),
+              SizedBox(width: context.w(12)),
+              GestureDetector(
+                onTap: _copySupportNumber,
+                child: Container(
+                  width: context.w(57),
+                  height: context.w(44),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(context.w(8)),
+                    border: Border.all(color: _kBlue, width: 0.5),
+                  ),
+                  child: Icon(
+                    Icons.content_copy_rounded,
+                    size: context.w(22),
+                    color: _kBlue,
                   ),
                 ),
               ),
             ],
-          ),
-
-          SizedBox(height: context.gapMedium),
-
-          // Message
-          Text(
-            'Type your Message Here *',
-            style: TextStyle(
-              fontSize: context.responsiveFontSize(15, 14, 13),
-              fontWeight: FontWeight.w500,
-              color: Colors.black87,
-            ),
-          ),
-
-          SizedBox(height: context.gapSmall),
-
-          // Message Box and File Upload in Column
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Message Text Field
-              TextFormField(
-                controller: _messageController,
-                maxLines: 4,
-                decoration: InputDecoration(
-                  hintText: 'Type your Message Here',
-                  hintStyle: TextStyle(
-                    color: Colors.grey[400],
-                    fontSize: context.responsiveFontSize(14, 13, 12),
-                  ),
-                  filled: true,
-                  fillColor: Colors.grey[50],
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(context.borderRadiusSmall),
-                    borderSide: BorderSide(color: Colors.grey[300]!),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(context.borderRadiusSmall),
-                    borderSide: BorderSide(color: Colors.grey[300]!),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(context.borderRadiusSmall),
-                    borderSide: const BorderSide(color: Colors.blue, width: 2),
-                  ),
-                  contentPadding: EdgeInsets.all(context.gapMedium),
-                ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter your message';
-                  }
-                  return null;
-                },
-              ),
-
-              SizedBox(height: context.gapMedium),
-
-              // File Upload Area
-              Align(
-                alignment: Alignment.bottomRight,
-                  child: _buildFileUploadArea()
-              ),
-            ],
-          ),
-
-          SizedBox(height: context.gapLarge),
-
-          // Send Button
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: _isSubmitting ? null : _submitSupportForm,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red[700],
-                padding: EdgeInsets.symmetric(
-                  vertical: context.gapMedium,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(context.borderRadiusSmall),
-                ),
-              ),
-              child: _isSubmitting
-                  ? SizedBox(
-                      height: context.isMobile ? 18 : 20,
-                      width: context.isMobile ? 18 : 20,
-                      child: const CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                  : Text(
-                      'SEND',
-                      style: TextStyle(
-                        fontSize: context.responsiveFontSize(16, 15, 14),
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                      ),
-                    ),
-            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildCallSupportView() {
-    return Container(
-      padding: EdgeInsets.symmetric(
-        vertical: context.gapXLarge * 2,
-        horizontal: context.gapLarge,
-      ),
-      decoration: BoxDecoration(
-        color: Colors.grey[50],
-        borderRadius: BorderRadius.circular(context.borderRadiusMedium),
-      ),
-      child: Column(
-        children: [
-          Icon(
-            Icons.headset_mic_outlined,
-            size: context.isMobile ? 60 : 80,
-            color: Colors.blue[700],
-          ),
-          SizedBox(height: context.gapLarge),
-          ElevatedButton(
-            onPressed: () {
-              // Handle call support
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Contact numbers are not configured. Please use Email Support.'),
-                  backgroundColor: Colors.orange,
-                ),
-              );
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red[700],
-              padding: EdgeInsets.symmetric(
-                horizontal: context.wp(20),
-                vertical: context.gapMedium,
-              ),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(context.borderRadiusSmall),
-              ),
-            ),
-            child: Text(
-              'For Assistance',
-              style: TextStyle(
-                fontSize: context.responsiveFontSize(16, 15, 14),
-                fontWeight: FontWeight.w600,
-                color: Colors.white,
-              ),
-            ),
-          ),
-          SizedBox(height: context.gapMedium),
-          Text(
-            'Contact numbers are not configured.\nPlease use Email Support.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: context.responsiveFontSize(14, 13, 12),
-              color: Colors.grey[600],
-              height: 1.5,
-            ),
-          ),
-        ],
-      ),
+  Future<void> _callSupport() async {
+    final uri = Uri(
+      scheme: 'tel',
+      path: _supportNumber.replaceAll(RegExp(r'[^0-9+]'), ''),
     );
+
+    final launched = await launchUrl(uri);
+    if (!launched && mounted) {
+      _showSnack('Could not open the dialer', AppColors.accent);
+    }
   }
 
-  Widget _buildSupportTypeTab(String label, IconData icon, bool isEmail) {
-    final isSelected = _isEmailSupport == isEmail;
-
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          _isEmailSupport = isEmail;
-        });
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: EdgeInsets.symmetric(vertical: context.gapMedium),
-        decoration: BoxDecoration(
-          color: isSelected ? Colors.blue[50] : Colors.grey[50],
-          borderRadius: BorderRadius.circular(context.borderRadiusSmall),
-          border: Border.all(
-            color: isSelected ? Colors.blue : Colors.grey[300]!,
-            width: isSelected ? 2 : 1,
-          ),
-        ),
-        child: Column(
-          children: [
-            Icon(
-              icon,
-              color: isSelected ? Colors.blue : Colors.grey[600],
-              size: context.isMobile ? 22 : 24,
-            ),
-            SizedBox(height: context.gapXXSmall),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: context.responsiveFontSize(14, 13, 12),
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                color: isSelected ? Colors.blue : Colors.grey[700],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+  Future<void> _copySupportNumber() async {
+    await Clipboard.setData(const ClipboardData(text: _supportNumber));
+    if (!mounted) return;
+    _showSnack('$_supportNumber copied', _kGreen);
   }
 
-  Widget _buildFormField({
-    required String label,
-    required TextEditingController controller,
-    required String hintText,
-    TextInputType? keyboardType,
-    String? Function(String?)? validator,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: context.responsiveFontSize(15, 14, 13),
-            fontWeight: FontWeight.w500,
-            color: Colors.black87,
-          ),
-        ),
-        SizedBox(height: context.gapSmall),
-        TextFormField(
-          controller: controller,
-          keyboardType: keyboardType,
-          decoration: InputDecoration(
-            hintText: hintText,
-            hintStyle: TextStyle(
-              color: Colors.grey[400],
-              fontSize: context.responsiveFontSize(14, 13, 12),
-            ),
-            filled: true,
-            fillColor: Colors.grey[50],
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(context.borderRadiusSmall),
-              borderSide: BorderSide(color: Colors.grey[300]!),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(context.borderRadiusSmall),
-              borderSide: BorderSide(color: Colors.grey[300]!),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(context.borderRadiusSmall),
-              borderSide: const BorderSide(color: Colors.blue, width: 2),
-            ),
-            contentPadding: EdgeInsets.symmetric(
-              horizontal: context.gapMedium,
-              vertical: context.gapSmall,
-            ),
-          ),
-          validator: validator,
-        ),
-      ],
-    );
+  // ------------------------------------------------------------- behaviour
+
+  Future<void> _pickFile() async {
+    try {
+      setState(() => _isPickingFile = true);
+
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png', 'doc', 'docx'],
+        allowMultiple: false,
+      );
+
+      if (result != null && result.files.isNotEmpty) {
+        setState(() => _selectedFile = result.files.first);
+        if (!mounted) return;
+        _showSnack('Selected: ${_selectedFile!.name}', _kGreen);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      _showSnack('Error picking file: $e', AppColors.accent);
+    } finally {
+      if (mounted) setState(() => _isPickingFile = false);
+    }
   }
 
-  Widget _buildPhoneNumberField() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Phone Number *',
-          style: TextStyle(
-            fontSize: context.responsiveFontSize(15, 14, 13),
-            fontWeight: FontWeight.w500,
-            color: Colors.black87,
-          ),
-        ),
-        SizedBox(height: context.gapSmall),
-        Row(
-          children: [
-            Container(
-              padding: EdgeInsets.symmetric(horizontal: context.gapSmall),
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey[300]!),
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(context.borderRadiusSmall),
-                  bottomLeft: Radius.circular(context.borderRadiusSmall),
-                ),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 20,
-                    height: 44,
-
-                    child: Center(
-                      child: Text(
-                        '🇮🇳',
-                        style: TextStyle(fontSize: context.fs(12)),
-                      ),
-                    ),
-                  ),
-                  SizedBox(width: context.gapXXSmall),
-                  const Text('+91'),
-                  Icon(Icons.keyboard_arrow_down, size: 16),
-                ],
-              ),
-            ),
-            Expanded(
-              child: TextFormField(
-                controller: _phoneController,
-                keyboardType: TextInputType.phone,
-                decoration: InputDecoration(
-                  hintText: 'Phone number',
-                  hintStyle: TextStyle(
-                    color: Colors.grey[400],
-                    fontSize: context.responsiveFontSize(14, 13, 12),
-                  ),
-                  filled: true,
-                  fillColor: Colors.grey[50],
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.only(
-                      topRight: Radius.circular(context.borderRadiusSmall),
-                      bottomRight: Radius.circular(context.borderRadiusSmall),
-                    ),
-                    borderSide: BorderSide(color: Colors.grey[300]!),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.only(
-                      topRight: Radius.circular(context.borderRadiusSmall),
-                      bottomRight: Radius.circular(context.borderRadiusSmall),
-                    ),
-                    borderSide: BorderSide(color: Colors.grey[300]!),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.only(
-                      topRight: Radius.circular(context.borderRadiusSmall),
-                      bottomRight: Radius.circular(context.borderRadiusSmall),
-                    ),
-                    borderSide: const BorderSide(color: Colors.blue, width: 2),
-                  ),
-                  contentPadding: EdgeInsets.symmetric(
-                    horizontal: context.gapMedium,
-                    vertical: context.gapSmall,
-                  ),
-                ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter phone number';
-                  }
-                  if (value.length < 10) {
-                    return 'Please enter valid phone number';
-                  }
-                  return null;
-                },
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildFileUploadArea() {
-    return GestureDetector(
-      onTap: _pickFile,
-      child: Container(
-        width: double.infinity,
-        padding: EdgeInsets.all(context.gapLarge),
-        decoration: BoxDecoration(
-          color: Colors.grey[50],
-          borderRadius: BorderRadius.circular(
-            context.borderRadiusSmall,
-          ),
-          border: Border.all(
-            color: Colors.grey[300]!,
-          ),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            _isPickingFile
-                ? SizedBox(
-              width: context.isMobile ? 28 : 32,
-              height: context.isMobile ? 28 : 32,
-              child: const CircularProgressIndicator(
-                strokeWidth: 2,
-              ),
-            )
-                : Icon(
-              Icons.cloud_upload_outlined,
-              size: context.isMobile ? 35 : 40,
-              color: Colors.grey[400],
-            ),
-
-            SizedBox(height: context.gapSmall),
-
-            Text(
-              _selectedFile == null
-                  ? 'Drag and drop file OR'
-                  : _selectedFile!.name,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: context.responsiveFontSize(
-                  13,
-                  12,
-                  11,
-                ),
-                color: _selectedFile == null
-                    ? Colors.grey[600]
-                    : Colors.green[700],
-                fontWeight: _selectedFile == null
-                    ? FontWeight.normal
-                    : FontWeight.w600,
-              ),
-            ),
-
-            SizedBox(height: context.gapSmall),
-
-            ElevatedButton(
-              onPressed: _pickFile,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue[700],
-                padding: EdgeInsets.symmetric(
-                  horizontal: context.gapMedium,
-                  vertical: context.gapXXSmall,
-                ),
-              ),
-              child: Text(
-                _selectedFile == null
-                    ? 'Browse'
-                    : 'Change File',
-                style: TextStyle(
-                  fontSize: context.responsiveFontSize(
-                    12,
-                    11,
-                    10,
-                  ),
-                  color: Colors.white,
-                ),
-              ),
-            ),
-
-            if (_selectedFile != null) ...[
-              SizedBox(height: context.gapSmall),
-
-              TextButton.icon(
-                onPressed: () {
-                  setState(() {
-                    _selectedFile = null;
-                  });
-                },
-                icon: const Icon(
-                  Icons.close,
-                  size: 16,
-                  color: Colors.red,
-                ),
-                label: Text(
-                  'Remove File',
-                  style: TextStyle(
-                    color: Colors.red,
-                    fontSize: context.responsiveFontSize(
-                      12,
-                      11,
-                      10,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
+  void _showSnack(String message, Color background) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: background),
     );
   }
 
   Future<void> _submitSupportForm() async {
     if (!_formKey.currentState!.validate()) return;
 
-    if (_selectedQueryType == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please select a query type'),
-          backgroundColor: Colors.orange,
-        ),
-      );
-      return;
-    }
-
     setState(() => _isSubmitting = true);
+
+    final query = _queryController.text.trim();
 
     try {
       final response = await sl<SupportApiService>().submitSupportQuery(
         bookingReference: _bookingRefController.text.trim(),
         email: _emailController.text.trim(),
-        phoneCode: '+91',
+        phoneCode: _dial.code,
         phone: _phoneController.text.trim(),
-        queryType: _selectedQueryType!,
+        queryType: query,
         flightType: _travelType,
-        message: _messageController.text.trim(),
+        message: query,
         attachment: _selectedFile,
       );
 
@@ -959,21 +1077,11 @@ class _CustomerSupportSectionState extends State<CustomerSupportSection> {
               responseData['error'] ??
               'Failed to submit support query')
           : 'Failed to submit support query';
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(errorMessage.toString()),
-          backgroundColor: Colors.red,
-        ),
-      );
+      _showSnack(errorMessage.toString(), AppColors.accent);
     } catch (_) {
       if (!mounted) return;
       setState(() => _isSubmitting = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Failed to submit support query'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      _showSnack('Failed to submit support query', AppColors.accent);
     }
   }
 
@@ -981,10 +1089,9 @@ class _CustomerSupportSectionState extends State<CustomerSupportSection> {
     _bookingRefController.clear();
     _emailController.clear();
     _phoneController.clear();
-    _messageController.clear();
+    _queryController.clear();
     _formKey.currentState?.reset();
     setState(() {
-      _selectedQueryType = null;
       _travelType = 'Domestic';
       _selectedFile = null;
     });
@@ -997,78 +1104,76 @@ class _CustomerSupportSectionState extends State<CustomerSupportSection> {
       builder: (dialogContext) {
         return Dialog(
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(context.borderRadiusMedium),
+            borderRadius: BorderRadius.circular(context.w(16)),
           ),
           child: ConstrainedBox(
             constraints: BoxConstraints(
               maxWidth: context.isMobile ? double.infinity : 420,
             ),
             child: Padding(
-              padding: EdgeInsets.all(context.gapLarge),
+              padding: EdgeInsets.all(context.w(20)),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Container(
-                    padding: EdgeInsets.all(context.gapMedium),
-                    decoration: BoxDecoration(
-                      color: Colors.green[50],
+                    padding: EdgeInsets.all(context.w(12)),
+                    decoration: const BoxDecoration(
+                      color: _kGreenBg,
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
                       Icons.check_circle,
-                      color: Colors.green[700],
-                      size: context.isMobile ? 40 : 48,
+                      color: _kGreen,
+                      size: context.w(40),
                     ),
                   ),
-                  SizedBox(height: context.gapMedium),
+                  SizedBox(height: context.w(14)),
                   Text(
                     'Query Submitted',
                     style: TextStyle(
-                      fontSize: context.responsiveFontSize(18, 17, 16),
+                      fontSize: context.fs(18),
                       fontWeight: FontWeight.w700,
-                      color: Colors.black87,
+                      color: _kInk,
                     ),
                   ),
-                  SizedBox(height: context.gapSmall),
+                  SizedBox(height: context.w(8)),
                   Text(
                     message,
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      fontSize: context.responsiveFontSize(14, 13, 12),
-                      color: Colors.grey[600],
+                      fontSize: context.fs(14),
+                      color: _kSubtle,
                     ),
                   ),
                   if (queryId != null) ...[
-                    SizedBox(height: context.gapXSmall),
+                    SizedBox(height: context.w(6)),
                     Text(
                       'Reference ID: $queryId',
                       style: TextStyle(
-                        fontSize: context.responsiveFontSize(13, 12, 11),
+                        fontSize: context.fs(13),
                         fontWeight: FontWeight.w600,
-                        color: AppColors.accent,
+                        color: _kOrange,
                       ),
                     ),
                   ],
-                  SizedBox(height: context.gapLarge),
+                  SizedBox(height: context.w(20)),
                   SizedBox(
                     width: double.infinity,
+                    height: context.w(50),
                     child: ElevatedButton(
                       onPressed: () => Navigator.of(dialogContext).pop(),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.red[700],
-                        padding: EdgeInsets.symmetric(
-                          vertical: context.gapMedium,
-                        ),
+                        backgroundColor: _kOrange,
+                        elevation: 0,
                         shape: RoundedRectangleBorder(
-                          borderRadius:
-                              BorderRadius.circular(context.borderRadiusSmall),
+                          borderRadius: BorderRadius.circular(context.w(10)),
                         ),
                       ),
                       child: Text(
                         'OK',
                         style: TextStyle(
-                          fontSize: context.responsiveFontSize(15, 14, 13),
-                          fontWeight: FontWeight.w600,
+                          fontSize: context.fs(15),
+                          fontWeight: FontWeight.w700,
                           color: Colors.white,
                         ),
                       ),
@@ -1081,5 +1186,76 @@ class _CustomerSupportSectionState extends State<CustomerSupportSection> {
         );
       },
     );
+  }
+}
+
+/// Dashed rounded rectangle used by the attachment drop zone.
+class _DashedBorderPainter extends CustomPainter {
+  final Color color;
+  final double radius;
+  final double dashWidth;
+  final double dashGap;
+  final double strokeWidth;
+
+  /// Horizontal span on the top edge left blank for the floating label.
+  final double gapStart;
+  final double gapWidth;
+
+  const _DashedBorderPainter({
+    required this.color,
+    required this.radius,
+    required this.dashWidth,
+    required this.dashGap,
+    required this.strokeWidth,
+    this.gapStart = 0,
+    this.gapWidth = 0,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final source = Path()
+      ..addRRect(
+        RRect.fromRectAndRadius(
+          Offset.zero & size,
+          Radius.circular(radius),
+        ),
+      );
+
+    final notch = gapWidth <= 0
+        ? null
+        : Rect.fromLTWH(gapStart, -strokeWidth * 2, gapWidth, strokeWidth * 4);
+
+    final dashed = Path();
+    for (final metric in source.computeMetrics()) {
+      var distance = 0.0;
+      while (distance < metric.length) {
+        final next = math.min(distance + dashWidth, metric.length);
+        final mid = metric.getTangentForOffset((distance + next) / 2)?.position;
+        if (notch == null || mid == null || !notch.contains(mid)) {
+          dashed.addPath(metric.extractPath(distance, next), Offset.zero);
+        }
+        distance = next + dashGap;
+      }
+    }
+
+    canvas.drawPath(
+      dashed,
+      Paint()
+        ..color = color
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = strokeWidth
+        ..strokeCap = StrokeCap.round,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_DashedBorderPainter oldDelegate) {
+    return oldDelegate.color != color ||
+        oldDelegate.radius != radius ||
+        oldDelegate.dashWidth != dashWidth ||
+        oldDelegate.dashGap != dashGap ||
+        oldDelegate.strokeWidth != strokeWidth ||
+        oldDelegate.gapStart != gapStart ||
+        oldDelegate.gapWidth != gapWidth;
   }
 }

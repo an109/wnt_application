@@ -1,6 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
+import '../../../core/resources/app_colours.dart';
 import '../Section/customer_support.dart';
+
+/// Palette lifted from the Customer Support design.
+const _kInk = Color(0xFF0F1010);
+const _kSubtle = Color(0xFF6E6E73);
+const _kBlue = Color(0xFF00A1E4);
+const _kCardBg = Color(0xFFF9F9FA);
+const _kCardStroke = Color(0xFFEDEDF0);
+const _kChipSelectedBg = Color(0xFFF0FBFF);
 
 class SupportScreen extends StatefulWidget {
   const SupportScreen({super.key});
@@ -9,29 +19,11 @@ class SupportScreen extends StatefulWidget {
   State<SupportScreen> createState() => _SupportScreenState();
 }
 
-class _SupportScreenState extends State<SupportScreen> with SingleTickerProviderStateMixin {
+class _SupportScreenState extends State<SupportScreen> {
   String _selectedCategory = 'Most Popular';
 
   // Track expanded FAQ items
   final Map<int, bool> _expandedItems = {};
-
-  // Animation controller for smooth transitions
-  late AnimationController _animationController;
-
-  @override
-  void initState() {
-    super.initState();
-    _animationController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 300),
-    );
-  }
-
-  @override
-  void dispose() {
-    _animationController.dispose();
-    super.dispose();
-  }
 
   // FAQ Data
   final Map<String, List<Map<String, String>>> _faqData = {
@@ -123,379 +115,173 @@ class _SupportScreenState extends State<SupportScreen> with SingleTickerProvider
     });
   }
 
+  void _selectCategory(String category) {
+    setState(() {
+      _selectedCategory = category;
+      _expandedItems.clear();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: AppColors.white,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.white,
+        surfaceTintColor: Colors.white,
         elevation: 0,
+        centerTitle: false,
+        scrolledUnderElevation: 0,
+        systemOverlayStyle: SystemUiOverlayStyle.dark,
+        titleSpacing: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black87),
+          icon: Image.asset(
+            'assets/NewIcons/arrowBack.png',
+            width: context.w(18),
+            height: context.h(18),
+            color: AppColors.black,
+          ),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
-          'Support & FAQ',
+          'Customer Support',
           style: TextStyle(
-            color: Colors.black87,
-            fontSize: context.responsiveFontSize(20, 18, 16),
+            color: _kInk,
+            fontSize: context.fs(19),
             fontWeight: FontWeight.w600,
           ),
         ),
       ),
-      body: SingleChildScrollView(
-        physics: context.scrollPhysics,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Welcome Header
-            _buildWelcomeHeader(),
-            SizedBox(height: context.gapLarge),
-
-            // Main Content
-            Padding(
-              padding: context.horizontalPadding,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // FAQ Section
-                  _buildFAQSection(),
-                  SizedBox(height: context.gapXLarge),
-
-                  // Customer Support Section (Imported)
-                  const CustomerSupportSection(),
-                  SizedBox(height: context.gapLarge),
-                ],
+      body: SafeArea(
+        top: false,
+        child: SingleChildScrollView(
+          physics: context.scrollPhysics,
+          child: Center(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: context.isMobile ? double.infinity : 700,
               ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildWelcomeHeader() {
-    return Container(
-      margin: context.horizontalPadding,
-      padding: EdgeInsets.all(context.isMobile ? 20 : 32),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF1E3A8A), Color(0xFF3B82F6)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(context.borderRadiusMedium),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.blue.withOpacity(0.3),
-            blurRadius: 15,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Welcome..!! How may we help you?',
-                  style: TextStyle(
-                    fontSize: context.responsiveFontSize(24, 20, 18),
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white,
-                  ),
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(
+                  context.w(16),
+                  context.w(20),
+                  context.w(16),
+                  context.w(32),
                 ),
-                if (context.isDesktop || context.isTablet) ...[
-                  SizedBox(height: context.gapSmall),
-                  Text(
-                    'Find answers to common questions or contact our support team',
-                    style: TextStyle(
-                      fontSize: context.responsiveFontSize(14, 13, 12),
-                      color: Colors.white.withOpacity(0.9),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          if (context.isDesktop || context.isTablet) ...[
-            SizedBox(width: context.gapMedium),
-            Expanded(
-              flex: 2,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(context.borderRadiusSmall),
-                ),
-                child: TextField(
-                  style: const TextStyle(color: Colors.white),
-                  decoration: InputDecoration(
-                    hintText: 'Type your questions here',
-                    hintStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
-                    border: InputBorder.none,
-                    prefixIcon: Icon(Icons.search, color: Colors.white.withOpacity(0.7)),
-                    suffixIcon: Container(
-                      margin: const EdgeInsets.all(8),
-                      decoration: const BoxDecoration(
-                        color: Colors.red,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.search, color: Colors.white, size: 20),
-                    ),
-                    contentPadding: EdgeInsets.symmetric(
-                      horizontal: context.gapMedium,
-                      vertical: context.gapSmall,
-                    ),
-                  ),
+                // padding: EdgeInsets.all(8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const CustomerSupportSection(),
+                    SizedBox(height: context.w(36)),
+                    _buildFAQSection(),
+                  ],
                 ),
               ),
             ),
-          ],
-        ],
+          ),
+        ),
       ),
     );
   }
 
   Widget _buildFAQSection() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(context.borderRadiusMedium),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: context.shadowOffsetSmall,
-          ),
-        ],
-      ),
-      child: context.isMobile
-          ? _buildMobileFAQLayout()
-          : _buildDesktopFAQLayout(),
-    );
-  }
-
-  Widget _buildDesktopFAQLayout() {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Sidebar Categories
-        SizedBox(
-          width: 250,
-          child: _buildCategorySidebar(),
-        ),
-
-        // FAQ Content
-        Expanded(
-          child: Container(
-            padding: context.responsivePadding,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Frequently Asked Questions',
-                  style: TextStyle(
-                    fontSize: context.responsiveFontSize(20, 18, 16),
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black87,
-                  ),
-                ),
-                SizedBox(height: context.gapMedium),
-                ..._filteredFAQs.asMap().entries.map((entry) {
-                  return _buildFAQItem(
-                    entry.value['question']!,
-                    entry.value['answer']!,
-                    entry.key,
-                  );
-                }).toList(),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildMobileFAQLayout() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Horizontal Category Scroll
-        SizedBox(
-          height: 50,
-          child: ListView(
-            scrollDirection: Axis.horizontal,
-            padding: EdgeInsets.symmetric(horizontal: context.gapMedium),
-            children: _faqData.keys.map((category) {
-              final isSelected = _selectedCategory == category;
-              return Padding(
-                padding: EdgeInsets.only(
-                  right: context.gapSmall,
-                  top: context.gapSmall,
-                  bottom: context.gapSmall,
-                ),
-                child: FilterChip(
-                  label: Text(category),
-                  selected: isSelected,
-                  onSelected: (selected) {
-                    setState(() {
-                      _selectedCategory = category;
-                      _expandedItems.clear();
-                    });
-                  },
-                  backgroundColor: Colors.grey[100],
-                  selectedColor: Colors.blue[50],
-                  labelStyle: TextStyle(
-                    fontSize: context.responsiveFontSize(13, 12, 11),
-                    color: isSelected ? Colors.blue[700] : Colors.grey[700],
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                  ),
-                ),
-              );
-            }).toList(),
+        Text(
+          'FAQ',
+          style: TextStyle(
+            fontSize: context.fs(14),
+            fontWeight: FontWeight.w600,
+            color: _kInk,
           ),
         ),
-
-        Divider(color: Colors.grey[200]),
-
-        // FAQ Content
-        Padding(
-          padding: context.responsivePadding,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Frequently Asked Questions',
-                style: TextStyle(
-                  fontSize: context.responsiveFontSize(20, 18, 16),
-                  fontWeight: FontWeight.w600,
-                  color: Colors.black87,
-                ),
-              ),
-              SizedBox(height: context.gapMedium),
-              ..._filteredFAQs.asMap().entries.map((entry) {
-                return _buildFAQItem(
-                  entry.value['question']!,
-                  entry.value['answer']!,
-                  entry.key,
-                );
-              }).toList(),
-            ],
-          ),
-        ),
+        SizedBox(height: context.w(14)),
+        _buildCategoryFilter(),
+        SizedBox(height: context.w(16)),
+        ..._filteredFAQs.asMap().entries.map((entry) {
+          return _buildFAQItem(
+            entry.value['question']!,
+            entry.value['answer']!,
+            entry.key,
+          );
+        }),
       ],
     );
   }
 
-  Widget _buildCategorySidebar() {
-    return Container(
-      padding: context.responsivePadding,
-      decoration: BoxDecoration(
-        border: Border(
-          right: BorderSide(color: Colors.grey[200]!),
+  Widget _buildCategoryFilter() {
+    final categories = _faqData.keys.toList();
+
+    // Narrow screens scroll the categories, wider ones can wrap them.
+    if (context.isMobile) {
+      return SizedBox(
+        height: context.w(28),
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          itemCount: categories.length,
+          separatorBuilder: (_, __) => SizedBox(width: context.w(8)),
+          itemBuilder: (_, index) => _buildCategoryChip(categories[index]),
         ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: _faqData.keys.map((category) {
-          final isSelected = _selectedCategory == category;
-          return Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: () {
-                setState(() {
-                  _selectedCategory = category;
-                  _expandedItems.clear();
-                });
-              },
-              borderRadius: BorderRadius.circular(context.borderRadiusSmall),
-              child: Container(
-                padding: EdgeInsets.symmetric(
-                  horizontal: context.gapMedium,
-                  vertical: context.gapSmall,
-                ),
-                margin: EdgeInsets.only(bottom: context.gapXXSmall),
-                decoration: BoxDecoration(
-                  color: isSelected ? Colors.blue[50] : Colors.transparent,
-                  borderRadius: BorderRadius.circular(context.borderRadiusSmall),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      _getCategoryIcon(category),
-                      size: 18,
-                      color: isSelected ? Colors.blue[700] : Colors.grey[600],
-                    ),
-                    SizedBox(width: context.gapMedium),
-                    Expanded(
-                      child: Text(
-                        category,
-                        style: TextStyle(
-                          fontSize: context.responsiveFontSize(14, 13, 12),
-                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                          color: isSelected ? Colors.blue[700] : Colors.grey[700],
-                        ),
-                      ),
-                    ),
-                    Icon(
-                      Icons.chevron_right,
-                      size: 16,
-                      color: isSelected ? Colors.blue[700] : Colors.grey[400],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          );
-        }).toList(),
-      ),
+      );
+    }
+
+    return Wrap(
+      spacing: context.w(8),
+      runSpacing: context.w(8),
+      children: categories.map(_buildCategoryChip).toList(),
     );
   }
 
-  IconData _getCategoryIcon(String category) {
-    switch (category) {
-      case 'Most Popular':
-        return Icons.star;
-      case 'Flight':
-        return Icons.flight;
-      case 'Payment Options':
-        return Icons.payment;
-      case 'Visa':
-        return Icons.credit_card;
-      case 'Holidays':
-        return Icons.beach_access;
-      case 'Hotels':
-        return Icons.hotel;
-      default:
-        return Icons.help_outline;
-    }
+  Widget _buildCategoryChip(String category) {
+    final isSelected = _selectedCategory == category;
+
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => _selectCategory(category),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: EdgeInsets.symmetric(
+          horizontal: context.w(14),
+          vertical: context.w(4),
+        ),
+        decoration: BoxDecoration(
+          color: isSelected ? _kBlue : _kCardBg,
+          borderRadius: BorderRadius.circular(context.w(4)),
+          border: Border.all(color: isSelected ? _kBlue : _kCardStroke),
+        ),
+        child: Center(
+          widthFactor: 1,
+          child: Text(
+            category,
+            style: TextStyle(
+              fontSize: context.fs(11),
+              fontWeight: FontWeight.w500,
+              color: isSelected ? Colors.white : _kSubtle,
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _buildFAQItem(String question, String answer, int index) {
     final isExpanded = _expandedItems[index] ?? false;
 
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeInOut,
-      margin: EdgeInsets.only(bottom: context.h(8)),
+    return Container(
+      margin: EdgeInsets.only(bottom: context.w(12)),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(context.borderRadiusSmall),
-        border: Border.all(
-          color: isExpanded ? Colors.blue[200]! : Colors.grey[200]!,
-          width: isExpanded ? 2 : 1,
-        ),
-        boxShadow: isExpanded
-            ? [
+        color: Color(0xFFE5E7EB).withAlpha(24),
+        borderRadius: BorderRadius.circular(context.w(12)),
+        boxShadow: [
           BoxShadow(
-            color: Colors.blue.withOpacity(0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+            color: AppColors.black.withValues(alpha: 0.02),
+            offset: const Offset(2, 0),
+            blurRadius: 2,
+            spreadRadius: 0,
           ),
-        ]
-            : null,
+        ],
       ),
       child: Column(
         children: [
@@ -503,29 +289,31 @@ class _SupportScreenState extends State<SupportScreen> with SingleTickerProvider
             color: Colors.transparent,
             child: InkWell(
               onTap: () => _toggleExpand(index),
-              borderRadius: BorderRadius.circular(context.borderRadiusSmall),
+              borderRadius: BorderRadius.circular(context.w(16)),
               child: Padding(
-                padding: EdgeInsets.all(context.w(12)),
+                padding: EdgeInsets.all(12),
                 child: Row(
                   children: [
                     Expanded(
                       child: Text(
                         question,
                         style: TextStyle(
-                          fontSize: context.responsiveFontSize(15, 14, 13),
-                          fontWeight: FontWeight.w500,
-                          color: Colors.black87,
+                          fontSize: context.fs(12),
+                          fontWeight: FontWeight.w600,
+                          height: 1.3,
+                          color: _kInk,
                         ),
                       ),
                     ),
+                    SizedBox(width: context.w(12)),
                     AnimatedRotation(
-                      duration: const Duration(milliseconds: 300),
+                      duration: const Duration(milliseconds: 250),
                       curve: Curves.easeInOut,
-                      turns: isExpanded ? 0.5 : 0,
+                      turns: isExpanded ? 0 : 0.5,
                       child: Icon(
-                        Icons.expand_more,
-                        color: isExpanded ? Colors.blue[700] : Colors.grey[600],
-                        size: 24,
+                        Icons.keyboard_arrow_up_rounded,
+                        size: context.w(18),
+                        color: _kInk,
                       ),
                     ),
                   ],
@@ -534,26 +322,28 @@ class _SupportScreenState extends State<SupportScreen> with SingleTickerProvider
             ),
           ),
           AnimatedCrossFade(
-            firstChild: const SizedBox.shrink(),
+            firstChild: const SizedBox(width: double.infinity),
             secondChild: Container(
+              width: double.infinity,
               padding: EdgeInsets.only(
-                left: context.gapMedium,
-                right: context.gapMedium,
-                bottom: context.gapMedium,
+                left: context.w(16),
+                right: context.w(16),
+                bottom: context.w(18),
               ),
               child: Text(
                 answer,
                 style: TextStyle(
-                  fontSize: context.responsiveFontSize(14, 13, 12),
-                  color: Colors.grey[700],
-                  height: 1.6,
+                  fontSize: context.fs(12),
+                  fontWeight: FontWeight.w400,
+                  color: _kSubtle,
+                  height: 1.25,
                 ),
               ),
             ),
             crossFadeState: isExpanded
                 ? CrossFadeState.showSecond
                 : CrossFadeState.showFirst,
-            duration: const Duration(milliseconds: 300),
+            duration: const Duration(milliseconds: 250),
             sizeCurve: Curves.easeInOut,
           ),
         ],
