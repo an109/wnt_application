@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:lottie/lottie.dart';
-import 'dart:async';
-import 'package:wander_nova/UI_helper/responsive_layout.dart';
+import 'package:wander_nova/common_widgets/app_loader.dart';
 
-
-class ProfessionalLoadingScreen extends StatefulWidget {
+/// Flight-search loading state, shown while results are being fetched.
+///
+/// It stays up for as long as the search is actually running — the caller
+/// swaps it out when results (or an error) arrive.
+class ProfessionalLoadingScreen extends StatelessWidget {
+  /// Kept for existing callers; no longer invoked because there is no
+  /// simulated progress to "complete" any more.
   final VoidCallback onLoadingComplete;
   final Map<String, dynamic>? searchParams;
 
@@ -14,153 +17,23 @@ class ProfessionalLoadingScreen extends StatefulWidget {
     this.searchParams,
   });
 
-  @override
-  State<ProfessionalLoadingScreen> createState() =>
-      _ProfessionalLoadingScreenState();
-}
-
-class _ProfessionalLoadingScreenState extends State<ProfessionalLoadingScreen> {
-  double _progress = 0.0;
-  Timer? _progressTimer;
-  String _currentMessage = "Finding best flight options...";
-  int currentIndex = 0;
-
-  final List<String> _loadingMessages = [
-    "Finding best flight options...",
-    "Checking availability across airlines...",
-    "Comparing prices for best deals...",
-    "Applying exclusive discounts...",
-    "Almost there! Preparing your results...",
-    "You're all set! Redirecting...",
-  ];
-
-  @override
-  void initState() {
-    super.initState();
-    _simulateLoading();
-  }
-
-  void _simulateLoading() {
-    _progressTimer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
-      if (mounted) {
-        setState(() {
-          if (_progress < 1.0) {
-            _progress += 0.01;
-
-            // Update message based on progress
-            int messageIndex = (_progress * _loadingMessages.length).floor();
-            if (messageIndex < _loadingMessages.length && messageIndex >= 0) {
-              _currentMessage = _loadingMessages[messageIndex];
-            }
-
-            if (_progress >= 1.0) {
-              timer.cancel();
-              Future.delayed(const Duration(milliseconds: 200), () {
-                if (mounted) {
-                  widget.onLoadingComplete();
-                }
-              });
-            }
-          }
-        });
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    _progressTimer?.cancel();
-    super.dispose();
+  String? _route() {
+    final from = searchParams?['fromAirport']?.toString().trim() ?? '';
+    final to = searchParams?['toAirport']?.toString().trim() ?? '';
+    if (from.isEmpty || to.isEmpty) return null;
+    return 'Searching flights from $from to $to…';
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: Column(
-        children: [
-          // Top progress indicator (Blue color)
-          LinearProgressIndicator(
-            value: _progress,
-            backgroundColor: Colors.grey.shade200,
-            valueColor: const AlwaysStoppedAnimation<Color>(Colors.blue),
-            minHeight: 3,
-          ),
-
-          // Main content
-          Expanded(
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  // GIF Animation
-                  SizedBox(
-                    width: 300,
-                    height: 300,
-                    child: Lottie.asset(
-                      'assets/animation/Plane_animation.json',
-                      repeat: true,
-                      fit: BoxFit.contain,
-                    ),
-                    // child: Image.asset(
-                    //   'assets/images/flight-loader.gif',
-                    //   fit: BoxFit.contain,
-                    //   errorBuilder: (context, error, stackTrace) {
-                    //     return Icon(
-                    //       Icons.flight_takeoff,
-                    //       size: 80,
-                    //       color: Colors.blue,
-                    //     );
-                    //   },
-                    // ),
-                  ),
-
-                  // SizedBox(
-                  //   width: 320,
-                  //   height: 220,
-                  //   child: FlightSearchingAnimation(),
-                  // ),
-                  const SizedBox(height: 32),
-
-                  // Dynamic message below GIF
-                  AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 300),
-                    child: Text(
-                      _currentMessage,
-                      key: ValueKey(_currentMessage),
-                      style: TextStyle(
-                        fontSize: context.bodyLarge,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.grey.shade700,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-
-                  const SizedBox(height: 48),
-
-                  // Bottom Progress Indicator (Red color)
-                  Container(
-                    width: 200,
-                    margin: const EdgeInsets.symmetric(horizontal: 10),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
-                      child: LinearProgressIndicator(
-                        value: _progress,
-                        backgroundColor: Colors.grey.shade200,
-                        valueColor: const AlwaysStoppedAnimation<Color>(
-                          Color(0xFF0054A0),
-                        ),
-                        minHeight: 4,
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 16),
-                ],
-              ),
-            ),
-          ),
+    return Container(
+      color: Colors.white,
+      child: AppLoadingView(
+        messages: [
+          _route() ?? 'Searching flights…',
+          'Checking availability across airlines…',
+          'Comparing fares for the best deals…',
+          'Almost there, preparing your results…',
         ],
       ),
     );

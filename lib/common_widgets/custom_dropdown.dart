@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
+import 'package:wander_nova/common_widgets/app_loader.dart';
 
 class CustomDropdownSearch<T extends Object> extends StatefulWidget {
   final List<T> options;
@@ -273,7 +274,7 @@ class _DropdownContentState<T> extends State<_DropdownContent<T>> {
 
         Expanded(
           child: widget.isLoading
-              ? const Center(child: CircularProgressIndicator())
+              ? const AppLoadingView.compact(message: 'Loading options…')
               : filteredOptions.isEmpty
               ? const Center(child: Text("No results found"))
               : ListView.builder(

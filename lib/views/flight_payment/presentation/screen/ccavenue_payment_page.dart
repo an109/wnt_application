@@ -6,6 +6,7 @@ import '../../../../UI_helper/responsive_layout.dart';
 import '../../../../common_widgets/logo.dart';
 import '../../../../core/constants/urls.dart';
 import '../../data/ccavenue_service.dart';
+import 'package:wander_nova/common_widgets/app_loader.dart';
 
 enum PaymentResult { success, failure, cancelled }
 
@@ -282,20 +283,7 @@ class _CCAvenuePaymentPageState extends State<CCAvenuePaymentPage> {
     return Container(
       color: _pageBg,
       child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const CircularProgressIndicator(color: _blue),
-            SizedBox(height: context.gapLarge),
-            Text(
-              _confirming ? 'Confirming your payment...' : 'Loading payment...',
-              style: TextStyle(
-                fontSize: context.bodyMedium,
-                color: Colors.grey.shade700,
-              ),
-            ),
-          ],
-        ),
+        child: AppLoadingView(message: _confirming ? 'Confirming your payment…' : 'Loading payment…'),
       ),
     );
   }

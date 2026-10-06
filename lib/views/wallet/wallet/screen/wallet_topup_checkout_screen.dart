@@ -14,6 +14,7 @@ import 'checkout/checkout_ui.dart';
 import 'checkout/method_sections.dart';
 import 'checkout/qr_pay_panel.dart';
 import 'checkout/upi_section.dart';
+import 'package:wander_nova/common_widgets/app_loader.dart';
 
 /// Full-screen wallet top-up checkout (MakeMyTrip-style accordion): UPI
 /// (apps / UPI ID / QR), cards, net banking, EMI and wallets, all paid
@@ -956,31 +957,7 @@ class _WalletTopUpCheckoutScreenState extends State<WalletTopUpCheckoutScreen> {
               color: Colors.white,
               borderRadius: BorderRadius.circular(context.r(16)),
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const CircularProgressIndicator(color: CheckoutColors.primary),
-                SizedBox(height: context.h(16)),
-                Text(
-                  _statusMessage,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: context.fs(13.5),
-                    fontWeight: FontWeight.w600,
-                    color: CheckoutColors.ink,
-                  ),
-                ),
-                SizedBox(height: context.h(4)),
-                Text(
-                  'Please do not close the app or press back',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: context.fs(11.5),
-                    color: CheckoutColors.muted,
-                  ),
-                ),
-              ],
-            ),
+            child: AppLoadingView(message: _statusMessage, hint: 'Please do not close the app or press back'),
           ),
         ),
       ),

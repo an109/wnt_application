@@ -489,15 +489,15 @@ class _PopularDestinationsState extends State<PopularDestinations> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => _DestinationDetailSheet(destination: destination),
+      builder: (context) => DestinationDetailSheet(destination: destination),
     );
   }
 }
 
-class _DestinationDetailSheet extends StatelessWidget {
+class DestinationDetailSheet extends StatelessWidget {
   final DestinationEntity destination;
 
-  const _DestinationDetailSheet({required this.destination});
+  const DestinationDetailSheet({super.key, required this.destination});
 
   String _formatPriceWithConversion(String priceString, String targetCurrency) {
     if (priceString.isEmpty) return 'Contact for price';

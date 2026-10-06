@@ -7,6 +7,7 @@ import '../../data/diy_holiday_api.dart';
 import '../../data/models/diy_models.dart';
 import '../widgets/diy_common.dart';
 import '../widgets/diy_trip_day_card.dart';
+import 'package:wander_nova/common_widgets/app_loader.dart';
 
 /// "Transfer" — one transfer of the trip in full, and the car it runs in.
 ///
@@ -450,10 +451,7 @@ class _DiyTransferScreenState extends State<DiyTransferScreen> {
     final options = _cabs.options;
     final Widget body;
     if (_loading) {
-      body = Padding(
-        padding: EdgeInsets.symmetric(vertical: context.h(20)),
-        child: const Center(child: CircularProgressIndicator()),
-      );
+      body = const AppLoadingView.compact(message: 'Loading transfers…');
     } else if (_error != null) {
       body = Column(
         children: [

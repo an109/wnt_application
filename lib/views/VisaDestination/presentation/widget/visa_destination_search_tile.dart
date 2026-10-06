@@ -7,6 +7,7 @@ import 'package:wander_nova/views/VisaDestination/presentation/bloc/visaDestin_s
 import '../../../../injection_container.dart';
 import '../../domain/entity/visaDestin_Entity.dart';
 import '../bloc/visaDestin_bloc.dart';
+import 'package:wander_nova/common_widgets/app_loader.dart';
 
 
 class VisaDestinationSearchTile extends StatefulWidget {
@@ -213,7 +214,7 @@ class _VisaDestinationSearchTileState extends State<VisaDestinationSearchTile> {
         if (state is VisaDestinationLoading && _allDestinations.isEmpty) {
           return SizedBox(
             height: context.hp(15),
-            child: const Center(child: CircularProgressIndicator()),
+            child: const AppLoadingView.compact(message: 'Searching visa destinations…'),
           );
         }
 

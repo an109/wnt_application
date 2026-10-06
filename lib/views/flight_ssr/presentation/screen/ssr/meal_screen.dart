@@ -592,6 +592,7 @@ import '../../bloc/ssr_bloc.dart';
 import '../../bloc/ssr_event.dart';
 import '../../bloc/ssr_state.dart';
 import 'ssr_price_formatter.dart';
+import 'package:wander_nova/common_widgets/app_loader.dart';
 
 class MealScreen extends StatefulWidget {
   final String traceId;
@@ -656,27 +657,7 @@ class _MealScreenState extends State<MealScreen> {
 
   Widget _buildLoadingState() {
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          SizedBox(
-            width: context.iconLarge,
-            height: context.iconLarge,
-            child: const CircularProgressIndicator(
-              strokeWidth: 3,
-              valueColor: AlwaysStoppedAnimation<Color>(Colors.orange),
-            ),
-          ),
-          SizedBox(height: context.gapMedium),
-          Text(
-            'Loading meal options...',
-            style: TextStyle(
-              fontSize: context.bodyMedium,
-              color: Colors.grey.shade600,
-            ),
-          ),
-        ],
-      ),
+      child: const AppLoadingView(message: 'Loading meal options…'),
     );
   }
 

@@ -2,12 +2,14 @@ import 'dart:convert';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
+import 'package:wander_nova/common_widgets/app_surface.dart';
+import 'package:wander_nova/common_widgets/currency_chip.dart';
 import 'package:wander_nova/core/error/data_state.dart';
 import 'package:wander_nova/core/utils/storage/shared_preference.dart';
 import '../../../../core/resources/app_colours.dart';
@@ -27,9 +29,6 @@ import '../../../AKHotelAutosuggest/presentation/screen/hotel_destination_search
 import '../../../AKHotelSearchInit/domain/entity/AKHotelSearchInit_entity.dart';
 import '../../../AKHotelSearchInit/domain/usecase/AKHotelSearchInit_usecase.dart';
 import '../../../AKHotelBooking/presentation/screen/ak_hotel_results_screen.dart';
-import '../../../MainApi/presentation/bloc/general_setting_bloc.dart';
-import '../../../MainApi/presentation/bloc/general_settings_event.dart';
-import '../../../MainApi/presentation/bloc/general_settings_state.dart';
 import '../../screen/hotel_calendar_screen.dart';
 
 
@@ -58,9 +57,6 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
   // state and never changes the search request.
   String _searchMode = 'byNight';
 
-  // `section_heroes.hotel` — the hero photo behind the card.
-  String? _heroImage;
-
   static const String _lastHotelSearchKey = 'last_hotel_search_data';
 
   @override
@@ -74,11 +70,6 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
     _detectNationalityFromIP();
     // Prefill from the user's last hotel search (details are stored in prefs).
     _loadLastSearch();
-
-    // Same source the flight SearchCard reads its hero photo from.
-    context.read<GeneralSettingsBloc>().add(
-          const LoadSectionHeroes(domain: 'thewandernova.com'),
-        );
   }
 
   Future<void> _saveLastSearch() async {
@@ -786,137 +777,40 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
   }
 
   // ---------------------------------------------------------------- BUILD
+  // Same look as the flight form: white page, dark top bar, light toggle
+  // track and white cards with the shared raised shadow (412px Figma frame,
+  // hence `context.fx`).
+
+  static const Color _kMuted = Color(0xFF757575);
+  static const Color _kTrackBg = Color(0xFFEEF3FA);
 
   @override
   Widget build(BuildContext context) {
-    return BlocListener<GeneralSettingsBloc, GeneralSettingsState>(
-      listener: (context, state) {
-        if (state is SectionHeroesLoaded) {
-          setState(() => _heroImage = state.sectionHeroes.hotel);
-        }
-      },
-      child: _buildHeroForm(context),
-    );
-  }
+    final gutter = EdgeInsets.symmetric(horizontal: context.fx(16));
 
-  Widget _buildHeroForm(BuildContext context) {
-    return Stack(
+    return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        Positioned(
-          left: 0,
-          right: 0,
-          top: 0,
-          height: context.screenHeight * 0.50, // ← control the hero height here
-          child: _buildHeroBackdrop(context),
-        ),
-// Layer 1: soft white "cloud" fade
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: 33,
-          child: Container(
-            height: context.h(33),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.bottomCenter,
-                end: Alignment.topCenter,
-                colors: [
-                  Colors.white,
-                  Colors.white.withOpacity(0.92),
-                  Colors.white.withOpacity(0.72),
-                  Colors.white.withOpacity(0.38),
-                  Colors.white.withOpacity(0.10),
-                  Colors.transparent,
-                ],
-                stops: const [0.0, 0.20, 0.40, 0.60, 0.80, 1.0],
-              ),
-            ),
+        SizedBox(height: context.statusBarHeight + context.fx(16)),
+        Padding(padding: gutter, child: _buildTopBar(context)),
+        SizedBox(height: context.fx(24)),
+        Padding(padding: gutter, child: _buildModeToggle(context)),
+        SizedBox(height: context.fx(24)),
+        Padding(
+          padding: gutter,
+          child: Column(
+            children: [
+              _buildDestinationCard(context),
+              SizedBox(height: context.fx(12)),
+              _buildDateCard(context),
+              SizedBox(height: context.fx(12)),
+              _buildRoomCard(context),
+            ],
           ),
         ),
-
-// Layer 2: subtle depth overlay
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: 33,
-          child: Container(
-            height: context.h(65),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.bottomCenter,
-                end: Alignment.topCenter,
-                colors: [
-                  Colors.white.withOpacity(0.5),
-                  Colors.white.withOpacity(0.10),
-                  Colors.transparent,
-                ],
-                stops: const [0.0, 0.5, 1.0],
-              ),
-            ),
-          ),
-        ),
-
-        Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SizedBox(height: context.statusBarHeight + context.h(10)),
-            _buildTopBar(context),
-            SizedBox(height: context.h(18)),
-            _buildModeToggle(context),
-            SizedBox(height: context.h(14)),
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: context.w(14)),
-              child: Column(
-                children: [
-                  _buildDestinationCard(context),
-                  SizedBox(height: context.h(10)),
-                  _buildDateCard(context),
-                  SizedBox(height: context.h(10)),
-                  _buildRoomCard(context),
-                ],
-              ),
-            ),
-            SizedBox(height: context.h(24)),
-            _buildSearchButton(context),
-            SizedBox(height: context.h(26)),
-          ],
-        ),
-      ],
-    );
-  }
-
-  // ------------------------------------------------------------ HERO IMAGE
-
-  Widget _buildHeroBackdrop(BuildContext context) {
-    const fallbackGradient = LinearGradient(
-      begin: Alignment.topCenter,
-      end: Alignment.bottomCenter,
-      colors: [Color(0xFF4A90E2), Color(0xFF87CEEB)],
-    );
-
-    const fallback = DecoratedBox(
-      decoration: BoxDecoration(gradient: fallbackGradient),
-    );
-
-    final hero = _heroImage;
-
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        if (hero != null && hero.isNotEmpty)
-          Image.network(
-            hero,
-            fit: BoxFit.cover,
-            alignment: Alignment.topCenter,
-            errorBuilder: (_, __, ___) => fallback,
-            loadingBuilder: (ctx, child, progress) =>
-                progress == null ? child : fallback,
-          )
-        else
-          fallback,
-
-
-
+        SizedBox(height: context.fx(24)),
+        _buildSearchButton(context),
+        SizedBox(height: context.fx(8)),
       ],
     );
   }
@@ -924,37 +818,38 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
   // --------------------------------------------------------------- TOP BAR
 
   Widget _buildTopBar(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: context.w(14)),
+    return SizedBox(
+      height: context.fx(36),
       child: Row(
         children: [
-          GestureDetector(
-            onTap: () {
-              if (Navigator.of(context).canPop()) Navigator.of(context).pop();
-            },
-            behavior: HitTestBehavior.opaque,
-            child: Image.asset(
-              'assets/NewIcons/arrowBack.png',
-              width: context.w(17),
-              height: context.w(17),
-              color: const Color(0xFFFFFFFF),
+          Semantics(
+            button: true,
+            label: 'Back',
+            child: GestureDetector(
+              onTap: () => Navigator.of(context).maybePop(),
+              behavior: HitTestBehavior.opaque,
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: context.fx(6)),
+                child: Icon(Icons.arrow_back, size: context.fx(24), color: Colors.black),
+              ),
             ),
           ),
-          SizedBox(width: context.w(14)),
+          SizedBox(width: context.fx(16)),
           Text(
             'Hotel',
             style: TextStyle(
-              fontSize: context.fs(20),
+              fontSize: context.ffs(20),
               fontWeight: FontWeight.w600,
-              color: Colors.white,
-              shadows: [
-                Shadow(
-                  color: Colors.black.withOpacity(0.25),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
+              color: Colors.black,
             ),
+          ),
+          const Spacer(),
+          const CurrencyChip(),
+          SizedBox(width: context.fx(16)),
+          SvgPicture.asset(
+            'assets/home/notification.svg',
+            width: context.fx(24),
+            height: context.fx(24),
           ),
         ],
       ),
@@ -962,53 +857,34 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
   }
 
   Widget _buildModeToggle(BuildContext context) {
-    final radius = BorderRadius.circular(context.r(24));
-
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: context.w(8)),
-      child: SizedBox(
-        width: context.w(380), // Fixed width
-        child: ClipRRect(
-          borderRadius: radius,
-          child: BackdropFilter(
-            filter: ImageFilter.blur(
-              sigmaX: 6,
-              sigmaY: 6,
-            ),
-            child: Container(
-              height: context.h(51), // Fixed height
-              padding: EdgeInsets.all(context.w(4)),
-              decoration: BoxDecoration(
-                color: Colors.transparent,
-                borderRadius: radius,
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: _modeSegment(
-                      context,
-                      id: 'byNight',
-                      label: 'By Night',
-                      iconPath: 'assets/NewIcons/night_icon.png',
-                    ),
-                  ),
-                  Expanded(
-                    child: _modeSegment(
-                      context,
-                      id: 'nearby',
-                      label: 'Nearby',
-                      iconPath: 'assets/NewIcons/location_icon.png',
-                    ),
-                  ),
-                ],
-              ),
+    return Container(
+      padding: EdgeInsets.all(context.fx(8)),
+      decoration: BoxDecoration(
+        color: _kTrackBg,
+        borderRadius: BorderRadius.circular(context.fx(26)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _modeSegment(
+              context,
+              id: 'byNight',
+              label: 'By Night',
+              iconPath: 'assets/NewIcons/night_icon.png',
             ),
           ),
-        ),
+          Expanded(
+            child: _modeSegment(
+              context,
+              id: 'nearby',
+              label: 'Nearby',
+              iconPath: 'assets/NewIcons/location_icon.png',
+            ),
+          ),
+        ],
       ),
     );
   }
-
 
   Widget _modeSegment(
     BuildContext context, {
@@ -1017,37 +893,49 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
     required String iconPath,
   }) {
     final selected = _searchMode == id;
-    return GestureDetector(
-      onTap: () => setState(() => _searchMode = id),
-      behavior: HitTestBehavior.opaque,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        width: context.w(182),
-        height: context.h(35),
-        padding: EdgeInsets.fromLTRB(16, 8, 16, 8),
-        decoration: BoxDecoration(
-          color: selected ? Colors.white : Colors.transparent,
-          borderRadius: BorderRadius.circular(context.r(50)),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Image.asset(
-              iconPath,
-              width: context.w(15),
-              height: context.w(15),
-              color: selected ? AppColors.AppBlue : Colors.white,
-            ),
-            SizedBox(width: context.w(6)),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: context.fs(14),
-                fontWeight: FontWeight.w600,
-                color: selected ? AppColors.AppBlue : Colors.white,
+    final color = selected ? AppColors.AppBlue : _kMuted;
+    return Semantics(
+      button: true,
+      selected: selected,
+      child: GestureDetector(
+        onTap: () => setState(() => _searchMode = id),
+        behavior: HitTestBehavior.opaque,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          height: context.fx(34),
+          decoration: BoxDecoration(
+            color: selected ? Colors.white : Colors.transparent,
+            borderRadius: BorderRadius.circular(context.fx(17)),
+            boxShadow: selected
+                ? const [
+                    BoxShadow(
+                      color: Color(0x14000000),
+                      blurRadius: 6,
+                      offset: Offset(0, 2),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Image.asset(
+                iconPath,
+                width: context.fx(16),
+                height: context.fx(16),
+                color: color,
               ),
-            ),
-          ],
+              SizedBox(width: context.fx(6)),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: context.ffs(14),
+                  fontWeight: FontWeight.w500,
+                  color: color,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -1057,14 +945,8 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
 
   BoxDecoration get _cardDecoration => BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(context.r(12)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.06),
-            blurRadius: context.w(14),
-            offset: Offset(0, context.h(4)),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(context.fx(12)),
+        boxShadow: kRaisedCardShadow,
       );
 
   Widget _cardLabel(String text, {bool showChevron = true}) {
@@ -1074,18 +956,18 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
         Text(
           text,
           style: TextStyle(
-            fontSize: context.fs(8),
-            fontWeight: FontWeight.w800,
-            color: AppColors.black.withOpacity(0.5),
-            letterSpacing: 0.5,
+            fontSize: context.ffs(9),
+            fontWeight: FontWeight.w600,
+            color: _kMuted,
+            letterSpacing: 0.6,
           ),
         ),
         if (showChevron) ...[
-          SizedBox(width: context.w(4)),
+          SizedBox(width: context.fx(4)),
           Icon(
             Icons.keyboard_arrow_down_rounded,
-            size: context.w(12),
-            color: AppColors.black.withOpacity(0.5),
+            size: context.fx(14),
+            color: _kMuted,
           ),
         ],
       ],
@@ -1163,34 +1045,31 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
   Widget _buildDestinationCard(BuildContext context) {
     final loc = _selectedLocation;
     return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: context.w(14),
-        vertical: context.h(10),
-      ),
+      padding: EdgeInsets.all(context.fx(12)),
       decoration: _cardDecoration,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
           _cardLabel('DESTINATION'),
-          SizedBox(height: context.h(2)),
+          SizedBox(height: context.fx(6)),
           Row(
             children: [
-              Icon(Icons.search, size: context.w(22), color: AppColors.lightsubhead),
-              SizedBox(width: context.w(8)),
+              Icon(Icons.search, size: context.fx(24), color: AppColors.AppBlue),
+              SizedBox(width: context.fx(8)),
               Expanded(
                 child: GestureDetector(
                   onTap: _openDestinationSearch,
                   behavior: HitTestBehavior.opaque,
                   child: loc == null
                       ? Padding(
-                          padding: EdgeInsets.symmetric(vertical: context.h(4)),
+                          padding: EdgeInsets.symmetric(vertical: context.fx(4)),
                           child: Text(
                             'Select Destination...',
                             style: TextStyle(
-                              fontSize: context.bodyLarge,
+                              fontSize: context.ffs(14),
                               fontWeight: FontWeight.w600,
-                              color: const Color(0xFFB8BEC9),
+                              color: Colors.grey.shade400,
                             ),
                           ),
                         )
@@ -1203,9 +1082,9 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
-                                fontSize: context.fs(12),
+                                fontSize: context.ffs(14),
                                 fontWeight: FontWeight.w600,
-                                color: AppColors.black,
+                                color: Colors.black,
                               ),
                             ),
                             if (loc.fullName.trim().isNotEmpty &&
@@ -1215,15 +1094,15 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
-                                  fontSize: context.fs(10),
-                                  color: AppColors.subhead,
+                                  fontSize: context.ffs(10),
+                                  color: _kMuted,
                                 ),
                               ),
                           ],
                         ),
                 ),
               ),
-              SizedBox(width: context.w(8)),
+              SizedBox(width: context.fx(8)),
               _nearMeButton(context),
             ],
           ),
@@ -1275,20 +1154,17 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
 
   Widget _buildDateCard(BuildContext context) {
     return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: context.w(14),
-        vertical: context.h(12),
-      ),
+      padding: EdgeInsets.all(context.fx(12)),
       decoration: _cardDecoration,
       child: Row(
         children: [
           Image.asset(
             'assets/NewIcons/departureCalendar.png',
-            width: context.w(24),
-            height: context.h(24),
+            width: context.fx(26),
+            height: context.fx(26),
             color: AppColors.AppBlue,
           ),
-          SizedBox(width: context.w(8),),
+          SizedBox(width: context.fx(8)),
           Expanded(
             child: GestureDetector(
               onTap: () => _openCalendar(context, startWithCheckOut: false),
@@ -1336,15 +1212,15 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: TextStyle(
-            fontSize: context.fs(12),
+            fontSize: context.ffs(12),
             fontWeight: FontWeight.w600,
-            color: date != null ? Color(0xFF191C1E) : const Color(0xFFB8BEC9),
+            color: date != null ? Colors.black : Colors.grey.shade400,
           ),
         ),
-        SizedBox(height: context.h(2)),
+        SizedBox(height: context.fx(2)),
         Text(
           _formatDay(date),
-          style: TextStyle(fontSize: context.fs(10), color: AppColors.subhead),
+          style: TextStyle(fontSize: context.ffs(10), color: _kMuted),
         ),
       ],
     );
@@ -1381,17 +1257,13 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
       onTap: _showRoomSelectionModal,
       behavior: HitTestBehavior.opaque,
       child: Container(
-        padding: EdgeInsets.symmetric(
-          horizontal: context.w(14),
-          vertical: context.h(12),
-        ),
+        padding: EdgeInsets.all(context.fx(12)),
         decoration: _cardDecoration,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
             Row(
-
               children: [
                 _cardLabel('ROOM'),
                 const Spacer(),
@@ -1405,23 +1277,22 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
                 // ),
               ],
             ),
-            SizedBox(height: context.h(8)),
+            SizedBox(height: context.fx(10)),
             Row(
-              // mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 _roomStat(context, Icons.hotel, _rooms.length),
-                SizedBox(width: context.w(36)),
+                SizedBox(width: context.fx(24)),
                 _roomDivider(context),
-                SizedBox(width: context.w(36)),
+                SizedBox(width: context.fx(24)),
                 _roomStat(
                     context,
                     'assets/NewIcons/TravellerAdult.png',
                     totalAdults,
                     isAsset: true
                 ),
-                SizedBox(width: context.w(36)),
+                SizedBox(width: context.fx(24)),
                 _roomDivider(context),
-                SizedBox(width: context.w(36)),
+                SizedBox(width: context.fx(24)),
                 _roomStat(
                     context,
                     'assets/NewIcons/TravellerBaby.png',
@@ -1443,18 +1314,18 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
         isAsset
             ? Image.asset(
           icon, // icon will be a String path
-          width: context.w(16),
-          height: context.w(16),
+          width: context.fx(16),
+          height: context.fx(16),
           color: AppColors.AppBlue,
         )
-            : Icon(icon, size: context.w(17), color: AppColors.AppBlue),
-        SizedBox(width: context.w(5)),
+            : Icon(icon, size: context.fx(16), color: AppColors.AppBlue),
+        SizedBox(width: context.fx(8)),
         Text(
           '$count',
           style: TextStyle(
-            fontSize: context.fs(13),
-            fontWeight: FontWeight.w700,
-            color: AppColors.textPrimary,
+            fontSize: context.ffs(12),
+            fontWeight: FontWeight.w600,
+            color: Colors.black,
           ),
         ),
       ],
@@ -1464,9 +1335,8 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
   Widget _roomDivider(BuildContext context) {
     return Container(
       width: 0.5,
-      height: context.w(20),
-      margin: EdgeInsets.symmetric(horizontal: context.w(12)),
-      color: Colors.grey.shade300,
+      height: context.fx(20),
+      color: const Color(0xFFCCCCCC),
     );
   }
 
@@ -1476,23 +1346,24 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
     return Center(
       child: ShineBorderButton(
         // Match the button's own radius so the shine hugs it.
-        borderRadius: context.r(30),
+        borderRadius: context.fx(21),
         borderWidth: 1.4,
         shineColor: const Color(0xFFFFE0B5), // warm glow on orange
         duration: const Duration(seconds: 2, milliseconds: 500),
         // Turn the shine OFF while searching, so the disabled state is clean.
         enabled: !_isSearching,
         child: SizedBox(
-          width: context.w(148),
-          height: context.h(42),
+          width: context.fx(210),
+          height: context.fx(42),
           child: ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.OrangeColor,
+              backgroundColor: AppColors.orange,
               foregroundColor: Colors.white,
+              disabledBackgroundColor: AppColors.orange.withValues(alpha: 0.85),
               elevation: 6,
-              shadowColor: AppColors.OrangeColor.withOpacity(0.45),
+              shadowColor: AppColors.orange.withValues(alpha: 0.45),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(context.r(30)),
+                borderRadius: BorderRadius.circular(context.fx(21)),
               ),
               padding: EdgeInsets.symmetric(horizontal: context.w(8)),
             ),
@@ -1515,17 +1386,13 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
                   Text(
                     'Search Hotel',
                     style: TextStyle(
-                      fontSize: context.fs(14),
-                      fontWeight: FontWeight.w600,
+                      fontSize: context.ffs(14),
+                      fontWeight: FontWeight.w500,
+                      color: Colors.white,
                     ),
                   ),
-                  SizedBox(width: context.w(10)),
-                  Image.asset(
-                    'assets/NewIcons/arrowForward.png',
-                    width: context.w(9.54),
-                    height: context.w(13),
-                    color: const Color(0xFFFFFFFF),
-                  ),
+                  SizedBox(width: context.fx(10)),
+                  Icon(Icons.arrow_forward, size: context.fx(18), color: Colors.white),
                 ],
               ),
             ),

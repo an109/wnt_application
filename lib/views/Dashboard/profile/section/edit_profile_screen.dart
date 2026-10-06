@@ -12,6 +12,7 @@ import '../widgets/profile_section_title.dart';
 import '../widgets/profile_text_field.dart';
 
 import '../../../../injection_container.dart';
+import 'package:wander_nova/common_widgets/app_loader.dart';
 
 class EditProfileScreen extends StatefulWidget {
   final Map<String, dynamic>? userData;
@@ -235,7 +236,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           bloc: _profileBloc,
           builder: (context, state) {
             if (state is ProfileLoading) {
-              return const Center(child: CircularProgressIndicator());
+              return const AppLoadingView(message: 'Loading your profile…');
             }
 
             final isUpdating = state is ProfileUpdateLoading;

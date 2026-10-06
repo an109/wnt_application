@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../UI_helper/responsive_layout.dart';
 import '../../../../core/resources/app_colours.dart';
 import '../tokens/ins_tokens.dart';
+import 'package:wander_nova/common_widgets/app_loader.dart';
 
 /// The plain back-arrow + title bar every inner insurance screen uses
 /// ("Individual", "Review", "Payment", "Filters").
@@ -64,30 +65,7 @@ class InsLoading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          SizedBox(
-            width: context.w(30),
-            height: context.w(30),
-            child: const CircularProgressIndicator(
-              strokeWidth: 2.4,
-              valueColor: AlwaysStoppedAnimation(InsTokens.blue),
-            ),
-          ),
-          SizedBox(height: context.h(14)),
-          Text(
-            message,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: context.fs(12.5),
-              color: InsTokens.subGrey,
-            ),
-          ),
-        ],
-      ),
-    );
+    return AppLoadingView(message: message);
   }
 }
 

@@ -7,6 +7,7 @@ import '../../domain/entities/airport_entities.dart';
 import '../bloc/airport_bloc.dart';
 import '../bloc/airport_event.dart';
 import '../bloc/airport_state.dart';
+import 'package:wander_nova/common_widgets/app_loader.dart';
 
 class AirportSearchDropdown extends StatefulWidget {
   final String title;
@@ -279,12 +280,7 @@ class _AirportSearchDropdownState extends State<AirportSearchDropdown> {
 
         if (state is AirportLoading) {
           print(' Showing loading indicator');
-          return const Center(
-            child: Padding(
-              padding: EdgeInsets.all(16.0),
-              child: CircularProgressIndicator(),
-            ),
-          );
+          return const AppLoadingView.compact(message: 'Searching airports…');
         }
 
         if (state is AirportLoaded) {

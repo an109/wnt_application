@@ -87,6 +87,18 @@ extension ResponsiveExtension on BuildContext {
   /// Example: r(8) for 8px border radius
   double r(double designPixels) => w(designPixels); // Use width-based scaling
 
+  // ============ 412-WIDE FIGMA FRAMES ============
+  // The newer Figma screens (e.g. "MAIN HOME") are drawn on a 412px frame
+  // rather than [_designWidth]. Both axes scale off the width so cards keep
+  // their designed aspect ratio on tall and short phones alike.
+
+  /// Scale any length (width, height, padding, radius) from a 412px frame.
+  double fx(double designPixels) => (designPixels / 412) * screenWidth;
+
+  /// Scale a font size from a 412px frame, clamped like [fs].
+  double ffs(double designPixels) =>
+      fx(designPixels).clamp(designPixels * 0.8, designPixels * 1.5);
+
   /// Scale for square elements (uses shortest side for perfect squares)
   double sq(double designPixels) {
     double shortestSide = screenWidth < screenHeight ? screenWidth : screenHeight;

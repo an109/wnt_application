@@ -12,6 +12,7 @@ import '../bloc/AKInsurance_bloc.dart';
 import '../bloc/AKInsurance_event.dart';
 import '../bloc/AKInsurance_state.dart';
 import 'trip_secure_plan_details_sheet.dart';
+import 'package:wander_nova/common_widgets/app_loader.dart';
 
 /// "Trip Secure" — the optional travel-insurance add-on on the flight booking
 /// screen. Self-contained: it owns its own [AkInsuranceBloc], resolves the
@@ -491,19 +492,7 @@ class TripSecureSectionState extends State<TripSecureSection> {
   Widget _plansSheetBody(BuildContext context, AkInsuranceState state) {
     if (state.quotesStatus == AkInsuranceStatus.loading ||
         state.quotesStatus == AkInsuranceStatus.initial) {
-      return Padding(
-        padding: EdgeInsets.symmetric(vertical: context.h(32)),
-        child: Column(
-          children: [
-            const CircularProgressIndicator(color: _blue),
-            SizedBox(height: context.h(10)),
-            Text(
-              'Finding insurance plans for your trip…',
-              style: TextStyle(fontSize: context.fs(11), color: const Color(0xff6B7280)),
-            ),
-          ],
-        ),
-      );
+      return const AppLoadingView.compact(message: 'Finding insurance plans for your trip…');
     }
 
     if (state.quotesStatus == AkInsuranceStatus.failed) {

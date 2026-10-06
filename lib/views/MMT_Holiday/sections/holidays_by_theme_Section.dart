@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import '../../../core/resources/app_colours.dart';
 import '../../../core/resources/theme_packages_screen.dart';
+import 'package:wander_nova/common_widgets/app_loader.dart';
 
 
 class HolidaysByThemeSection extends StatelessWidget {
@@ -151,24 +152,7 @@ class HolidaysByThemeSection extends StatelessWidget {
 
                         return Container(
                           color: AppColors.lightBg,
-                          child: Center(
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor:
-                              AlwaysStoppedAnimation<Color>(
-                                AppColors.primary,
-                              ),
-                              value:
-                              loadingProgress
-                                  .expectedTotalBytes !=
-                                  null
-                                  ? loadingProgress
-                                  .cumulativeBytesLoaded /
-                                  loadingProgress
-                                      .expectedTotalBytes!
-                                  : null,
-                            ),
-                          ),
+                          child: const AppLoadingView(message: 'Loading holiday themes…'),
                         );
                       },
                     ),

@@ -113,19 +113,18 @@ flutter:
   # To add assets to your application, add an assets section, like this:
   assets:
     - assets/images/wander_nova_logo.jpg
-    - assets/images/flight-loader.gif
     - assets/images/
     - assets/images/splash/
     - assets/icons/hotel.png
     - assets/icons/
     - assets/animation/successful.json
-    - assets/animation/Plane_animation.json
     - assets/animation/
     - assets/NewIcons/
     - assets/diy_holiday/
     - assets/Newgif/
     - assets/Newimage/
     - assets/HbookImage/
+    - assets/home/
 
   fonts:
     # Display face for the splash / auth headings. Bundled rather than fetched

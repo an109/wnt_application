@@ -11,6 +11,7 @@ import '../../domain/entities/hotel_details_entity.dart';
 import '../bloc/hotel_details_bloc.dart';
 import '../bloc/hotel_details_event.dart';
 import '../bloc/hotel_details_state.dart';
+import 'package:wander_nova/common_widgets/app_loader.dart';
 
 class HotelDetailsScreen extends StatefulWidget {
   final String hotelCode;
@@ -106,7 +107,7 @@ class _HotelDetailsScreenState extends State<HotelDetailsScreen> {
         },
         builder: (context, state) {
           if (state is HotelDetailsLoading) {
-            return const Center(child: CircularProgressIndicator());
+            return const AppLoadingView(message: 'Loading hotel details…');
           } else if (state is HotelDetailsError) {
             return Center(
               child: Column(

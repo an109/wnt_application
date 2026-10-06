@@ -9,6 +9,7 @@ import '../../data/models/tripModel.dart';
 import '../bloc/upcomingTrip_bloc.dart';
 import '../bloc/upcomingTrip_event.dart';
 import '../bloc/upcomingTrip_state.dart';
+import 'package:wander_nova/common_widgets/app_loader.dart';
 
 
 class UpcomingTripsScreen extends StatefulWidget {
@@ -419,27 +420,7 @@ class _UpcomingTripsScreenState extends State<UpcomingTripsScreen> {
 
   Widget _buildLoadingState() {
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          SizedBox(
-            width: context.w(48),
-            height: context.w(48),
-            child: const CircularProgressIndicator(
-              color: Color(0xFFD32F2F),
-              strokeWidth: 3,
-            ),
-          ),
-          SizedBox(height: context.h(16)),
-          Text(
-            'Loading your trips...',
-            style: TextStyle(
-              color: Colors.grey[600],
-              fontSize: context.fs(14),
-            ),
-          ),
-        ],
-      ),
+      child: const AppLoadingView(message: 'Loading your trips…'),
     );
   }
 

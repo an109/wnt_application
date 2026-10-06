@@ -11,6 +11,7 @@ import '../../domain/entities/fare_rule_entity.dart';
 import '../bloc/fare_rule_bloc.dart';
 import '../bloc/fare_rule_event.dart';
 import '../bloc/fare_rule_state.dart';
+import 'package:wander_nova/common_widgets/app_loader.dart';
 
 enum FareRuleTab { cancellation, segment, detail }
 
@@ -162,25 +163,7 @@ class _FareRulePopupState extends State<FareRulePopup>
   /// body always matches the highlighted tab (both on tap and on swipe).
   Widget _buildTabContent(BuildContext context, FareRuleTab tab) {
     if (_isLoading) {
-      return Center(
-        child: Padding(
-          padding: EdgeInsets.all(context.gapLarge),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              CircularProgressIndicator(color: const Color(0xFFE71D36)),
-              SizedBox(height: context.gapMedium),
-              Text(
-                "Loading fare rules...",
-                style: TextStyle(
-                  color: Colors.grey.shade600,
-                  fontSize: context.bodySmall,
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
+      return const AppLoadingView.compact(message: 'Loading fare rules…');
     }
 
     if (_fareRules.isEmpty) {

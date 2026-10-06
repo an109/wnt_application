@@ -133,7 +133,9 @@ class _AkHotelRecommendedCardState extends State<AkHotelRecommendedCard> {
                               child: Text(
                                 (hotel.address.isNotEmpty ? hotel.address : hotel.cityName)
                                     .replaceAll(', ', ',\u00A0'),
-                                maxLines: 2,
+                                // One line: name + 2-line address + price
+                                // overflowed the fixed-height column.
+                                maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
                                   fontSize: context.fs(8),

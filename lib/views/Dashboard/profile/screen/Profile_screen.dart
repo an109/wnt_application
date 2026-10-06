@@ -14,6 +14,7 @@ import '../../Section/data/traveller_api_service.dart';
 import '../../../../UI_helper/responsive_layout.dart';
 import '../section/change_password_dialogue.dart';
 import '../section/edit_profile_screen.dart';
+import 'package:wander_nova/common_widgets/app_loader.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -315,7 +316,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
 
       body: _isLoading && !_isRefreshing
-          ? const Center(child: CircularProgressIndicator())
+          ? const AppLoadingView(message: 'Loading your profile…')
           : RefreshIndicator(
         onRefresh: _refreshProfile,
         color: const Color(0xFF0054A0),

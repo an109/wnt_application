@@ -8,6 +8,7 @@ import '../../domain/entities/airport_entities.dart';
 import '../bloc/airport_bloc.dart';
 import '../bloc/airport_event.dart';
 import '../bloc/airport_state.dart';
+import 'package:wander_nova/common_widgets/app_loader.dart';
 
 enum _ActiveField { from, to }
 
@@ -326,10 +327,7 @@ class _DestinationSearchScreenState extends State<DestinationSearchScreen> {
 
   Widget _resultsList(AirportState state) {
     if (state is AirportLoading) {
-      return Padding(
-        padding: EdgeInsets.all(context.w(24)),
-        child: const Center(child: CircularProgressIndicator()),
-      );
+      return const AppLoadingView.compact(message: 'Searching airports…');
     }
     if (state is AirportError) {
       return Padding(

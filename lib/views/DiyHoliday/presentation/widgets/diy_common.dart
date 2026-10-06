@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 
 import '../../../../core/resources/app_colours.dart';
+import 'package:wander_nova/common_widgets/app_loader.dart';
 
 /// Tokens shared by every DIY Holiday screen so the flow stays visually
 /// consistent with the flight SearchCard it was modelled on.
@@ -236,45 +237,7 @@ class DiyLoading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: EdgeInsets.all(context.w(28)),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SizedBox(
-              width: context.w(34),
-              height: context.w(34),
-              child: const CircularProgressIndicator(
-                strokeWidth: 2.6,
-                valueColor: AlwaysStoppedAnimation(DiyTokens.blue),
-              ),
-            ),
-            SizedBox(height: context.h(16)),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: context.fs(14),
-                fontWeight: FontWeight.w600,
-                color: DiyTokens.navy,
-              ),
-            ),
-            if (hint != null) ...[
-              SizedBox(height: context.h(6)),
-              Text(
-                hint!,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: context.fs(12),
-                  color: DiyTokens.subGrey,
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
+    return AppLoadingView(message: message, hint: hint);
   }
 }
 

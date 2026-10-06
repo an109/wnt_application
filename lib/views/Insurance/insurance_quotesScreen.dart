@@ -10,6 +10,7 @@ import '../AKInsurance/presentation/bloc/AKInsurance_state.dart';
 import 'insurance_models.dart';
 import 'new_booking_Screen.dart';
 import 'policy_detail_Screen.dart';
+import 'package:wander_nova/common_widgets/app_loader.dart';
 
 export 'insurance_models.dart';
 
@@ -144,7 +145,7 @@ class _InsuranceQuotesScreenState extends State<InsuranceQuotesScreen> {
       BuildContext context, AkInsuranceState state, List<InsurancePolicy> allPolicies) {
     if (state.quotesStatus == AkInsuranceStatus.loading ||
         state.quotesStatus == AkInsuranceStatus.initial) {
-      return const Center(child: CircularProgressIndicator(color: _brandBlue));
+      return const AppLoadingView(message: 'Finding insurance plans…');
     }
     if (state.quotesStatus == AkInsuranceStatus.failed) {
       return _buildErrorState(context, state);

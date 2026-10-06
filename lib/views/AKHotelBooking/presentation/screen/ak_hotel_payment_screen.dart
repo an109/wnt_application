@@ -21,6 +21,7 @@ import '../../../wallet/wallet/screen/checkout/checkout_ui.dart';
 import '../../../wallet/wallet/screen/checkout/method_sections.dart';
 import '../../../wallet/wallet/screen/checkout/upi_section.dart';
 import 'ak_hotel_booking_confirmed_screen.dart';
+import 'package:wander_nova/common_widgets/app_loader.dart';
 
 /// Payment step for the Akbar Hotels flow: this app's own gateway (Razorpay
 /// or wallet), NOT an Akbar call — exactly like the flight flow. The
@@ -967,13 +968,7 @@ class _AkHotelPaymentScreenState extends State<AkHotelPaymentScreen> {
   Widget _processingCard(BuildContext context) {
     return Padding(
       padding: EdgeInsets.symmetric(vertical: context.h(48)),
-      child: Column(
-        children: [
-          const CircularProgressIndicator(color: _pri),
-          SizedBox(height: context.h(16)),
-          Text(_statusMessage, textAlign: TextAlign.center, style: TextStyle(color: _muted, fontSize: context.fs(13))),
-        ],
-      ),
+      child: AppLoadingView(message: _statusMessage),
     );
   }
 

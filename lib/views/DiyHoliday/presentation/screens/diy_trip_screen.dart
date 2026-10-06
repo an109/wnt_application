@@ -22,6 +22,7 @@ import 'diy_policies_screen.dart';
 import 'diy_hotel_detail_screen.dart';
 import 'diy_transfer_screen.dart';
 import 'diy_hotel_options_screen.dart';
+import 'package:wander_nova/common_widgets/app_loader.dart';
 
 /// The customer's live trip — **API 6: GET /trips/{trip_id}/** — and the hub
 /// for every customisation:
@@ -685,7 +686,7 @@ class _DiyTripScreenState extends State<DiyTripScreen> {
             Positioned.fill(
               child: ColoredBox(
                 color: Colors.black.withValues(alpha: 0.06),
-                child: const Center(child: CircularProgressIndicator()),
+                child: const Center(child: AppLoadingCard(message: 'Updating your trip…')),
               ),
             ),
         ],

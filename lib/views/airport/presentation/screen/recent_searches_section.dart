@@ -249,34 +249,26 @@ class _RecentSearchesSectionState extends State<RecentSearchesSection>
       mainAxisSize: MainAxisSize.min,
       children: [
         Padding(
-          padding: EdgeInsets.symmetric(horizontal: context.wp(4)),
+          padding: EdgeInsets.symmetric(horizontal: context.fx(16)),
           child: Text(
             'Recent Searches',
             style: TextStyle(
-              fontSize: context.fs(24),
-              fontWeight: FontWeight.w600,
-              color: AppColors.textPrimary,
+              fontSize: context.ffs(20),
+              fontWeight: FontWeight.w500,
+              color: Colors.black,
             ),
           ),
         ),
-        SizedBox(height: context.h(12)),
-        Container(
-          height: context.h(98),
-          // width: context.w(214),
-          decoration: BoxDecoration(
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.08),
-                blurRadius: context.w(5),
-                offset: Offset(context.w(0), context.h(2)),
-              ),
-            ],
-          ),
+        SizedBox(height: context.fx(16)),
+        SizedBox(
+          // Card height plus room for its shadow. The three rows (label,
+          // route, date + arrow) need ~54px, so the card can't be shorter.
+          height: context.fx(84) + 16,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
-            padding: EdgeInsets.symmetric(horizontal: context.wp(4)),
+            padding: EdgeInsets.fromLTRB(context.fx(16), 4, context.fx(16), 12),
             itemCount: _history.length,
-            separatorBuilder: (_, __) => SizedBox(width: context.w(12)),
+            separatorBuilder: (_, __) => SizedBox(width: context.fx(12)),
             itemBuilder: (_, index) => _recentSearchCard(index),
           ),
         ),
@@ -303,24 +295,26 @@ class _RecentSearchesSectionState extends State<RecentSearchesSection>
       onTap: () => _repeatSearch(index),
       behavior: HitTestBehavior.opaque,
       child: Container(
-        width: context.w(214),
-        height: context.h(81),
-        padding: EdgeInsets.all(context.w(12)),
+        width: context.fx(213),
+        padding: EdgeInsets.symmetric(
+          horizontal: context.fx(12),
+          vertical: context.fx(10),
+        ),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(context.r(12)),
-          // boxShadow: [
-          //   BoxShadow(
-          //     color: Colors.black.withOpacity(0.15),
-          //     offset: const Offset(0, 4),
-          //     blurRadius: 5.5,
-          //     spreadRadius: -2,
-          //   ),
-          // ],
+          borderRadius: BorderRadius.circular(context.fx(12)),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x26000000),
+              offset: Offset(0, 4),
+              blurRadius: 6,
+              spreadRadius: -2,
+            ),
+          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
               'Flight',
@@ -331,7 +325,6 @@ class _RecentSearchesSectionState extends State<RecentSearchesSection>
                 letterSpacing: 0.4,
               ),
             ),
-            SizedBox(height: context.h(11)),
             Row(
               children: [
                 Text(
@@ -343,36 +336,23 @@ class _RecentSearchesSectionState extends State<RecentSearchesSection>
                   ),
                 ),
 
-                // Small gap after FROM code
-                SizedBox(width: context.w(20)),
-
-                // Orange line
-                Container(
-                  width: context.w(28),
-                  height: 1,
-                  color: AppColors.OrangeColor,
+                SizedBox(width: context.fx(16)),
+                Expanded(
+                  child: Container(height: 1, color: AppColors.OrangeColor),
                 ),
-
-                // Flight icon
                 Padding(
-                  padding: EdgeInsets.symmetric(horizontal: context.w(4)),
+                  padding: EdgeInsets.symmetric(horizontal: context.fx(4)),
                   child: Image.asset(
                     _icFlight,
-                    width: context.w(11.67),
-                    height: context.w(11.67),
+                    width: context.fx(12),
+                    height: context.fx(12),
                     fit: BoxFit.contain,
                   ),
                 ),
-
-                // Orange line
-                Container(
-                  width: context.w(28),
-                  height: 1,
-                  color: AppColors.OrangeColor,
+                Expanded(
+                  child: Container(height: 1, color: AppColors.OrangeColor),
                 ),
-
-                // Small gap before TO code
-                SizedBox(width: context.w(20)),
+                SizedBox(width: context.fx(16)),
 
                 Text(
                   toCode,
@@ -384,7 +364,6 @@ class _RecentSearchesSectionState extends State<RecentSearchesSection>
                 ),
               ],
             ),
-            SizedBox(height: context.h(8)),
             Row(
               children: [
                 Expanded(
@@ -413,8 +392,8 @@ class _RecentSearchesSectionState extends State<RecentSearchesSection>
                   )
                 else
                   Container(
-                    width: context.w(22),
-                    height: context.w(22),
+                    width: context.fx(20),
+                    height: context.fx(20),
                     decoration: const BoxDecoration(
                       color: AppColors.textPrimary,
                       shape: BoxShape.circle,

@@ -20,6 +20,7 @@ import '../../../../core/error/data_state.dart';
 import '../../domain/entities/TReservation-entity.dart';
 import '../../domain/usecase/TReservation_usecase.dart';
 import 'booking_confirmation_screen.dart';
+import 'package:wander_nova/common_widgets/app_loader.dart';
 
 
 class PaymentScreen extends StatefulWidget {
@@ -1489,17 +1490,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
   Widget _processingCard(BuildContext context) {
     return Padding(
       padding: EdgeInsets.symmetric(vertical: context.h(48)),
-      child: Column(
-        children: [
-          const CircularProgressIndicator(color: _pri),
-          SizedBox(height: context.h(16)),
-          Text(
-            _statusMessage,
-            textAlign: TextAlign.center,
-            style: TextStyle(color: _muted, fontSize: context.fs(13)),
-          ),
-        ],
-      ),
+      child: AppLoadingView(message: _statusMessage),
     );
   }
 

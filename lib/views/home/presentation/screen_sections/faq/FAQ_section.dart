@@ -6,6 +6,7 @@ import '../../../../MainApi/domain/entities/general_setting_entity.dart';
 import '../../../../MainApi/presentation/bloc/general_setting_bloc.dart';
 import '../../../../MainApi/presentation/bloc/general_settings_event.dart';
 import '../../../../MainApi/presentation/bloc/general_settings_state.dart';
+import 'package:wander_nova/common_widgets/app_loader.dart';
 
 class FAQSection extends StatefulWidget {
   const FAQSection({super.key});
@@ -41,12 +42,7 @@ class _FAQSectionState extends State<FAQSection> with TickerProviderStateMixin {
       builder: (context, state) {
         // Handle loading state
         if (state is GeneralSettingsLoading || state is GeneralSettingsInitial) {
-          return const Center(
-            child: Padding(
-              padding: EdgeInsets.all(20.0),
-              child: CircularProgressIndicator(),
-            ),
-          );
+          return const AppLoadingView.compact(message: 'Loading FAQs…');
         }
 
         // Handle error state

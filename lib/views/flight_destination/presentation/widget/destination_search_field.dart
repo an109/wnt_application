@@ -7,6 +7,7 @@ import '../../domain/entities/destination_entity.dart';
 import '../bloc/destination_bloc.dart';
 import '../bloc/destination_event.dart';
 import '../bloc/destination_state.dart';
+import 'package:wander_nova/common_widgets/app_loader.dart';
 
 /// Inline destination search: the field itself is the input. Typing triggers a
 /// debounced search and suggestions appear in an anchored overlay right below —
@@ -219,10 +220,7 @@ class _DestinationSearchFieldState extends State<DestinationSearchField> {
       bloc: _bloc,
       builder: (context, state) {
         if (state is DestinationLoading) {
-          return Padding(
-            padding: EdgeInsets.all(context.w(16)),
-            child: const Center(child: CircularProgressIndicator()),
-          );
+          return const AppLoadingView.compact(message: 'Searching destinations…');
         }
 
         if (state is DestinationError) {

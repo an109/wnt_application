@@ -1,6 +1,5 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import '../../../injection_container.dart';
@@ -18,7 +17,10 @@ class FlightScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    // White page now (no hero photo), so the status bar icons go dark.
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.dark,
+      child: Scaffold(
       drawer: const CustomDrawer(),
       backgroundColor: Colors.white,
       extendBodyBehindAppBar: true,
@@ -26,7 +28,7 @@ class FlightScreen extends StatelessWidget {
         children: [
           // Main content
           Container(
-            color: const Color(0xFFFFFFFF),
+            color: Colors.white,
             child: CustomScrollView(
               physics: context.scrollPhysics,
               slivers: [
@@ -62,7 +64,7 @@ class FlightScreen extends StatelessWidget {
                     ],
                   ),
                 ),
-                SliverToBoxAdapter(child: SizedBox(height: context.h(18))),
+                SliverToBoxAdapter(child: SizedBox(height: context.fx(32))),
 
                 // Recent Searches — reads back whatever SearchCard already
                 // saved to PreferencesManager; hides itself when there's none.
@@ -92,6 +94,7 @@ class FlightScreen extends StatelessWidget {
             onTap: () {},
           )
         ],
+      ),
       ),
     );
   }

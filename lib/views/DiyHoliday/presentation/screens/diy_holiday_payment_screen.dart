@@ -17,6 +17,7 @@ import '../../data/models/diy_models.dart';
 import '../widgets/diy_common.dart';
 import 'diy_booking_confirmed_screen.dart';
 import 'diy_booking_payment_screen.dart';
+import 'package:wander_nova/common_widgets/app_loader.dart';
 
 /// Figma `Payment option Holiday 1` — paying one instalment of a holiday
 /// booking inside the app.
@@ -846,16 +847,7 @@ class _DiyHolidayPaymentScreenState extends State<DiyHolidayPaymentScreen> {
         borderRadius: BorderRadius.circular(context.r(12)),
         border: Border.all(color: _stroke),
       ),
-      child: Column(
-        children: [
-          const CircularProgressIndicator(),
-          SizedBox(height: context.h(14)),
-          Text(
-            _status,
-            style: TextStyle(fontSize: context.fs(13), color: _muted),
-          ),
-        ],
-      ),
+      child: AppLoadingView(message: _status),
     );
   }
 

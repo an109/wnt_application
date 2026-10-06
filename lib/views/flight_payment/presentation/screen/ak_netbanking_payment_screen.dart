@@ -3,6 +3,7 @@ import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import 'package:wander_nova/core/resources/app_colours.dart';
 import 'package:wander_nova/views/flight_payment/data/razorpay_custom_checkout_service.dart';
 import 'package:wander_nova/views/flight_payment/presentation/screen/ak_custom_checkout_args.dart';
+import 'package:wander_nova/common_widgets/app_loader.dart';
 
 /// Netbanking for Razorpay Custom Checkout (doc step 1.6, `method:
 /// "netbanking"`). The bank list comes from the account's real enabled
@@ -164,7 +165,7 @@ class _AkNetbankingPaymentScreenState extends State<AkNetbankingPaymentScreen> {
 
   Widget _body(BuildContext context, List<MapEntry<String, String>> banks) {
     if (_loadingBanks) {
-      return const Center(child: CircularProgressIndicator(color: _pri));
+      return const AppLoadingView(message: 'Loading banks…');
     }
     if (banks.isEmpty) {
       return Center(

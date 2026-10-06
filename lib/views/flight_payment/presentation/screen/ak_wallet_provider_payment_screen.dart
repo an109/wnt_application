@@ -3,6 +3,7 @@ import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import 'package:wander_nova/core/resources/app_colours.dart';
 import 'package:wander_nova/views/flight_payment/data/razorpay_custom_checkout_service.dart';
 import 'package:wander_nova/views/flight_payment/presentation/screen/ak_custom_checkout_args.dart';
+import 'package:wander_nova/common_widgets/app_loader.dart';
 
 /// Wallets (Paytm/PhonePe/Amazon Pay/etc.) for Razorpay Custom Checkout (doc
 /// step 1.6, `method: "wallet"`). Not to be confused with the WanderNova
@@ -143,7 +144,7 @@ class _AkWalletProviderPaymentScreenState extends State<AkWalletProviderPaymentS
 
   Widget _body(BuildContext context) {
     if (_loadingWallets) {
-      return const Center(child: CircularProgressIndicator(color: _pri));
+      return const AppLoadingView(message: 'Loading wallets…');
     }
     if (_wallets.isEmpty) {
       return Center(

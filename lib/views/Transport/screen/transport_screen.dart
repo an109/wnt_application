@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 // WhyBookTransportSection doesn't match the redesigned Figma's section right
@@ -42,7 +43,10 @@ class _TransportBookingScreenState extends State<TransportBookingScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    // White page (no hero photo), so the status bar icons go dark.
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.dark,
+      child: Scaffold(
       drawer: const CustomDrawer(),
       extendBodyBehindAppBar: true,
 
@@ -124,6 +128,7 @@ class _TransportBookingScreenState extends State<TransportBookingScreen> {
       ),
 
       // bottomNavigationBar: const CustomBottomNav(currentIndex: 4),
+      ),
     );
   }
 }

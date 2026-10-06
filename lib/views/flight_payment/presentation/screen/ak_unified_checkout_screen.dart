@@ -5,6 +5,7 @@ import 'package:wander_nova/views/flight_payment/presentation/screen/ak_custom_c
 import 'package:wander_nova/views/wallet/wallet/screen/checkout/card_form.dart';
 import 'package:wander_nova/views/wallet/wallet/screen/checkout/checkout_ui.dart';
 import 'package:wander_nova/views/wallet/wallet/screen/checkout/method_sections.dart';
+import 'package:wander_nova/common_widgets/app_loader.dart';
 
 /// Full-screen accordion checkout (MakeMyTrip-style) for flights, hotels and
 /// transport. Accepts an existing Razorpay order via [AkCustomCheckoutArgs]
@@ -650,31 +651,7 @@ class _AkUnifiedCheckoutScreenState extends State<AkUnifiedCheckoutScreen> {
               color: Colors.white,
               borderRadius: BorderRadius.circular(context.r(16)),
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const CircularProgressIndicator(color: CheckoutColors.primary),
-                SizedBox(height: context.h(16)),
-                Text(
-                  _statusMessage,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: context.fs(13.5),
-                    fontWeight: FontWeight.w600,
-                    color: CheckoutColors.ink,
-                  ),
-                ),
-                SizedBox(height: context.h(4)),
-                Text(
-                  'Please do not close the app or press back',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: context.fs(11.5),
-                    color: CheckoutColors.muted,
-                  ),
-                ),
-              ],
-            ),
+            child: AppLoadingView(message: _statusMessage, hint: 'Please do not close the app or press back'),
           ),
         ),
       ),
@@ -785,15 +762,7 @@ class _UpiBodyWidgetState extends State<_UpiBodyWidget> {
       future: widget.apps,
       builder: (context, snap) {
         if (snap.connectionState == ConnectionState.waiting) {
-          return const Padding(
-            padding: EdgeInsets.symmetric(vertical: 24),
-            child: Center(
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: CheckoutColors.primary,
-              ),
-            ),
-          );
+          return const AppLoadingView.compact(message: 'Loading UPI apps…');
         }
         final apps = snap.data ?? [];
         if (apps.isEmpty) {

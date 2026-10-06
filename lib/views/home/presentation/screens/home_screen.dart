@@ -1,14 +1,13 @@
-import 'dart:ui';
-
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:wander_nova/UI_helper/currency_converter.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
+import 'package:wander_nova/common_widgets/currency_chip.dart';
 import 'package:wander_nova/common_widgets/custom_drawer.dart';
 import 'package:wander_nova/common_widgets/fast_network_image_cache_manager.dart';
 import 'package:wander_nova/core/resources/app_colours.dart';
@@ -16,25 +15,25 @@ import 'package:wander_nova/core/utils/storage/shared_preference.dart';
 import 'package:wander_nova/views/home/presentation/screens/searchSection.dart';
 import '../../../../injection_container.dart';
 import '../../../../newUIWidgets/Home_nav.dart';
-import '../../../ExclusiveDeals/presentation/bloc/exclusive_deals_bloc.dart';
-import '../../../ExclusiveDeals/presentation/bloc/exclusive_deals_event.dart';
-import '../../../ExclusiveDeals/presentation/screen/T_exclusiveDeals.dart';
 import '../../../Holidays/presentation/screen/holidays_screen.dart';
 import '../../../Hotel/screen/hotel_screen.dart';
-import '../../../MainApi/domain/entities/general_setting_entity.dart';
 import '../../../MainApi/presentation/bloc/general_setting_bloc.dart';
 import '../../../MainApi/presentation/bloc/general_settings_event.dart';
-import '../../../MainApi/presentation/bloc/general_settings_state.dart';
-import '../../../NewSection/CompanyInfo.dart';
-import '../../../NewSection/NewSection.dart';
-import '../../../NewSection/foryourStay.dart';
 import '../../../Transport/screen/transport_screen.dart';
-import '../../../travel_stories/presentation/screen/travel_stories.dart';
+import '../../../ExclusiveDeals/presentation/bloc/exclusive_deals_bloc.dart';
+import '../../../ExclusiveDeals/presentation/bloc/exclusive_deals_event.dart';
+import '../../../flight_popularDestination/presentation/bloc/destination_bloc.dart';
+import '../../../flight_popularDestination/presentation/bloc/destination_event.dart';
+import '../../../travel_stories/presentation/bloc/travel_stories_bloc.dart';
+import '../../../travel_stories/presentation/bloc/travel_stories_event.dart';
+import '../../../trending_route/presentation/bloc/trending_routes_bloc.dart';
+import '../../../trending_route/presentation/bloc/trending_routes_event.dart';
 import '../../../visa/presentation/screen/visa_screen.dart';
 import '../../../AKInsurance/presentation/screens/ins_home_screen.dart';
-import '../../../flight_popularDestination/presentation/screen/popular_destination.dart';
-import '../../../trending_route/presentation/screen/trending_routes.dart';
 import '../../flight/flight_screen.dart';
+import '../../../offers/offers_screen.dart';
+import '../widgets/home_sections.dart';
+import '../widgets/home_top_widgets.dart';
 
 /// Remembers the hero banner URL the General Settings API last returned and
 /// keeps it warm in the image caches.
@@ -141,15 +140,9 @@ class _HomeScreenState extends State<HomeScreen> {
   // ---------------------------------------------------------------------
   bool _showFloatingSearchBar = false;
 
-  /// Banner URL remembered from the previous run, used to paint the hero
-  /// photo immediately while the General Settings call that supplies the
-  /// authoritative URL is still in flight. See [HomeHeroBanner].
-  String? _cachedHeroBannerUrl;
-
   @override
   void initState() {
     super.initState();
-    _cachedHeroBannerUrl = HomeHeroBanner.lastKnownUrl;
     _loadRecentSearches();
     _scrollController.addListener(_onScroll);
   }
@@ -249,7 +242,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle.light,
+      value: SystemUiOverlayStyle.dark,
       child: Scaffold(
         key: _scaffoldKey,
         extendBody: true,
@@ -281,9 +274,14 @@ class _HomeScreenState extends State<HomeScreen> {
                   } else if (index == 1) {
                     // Trip
                   } else if (index == 2) {
-                    // Booking
+                    // Offer — the home tab stays selected underneath.
+                    setState(() => selectedNavIndex = 0);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const OffersScreen()),
+                    );
                   } else if (index == 3) {
-                    // Offer
+                    // Wishlist
                   }
                 },
                 onCenterTap: () {
@@ -298,51 +296,44 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             RefreshIndicator(
               onRefresh: () async {
-                final generalBloc = context.read<GeneralSettingsBloc>();
-                final dealsBloc = context.read<ExclusiveDealsBloc>();
-
-                // generalBloc.add(
-                //   const LoadFaqList(domain: 'thewandernova.com'),
-                // );
-                generalBloc.add(
+                context.read<GeneralSettingsBloc>().add(
                   const LoadGeneralSettings(domain: 'thewandernova.com'),
                 );
-                dealsBloc.add(const LoadExclusiveDeals());
+                context.read<ExclusiveDealsBloc>().add(
+                  const LoadExclusiveDeals(),
+                );
+                context.read<PopularDestinationBloc>().add(
+                  const FetchPopularDestinations(),
+                );
+                context.read<TrendingRoutesBloc>().add(
+                  const RefreshTrendingRoutes(domain: 'thewandernova.com'),
+                );
+                context.read<TravelStoriesBloc>().add(
+                  const GetTravelStoriesEvent(
+                    status: 'published',
+                    domain: 'thewandernova.com',
+                    limit: 8,
+                  ),
+                );
                 _loadRecentSearches();
 
-                await Future.wait([
-                  Future.delayed(const Duration(milliseconds: 500)),
-                ]);
+                await Future.delayed(const Duration(milliseconds: 500));
               },
               color: const Color(0xff005B7F),
               backgroundColor: Colors.white,
               child: Container(
-                color: const Color(0xFFFFFFFF),
+                color: Colors.white,
                 child: CustomScrollView(
                   controller: _scrollController,
                   physics: context.scrollPhysics,
                   slivers: [
-                    // Full-bleed hero — no side padding, matches the Figma reference.
                     SliverToBoxAdapter(
-                      child: _buildHeroCard(context)
+                      child: _buildTopSection(context)
                           .animate()
                           .fadeIn(duration: 500.ms)
-                          .slideY(begin: -0.08),
+                          .slideY(begin: -0.04),
                     ),
-                    // SliverToBoxAdapter(
-                    //   child: Padding(
-                    //     padding: EdgeInsets.symmetric(horizontal: context.w(10)),
-                    //     child: Column(
-                    //       crossAxisAlignment: CrossAxisAlignment.start,
-                    //       children: [
-                    //         SizedBox(height: context.h(20)),
-                    //         _buildRecentSearchesSection(context),
-                    //       ],
-                    //     ),
-                    //   ),
-                    // ),
-                    const SliverToBoxAdapter(child: SizedBox(height: 12)),
-                    // Everything below the hero is built lazily (only as it
+                    // Everything below the top section is built lazily (only as it
                     // scrolls near the viewport) instead of all at once, so
                     // the first frame doesn't have to build + kick off the
                     // network calls of every section simultaneously. Each
@@ -389,43 +380,28 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   // =========================================================================
-  // Lazily-built sections below the hero. Index order matches the previous
-  // fixed sliver list exactly, so visual layout/spacing is unchanged.
+  // Lazily-built sections below the top section, in Figma order. Every
+  // section is separated by the same 44px gap.
   // =========================================================================
-  static const int _sectionCount = 11;
+  static const List<Widget> _sections = [
+    HomePopularDestinations(),
+    HomeTravelRoutes(),
+    HomeStaySection(),
+    HomeTravelStories(),
+  ];
+
+  // Sections plus the gaps between them, then the footer.
+  static int get _sectionCount => _sections.length * 2;
 
   Widget _buildSection(int index) {
-    switch (index) {
-      case 0:
-        return BlocProvider<ExclusiveDealsBloc>(
-          create: (context) => sl<ExclusiveDealsBloc>(),
-          child: const TransportExclusiveDealsSection(),
-        );
-      case 1:
-        return const SizedBox(height: 20);
-      case 2:
-        return const PopularDestinations();
-      case 3:
-        return const SizedBox(height: 15);
-      case 4:
-        return const TrendingPackages();
-      case 5:
-        return const SizedBox(height: 8);
-      // case 5:
-      //   return const ForYourStaySection();
-      // case 6:
-      //   return const SizedBox(height: 20);
-      case 5:
-        return const TravelStoriesSection();
-      // case 8:
-      //   return const WhyWanderNovaSection();
-      // case 9:
-      //   return const SizedBox(height: 20);
-      // case 10:
-      //   return const CompanyInformationSection();
-      default:
-        return const SizedBox.shrink();
-    }
+    if (index == _sectionCount - 1) return const HomeFooter();
+    if (index.isOdd) return SizedBox(height: context.fx(44));
+    return _sections[index ~/ 2];
+    // Offers ("HOT DEAL / FLIGHT / HOTEL…") isn't part of the new design:
+    // BlocProvider<ExclusiveDealsBloc>(
+    //   create: (context) => sl<ExclusiveDealsBloc>(),
+    //   child: const TransportExclusiveDealsSection(),
+    // ),
   }
 
   Widget _buildFloatingSearchBar(BuildContext context) {
@@ -458,13 +434,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
             child: Container(
               padding: EdgeInsets.fromLTRB(
-                context.w(20),
-                topInset + context.h(16),
-                context.w(20),
-                context.h(16),
+                context.fx(16),
+                topInset + context.fx(12),
+                context.fx(16),
+                context.fx(12),
               ),
               decoration: BoxDecoration(
-                color: const Color(0xFF003B95),
+                color: Colors.white,
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withOpacity(0.12),
@@ -490,218 +466,66 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   // =========================================================================
-
+  // Top section: menu / currency / bell, search, the info carousel, the
+  // service grid and the sponsored banner.
   // =========================================================================
 
-  Widget _buildHeroCard(BuildContext context) {
-    return BlocProvider<GeneralSettingsBloc>(
-      create: (_) =>
-          sl<GeneralSettingsBloc>()
-            ..add(const LoadGeneralSettings(domain: 'thewandernova.com')),
-      child: BlocBuilder<GeneralSettingsBloc, GeneralSettingsState>(
-        buildWhen: (previous, current) =>
-            current is GeneralSettingsLoaded ||
-            current is PopularDestinationsDataLoaded,
-        builder: (context, state) {
-          String? bannerUrl;
-          if (state is GeneralSettingsLoaded) {
-            bannerUrl = _heroBannerUrl(state.generalSettings);
-          } else if (state is PopularDestinationsDataLoaded) {
-            bannerUrl = _heroBannerUrl(state.generalSettings);
-          }
-          if (bannerUrl != null) {
-            // Next cold start can begin fetching this photo on frame one
-            // instead of waiting for the API to name it again.
-            HomeHeroBanner.remember(bannerUrl);
-            _cachedHeroBannerUrl = bannerUrl;
-          }
-          // Until the API answers, show the URL the previous run ended on —
-          // it's already in the disk cache, so it paints straight away.
-          return _buildHeroCardContent(
-            context,
-            bannerUrl ?? _cachedHeroBannerUrl,
-          );
-        },
-      ),
-    );
-  }
-
-  /// Picks the best available remote image for the hero background.
-  String? _heroBannerUrl(GeneralSettingsEntity settings) {
-    for (final url in [settings.dashboardImage, settings.dashboardImage]) {
-      if (url.trim().isNotEmpty) return url.trim();
-    }
-    return null;
-  }
-
-  Widget _buildHeroCardContent(BuildContext context, String? bannerUrl) {
+  Widget _buildTopSection(BuildContext context) {
     final topInset = MediaQuery.of(context).padding.top;
 
-    return Container(
-      height: context.h(360), // Slightly taller for better gradient visibility
-      child: Stack(
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        context.fx(16),
+        topInset + context.fx(16),
+        context.fx(16),
+        0,
+      ),
+      child: Column(
         children: [
-          Positioned.fill(child: _buildHeroBackground(context, bannerUrl)),
-          Padding(
-            padding: EdgeInsets.fromLTRB(
-              context.w(16),
-              topInset + context.h(16),
-              // context.h(2),
-              context.w(16),
-              context.h(16),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SizedBox(height: context.h(16)),
-                _buildTopBar(context),
-                SizedBox(height: context.h(44)),
-                Expanded(child: _buildServiceIconGrid(context)),
-              ],
+          _buildTopBar(context),
+          SizedBox(height: context.fx(28)),
+          _buildSearchBar(context),
+          SizedBox(height: context.fx(26)),
+          // Offers from the backend, shown in the info-banner design.
+          const HomeOffersCarousel(),
+          SizedBox(height: context.fx(44)),
+          _buildServiceIconGrid(context),
+          SizedBox(height: context.fx(45)),
+          HomeAdBanner(
+            onExplore: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const HolidaysScreen()),
             ),
           ),
+          SizedBox(height: context.fx(44)),
         ],
       ),
-    );
-  }
-
-  Widget _buildHeroBackground(BuildContext context, String? bannerUrl) {
-    const brandGradient = LinearGradient(
-      begin: Alignment.topLeft,
-      end: Alignment.bottomRight,
-      colors: [Color(0xFF003B95), Color(0xFF005B7F)],
-    );
-
-    if (bannerUrl == null) {
-      return const DecoratedBox(
-        decoration: BoxDecoration(gradient: brandGradient),
-      );
-    }
-
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        // Background gradient
-        const DecoratedBox(decoration: BoxDecoration(gradient: brandGradient)),
-
-        // Hero Image — cached to disk so repeat launches paint it from
-        // local storage instead of re-downloading, and decoded no wider
-        // than the screen so a large source photo doesn't stall the first
-        // frames. While it loads the brand gradient below stays visible,
-        // exactly as before.
-        CachedNetworkImage(
-          imageUrl: bannerUrl,
-          cacheManager: FastNetworkImageCacheManager.instance,
-          fit: BoxFit.cover,
-          memCacheWidth: HomeHeroBanner.decodeWidthFor(context),
-          fadeInDuration: const Duration(milliseconds: 200),
-          placeholder: (_, __) => const SizedBox.shrink(),
-          errorWidget: (_, __, ___) => const SizedBox.shrink(),
-        ),
-
-        // ====== LAYER GRADIENT EFFECT (NO BLUR) ======
-        // Layer 1: Soft white gradient that creates the "cloudy" look
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: 0,
-          child: Container(
-            height: context.h(40),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.bottomCenter,
-                end: Alignment.topCenter,
-                colors: [
-                  Colors.white,
-                  Colors.white.withOpacity(0.92),
-                  Colors.white.withOpacity(0.72),
-                  Colors.white.withOpacity(0.38),
-                  Colors.white.withOpacity(0.10),
-                  Colors.white.withOpacity(0.05),
-                  // Colors.transparent,
-                ],
-                stops: const [0.0, 0.20, 0.40, 0.60, 0.80, 1.0],
-              ),
-            ),
-          ),
-        ),
-
-        // Layer 2: Additional subtle gradient overlay for depth
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: 0,
-          child: Container(
-            height: context.h(80),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.bottomCenter,
-                end: Alignment.topCenter,
-                colors: [
-                  Colors.white.withOpacity(0.3),
-                  Colors.white.withOpacity(0.10),
-                  Colors.transparent,
-                ],
-                stops: const [0.0, 0.5, 1.0],
-                // stops: const [0.0, 0.5,],
-              ),
-            ),
-          ),
-        ),
-      ],
     );
   }
 
   Widget _buildTopBar(BuildContext context) {
     return Row(
       children: [
-        // Drawer icon
         GestureDetector(
           onTap: () => _scaffoldKey.currentState?.openDrawer(),
-          child: Image.asset(
-            'assets/NewIcons/drawerHD.png',
-            width: context.w(20),
-            height: context.w(20),
-            color: Colors.white,
+          child: SvgPicture.asset(
+            'assets/home/menu.svg',
+            width: context.fx(24),
+            height: context.fx(24),
           ),
         ),
-        SizedBox(width: context.w(12)),
-        // Search bar
-        Expanded(child: _buildSearchBar(context)),
-        SizedBox(width: context.w(12)),
-        // Currency chip
-        _buildCurrencyChip(context),
-        SizedBox(width: context.w(12)),
-        // Notification icon
+        const Spacer(),
+        const CurrencyChip(),
+        SizedBox(width: context.fx(16)),
         GestureDetector(
           onTap: () {},
-          child: Image.asset(
-            'assets/NewIcons/notificationHD.png', // or bell.png
-            width: context.w(20),
-            height: context.w(20),
-            color: Colors.white,
+          child: SvgPicture.asset(
+            'assets/home/notification.svg',
+            width: context.fx(24),
+            height: context.fx(24),
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildCircleIconButton(
-    BuildContext context, {
-    required IconData icon,
-    required VoidCallback onTap,
-  }) {
-    return Material(
-      color: Colors.white.withOpacity(0.22),
-      shape: const CircleBorder(),
-      child: InkWell(
-        customBorder: const CircleBorder(),
-        onTap: onTap,
-        child: Padding(
-          padding: EdgeInsets.all(context.w(9)),
-          child: Icon(icon, color: Colors.white, size: context.iconMedium),
-        ),
-      ),
     );
   }
 
@@ -715,46 +539,40 @@ class _HomeScreenState extends State<HomeScreen> {
         SystemChannels.textInput.invokeMethod('TextInput.hide');
       },
       child: Container(
-        height: context.h(37),
-        padding: EdgeInsets.symmetric(horizontal: context.w(16)),
+        padding: EdgeInsets.symmetric(
+          horizontal: context.fx(16),
+          vertical: context.fx(12),
+        ),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.95),
-          borderRadius: BorderRadius.circular(context.r(24)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.10),
-              blurRadius: context.w(8),
-              offset: Offset(0, context.h(2)),
-            ),
-          ],
+          color: Colors.white,
+          border: Border.all(color: const Color(0xFFCCCCCC)),
+          borderRadius: BorderRadius.circular(context.fx(24)),
         ),
         child: Row(
           children: [
             ClipOval(
               child: Image.asset(
                 'assets/Newgif/search.gif',
-                width: context.w(18),
-                height: context.w(18),
+                width: context.fx(24),
+                height: context.fx(24),
                 fit: BoxFit.contain,
               ),
             ),
-            SizedBox(width: context.w(10)),
+            SizedBox(width: context.fx(8)),
             Expanded(
               child: Text(
                 'Search places',
                 style: TextStyle(
-                  color: Colors.grey.shade600,
-                  fontSize: context.fs(12),
+                  color: const Color(0xFF757575),
+                  fontSize: context.ffs(10),
                   fontWeight: FontWeight.w500,
                 ),
               ),
             ),
-            SizedBox(width: context.w(8)),
-            Image.asset(
-              'assets/NewIcons/micHD.png',
-              width: context.w(14),
-              height: context.w(14),
-              color: AppColors.AppBlue,
+            SvgPicture.asset(
+              'assets/home/mic.svg',
+              width: context.fx(24),
+              height: context.fx(24),
             ),
           ],
         ),
@@ -762,196 +580,86 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  /// Static display of the saved preferred currency — not an interactive
-  /// picker. Rebuilds on `CurrencyConverter.currencyListenable` so both the
-  /// flag and the symbol follow whatever the user picks in the drawer's
-  /// currency setting, without waiting for a fresh navigation to the screen.
-  Widget _buildCurrencyChip(BuildContext context) {
-    return ValueListenableBuilder<String>(
-      valueListenable: CurrencyConverter.currencyListenable,
-      builder: (context, currency, _) {
-        final symbol = CurrencyConverter.getSymbol(currency);
-        final flag = CurrencyConverter.getFlag(currency);
-
-        return Container(
-          height: context.h(37),
-          padding: EdgeInsets.symmetric(horizontal: context.w(10)),
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.8),
-            borderRadius: BorderRadius.circular(context.r(6)),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(flag, style: TextStyle(fontSize: context.fs(14))),
-              SizedBox(width: context.w(4)),
-              Text(
-                symbol,
-                style: TextStyle(
-                  color: Colors.black87,
-                  fontSize: context.bodySmall,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
   Widget _buildServiceIconGrid(BuildContext context) {
+    Widget row(List<_HomeService> services) => Row(
+      children: [
+        for (var i = 0; i < services.length; i++) ...[
+          if (i > 0) SizedBox(width: context.fx(16)),
+          Expanded(child: _buildServiceCard(context, services[i])),
+        ],
+      ],
+    );
+
     return Column(
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Expanded(
-              child: _buildHeroServiceIcon(
-                context,
-                'Flight',
-                'assets/NewIcons/HFlight.png',
-              ),
-            ),
-            SizedBox(width: context.w(12)),
-            Expanded(
-              child: _buildHeroServiceIcon(
-                context,
-                'Hotels',
-                'assets/NewIcons/hotel.png',
-              ),
-            ),
-            SizedBox(width: context.w(12)),
-            Expanded(
-              child: _buildHeroServiceIcon(
-                context,
-                'Holiday',
-                'assets/NewIcons/holidays.png',
-              ),
-            ),
-          ],
-        ),
-        SizedBox(height: context.h(10)),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Expanded(
-              child: _buildHeroServiceIcon(
-                context,
-                'Visa',
-                'assets/NewIcons/visa.png',
-              ),
-            ),
-            SizedBox(width: context.w(12)),
-            Expanded(
-              child: _buildHeroServiceIcon(
-                context,
-                'Transfer',
-                'assets/NewIcons/transport.png',
-              ),
-            ),
-            SizedBox(width: context.w(12)),
-            Expanded(
-              child: _buildHeroServiceIcon(
-                context,
-                'Insurance',
-                'assets/NewIcons/insurance.png',
-              ),
-            ),
-          ],
-        ),
+        row(_HomeService.all.sublist(0, 3)),
+        SizedBox(height: context.fx(16)),
+        row(_HomeService.all.sublist(3)),
       ],
     );
   }
 
-  Widget _buildHeroServiceIcon(
-    BuildContext context,
-    String label,
-    String assetPath,
-  ) {
-    VoidCallback? onTap;
-
+  void _openService(BuildContext context, String label) {
+    final Widget screen;
     switch (label) {
       case 'Flight':
-        onTap = () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const FlightScreen()),
-        );
-        break;
-      case 'Hotels':
-        onTap = () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const HotelBookingScreen()),
-        );
-        break;
+        screen = const FlightScreen();
+      case 'Hotel':
+        screen = const HotelBookingScreen();
       case 'Holiday':
-        onTap = () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const HolidaysScreen()),
-        );
-        break;
+        screen = const HolidaysScreen();
       case 'Visa':
-        onTap = () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => VisaScreen()),
-        );
-        break;
-      case 'Transfer':
-        onTap = () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const TransportBookingScreen()),
-        );
-        break;
+        screen = VisaScreen();
+      case 'Transfers':
+        screen = const TransportBookingScreen();
       case 'Insurance':
-        onTap = () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const InsHomeScreen()),
-        );
-        break;
+        screen = const InsHomeScreen();
+      default:
+        return;
     }
+    Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
+  }
 
+  Widget _buildServiceCard(BuildContext context, _HomeService service) {
     return GestureDetector(
-      onTap: onTap,
+      onTap: () => _openService(context, service.label),
       child: Container(
-        padding: EdgeInsets.all(context.w(6)),
+        padding: EdgeInsets.symmetric(
+          horizontal: context.fx(6),
+          vertical: context.fx(8),
+        ),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.8),
-          borderRadius: BorderRadius.circular(context.r(8)),
-          border: Border.all(color: Colors.white.withOpacity(0.50), width: 1),
-          boxShadow: [
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(context.fx(8)),
+          boxShadow: const [
             BoxShadow(
-              color: Colors.black.withOpacity(0.08),
-              blurRadius: context.w(6),
-              offset: Offset(0, context.h(2)),
+              color: Color(0x1F000000),
+              blurRadius: 2,
+              offset: Offset(0, 2),
             ),
           ],
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              width: double.infinity,
-              height: context.h(37),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(context.r(6)),
-              ),
-              child: Center(
-                child: Image.asset(
-                  assetPath,
-                  width: context.w(27),
-                  height: context.w(27),
-                  fit: BoxFit.contain,
-                ),
-              ),
+            HomeCroppedImage(
+              asset: service.sprite,
+              width: service.iconWidth,
+              height: service.iconHeight,
+              imageWidthFactor: service.imageWidthFactor,
+              imageHeightFactor: service.imageHeightFactor,
+              leftFactor: service.leftFactor,
+              topFactor: service.topFactor,
             ),
-            SizedBox(height: context.h(6)),
+            SizedBox(height: context.fx(4)),
             Text(
-              label,
-              textAlign: TextAlign.center,
+              service.label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                color: Colors.black87,
-                fontSize: context.fs(12),
-                fontWeight: FontWeight.w500,
+                color: Colors.black,
+                fontSize: context.ffs(14),
+                fontWeight: FontWeight.w700,
               ),
             ),
           ],
@@ -1131,4 +839,40 @@ class _KeepAliveWrapperState extends State<_KeepAliveWrapper>
     super.build(context);
     return widget.child;
   }
+}
+
+/// A service tile on the home grid. The icons are crops of the two Figma
+/// sprite sheets, positioned exactly as the design's image fills are.
+class _HomeService {
+  final String label;
+  final String sprite;
+  final double iconWidth;
+  final double iconHeight;
+  final double imageWidthFactor;
+  final double imageHeightFactor;
+  final double leftFactor;
+  final double topFactor;
+
+  const _HomeService(
+    this.label,
+    this.sprite,
+    this.iconWidth,
+    this.iconHeight,
+    this.imageWidthFactor,
+    this.imageHeightFactor,
+    this.leftFactor,
+    this.topFactor,
+  );
+
+  static const _row1 = 'assets/home/services_row1.png';
+  static const _row2 = 'assets/home/services_row2.png';
+
+  static const all = [
+    _HomeService('Flight', _row1, 34, 34, 5.0895, 1.6941, -0.1469, -0.3765),
+    _HomeService('Hotel', _row1, 34, 34, 5.0895, 1.6941, -1.4116, -0.3471),
+    _HomeService('Holiday', _row1, 34, 34, 5.0895, 1.6941, -2.6175, -0.4059),
+    _HomeService('Visa', _row2, 34, 35, 3.9512, 1.2857, -0.1951, -0.2143),
+    _HomeService('Transfers', _row2, 40, 35, 3.3585, 1.2857, -2.2909, -0.2143),
+    _HomeService('Insurance', _row2, 34, 35, 3.9512, 1.2857, -1.3422, -0.2143),
+  ];
 }

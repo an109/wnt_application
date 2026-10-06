@@ -6,6 +6,7 @@ import '../../../domain/entities/ssr_entity.dart';
 import '../../bloc/ssr_bloc.dart';
 import '../../bloc/ssr_event.dart';
 import '../../bloc/ssr_state.dart';
+import 'package:wander_nova/common_widgets/app_loader.dart';
 
 
 class SpecialServiceScreen extends StatefulWidget {
@@ -63,27 +64,7 @@ class _SpecialServiceScreenState extends State<SpecialServiceScreen> {
 
   Widget _buildLoadingState() {
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          SizedBox(
-            width: context.iconLarge,
-            height: context.iconLarge,
-            child: CircularProgressIndicator(
-              strokeWidth: 3,
-              valueColor: AlwaysStoppedAnimation<Color>(Colors.green),
-            ),
-          ),
-          SizedBox(height: context.gapMedium),
-          Text(
-            'Loading special services...',
-            style: TextStyle(
-              fontSize: context.bodyMedium,
-              color: Colors.grey.shade600,
-            ),
-          ),
-        ],
-      ),
+      child: const AppLoadingView(message: 'Loading special services…'),
     );
   }
 

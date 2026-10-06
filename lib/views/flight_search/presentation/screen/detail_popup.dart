@@ -1249,7 +1249,12 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup> with SingleTick
             curve: Curves.easeInOut,
             width: context.w(184.5),
             height: context.h(74),
-            padding: EdgeInsets.all(context.w(16)),
+            // Vertical padding kept below 16 so the label + price (~43px)
+            // fit inside the fixed 74px card on every screen size.
+            padding: EdgeInsets.symmetric(
+              horizontal: context.w(16),
+              vertical: context.h(10),
+            ),
             decoration: BoxDecoration(
               color: selected ? const Color(0xFFEFF6FF) : Colors.white,
               borderRadius: BorderRadius.circular(context.r(12)),

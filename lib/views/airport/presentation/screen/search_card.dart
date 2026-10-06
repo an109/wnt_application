@@ -1,18 +1,17 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import 'package:wander_nova/common_widgets/compact_date_picker_dialog.dart';
+import 'package:wander_nova/common_widgets/currency_chip.dart';
 import 'package:wander_nova/core/resources/app_colours.dart';
 import '../../../../core/error/data_state.dart';
 import '../../../../core/utils/storage/shared_preference.dart';
 import '../../../../injection_container.dart';
 import '../../../../newUIWidgets/shine.dart';
-import '../../../MainApi/presentation/bloc/general_setting_bloc.dart';
-import '../../../MainApi/presentation/bloc/general_settings_event.dart';
-import '../../../MainApi/presentation/bloc/general_settings_state.dart';
 import '../../domain/entities/airport_entities.dart';
 import '../bloc/airport_bloc.dart';
 import '../bloc/airport_event.dart';
@@ -22,6 +21,7 @@ import '../../../flight_search/domain/entities/fare_trip_type.dart';
 import '../../../flight_search/presentation/screen/flight_search_screen.dart';
 import '../../../home/flight/flight_calendar_screen.dart';
 import 'destination_search_screen.dart';
+import 'package:wander_nova/common_widgets/app_surface.dart';
 
 const String _homeCountryCode = 'IN';
 
@@ -65,9 +65,10 @@ const AirportEntity _kDefaultToAirport = AirportEntity(
   countryCode: 'IN',
 );
 
-const Color _kLabelGrey = Color(0xFF9AA3B2);
 const Color _kSubGrey = Color(0xFF7A8494);
 const Color _kPageBg = Color(0xFFF8F9FA);
+const Color _kMutedText = Color(0xFF757575);
+const Color _kTripBarBg = Color(0xFFEEF3FA);
 
 class _MultiCityLeg {
   AirportEntity? from;
@@ -98,7 +99,6 @@ class _SearchCardState extends State<SearchCard> {
   int infants = 0;
   String travelClass = "Economy";
   bool _isSearching = false;
-  String? _flightHeroImage;
 
   @override
   void initState() {
@@ -111,9 +111,6 @@ class _SearchCardState extends State<SearchCard> {
     _applyDefaultRoute();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<AirportBloc>().add(LoadAirports());
-      context.read<GeneralSettingsBloc>().add(
-        const LoadSectionHeroes(domain: 'thewandernova.com'),
-      );
     });
     _loadLastSearch();
   }
@@ -309,7 +306,6 @@ class _SearchCardState extends State<SearchCard> {
   }
 
   void _performSearch() async {
-
     /// REMOVE THIS WHEN MULTI-CITY WILL WORK
     if (isMultiCityMode) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -524,105 +520,39 @@ class _SearchCardState extends State<SearchCard> {
   }
 
   // ---------------------------------------------------------------- BUILD
+  // Layout and sizes follow the "main Flight one way" Figma frame (412px
+  // wide, hence `context.fx`): white page, light trip-type bar, white cards.
 
   @override
   Widget build(BuildContext context) {
-    return BlocListener<GeneralSettingsBloc, GeneralSettingsState>(
-      listener: (context, state) {
-        if (state is SectionHeroesLoaded) {
-          setState(() => _flightHeroImage = state.sectionHeroes.flights);
-        }
-      },
-      child: Stack(
-        children: [
-          // Full-bleed hero image - no padding, no radius, edge to edge.
-          // Positioned.fill(child: _buildHeroBackdrop(context)),
-          Positioned(
-            left: 0,
-            right: 0,
-            top: 0,
-            child: Container(
-              height: context.screenHeight * 0.53,
-              child: _buildHeroBackdrop(context),
-            ),
-          ),
-          // ====== CLOUD EFFECT ======
+    final gutter = EdgeInsets.symmetric(horizontal: context.fx(16));
 
-// Layer 1: soft white "cloud" fade
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: Container(
-              height: context.h(35), // was h(40) — scaled up for taller hero
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.bottomCenter,
-                  end: Alignment.topCenter,
-                  colors: [
-                    Colors.white,
-                    Colors.white.withOpacity(0.92),
-                    Colors.white.withOpacity(0.72),
-                    Colors.white.withOpacity(0.38),
-                    Colors.white.withOpacity(0.10),
-                    Colors.white.withOpacity(0.05),
-                  ],
-                  stops: const [0.0, 0.20, 0.40, 0.60, 0.80, 1.0],
-                ),
-              ),
-            ),
-          ),
-
-// Layer 2: subtle depth overlay
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: Container(
-              height: context.h(65), // was h(80) — scaled up for taller hero
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.bottomCenter,
-                  end: Alignment.topCenter,
-                  colors: [
-                    Colors.white.withOpacity(0.3),
-                    Colors.white.withOpacity(0.10),
-                    Colors.transparent,
-                  ],
-                  stops: const [0.0, 0.5, 1.0],
-                ),
-              ),
-            ),
-          ),
-          // Foreground content
-          Column(
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(height: context.statusBarHeight + context.fx(16)),
+        Padding(padding: gutter, child: _buildTopBar()),
+        SizedBox(height: context.fx(8)),
+        // Search form on the plain white page; the cards carry the
+        // #E2F6FF shadow (kRaisedCardShadow).
+        Padding(
+          padding: EdgeInsets.symmetric(vertical: context.fx(16)),
+          child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              SizedBox(height: context.statusBarHeight + context.h(10)),
-              _buildTopBar(),
-              SizedBox(height: context.h(18)),
-              _buildTripTypeSelector(),
+              Padding(padding: gutter, child: _buildTripTypeSelector()),
               if (isRoundTrip && !isMultiCityMode) ...[
-                SizedBox(height: context.h(10)),
-                Padding(
-                  padding: EdgeInsets.symmetric(horizontal: context.w(14)),
-                  child: _specialFareCheckbox(),
-                ),
+                SizedBox(height: context.fx(12)),
+                Padding(padding: gutter, child: _specialFareCheckbox()),
               ],
-              SizedBox(height: context.h(14)),
-              if (isMultiCityMode) ...[
+              SizedBox(height: context.fx(24)),
+              if (isMultiCityMode)
+                Padding(padding: gutter, child: _buildMultiCityLegs())
+              else ...[
+                Padding(padding: gutter, child: _buildFromToCard()),
+                SizedBox(height: context.fx(12)),
                 Padding(
-                  padding: EdgeInsets.symmetric(horizontal: context.w(14)),
-                  child: _buildMultiCityLegs(),
-                ),
-              ] else ...[
-                Padding(
-                  padding: EdgeInsets.symmetric(horizontal: context.w(14)),
-                  child: _buildFromToCard(),
-                ),
-                SizedBox(height: context.h(10)),
-                Padding(
-                  padding: EdgeInsets.symmetric(horizontal: context.w(14)),
+                  padding: gutter,
                   child: IntrinsicHeight(
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -638,17 +568,14 @@ class _SearchCardState extends State<SearchCard> {
                             onTap: () => _pickDate(isReturn: false),
                           ),
                         ),
-                        SizedBox(width: context.w(10)),
+                        SizedBox(width: context.fx(12)),
                         Expanded(
                           child: _buildDateCard(
                             label: "RETURN",
                             iconAsset: _icReturnCalendar,
-                            // iconAsset: _icDepartureCalendar,
-                            // iconColor: AppColors.AppBlue,
                             date: isRoundTrip ? returnDate : null,
                             placeholder: "Own Way",
                             subPlaceholder: "-",
-
                             onTap: () {
                               if (!isRoundTrip) {
                                 setState(() => isRoundTrip = true);
@@ -662,152 +589,69 @@ class _SearchCardState extends State<SearchCard> {
                   ),
                 ),
               ],
-              SizedBox(height: context.h(10)),
+              SizedBox(height: context.fx(12)),
               Padding(
-                padding: EdgeInsets.symmetric(horizontal: context.w(14)),
+                padding: gutter,
                 child: IntrinsicHeight(
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Expanded(child: _buildTravellersCard()),
-                      SizedBox(width: context.w(10)),
+                      SizedBox(width: context.fx(12)),
                       Expanded(child: _buildCabinClassCard()),
                     ],
                   ),
                 ),
               ),
-              SizedBox(height: context.h(26)),
-              _buildSearchButton(),
-              SizedBox(height: context.h(26)),
             ],
           ),
-        ],
-      ),
-    );
-  }
-
-  // ------------------------------------------------------------ HERO IMAGE
-
-  Widget _buildHeroBackdrop(BuildContext context) {
-    const fallbackGradient = LinearGradient(
-      begin: Alignment.topCenter,
-      end: Alignment.bottomCenter,
-      colors: [Color(0xFF4A90E2), Color(0xFF87CEEB)],
-    );
-
-    const fallback = DecoratedBox(
-      decoration: BoxDecoration(gradient: fallbackGradient),
-    );
-
-    final hero = _flightHeroImage;
-
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        if (hero != null && hero.isNotEmpty)
-          Image.network(
-            hero,
-            fit: BoxFit.cover,
-            alignment: Alignment.topCenter,
-            errorBuilder: (_, __, ___) => fallback,
-            loadingBuilder: (ctx, child, progress) =>
-                progress == null ? child : fallback,
-          )
-        else
-          fallback,
-
-        // ====== LAYER GRADIENT EFFECT (NO BLUR) ======
-        // Layer 1: Soft white gradient that creates the "cloudy" look
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: 0,
-          child: Container(
-            height: context.h(40),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.bottomCenter,
-                end: Alignment.topCenter,
-                colors: [
-                  Colors.white,
-                  Colors.white.withOpacity(0.92),
-                  Colors.white.withOpacity(0.72),
-                  Colors.white.withOpacity(0.38),
-                  Colors.white.withOpacity(0.10),
-                  Colors.white.withOpacity(0.05),
-                  // Colors.transparent,
-                ],
-                stops: const [0.0, 0.20, 0.40, 0.60, 0.80, 1.0],
-              ),
-            ),
-          ),
         ),
-
-        // Layer 2: Additional subtle gradient overlay for depth
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: 0,
-          child: Container(
-            height: context.h(80),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.bottomCenter,
-                end: Alignment.topCenter,
-                colors: [
-                  Colors.white.withOpacity(0.3),
-                  Colors.white.withOpacity(0.10),
-                  Colors.transparent,
-                ],
-                stops: const [0.0, 0.5, 1.0],
-                // stops: const [0.0, 0.5,],
-              ),
-            ),
-          ),
-        ),
-
-
+        SizedBox(height: context.fx(20)),
+        _buildSearchButton(),
+        SizedBox(height: context.fx(8)),
       ],
     );
   }
+
   // --------------------------------------------------------------- TOP BAR
 
   Widget _buildTopBar() {
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: context.w(14)),
+    return SizedBox(
+      height: context.fx(36),
       child: Row(
         children: [
-          GestureDetector(
-            onTap: () {
-              if (Navigator.of(context).canPop()) Navigator.of(context).pop();
-            },
-            behavior: HitTestBehavior.opaque,
-            child: SizedBox(
-              // width: context.w(40),
-              // height: context.w(40),
-              child: Image.asset(
-                'assets/NewIcons/arrowBack.png',
-                width: context.w(17),
-                height: context.w(17),
-                color: Color(0xFFFFFFFF),
+          Semantics(
+            button: true,
+            label: 'Back',
+            child: GestureDetector(
+              onTap: () => Navigator.of(context).maybePop(),
+              behavior: HitTestBehavior.opaque,
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: context.fx(6)),
+                child: Icon(
+                  Icons.arrow_back,
+                  size: context.fx(24),
+                  color: Colors.black,
+                ),
               ),
             ),
           ),
-          SizedBox(width: context.w(14)),
+          SizedBox(width: context.fx(16)),
           Text(
             'Flight',
             style: TextStyle(
-              fontSize: context.fs(20),
+              fontSize: context.ffs(20),
               fontWeight: FontWeight.w600,
-              color: Colors.white,
-              shadows: [
-                Shadow(
-                  color: Colors.black.withOpacity(0.25),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
+              color: Colors.black,
             ),
+          ),
+          const Spacer(),
+          const CurrencyChip(),
+          SizedBox(width: context.fx(16)),
+          SvgPicture.asset(
+            'assets/home/notification.svg',
+            width: context.fx(24),
+            height: context.fx(24),
           ),
         ],
       ),
@@ -817,64 +661,51 @@ class _SearchCardState extends State<SearchCard> {
   // ------------------------------------------------------- TRIP TYPE PILLS
 
   Widget _buildTripTypeSelector() {
-    final radius = BorderRadius.circular(context.r(30));
-
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: context.w(14)),
-      child: ClipRRect(
-        borderRadius: radius,
-        child: BackdropFilter(
-          // Unselected area shows the hero image through a frosted blur.
-          filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-          child: Container(
-            padding: EdgeInsets.all(context.w(4)),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.28),
-              borderRadius: radius,
-              // border: Border.all(color: Colors.white.withOpacity(0.35)),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: _tripTypeButton(
-                    iconAsset: _icOneWay,
-                    label: "One Way",
-                    isSelected: !isRoundTrip && !isMultiCityMode,
-                    onTap: () => setState(() {
-                      isRoundTrip = false;
-                      isMultiCityMode = false;
-                      returnDate = null;
-                    }),
-                  ),
-                ),
-                Expanded(
-                  child: _tripTypeButton(
-                    iconAsset: _icRoundTrip,
-                    label: "Round Trip",
-                    isSelected: isRoundTrip && !isMultiCityMode,
-                    onTap: () => setState(() {
-                      isRoundTrip = true;
-                      isMultiCityMode = false;
-                    }),
-                  ),
-                ),
-                Expanded(
-                  child: _tripTypeButton(
-                    iconAsset: _icMultiCity,
-                    label: "Multi-city",
-                    isSelected: isMultiCityMode,
-                    onTap: () => setState(() {
-                      isMultiCityMode = true;
-                      if (multiCityLegs.isEmpty) {
-                        multiCityLegs = [_buildSeededFirstLeg()];
-                      }
-                    }),
-                  ),
-                ),
-              ],
+    return Container(
+      padding: EdgeInsets.all(context.fx(8)),
+      decoration: BoxDecoration(
+        color: _kTripBarBg,
+        borderRadius: BorderRadius.circular(context.fx(26)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _tripTypeButton(
+              iconAsset: _icOneWay,
+              label: "One Way",
+              isSelected: !isRoundTrip && !isMultiCityMode,
+              onTap: () => setState(() {
+                isRoundTrip = false;
+                isMultiCityMode = false;
+                returnDate = null;
+              }),
             ),
           ),
-        ),
+          Expanded(
+            child: _tripTypeButton(
+              iconAsset: _icRoundTrip,
+              label: "Round Trip",
+              isSelected: isRoundTrip && !isMultiCityMode,
+              onTap: () => setState(() {
+                isRoundTrip = true;
+                isMultiCityMode = false;
+              }),
+            ),
+          ),
+          Expanded(
+            child: _tripTypeButton(
+              iconAsset: _icMultiCity,
+              label: "Multi-city",
+              isSelected: isMultiCityMode,
+              onTap: () => setState(() {
+                isMultiCityMode = true;
+                if (multiCityLegs.isEmpty) {
+                  multiCityLegs = [_buildSeededFirstLeg()];
+                }
+              }),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -885,55 +716,55 @@ class _SearchCardState extends State<SearchCard> {
     required bool isSelected,
     required VoidCallback onTap,
   }) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: EdgeInsets.fromLTRB(16, 8, 16, 8),
-        decoration: BoxDecoration(
-          // Selected = solid white pill. Unselected = fully transparent so
-          // the frosted/blurred hero shows through.
-          color: isSelected ? Colors.white : Colors.transparent,
-          borderRadius: BorderRadius.circular(context.r(24)),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.10),
-                    blurRadius: context.w(10),
-                    offset: Offset(0, context.h(2)),
-                  ),
-                ]
-              : null,
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Opacity(
-              opacity: isSelected ? 1 : 0.8,
-              child: Image.asset(
-                iconAsset,
-                width: context.w(17),
-                height: context.w(17),
-                fit: BoxFit.contain,
-                color: isSelected ? AppColors.AppBlue : Colors.white,
-              ),
-            ),
-            SizedBox(width: context.w(6)),
-            Flexible(
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.visible,
-                softWrap: false,
-                style: TextStyle(
-                  fontSize: context.fs(14),
-                  fontWeight: FontWeight.w600,
-                  color: isSelected ? AppColors.AppBlue : Colors.white,
+    final color = isSelected ? AppColors.AppBlue : _kMutedText;
+    return Semantics(
+      button: true,
+      selected: isSelected,
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          height: context.fx(34),
+          padding: EdgeInsets.symmetric(horizontal: context.fx(6)),
+          decoration: BoxDecoration(
+            color: isSelected ? Colors.white : Colors.transparent,
+            borderRadius: BorderRadius.circular(context.fx(17)),
+            boxShadow: isSelected
+                ? const [
+                    BoxShadow(
+                      color: Color(0x14000000),
+                      blurRadius: 6,
+                      offset: Offset(0, 2),
+                    ),
+                  ]
+                : null,
+          ),
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Image.asset(
+                  iconAsset,
+                  width: context.fx(16),
+                  height: context.fx(16),
+                  fit: BoxFit.contain,
+                  color: color,
                 ),
-              ),
+                SizedBox(width: context.fx(6)),
+                Text(
+                  label,
+                  maxLines: 1,
+                  style: TextStyle(
+                    fontSize: context.ffs(14),
+                    fontWeight: FontWeight.w500,
+                    color: color,
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -941,16 +772,11 @@ class _SearchCardState extends State<SearchCard> {
 
   // ------------------------------------------------------------ FROM / TO
 
+  // Figma drop shadow (see kRaisedCardShadow) — the cards' raised look.
   BoxDecoration get _cardDecoration => BoxDecoration(
     color: Colors.white,
-    borderRadius: BorderRadius.circular(context.r(12)),
-    boxShadow: [
-      BoxShadow(
-        color: Colors.black.withOpacity(0.06),
-        blurRadius: context.w(14),
-        offset: Offset(0, context.h(4)),
-      ),
-    ],
+    borderRadius: BorderRadius.circular(context.fx(12)),
+    boxShadow: kRaisedCardShadow,
   );
 
   /// Small grey caps heading, with an optional chevron (dropdown-style
@@ -963,18 +789,18 @@ class _SearchCardState extends State<SearchCard> {
         Text(
           text,
           style: TextStyle(
-            fontSize: context.fs(8),
-            fontWeight: FontWeight.bold,
-            color: _kLabelGrey,
-            letterSpacing: 0.5,
+            fontSize: context.ffs(9),
+            fontWeight: FontWeight.w600,
+            color: _kMutedText,
+            letterSpacing: 0.6,
           ),
         ),
         if (showChevron) ...[
-          SizedBox(width: context.w(3)),
+          SizedBox(width: context.fx(4)),
           Icon(
             Icons.keyboard_arrow_down_rounded,
-            size: context.w(12),
-            color: _kLabelGrey,
+            size: context.fx(14),
+            color: _kMutedText,
           ),
         ],
       ],
@@ -1011,28 +837,30 @@ class _SearchCardState extends State<SearchCard> {
   }
 
   Widget _swapButton({VoidCallback? onTap}) {
-    return GestureDetector(
-      onTap: onTap ?? _swapAirports,
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        width: context.w(12),
-        height: context.w(12),
-        decoration: BoxDecoration(
-          color: AppColors.white,
-          shape: BoxShape.circle,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.15),
-              blurRadius: context.w(10),
-              offset: Offset(0, context.h(4)),
-            ),
-          ],
-        ),
-        child: Center(
+    return Semantics(
+      button: true,
+      label: 'Swap origin and destination',
+      child: GestureDetector(
+        onTap: onTap ?? _swapAirports,
+        behavior: HitTestBehavior.opaque,
+        child: Container(
+          width: context.fx(32),
+          height: context.fx(32),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: Color(0x26000000),
+                blurRadius: 8,
+                offset: Offset(0, 2),
+              ),
+            ],
+          ),
+          padding: EdgeInsets.all(context.fx(8)),
           child: Image.asset(
             'assets/NewIcons/flip.png',
-            // width: context.w(8),
-            // height: context.w(8),
+            fit: BoxFit.contain,
             color: AppColors.AppBlue,
           ),
         ),
@@ -1048,50 +876,46 @@ class _SearchCardState extends State<SearchCard> {
   }) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(context.r(18)),
+      borderRadius: BorderRadius.circular(context.fx(12)),
       child: Padding(
         padding: EdgeInsets.fromLTRB(
-          context.w(14),
-          context.h(12),
-          context.w(6),
-          context.h(12),
+          context.fx(12),
+          context.fx(12),
+          context.fx(6),
+          context.fx(12),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Row 1 - heading
             _cardLabel(title),
-            SizedBox(height: context.h(6)),
-            // Row 2 - icon + value
+            SizedBox(height: context.fx(6)),
             Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Image.asset(
                   iconAsset,
-                  width: context.w(22),
-                  height: context.w(22),
+                  width: context.fx(26),
+                  height: context.fx(26),
                   fit: BoxFit.contain,
                   color: AppColors.AppBlue,
                 ),
-                SizedBox(width: context.w(8)),
+                SizedBox(width: context.fx(8)),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      RichText(
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        text: TextSpan(
+                      Text.rich(
+                        TextSpan(
                           children: [
                             TextSpan(
                               text: airport?.cityName ?? "Select",
                               style: TextStyle(
-                                fontSize: context.fs(12),
+                                fontSize: context.ffs(12),
                                 fontWeight: FontWeight.w600,
                                 color: airport != null
-                                    ? AppColors.textPrimary
+                                    ? Colors.black
                                     : Colors.grey.shade400,
                               ),
                             ),
@@ -1099,23 +923,25 @@ class _SearchCardState extends State<SearchCard> {
                               TextSpan(
                                 text: " (${airport.airportCode})",
                                 style: TextStyle(
-                                  fontSize: context.fs(10.5),
-                                  fontWeight: FontWeight.w600,
-                                  color: _kSubGrey,
+                                  fontSize: context.ffs(8),
+                                  fontWeight: FontWeight.w500,
+                                  color: _kMutedText,
                                 ),
                               ),
                           ],
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      SizedBox(height: context.h(2)),
+                      SizedBox(height: context.fx(2)),
                       Text(
                         airport?.airportName ?? "Search airports",
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          fontSize: context.fs(11),
+                          fontSize: context.ffs(10),
                           color: airport != null
-                              ? _kSubGrey
+                              ? _kMutedText
                               : Colors.grey.shade400,
                         ),
                       ),
@@ -1138,18 +964,18 @@ class _SearchCardState extends State<SearchCard> {
       behavior: HitTestBehavior.opaque,
       child: Container(
         padding: EdgeInsets.symmetric(
-          horizontal: context.w(12),
-          vertical: context.h(8),
+          horizontal: context.fx(12),
+          vertical: context.fx(8),
         ),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.85),
-          borderRadius: BorderRadius.circular(context.r(10)),
+          color: _kTripBarBg,
+          borderRadius: BorderRadius.circular(context.fx(10)),
         ),
         child: Row(
           children: [
             SizedBox(
-              width: context.w(18),
-              height: context.w(18),
+              width: context.fx(18),
+              height: context.fx(18),
               child: Checkbox(
                 value: isSpecialFare,
                 activeColor: AppColors.AppBlue,
@@ -1159,14 +985,14 @@ class _SearchCardState extends State<SearchCard> {
                     setState(() => isSpecialFare = val ?? false),
               ),
             ),
-            SizedBox(width: context.w(8)),
+            SizedBox(width: context.fx(8)),
             Expanded(
               child: Text(
                 "Special Fare (student / senior citizen / armed forces)",
                 style: TextStyle(
-                  fontSize: context.fs(11),
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.navy,
+                  fontSize: context.ffs(11),
+                  fontWeight: FontWeight.w500,
+                  color: Colors.black87,
                 ),
               ),
             ),
@@ -1183,13 +1009,13 @@ class _SearchCardState extends State<SearchCard> {
       children: [
         for (var i = 0; i < multiCityLegs.length; i++) ...[
           _multiCityLegFromToCard(i),
-          SizedBox(height: context.h(10)),
+          SizedBox(height: context.fx(12)),
           IntrinsicHeight(
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Expanded(child: _multiCityDateCard(i)),
-                SizedBox(width: context.w(10)),
+                SizedBox(width: context.fx(12)),
                 Expanded(
                   child: i == multiCityLegs.length - 1
                       ? _multiCityAddCityButton()
@@ -1198,7 +1024,7 @@ class _SearchCardState extends State<SearchCard> {
               ],
             ),
           ),
-          if (i != multiCityLegs.length - 1) SizedBox(height: context.h(10)),
+          if (i != multiCityLegs.length - 1) SizedBox(height: context.fx(12)),
         ],
       ],
     );
@@ -1250,49 +1076,39 @@ class _SearchCardState extends State<SearchCard> {
 
   Widget _multiCityAddCityButton() {
     final canAdd = multiCityLegs.length < _maxMultiCityLegs;
-    final radius = BorderRadius.circular(context.r(12));
+    final color = canAdd ? AppColors.AppBlue : Colors.grey.shade400;
 
     return GestureDetector(
       onTap: canAdd
           ? () => setState(() => multiCityLegs.add(_MultiCityLeg()))
           : null,
       behavior: HitTestBehavior.opaque,
-      child: ClipRRect(
-        borderRadius: radius,
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-          child: Container(
-            padding: EdgeInsets.symmetric(
-              vertical: context.h(12),
-              horizontal: context.w(12),
+      child: Container(
+        padding: EdgeInsets.symmetric(
+          vertical: context.fx(12),
+          horizontal: context.fx(12),
+        ),
+        decoration: BoxDecoration(
+          color: canAdd ? const Color(0xFFEFF8FD) : Colors.grey.shade100,
+          borderRadius: BorderRadius.circular(context.fx(12)),
+          border: Border.all(color: color),
+        ),
+        alignment: Alignment.center,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.add, size: context.fx(16), color: color),
+            SizedBox(width: context.fx(4)),
+            Text(
+              "ADD CITY",
+              style: TextStyle(
+                fontSize: context.ffs(12),
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.3,
+                color: color,
+              ),
             ),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.28),
-              borderRadius: radius,
-              border: Border.all(color: AppColors.white),
-            ),
-            alignment: Alignment.center,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.add,
-                  size: context.w(15),
-                  color: canAdd ? Color(0xFFFFFFFF) : Colors.grey.shade400,
-                ),
-                SizedBox(width: context.w(4)),
-                Text(
-                  "ADD CITY",
-                  style: TextStyle(
-                    fontSize: context.fs(12),
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.3,
-                    color: canAdd ? Color(0xFFFFFFFF) : Colors.grey.shade400,
-                  ),
-                ),
-              ],
-            ),
-          ),
+          ],
         ),
       ),
     );
@@ -1305,19 +1121,19 @@ class _SearchCardState extends State<SearchCard> {
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(context.r(12)),
+          borderRadius: BorderRadius.circular(context.fx(12)),
           border: Border.all(color: Colors.red.shade200, width: 1.2),
         ),
         alignment: Alignment.center,
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.close, size: context.w(16), color: Colors.red.shade400),
-            SizedBox(width: context.w(4)),
+            Icon(Icons.close, size: context.fx(16), color: Colors.red.shade400),
+            SizedBox(width: context.fx(4)),
             Text(
               "REMOVE",
               style: TextStyle(
-                fontSize: context.fs(12),
+                fontSize: context.ffs(12),
                 fontWeight: FontWeight.w700,
                 letterSpacing: 0.3,
                 color: Colors.red.shade400,
@@ -1344,30 +1160,25 @@ class _SearchCardState extends State<SearchCard> {
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: Container(
-        padding: EdgeInsets.symmetric(
-          horizontal: context.w(14),
-          vertical: context.h(12),
-        ),
+        padding: EdgeInsets.all(context.fx(12)),
         decoration: _cardDecoration,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Row 1 - heading
             _cardLabel(label),
-            SizedBox(height: context.h(6)),
-            // Row 2 - icon + value
+            SizedBox(height: context.fx(6)),
             Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Image.asset(
                   iconAsset,
-                  width: context.w(24),
-                  height: context.w(24),
+                  width: context.fx(26),
+                  height: context.fx(26),
                   fit: BoxFit.contain,
                   color: iconColor,
                 ),
-                SizedBox(width: context.w(8)),
+                SizedBox(width: context.fx(8)),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1380,14 +1191,14 @@ class _SearchCardState extends State<SearchCard> {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          fontSize: context.fs(15),
-                          fontWeight: FontWeight.w700,
-                          color: date != null
-                              ? AppColors.navy
+                          fontSize: context.ffs(12),
+                          fontWeight: FontWeight.w600,
+                          color: date != null || placeholder == "Own Way"
+                              ? Colors.black
                               : Colors.grey.shade400,
                         ),
                       ),
-                      SizedBox(height: context.h(2)),
+                      SizedBox(height: context.fx(2)),
                       Text(
                         date != null
                             ? DateFormat('EEEE').format(date)
@@ -1395,8 +1206,8 @@ class _SearchCardState extends State<SearchCard> {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          fontSize: context.fs(11),
-                          color: _kSubGrey,
+                          fontSize: context.ffs(10),
+                          color: _kMutedText,
                         ),
                       ),
                     ],
@@ -1413,9 +1224,9 @@ class _SearchCardState extends State<SearchCard> {
   Widget _travellerDivider() {
     return Container(
       width: 0.5,
-      height: context.w(20),
-      margin: EdgeInsets.symmetric(horizontal: context.w(9)),
-      color: Colors.grey.shade300,
+      height: context.fx(20),
+      margin: EdgeInsets.symmetric(horizontal: context.fx(9)),
+      color: const Color(0xFFCCCCCC),
     );
   }
 
@@ -1426,28 +1237,27 @@ class _SearchCardState extends State<SearchCard> {
       onTap: _openTravellersDrawer,
       behavior: HitTestBehavior.opaque,
       child: Container(
-        padding: EdgeInsets.symmetric(
-          horizontal: context.w(14),
-          vertical: context.h(12),
-        ),
+        padding: EdgeInsets.all(context.fx(12)),
         decoration: _cardDecoration,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Row 1 - heading
             _cardLabel("TRAVELLERS", showChevron: false),
-            SizedBox(height: context.h(8)),
-            // Row 2 - icons + counts, separated by a vertical divider
-            Row(
-              children: [
-                _travellerIcon(asset: _icTravellerAdult, count: adults),
-                _travellerDivider(),
-
-                _travellerIcon(asset: _icTravellerChild, count: children),
-                _travellerDivider(),
-                _travellerIcon(asset: _icTravellerBaby, count: infants),
-              ],
+            SizedBox(height: context.fx(12)),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _travellerIcon(asset: _icTravellerAdult, count: adults),
+                  _travellerDivider(),
+                  _travellerIcon(asset: _icTravellerChild, count: children),
+                  _travellerDivider(),
+                  _travellerIcon(asset: _icTravellerBaby, count: infants),
+                ],
+              ),
             ),
           ],
         ),
@@ -1461,18 +1271,18 @@ class _SearchCardState extends State<SearchCard> {
       children: [
         Image.asset(
           asset,
-          width: context.w(15),
-          height: context.w(15),
+          width: context.fx(16),
+          height: context.fx(16),
           fit: BoxFit.contain,
           color: AppColors.AppBlue,
         ),
-        SizedBox(width: context.w(4)),
+        SizedBox(width: context.fx(8)),
         Text(
           "$count",
           style: TextStyle(
-            fontSize: context.fs(12),
+            fontSize: context.ffs(12),
             fontWeight: FontWeight.w600,
-            color: AppColors.textPrimary,
+            color: Colors.black,
           ),
         ),
       ],
@@ -1484,19 +1294,16 @@ class _SearchCardState extends State<SearchCard> {
       onTap: _openCabinClassDrawer,
       behavior: HitTestBehavior.opaque,
       child: Container(
-        padding: EdgeInsets.symmetric(
-          horizontal: context.w(14),
-          vertical: context.h(12),
-        ),
+        padding: EdgeInsets.all(context.fx(12)),
         decoration: _cardDecoration,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
             _cardLabel("CABIN CLASS", showChevron: false),
-            SizedBox(height: context.h(8)),
+            SizedBox(height: context.fx(12)),
             SizedBox(
-              height: context.w(20),
+              height: context.fx(20),
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
@@ -1504,9 +1311,9 @@ class _SearchCardState extends State<SearchCard> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: context.fs(14),
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.navy,
+                    fontSize: context.ffs(12),
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black,
                   ),
                 ),
               ),
@@ -1519,126 +1326,65 @@ class _SearchCardState extends State<SearchCard> {
 
   // ------------------------------------------------------- SEARCH BUTTON
 
-  // Widget _buildSearchButton() {
-  //   return Center(
-  //     child: SizedBox(
-  //       width: context.w(150),
-  //       height: context.h(42),
-  //       child: ElevatedButton(
-  //         style: ElevatedButton.styleFrom(
-  //           backgroundColor: AppColors.orange,
-  //           foregroundColor: Colors.white,
-  //           elevation: 6,
-  //           shadowColor: AppColors.orange.withOpacity(0.45),
-  //           shape: RoundedRectangleBorder(
-  //             borderRadius: BorderRadius.circular(context.r(30)),
-  //           ),
-  //           // The pill's width is already fixed by the SizedBox above and its
-  //           // content is centred, so Material's default 24dp side padding only
-  //           // eats usable space. On a 360dp-wide phone it left 96dp of the
-  //           // 144dp button for a label + arrow that need 102dp, and the Row
-  //           // overflowed. Trimming it is invisible — the pill and the centred
-  //           // label stay exactly where they were.
-  //           padding: EdgeInsets.symmetric(horizontal: context.w(8)),
-  //         ),
-  //         onPressed: _isSearching ? null : _performSearch,
-  //         child: _isSearching
-  //             ? SizedBox(
-  //                 width: context.w(22),
-  //                 height: context.w(22),
-  //                 child: const CircularProgressIndicator(
-  //                   strokeWidth: 2,
-  //                   valueColor: AlwaysStoppedAnimation(Colors.white),
-  //                 ),
-  //               )
-  //             : FittedBox(
-  //                 fit: BoxFit.scaleDown,
-  //                 child: Row(
-  //                   // Required inside FittedBox, which lays its child out
-  //                   // unbounded — MainAxisSize.max would assert there.
-  //                   mainAxisSize: MainAxisSize.min,
-  //                   mainAxisAlignment: MainAxisAlignment.center,
-  //                   children: [
-  //                     Text(
-  //                       "Search Flight",
-  //                       style: TextStyle(
-  //                         fontSize: context.fs(14),
-  //                         fontWeight: FontWeight.w600,
-  //                       ),
-  //                     ),
-  //                     SizedBox(width: context.w(10)),
-  //                     Image.asset(
-  //                       'assets/NewIcons/arrowForward.png',
-  //                       width: context.w(9.54),
-  //                       height: context.w(13),
-  //                       color: Color(0xFFFFFFFF),
-  //                     ),
-  //                   ],
-  //                 ),
-  //               ),
-  //       ),
-  //     ),
-  //   );
-  // }
   Widget _buildSearchButton() {
-    // Shrink the inner content by the shine's thickness so the outer pill
-    // (shine + button) still measures exactly 150×42, matching your vector.
+    // Inner content shrinks by the shine's thickness so the whole pill
+    // (shine + button) measures exactly the Figma 210×42.
     const double shineWidth = 2;
 
     return Center(
       child: ShineBorderButton(
         enabled: !_isSearching,
-        borderRadius: context.r(30),
+        borderRadius: context.fx(21),
         borderWidth: shineWidth,
         shineColor: const Color(0xFFFFE0B2), // warm highlight
         duration: const Duration(seconds: 2, milliseconds: 500),
         child: SizedBox(
-          width: context.w(150) - (shineWidth * 2),
-          height: context.h(42) - (shineWidth * 2),
+          width: context.fx(210) - (shineWidth * 2),
+          height: context.fx(42) - (shineWidth * 2),
           child: ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.orange,
               foregroundColor: Colors.white,
+              disabledBackgroundColor: AppColors.orange.withValues(alpha: 0.85),
               elevation: 6,
-              shadowColor: AppColors.orange.withOpacity(0.45),
+              shadowColor: AppColors.orange.withValues(alpha: 0.45),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(context.r(30)),
+                borderRadius: BorderRadius.circular(context.fx(21)),
               ),
-              padding: EdgeInsets.symmetric(horizontal: context.w(8)),
+              padding: EdgeInsets.symmetric(horizontal: context.fx(8)),
             ),
             onPressed: _isSearching ? null : _performSearch,
             child: _isSearching
                 ? SizedBox(
-              width: context.w(22),
-              height: context.w(22),
-              child: const CircularProgressIndicator(
-                strokeWidth: 2,
-                valueColor: AlwaysStoppedAnimation(Colors.white),
-              ),
-            )
+                    width: context.fx(20),
+                    height: context.fx(20),
+                    child: const CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation(Colors.white),
+                    ),
+                  )
                 : FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    "Search Flight",
-                    style: TextStyle(
-                      fontSize: context.fs(14),
-                      fontWeight: FontWeight.w600,
+                    fit: BoxFit.scaleDown,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          "Search Flight",
+                          style: TextStyle(
+                            fontSize: context.ffs(14),
+                            fontWeight: FontWeight.w500,
+                            color: Colors.white,
+                          ),
+                        ),
+                        SizedBox(width: context.fx(10)),
+                        Icon(
+                          Icons.arrow_forward,
+                          size: context.fx(18),
+                          color: Colors.white,
+                        ),
+                      ],
                     ),
                   ),
-                  SizedBox(width: context.w(10)),
-                  Image.asset(
-                    'assets/NewIcons/arrowForward.png',
-                    width: context.w(9.54),
-                    height: context.w(13),
-                    color: const Color(0xFFFFFFFF),
-                  ),
-                ],
-              ),
-            ),
           ),
         ),
       ),
@@ -1666,7 +1412,9 @@ class _SearchCardState extends State<SearchCard> {
                 // Close — floating just above the sheet, top right.
                 Padding(
                   padding: EdgeInsets.only(
-                      right: context.w(20), bottom: context.h(10)),
+                    right: context.w(20),
+                    bottom: context.h(10),
+                  ),
                   child: Align(
                     alignment: Alignment.centerRight,
                     child: _sheetCloseButton(sheetContext),
@@ -1676,80 +1424,85 @@ class _SearchCardState extends State<SearchCard> {
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.vertical(
-                        top: Radius.circular(context.r(24))),
+                      top: Radius.circular(context.r(24)),
+                    ),
                   ),
                   child: Padding(
-              padding: EdgeInsets.fromLTRB(
-                context.w(20),
-                context.h(10),
-                context.w(20),
-                context.h(20) + MediaQuery.of(sheetContext).viewInsets.bottom,
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Center(child: _sheetHandle()),
-                  SizedBox(height: context.h(20)),
-                  Text(
-                    "Select Travellers",
-                    style: TextStyle(
-                      fontSize: context.fs(12),
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF111827),
+                    padding: EdgeInsets.fromLTRB(
+                      context.w(20),
+                      context.h(10),
+                      context.w(20),
+                      context.h(20) +
+                          MediaQuery.of(sheetContext).viewInsets.bottom,
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Center(child: _sheetHandle()),
+                        SizedBox(height: context.h(20)),
+                        Text(
+                          "Select Travellers",
+                          style: TextStyle(
+                            fontSize: context.fs(12),
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF111827),
+                          ),
+                        ),
+                        SizedBox(height: context.h(14)),
+                        Text(
+                          "ADD NUMBER OF TRAVELLERS",
+                          style: TextStyle(
+                            fontSize: context.fs(10),
+                            fontWeight: FontWeight.w500,
+                            letterSpacing: 0.6,
+                            color: AppColors.subhead,
+                          ),
+                        ),
+                        SizedBox(height: context.h(14)),
+                        _travellerCounterRow(
+                          title: "Adults",
+                          badge: "12y+",
+                          value: localAdults,
+                          minValue: 1,
+                          onChanged: (v) =>
+                              setSheetState(() => localAdults = v),
+                        ),
+                        SizedBox(height: context.h(9)),
+
+                        _travellerCounterRow(
+                          title: "Children",
+                          badge: "2-12y",
+                          value: localChildren,
+                          minValue: 0,
+                          onChanged: (v) =>
+                              setSheetState(() => localChildren = v),
+                        ),
+                        SizedBox(height: context.h(9)),
+
+                        _travellerCounterRow(
+                          title: "Infants",
+                          badge: "Under 2y",
+                          value: localInfants,
+                          minValue: 0,
+                          onChanged: (v) =>
+                              setSheetState(() => localInfants = v),
+                        ),
+                        SizedBox(height: context.h(18)),
+                        _sheetDoneButton(
+                          onTap: () {
+                            setState(() {
+                              adults = localAdults;
+                              children = localChildren;
+                              infants = localInfants;
+                            });
+                            Navigator.pop(sheetContext);
+                          },
+                        ),
+                        SizedBox(height: context.h(20)),
+                      ],
                     ),
                   ),
-                  SizedBox(height: context.h(14)),
-                  Text(
-                    "ADD NUMBER OF TRAVELLERS",
-                    style: TextStyle(
-                      fontSize: context.fs(10),
-                      fontWeight: FontWeight.w500,
-                      letterSpacing: 0.6,
-                      color: AppColors.subhead,
-                    ),
-                  ),
-                  SizedBox(height: context.h(14)),
-                  _travellerCounterRow(
-                    title: "Adults",
-                    badge: "12y+",
-                    value: localAdults,
-                    minValue: 1,
-                    onChanged: (v) => setSheetState(() => localAdults = v),
-                  ),
-                  SizedBox(height: context.h(9)),
-
-                  _travellerCounterRow(
-                    title: "Children",
-                    badge: "2-12y",
-                    value: localChildren,
-                    minValue: 0,
-                    onChanged: (v) => setSheetState(() => localChildren = v),
-                  ),
-                  SizedBox(height: context.h(9)),
-
-                  _travellerCounterRow(
-                    title: "Infants",
-                    badge: "Under 2y",
-                    value: localInfants,
-                    minValue: 0,
-                    onChanged: (v) => setSheetState(() => localInfants = v),
-                  ),
-                  SizedBox(height: context.h(18)),
-                  _sheetDoneButton(
-                    onTap: () {
-                      setState(() {
-                        adults = localAdults;
-                        children = localChildren;
-                        infants = localInfants;
-                      });
-                      Navigator.pop(sheetContext);
-                    },
-                  ),
-                  SizedBox(height: context.h(20)),
-                ],
-              ),
-            ),
                 ),
               ],
             );
@@ -1778,8 +1531,11 @@ class _SearchCardState extends State<SearchCard> {
             ),
           ],
         ),
-        child: Icon(Icons.close_rounded,
-            size: context.w(19), color: AppColors.black),
+        child: Icon(
+          Icons.close_rounded,
+          size: context.w(19),
+          color: AppColors.black,
+        ),
       ),
     );
   }
@@ -2040,8 +1796,9 @@ class _SearchCardState extends State<SearchCard> {
                                   'text': "Luxury Lounges",
                                   'icon': 'assets/Newimage/Lounges1.png',
                                 },
-                                {'text': "Cabin Comfort",
-                                 'icon': 'assets/Newimage/sofa.png'
+                                {
+                                  'text': "Cabin Comfort",
+                                  'icon': 'assets/Newimage/sofa.png',
                                 },
                                 {
                                   'text': "Premium Dining",
@@ -2069,7 +1826,8 @@ class _SearchCardState extends State<SearchCard> {
                                 },
                                 {
                                   'text': "Highly Personalized",
-                                  'icon': 'assets/Newimage/highlyPersonalized.png',
+                                  'icon':
+                                      'assets/Newimage/highlyPersonalized.png',
                                 },
                               ],
                               selected: localClass == "First",
@@ -2180,7 +1938,6 @@ class _SearchCardState extends State<SearchCard> {
       ),
     );
   }
-
 
   Widget _radioDot(bool selected) {
     return Container(

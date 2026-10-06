@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 
 import '../../../common_widgets/logo.dart';
+import 'package:wander_nova/common_widgets/app_loader.dart';
 
 class MakePaymentScreen extends StatefulWidget {
   const MakePaymentScreen({super.key});
@@ -908,17 +909,7 @@ class _MakePaymentScreenState extends State<MakePaymentScreen> {
       showDialog(
         context: context,
         barrierDismissible: false,
-        builder: (context) => AlertDialog(
-          title: const Text('Processing Payment'),
-          content: const Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              CircularProgressIndicator(),
-              SizedBox(height: 16),
-              Text('Redirecting to CCAvenue...'),
-            ],
-          ),
-        ),
+        builder: (context) => const Center(child: AppLoadingCard(message: 'Redirecting to CCAvenue…')),
       );
 
       // Simulate payment processing

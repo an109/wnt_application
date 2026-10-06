@@ -9,6 +9,7 @@ import '../../bloc/ssr_bloc.dart';
 import '../../bloc/ssr_event.dart';
 import '../../bloc/ssr_state.dart';
 import 'ssr_price_formatter.dart';
+import 'package:wander_nova/common_widgets/app_loader.dart';
 
 class SeatScreen extends StatefulWidget {
   final String traceId;
@@ -58,7 +59,7 @@ class _SeatScreenState extends State<SeatScreen> {
 
         builder: (context, state) {
           if (state is SsrLoading) {
-            return const Center(child: CircularProgressIndicator());
+            return const AppLoadingView(message: 'Loading seat map…');
           }
 
           if (state is SsrError) {

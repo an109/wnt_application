@@ -15,6 +15,7 @@ import '../../domain/entities/T_locationEntity.dart';
 import '../bloc/T_locationBloc.dart';
 import '../bloc/T_locationEvent.dart';
 import '../bloc/T_locationState.dart';
+import 'package:wander_nova/common_widgets/app_loader.dart';
 
 const String _recentLocationsKey = 'transport_recent_locations';
 const int _maxRecentLocations = 5;
@@ -403,7 +404,7 @@ class _TLocationSearchScreenState extends State<TLocationSearchScreen> {
 
   Widget _resultsList(BuildContext context, T_locationState state) {
     if (state is T_locationsLoading || state is T_locationsSearchLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return const AppLoadingView(message: 'Searching locations…');
     }
 
     if (state is T_locationsLoaded || state is T_locationsSearchLoaded) {

@@ -5,9 +5,12 @@ import 'dart:ui';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
+import 'package:wander_nova/common_widgets/app_surface.dart';
+import 'package:wander_nova/common_widgets/currency_chip.dart';
 import 'package:wander_nova/common_widgets/compact_time_picker_dialog.dart';
 import 'package:wander_nova/common_widgets/floating_close_dialog_card.dart';
 import 'package:wander_nova/core/resources/app_colours.dart';
@@ -74,11 +77,6 @@ class _TransportBookingCardState extends State<TransportBookingCard> {
   static const Color _ink = AppColors.black;
   static const Color _muted = AppColors.subhead;
   static const Color _stroke = AppColors.lightsubhead;
-
-  // Hero image behind the form — same asset family the rest of the app uses
-  // for transport/cabs; swap this constant for a proper wide photo asset
-  // whenever one is added (nothing else needs to change).
-  static const String _heroImage = 'assets/images/TransHeroImage.png';
 
   _TransferService _service = _TransferService.airport;
   bool _isSearching = false;
@@ -223,53 +221,31 @@ class _TransportBookingCardState extends State<TransportBookingCard> {
   // BUILD
   // ==================================================================
 
+  // Main screen: same look as the flight form — white page, dark top bar,
+  // light toggle track and white cards with the shared raised shadow
+  // (412px Figma frame, hence `context.fx`).
+  static const Color _kTrackBg = Color(0xFFEEF3FA);
+
   @override
   Widget build(BuildContext context) {
     if (widget.editMode) return _buildEditLayout(context);
-    return Stack(
+    final gutter = EdgeInsets.symmetric(horizontal: context.fx(16));
+    return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        // Full-bleed hero image, same architecture as the flight SearchCard's
-        // hero backdrop — see _buildHeroBackdrop below.
-        Positioned(
-          left: 0,
-          right: 0,
-          top: 0,
-          child: SizedBox(
-            height: context.h(470),
-            child: _buildHeroBackdrop(context),
-          ),
-        ),
-
-        Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SizedBox(height: context.statusBarHeight + context.h(10)),
-            _buildTopBar(context),
-            SizedBox(height: context.h(18)),
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: context.w(14)),
-              child: _buildServiceToggle(context),
-            ),
-            SizedBox(height: context.h(14)),
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: context.w(14)),
-              child: _buildTripTypeRow(context),
-            ),
-            SizedBox(height: context.h(14)),
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: context.w(14)),
-              child: _buildLocationsCard(context),
-            ),
-            SizedBox(height: context.h(14)),
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: context.w(14)),
-              child: _buildDateTravellersCard(context),
-            ),
-            SizedBox(height: context.h(20)),
-            _buildSearchButton(context),
-            SizedBox(height: context.h(28)),
-          ],
-        ),
+        SizedBox(height: context.statusBarHeight + context.fx(16)),
+        _buildTopBar(context),
+        SizedBox(height: context.fx(24)),
+        Padding(padding: gutter, child: _buildServiceToggle(context)),
+        SizedBox(height: context.fx(16)),
+        Padding(padding: gutter, child: _buildTripTypeRow(context)),
+        SizedBox(height: context.fx(12)),
+        Padding(padding: gutter, child: _buildLocationsCard(context)),
+        SizedBox(height: context.fx(12)),
+        Padding(padding: gutter, child: _buildDateTravellersCard(context)),
+        SizedBox(height: context.fx(24)),
+        _buildSearchButton(context),
+        SizedBox(height: context.fx(16)),
       ],
     );
   }
@@ -298,90 +274,52 @@ class _TransportBookingCardState extends State<TransportBookingCard> {
     );
   }
 
-  // ------------------------------------------------------------ HERO IMAGE
-
-  Widget _buildHeroBackdrop(BuildContext context) {
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        Image.asset(
-          _heroImage,
-          fit: BoxFit.cover,
-          alignment: Alignment.topCenter,
-        ),
-
-        // Soft scrim so the white title/labels stay readable on any hero.
-        // DecoratedBox(
-        //   decoration: BoxDecoration(
-        //     gradient: LinearGradient(
-        //       begin: Alignment.topCenter,
-        //       end: Alignment.bottomCenter,
-        //       colors: [
-        //         Colors.black.withValues(alpha: 0.28),
-        //         Colors.black.withValues(alpha: 0.05),
-        //       ],
-        //       stops: const [0.0, 0.35],
-        //     ),
-        //   ),
-        // ),
-
-        // ====== LAYER GRADIENT EFFECT (NO BLUR) ======
-        // Layer 1: Soft white gradient that creates the "cloudy" look — same
-        // treatment used at the bottom of the hero on HomeScreen.
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: 0,
-          child: Container(
-            height: context.h(40),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.bottomCenter,
-                end: Alignment.topCenter,
-                colors: [
-                  Colors.white,
-                  Colors.white.withValues(alpha: 0.92),
-                  Colors.white.withValues(alpha:0.72),
-                  Colors.white.withValues(alpha:0.38),
-                  Colors.white.withValues(alpha:0.10),
-                  Colors.white.withValues(alpha:0.05),
-                  // Colors.transparent,
-                ],
-                stops: const [0.0, 0.20, 0.40, 0.60, 0.80, 1.0],
-              ),
-            ),
-          ),
-        ),
-
-        // Layer 2: Additional subtle gradient overlay for depth
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: 0,
-          child: Container(
-            height: context.h(80),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.bottomCenter,
-                end: Alignment.topCenter,
-                colors: [
-                  Colors.white.withValues(alpha:0.3),
-                  Colors.white.withValues(alpha:0.10),
-                  Colors.transparent,
-                ],
-                stops: const [0.0, 0.5, 1.0],
-                // stops: const [0.0, 0.5,],
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
   // --------------------------------------------------------------- TOP BAR
 
   Widget _buildTopBar(BuildContext context) {
+    if (!widget.editMode) {
+      return Padding(
+        padding: EdgeInsets.symmetric(horizontal: context.fx(16)),
+        child: SizedBox(
+          height: context.fx(36),
+          child: Row(
+            children: [
+              Semantics(
+                button: true,
+                label: 'Back',
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => Navigator.of(context).maybePop(),
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(vertical: context.fx(6)),
+                    child: Icon(Icons.arrow_back, size: context.fx(24), color: Colors.black),
+                  ),
+                ),
+              ),
+              SizedBox(width: context.fx(16)),
+              Text(
+                'Transfer',
+                style: TextStyle(
+                  fontSize: context.ffs(20),
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black,
+                ),
+              ),
+              const Spacer(),
+              const CurrencyChip(),
+              SizedBox(width: context.fx(16)),
+              SvgPicture.asset(
+                'assets/home/notification.svg',
+                width: context.fx(24),
+                height: context.fx(24),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // Edit drawer header.
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: context.w(14)),
       child: Row(
@@ -395,25 +333,16 @@ class _TransportBookingCardState extends State<TransportBookingCard> {
               'assets/NewIcons/arrowBack.png',
               width: context.w(17),
               height: context.w(17),
-              color: widget.editMode ? AppColors.black : Colors.white,
+              color: AppColors.black,
             ),
           ),
           SizedBox(width: context.w(14)),
           Text(
-            widget.editMode ? 'Edit Your Search' : 'Transfer',
+            'Edit Your Search',
             style: TextStyle(
-              fontSize: context.fs(widget.editMode ? 16 : 20),
+              fontSize: context.fs(16),
               fontWeight: FontWeight.w600,
-              color: widget.editMode ? AppColors.black : Colors.white,
-              shadows: widget.editMode
-                  ? null
-                  : [
-                      Shadow(
-                        color: Colors.black.withValues(alpha: 0.25),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
+              color: AppColors.black,
             ),
           ),
         ],
@@ -462,19 +391,13 @@ class _TransportBookingCardState extends State<TransportBookingCard> {
       );
     }
 
-    return ClipRRect(
-      borderRadius: radius,
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-        child: Container(
-          padding: EdgeInsets.all(context.w(4)),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.28),
-            borderRadius: radius,
-          ),
-          child: row,
-        ),
+    return Container(
+      padding: EdgeInsets.all(context.fx(8)),
+      decoration: BoxDecoration(
+        color: _kTrackBg,
+        borderRadius: BorderRadius.circular(context.fx(26)),
       ),
+      child: row,
     );
   }
 
@@ -486,7 +409,7 @@ class _TransportBookingCardState extends State<TransportBookingCard> {
     required bool selected,
     required VoidCallback onTap,
   }) {
-    final idle = widget.editMode ? AppColors.subhead : AppColors.white;
+    final idle = widget.editMode ? AppColors.subhead : const Color(0xFF757575);
     final tint = selected ? AppColors.AppBlue : idle;
     return GestureDetector(
       onTap: onTap,
@@ -587,8 +510,11 @@ class _TransportBookingCardState extends State<TransportBookingCard> {
             ),
             decoration: BoxDecoration(
               color: AppColors.white,
-              borderRadius: BorderRadius.circular(context.r(8)),
-              border: Border.all(width: 0.5, color: AppColors.lightsubhead),
+              borderRadius: BorderRadius.circular(context.fx(12)),
+              border: selected
+                  ? Border.all(color: AppColors.AppBlue.withValues(alpha: 0.5))
+                  : null,
+              boxShadow: kRaisedCardShadow,
               // boxShadow: [
               //   BoxShadow(
               //     color: Colors.black.withValues(alpha: 0.06),
@@ -677,8 +603,8 @@ class _TransportBookingCardState extends State<TransportBookingCard> {
 
   BoxDecoration get _cardDecoration => BoxDecoration(
     color: AppColors.white,
-    borderRadius: BorderRadius.circular(context.r(12)),
-    border: Border.all(width: 0.5, color: _stroke),
+    borderRadius: BorderRadius.circular(context.fx(12)),
+    boxShadow: kRaisedCardShadow,
   );
 
   Widget _buildLocationsCard(BuildContext context) {
@@ -1253,23 +1179,24 @@ class _TransportBookingCardState extends State<TransportBookingCard> {
     return Center(
       child: ShineBorderButton(
         enabled: !_isSearching,
-        borderRadius: context.r(30),
+        borderRadius: context.fx(21),
         borderWidth: shineWidth,
         shineColor: const Color(0xFFFFE0B2),
         duration: const Duration(seconds: 2, milliseconds: 500),
         child: SizedBox(
-          width: context.w(150) - (shineWidth * 2),
-          height: context.h(42) - (shineWidth * 2),
+          width: context.fx(210) - (shineWidth * 2),
+          height: context.fx(42) - (shineWidth * 2),
           child: ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.orange,
               foregroundColor: Colors.white,
               elevation: 6,
               shadowColor: AppColors.orange.withValues(alpha: 0.45),
+              disabledBackgroundColor: AppColors.orange.withValues(alpha: 0.85),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(context.r(30)),
+                borderRadius: BorderRadius.circular(context.fx(21)),
               ),
-              padding: EdgeInsets.symmetric(horizontal: context.w(8)),
+              padding: EdgeInsets.symmetric(horizontal: context.fx(8)),
             ),
             onPressed: _isSearching ? null : _performSearch,
             child: _isSearching
@@ -1290,17 +1217,13 @@ class _TransportBookingCardState extends State<TransportBookingCard> {
                         Text(
                           'Search',
                           style: TextStyle(
-                            fontSize: context.fs(14),
-                            fontWeight: FontWeight.w600,
+                            fontSize: context.ffs(14),
+                            fontWeight: FontWeight.w500,
+                            color: Colors.white,
                           ),
                         ),
-                        SizedBox(width: context.w(10)),
-                        Image.asset(
-                          'assets/NewIcons/arrowForward.png',
-                          width: context.w(9.54),
-                          height: context.w(13),
-                          color: const Color(0xFFFFFFFF),
-                        ),
+                        SizedBox(width: context.fx(10)),
+                        Icon(Icons.arrow_forward, size: context.fx(18), color: Colors.white),
                       ],
                     ),
                   ),

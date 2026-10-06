@@ -8,6 +8,7 @@ import '../../data/models/diy_models.dart';
 import '../screens/diy_results_screen.dart';
 import 'diy_common.dart';
 import '../screens/diy_filter_screen.dart';
+import 'package:wander_nova/common_widgets/app_loader.dart';
 
 /// "Holiday By Theme" — **API 2: GET /themes/**.
 ///
@@ -103,7 +104,7 @@ class _DiyThemeSectionState extends State<DiyThemeSection> {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return SizedBox(
             height: context.h(120),
-            child: const Center(child: CircularProgressIndicator()),
+            child: const AppLoadingView.compact(message: 'Loading themes…'),
           );
         }
         final only = widget.onlySlugs;

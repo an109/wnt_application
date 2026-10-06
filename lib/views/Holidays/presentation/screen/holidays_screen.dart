@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 
@@ -78,7 +79,10 @@ class _HolidaysScreenState extends State<HolidaysScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    // White page (no hero photo), so the status bar icons go dark.
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.dark,
+      child: Scaffold(
       drawer: const CustomDrawer(),
       backgroundColor: AppColors.white,
       extendBodyBehindAppBar: true,
@@ -161,6 +165,7 @@ class _HolidaysScreenState extends State<HolidaysScreen> {
         ],
       ),
       // bottomNavigationBar: const CustomBottomNav(currentIndex: 3),
+      ),
     );
   }
 }

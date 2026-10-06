@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import '../../../../core/resources/app_colours.dart';
 import '../model/wallet_model.dart';
+import 'package:wander_nova/common_widgets/app_loader.dart';
 
 /// Shared tones for the transaction history — Figma `Wallet 1`.
 class _T {
@@ -272,10 +273,7 @@ class TransactionList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (isLoading && transactions.isEmpty) {
-      return Padding(
-        padding: EdgeInsets.all(context.h(32)),
-        child: const Center(child: CircularProgressIndicator()),
-      );
+      return const AppLoadingView.compact(message: 'Loading transactions…');
     }
 
     if (transactions.isEmpty) {

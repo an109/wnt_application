@@ -5,6 +5,7 @@ import 'package:wander_nova/UI_helper/responsive_layout.dart';
 
 import 'card_form.dart';
 import 'checkout_ui.dart';
+import 'package:wander_nova/common_widgets/app_loader.dart';
 
 /// Shared loader: payment methods come from Razorpay (only what's enabled on
 /// the account), so every section renders from the same future.
@@ -20,12 +21,7 @@ class _MethodsBuilder extends StatelessWidget {
       future: methods,
       builder: (context, snap) {
         if (snap.connectionState != ConnectionState.done) {
-          return Padding(
-            padding: EdgeInsets.symmetric(vertical: context.h(20)),
-            child: const Center(
-              child: CircularProgressIndicator(color: CheckoutColors.primary),
-            ),
-          );
+          return const AppLoadingView.compact(message: 'Loading payment options…');
         }
         if (snap.hasError) {
           return const InlineNote(

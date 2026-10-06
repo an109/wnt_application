@@ -7,6 +7,7 @@ import '../../domain/entity/AKInsurance_entity.dart';
 import '../bloc/AKInsurance_bloc.dart';
 import '../bloc/AKInsurance_event.dart';
 import '../bloc/AKInsurance_state.dart';
+import 'package:wander_nova/common_widgets/app_loader.dart';
 
 /// Bottom sheet for step 4/7 — benefits, deductibles, the PED questionnaire
 /// and the terms of a single plan.
@@ -133,10 +134,7 @@ class TripSecurePlanDetailsSheet extends StatelessWidget {
 
   Widget _body(BuildContext context, AkInsuranceState state) {
     if (state.planDetailsStatus == AkInsuranceStatus.loading) {
-      return Padding(
-        padding: EdgeInsets.symmetric(vertical: context.h(48)),
-        child: const Center(child: CircularProgressIndicator(color: _blue)),
-      );
+      return const AppLoadingView.compact(message: 'Loading plan details…');
     }
 
     final details = state.planDetails;

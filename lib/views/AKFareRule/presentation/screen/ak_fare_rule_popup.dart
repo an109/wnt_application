@@ -6,6 +6,7 @@ import 'package:wander_nova/views/AKFareRule/domain/entity/AKFareRule_entity.dar
 import 'package:wander_nova/views/AKFareRule/presentation/bloc/AKFareRule_bloc.dart';
 import 'package:wander_nova/views/AKFareRule/presentation/bloc/AKFareRule_event.dart';
 import 'package:wander_nova/views/AKFareRule/presentation/bloc/AKFareRule_state.dart';
+import 'package:wander_nova/common_widgets/app_loader.dart';
 
 /// Cancellation / change-fee rules for the selected fare, fetched from
 /// Akbar's FareRule endpoint using the original search tui.
@@ -109,10 +110,7 @@ class AkFareRulePopup extends StatelessWidget {
                   child: BlocBuilder<AkFareRuleBloc, AkFareRuleState>(
                     builder: (context, state) {
                       if (state is AkFareRuleLoading || state is AkFareRuleInitial) {
-                        return Padding(
-                          padding: EdgeInsets.symmetric(vertical: context.h(30)),
-                          child: const Center(child: CircularProgressIndicator(strokeWidth: 2.4)),
-                        );
+                        return const AppLoadingView.compact(message: 'Loading fare rules…');
                       }
                       if (state is AkFareRuleFailed) {
                         return Padding(

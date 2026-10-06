@@ -8,6 +8,7 @@ import '../../bloc/ssr_bloc.dart';
 import '../../bloc/ssr_event.dart';
 import '../../bloc/ssr_state.dart';
 import 'ssr_price_formatter.dart';
+import 'package:wander_nova/common_widgets/app_loader.dart';
 
 class BaggageScreen extends StatefulWidget {
   final String traceId;
@@ -110,27 +111,7 @@ class _BaggageScreenState extends State<BaggageScreen> {
 
   Widget _buildLoadingState() {
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          SizedBox(
-            width: context.iconLarge,
-            height: context.iconLarge,
-            child: CircularProgressIndicator(
-              strokeWidth: 3,
-              valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
-            ),
-          ),
-          SizedBox(height: context.gapMedium),
-          Text(
-            'Loading baggage options...',
-            style: TextStyle(
-              fontSize: context.bodyMedium,
-              color: Colors.grey.shade600,
-            ),
-          ),
-        ],
-      ),
+      child: const AppLoadingView(message: 'Loading baggage options…'),
     );
   }
 

@@ -29,6 +29,7 @@ import 'package:wander_nova/views/wallet/wallet/screen/checkout/upi_section.dart
 import 'package:wander_nova/views/flight_search/presentation/screen/seat_addons_screen.dart';
 import 'package:wander_nova/views/flight_ticket/presentation/screen/ak_ticket_confirmation_screen.dart';
 import 'package:wander_nova/views/wallet/data/data_source/wallet_api_service.dart';
+import 'package:wander_nova/common_widgets/app_loader.dart';
 
 /// Payment + ticketing for the Akbar flow. CreateItinerary has already
 /// persisted the full booking server-side by session_id before this screen
@@ -1621,17 +1622,7 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
   Widget _processingCard(BuildContext context) {
     return Padding(
       padding: EdgeInsets.symmetric(vertical: context.h(48)),
-      child: Column(
-        children: [
-          const CircularProgressIndicator(color: _pri),
-          SizedBox(height: context.h(16)),
-          Text(
-            _statusMessage,
-            textAlign: TextAlign.center,
-            style: TextStyle(color: _muted, fontSize: context.fs(13)),
-          ),
-        ],
-      ),
+      child: AppLoadingView(message: _statusMessage),
     );
   }
 

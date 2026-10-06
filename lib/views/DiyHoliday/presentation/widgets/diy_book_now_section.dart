@@ -8,6 +8,7 @@ import '../../data/models/diy_models.dart';
 import '../screens/diy_filter_screen.dart';
 import '../screens/diy_results_screen.dart';
 import 'diy_common.dart';
+import 'package:wander_nova/common_widgets/app_loader.dart';
 
 /// "Book Now" — the round shortcuts under the hero, for **trending** places.
 ///
@@ -74,7 +75,7 @@ class _DiyBookNowSectionState extends State<DiyBookNowSection> {
     if (_loading) {
       return SizedBox(
         height: context.h(140),
-        child: const Center(child: CircularProgressIndicator()),
+        child: const AppLoadingView.compact(message: 'Loading destinations…'),
       );
     }
     if (_destinations.isEmpty) return const SizedBox.shrink();

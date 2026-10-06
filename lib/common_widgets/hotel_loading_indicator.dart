@@ -1,95 +1,19 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:lottie/lottie.dart';
-import 'package:wander_nova/UI_helper/responsive_layout.dart';
-import 'package:wander_nova/core/resources/app_colours.dart';
+import 'package:wander_nova/common_widgets/app_loader.dart';
 
-class HotelLoadingIndicator extends StatefulWidget {
+/// Hotel-search loading state.
+class HotelLoadingIndicator extends StatelessWidget {
   const HotelLoadingIndicator({super.key});
 
   @override
-  State<HotelLoadingIndicator> createState() => _HotelLoadingIndicatorState();
-}
-
-class _HotelLoadingIndicatorState extends State<HotelLoadingIndicator> {
-  int _messageIndex = 0;
-  Timer? _timer;
-
-  static const _messages = [
-    'Finding best hotels for you...',
-    'Checking room availability...',
-    'Comparing prices for best deals...',
-    'Fetching exclusive offers...',
-    'Almost there! Preparing your results...',
-  ];
-
-  @override
-  void initState() {
-    super.initState();
-    _timer = Timer.periodic(const Duration(seconds: 2), (_) {
-      if (mounted) {
-        setState(() {
-          _messageIndex = (_messageIndex + 1) % _messages.length;
-        });
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          SizedBox(
-            width: 260,
-            height: 260,
-            child: Lottie.asset(
-              'assets/animation/Hotel.json',
-              repeat: true,
-              fit: BoxFit.contain,
-            ),
-          ),
-          const SizedBox(height: 24),
-          AnimatedSwitcher(
-            duration: const Duration(milliseconds: 350),
-            transitionBuilder: (child, animation) => FadeTransition(
-              opacity: animation,
-              child: child,
-            ),
-            child: Text(
-              _messages[_messageIndex],
-              key: ValueKey(_messageIndex),
-              style: TextStyle(
-                fontSize: context.fs(15),
-                fontWeight: FontWeight.w500,
-                color: Colors.grey.shade700,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ),
-          const SizedBox(height: 28),
-          SizedBox(
-            width: 200,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: LinearProgressIndicator(
-                backgroundColor: Colors.grey.shade200,
-                valueColor: const AlwaysStoppedAnimation<Color>(
-                  AppColors.AppBlue,
-                ),
-                minHeight: 4,
-              ),
-            ),
-          ),
-        ],
-      ),
+    return const AppLoadingView(
+      messages: [
+        'Searching hotels for you…',
+        'Checking room availability…',
+        'Comparing prices for the best deals…',
+        'Almost there, preparing your results…',
+      ],
     );
   }
 }

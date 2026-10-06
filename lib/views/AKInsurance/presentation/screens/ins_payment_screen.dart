@@ -30,6 +30,7 @@ import '../tokens/ins_tokens.dart';
 import '../widgets/ins_common.dart';
 import '../widgets/ins_plan_card.dart';
 import 'ins_confirmed_screen.dart';
+import 'package:wander_nova/common_widgets/app_loader.dart';
 
 /// "Payment" — Figma `Payment option INSURANCE 1` / `… 2`.
 ///
@@ -1052,30 +1053,7 @@ class _InsPaymentScreenState extends State<InsPaymentScreen> {
               color: Colors.white,
               borderRadius: BorderRadius.circular(context.r(16)),
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const CircularProgressIndicator(color: InsTokens.blue),
-                SizedBox(height: context.h(18)),
-                Text(
-                  _status,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: context.fs(14),
-                    color: InsTokens.navy,
-                  ),
-                ),
-                SizedBox(height: context.h(6)),
-                Text(
-                  'Do not close this screen.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: context.fs(12),
-                    color: InsTokens.subGrey,
-                  ),
-                ),
-              ],
-            ),
+            child: AppLoadingView(message: _status, hint: 'Do not close this screen.'),
           ),
         ),
       ),

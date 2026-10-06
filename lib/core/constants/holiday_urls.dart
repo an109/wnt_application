@@ -10,12 +10,12 @@
 /// Same shape as [Urls]: a base, then one member per endpoint — plain
 /// constants where the path is fixed, functions where an id is interpolated.
 class HolidayUrls {
-  static const String baseUrl = 'http://192.168.1.6:8000//api/v1/app/';
-  //static const String baseUrl = 'https://diy.thewandernova.com/api/v1/app/';
+  //static const String baseUrl = 'http://192.168.1.6:8000//api/v1/app/';
+  static const String baseUrl = 'https://diy.thewandernova.com/api/v1/app/';
 
   /// No trailing slash — for callers that append their own path.
-  static const String basesUrl = 'http://192.168.1.6:8000/api/v1/app';
-   //static const String basesUrl = 'https://diy.thewandernova.com/api/v1/app';
+  //static const String basesUrl = 'http://192.168.1.6:8000/api/v1/app';
+   static const String basesUrl = 'https://diy.thewandernova.com/api/v1/app';
   
   // ----- Discovery (no trip yet) -----
 

@@ -25,6 +25,7 @@ import '../../../../core/services/hotel_session_service.dart';
 import '../bloc/hotel_booking_bloc.dart';
 import '../bloc/hotel_booking_event.dart';
 import '../bloc/hotel_booking_state.dart';
+import 'package:wander_nova/common_widgets/app_loader.dart';
 
 
 class HotelBookingReviewScreen extends StatefulWidget {
@@ -900,7 +901,7 @@ class _HotelBookingReviewScreenState extends State<HotelBookingReviewScreen> {
         },
         builder: (context, state) {
           if (state is HotelBookingLoading) {
-            return const Center(child: CircularProgressIndicator());
+            return const AppLoadingView(message: 'Loading booking details…');
           } else if (state is HotelBookingError) {
             return Center(
               child: Column(

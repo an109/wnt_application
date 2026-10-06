@@ -19,6 +19,7 @@ import '../../../Profile/domain/usecase/get_profile_usecase.dart';
 import '../../../login/presentation/screen/login.dart';
 import '../widgets/ak_hotel_add_guest_sheet.dart';
 import 'ak_hotel_payment_screen.dart';
+import 'package:wander_nova/common_widgets/app_loader.dart';
 
 class AkHotelPriceConfirmScreen extends StatefulWidget {
   final String searchId;
@@ -593,7 +594,7 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
       backgroundColor: Colors.white,
       appBar: _buildAppBar(context),
       body: _pricing
-          ? const Center(child: CircularProgressIndicator(color: _blue))
+          ? const AppLoadingView(message: 'Confirming room price…')
           : _priceError != null
           ? _buildError(_priceError!, onRetry: _loadPrice)
           : Column(

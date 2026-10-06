@@ -13,6 +13,112 @@ import '../../domain/entities/trending_routes_entity.dart';
 import '../bloc/trending_routes_bloc.dart';
 import '../bloc/trending_routes_event.dart';
 import '../bloc/trending_routes_state.dart';
+import 'package:wander_nova/common_widgets/app_loader.dart';
+
+/// Runs a one-way flight search for a trending [route] (today, 1 adult,
+/// economy) and opens the results. Shared by every screen that shows
+/// trending-route cards.
+Future<void> searchTrendingRouteFlights(
+  BuildContext context,
+  TrendingRouteEntity route,
+) async {
+  final parsedDate = DateTime.now();
+
+  final request = FlightSearchRequestEntity(
+    adults: 1,
+    children: 0,
+    infants: 0,
+    cabin: 'E',
+    fareType: 'ON',
+    trips: [
+      TripEntity(
+        from: route.fromCode,
+        to: route.toCode,
+        onwardDate: _formatDateForSearch(parsedDate),
+      ),
+    ],
+  );
+
+  final result = await sl<AkFlightSearchUseCase>().call(request);
+
+  if (!context.mounted) return;
+
+  if (result is DataSuccess<AkFlightSearchEntity> && result.data != null) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => FlightSearchScreen(
+          from: route.from,
+          to: route.to,
+          fromCode: route.fromCode,
+          toCode: route.toCode,
+          fromAirport: route.from,
+          toAirport: route.to,
+          date: parsedDate,
+          travellers: 1,
+          adults: 1,
+          children: 0,
+          infants: 0,
+          travelClass: 'Economy',
+          isRoundTrip: false,
+          returnDate: null,
+          tui: result.data!.tui,
+        ),
+      ),
+    );
+  } else {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(result.error?.message ?? 'Failed to search flights'),
+        backgroundColor: Colors.red,
+      ),
+    );
+  }
+}
+
+String _formatDateForSearch(DateTime date) =>
+    '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+
+/// Formats a trending-route fare, converting it into [targetCurrency] when
+/// given (e.g. `₹5,222`).
+String formatTrendingRoutePrice(
+  num price,
+  String currency, {
+  String? targetCurrency,
+}) {
+  double finalPrice = price.toDouble();
+  if (targetCurrency != null) {
+    finalPrice = CurrencyConverter.convert(
+      amount: finalPrice,
+      fromCurrency: currency,
+      toCurrency: targetCurrency,
+    );
+    currency = targetCurrency;
+  }
+
+  final priceStr = finalPrice.toStringAsFixed(0);
+  final buffer = StringBuffer();
+  final len = priceStr.length;
+
+  for (var i = 0; i < len; i++) {
+    if (i > 0 && (len - i) % 3 == 0) {
+      buffer.write(',');
+    }
+    buffer.write(priceStr[i]);
+  }
+
+  final symbols = {'INR': '₹', 'USD': '\$', 'AED': 'د.إ', 'EUR': '€', 'GBP': '£'};
+  final symbol = symbols[currency.toUpperCase()] ?? '$currency ';
+  return '$symbol$buffer';
+}
+
+/// The date shown on trending-route cards (today, `dd/MM/yyyy`).
+String trendingRouteDisplayDate() {
+  final now = DateTime.now();
+  return '${now.day.toString().padLeft(2, '0')}/'
+      '${now.month.toString().padLeft(2, '0')}/'
+      '${now.year}';
+}
 
 class TrendingPackages extends StatelessWidget {
   const TrendingPackages({super.key});
@@ -55,103 +161,13 @@ class _TrendingPackagesViewState extends State<TrendingPackagesView> {
     );
   }
 
-  void _navigateToFlightSearch(BuildContext context, TrendingRouteEntity route) async {
-    print('Navigating to FlightSearchScreen');
-    print('From: ${route.from} (${route.fromCode})');
-    print('To: ${route.to} (${route.toCode})');
-    print('Date: ${route.date}');
-    print('Price: ${route.price} ${route.currency}');
+  void _navigateToFlightSearch(BuildContext context, TrendingRouteEntity route) =>
+      searchTrendingRouteFlights(context, route);
 
-    final parsedDate = DateTime.now();
+  String _formatPrice(num price, String currency, {String? targetCurrency}) =>
+      formatTrendingRoutePrice(price, currency, targetCurrency: targetCurrency);
 
-    final request = FlightSearchRequestEntity(
-      adults: 1,
-      children: 0,
-      infants: 0,
-      cabin: 'E',
-      fareType: 'ON',
-      trips: [
-        TripEntity(
-          from: route.fromCode,
-          to: route.toCode,
-          onwardDate: _formatDateForSearch(parsedDate),
-        ),
-      ],
-    );
-
-    final result = await sl<AkFlightSearchUseCase>().call(request);
-
-    if (!context.mounted) return;
-
-    if (result is DataSuccess<AkFlightSearchEntity> && result.data != null) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => FlightSearchScreen(
-            from: route.from,
-            to: route.to,
-            fromCode: route.fromCode,
-            toCode: route.toCode,
-            fromAirport: route.from,
-            toAirport: route.to,
-            date: parsedDate,
-            travellers: 1,
-            adults: 1,
-            children: 0,
-            infants: 0,
-            travelClass: 'Economy',
-            isRoundTrip: false,
-            returnDate: null,
-            tui: result.data!.tui,
-          ),
-        ),
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(result.error?.message ?? 'Failed to search flights'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
-  }
-
-  String _formatDateForSearch(DateTime date) =>
-      '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-
-  String _formatPrice(num price, String currency, {String? targetCurrency}) {
-    double finalPrice = price.toDouble();
-    if (targetCurrency != null) {
-      finalPrice = CurrencyConverter.convert(
-        amount: finalPrice,
-        fromCurrency: currency,
-        toCurrency: targetCurrency,
-      );
-      currency = targetCurrency;
-    }
-
-    final priceStr = finalPrice.toStringAsFixed(0);
-    final buffer = StringBuffer();
-    final len = priceStr.length;
-
-    for (var i = 0; i < len; i++) {
-      if (i > 0 && (len - i) % 3 == 0) {
-        buffer.write(',');
-      }
-      buffer.write(priceStr[i]);
-    }
-
-    final symbols = {'INR': '₹', 'USD': '\$', 'AED': 'د.إ', 'EUR': '€', 'GBP': '£'};
-    final symbol = symbols[currency.toUpperCase()] ?? '$currency ';
-    return '$symbol$buffer';
-  }
-
-  String getCurrentDate() {
-    final now = DateTime.now();
-    return '${now.day.toString().padLeft(2, '0')}/'
-        '${now.month.toString().padLeft(2, '0')}/'
-        '${now.year}';
-  }
+  String getCurrentDate() => trendingRouteDisplayDate();
 
   @override
   Widget build(BuildContext context) {
@@ -228,12 +244,7 @@ class _TrendingPackagesViewState extends State<TrendingPackagesView> {
 
                 if (state is TrendingRoutesLoading) {
                   print('Showing loading indicator');
-                  return Center(
-                    child: CircularProgressIndicator(
-                      color: const Color(0xff005B7F),
-                      strokeWidth: 2,
-                    ),
-                  );
+                  return const AppLoadingView.compact(message: 'Loading trending routes…');
                 }
 
                 if (state is TrendingRoutesError) {

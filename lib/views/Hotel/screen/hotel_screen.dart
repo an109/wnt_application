@@ -1,6 +1,7 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import '../../../common_widgets/custom_drawer.dart';
@@ -33,6 +34,9 @@ class _HotelBookingScreenState extends State<HotelBookingScreen> {
       // API calls — DealsSection's own dispatch below still fires exactly
       // once, they just listen to the same bloc instance.
       create: (context) => sl<ExclusiveDealsBloc>(),
+      // White page now (no hero photo), so the status bar icons go dark.
+      child: AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.dark,
       child: Scaffold(
       backgroundColor: Colors.white,
       drawer: const CustomDrawer(),
@@ -154,6 +158,7 @@ class _HotelBookingScreenState extends State<HotelBookingScreen> {
       ]
       ),
 
+      ),
       ),
     );
   }

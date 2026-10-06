@@ -6,6 +6,7 @@ import '../../domain/entities/travel_stories_entity.dart';
 import '../bloc/travel_stories_bloc.dart';
 import '../bloc/travel_stories_event.dart';
 import '../bloc/travel_stories_state.dart';
+import 'package:wander_nova/common_widgets/app_loader.dart';
 
 class AllTravelStoriesScreen extends StatefulWidget {
   const AllTravelStoriesScreen({super.key});
@@ -95,25 +96,7 @@ class _AllTravelStoriesScreenState extends State<AllTravelStoriesScreen> {
   }
 
   Widget _buildLoadingState(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          CircularProgressIndicator(
-            color: Theme.of(context).primaryColor,
-            strokeWidth: context.wp(0.8),
-          ),
-          SizedBox(height: context.hp(2)),
-          Text(
-            'Loading stories...',
-            style: TextStyle(
-              fontSize: context.bodyMedium,
-              color: Colors.grey.shade600,
-            ),
-          ),
-        ],
-      ),
-    );
+    return const AppLoadingView(message: 'Loading stories…');
   }
 
   Widget _buildEmptyState(BuildContext context) {

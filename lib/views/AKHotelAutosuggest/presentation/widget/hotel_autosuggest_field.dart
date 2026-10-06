@@ -8,6 +8,7 @@ import '../../domain/entity/AKHotelAutosuggest_entity.dart';
 import '../bloc/AKHotelAutosuggest_bloc.dart';
 import '../bloc/AKHotelAutosuggest_event.dart';
 import '../bloc/AKHotelAutosuggest_state.dart';
+import 'package:wander_nova/common_widgets/app_loader.dart';
 
 /// Hotel-only destination search backed by the Akbar Hotels Autosuggest API
 /// (`GET /api/akbar-hotels/autosuggest/?term=`). Deliberately separate from
@@ -215,10 +216,7 @@ class _HotelAutosuggestFieldState extends State<HotelAutosuggestField> {
       bloc: _bloc,
       builder: (context, state) {
         if (state is AkHotelAutosuggestLoading) {
-          return Padding(
-            padding: EdgeInsets.all(context.w(16)),
-            child: const Center(child: CircularProgressIndicator()),
-          );
+          return const AppLoadingView.compact(message: 'Searching cities & hotels…');
         }
 
         if (state is AkHotelAutosuggestFailed) {

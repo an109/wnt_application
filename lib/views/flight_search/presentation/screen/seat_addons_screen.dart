@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wander_nova/UI_helper/currency_converter.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import 'package:wander_nova/common_widgets/airline_logo.dart';
+import 'package:wander_nova/common_widgets/app_loader.dart';
 import 'package:wander_nova/core/resources/app_colours.dart';
 import 'package:wander_nova/core/utils/storage/shared_preference.dart';
 import 'package:wander_nova/injection_container.dart';
@@ -947,7 +948,7 @@ class _SeatAddonsScreenState extends State<SeatAddonsScreen> {
                 borderRadius: BorderRadius.circular(context.r(24)),
               ),
               alignment: Alignment.center,
-              child: const CircularProgressIndicator(strokeWidth: 2.4, color: _blue),
+              child: const AppLoadingView(message: 'Loading seat map…'),
             ),
           ),
         ],

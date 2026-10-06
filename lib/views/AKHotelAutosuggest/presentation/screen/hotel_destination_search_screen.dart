@@ -10,6 +10,7 @@ import '../../domain/entity/AKHotelAutosuggest_entity.dart';
 import '../bloc/AKHotelAutosuggest_bloc.dart';
 import '../bloc/AKHotelAutosuggest_event.dart';
 import '../bloc/AKHotelAutosuggest_state.dart';
+import 'package:wander_nova/common_widgets/app_loader.dart';
 
 /// Full-screen hotel destination picker — the same pattern the flight
 /// SearchCard uses for its From / To fields ([DestinationSearchScreen]), but
@@ -262,10 +263,7 @@ class _HotelDestinationSearchScreenState
 
   Widget _results(AkHotelAutosuggestState state) {
     if (state is AkHotelAutosuggestLoading) {
-      return Padding(
-        padding: EdgeInsets.all(context.w(24)),
-        child: const Center(child: CircularProgressIndicator()),
-      );
+      return const AppLoadingView.compact(message: 'Searching cities & hotels…');
     }
     if (state is AkHotelAutosuggestFailed) {
       return _empty('Unable to load destinations', Icons.error_outline);

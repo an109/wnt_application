@@ -10,6 +10,7 @@ import '../../domain/entities/travel_stories_entity.dart';
 import '../bloc/travel_stories_bloc.dart';
 import '../bloc/travel_stories_event.dart';
 import '../bloc/travel_stories_state.dart';
+import 'package:wander_nova/common_widgets/app_loader.dart';
 
 
 class TravelStoryDetailScreen extends StatefulWidget {
@@ -64,9 +65,7 @@ class _TravelStoryDetailScreenState extends State<TravelStoryDetailScreen> {
   }
 
   Widget _buildLoadingState() {
-    return const Center(
-      child: CircularProgressIndicator(),
-    );
+    return const AppLoadingView(message: 'Loading story…');
   }
 
   Widget _buildErrorState(String message) {
