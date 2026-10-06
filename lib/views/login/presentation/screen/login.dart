@@ -156,14 +156,13 @@ class _LoginSignupScreenState extends State<LoginSignupScreen> {
       userExists = data['user_exists'] == true;
     }
 
-    // The account is already registered, so this is a login, not a signup.
     if (userExists && _submittedContact != null && _submittedType != null) {
-      showDialog(
-        context: context,
-        barrierDismissible: true,
-        builder: (_) => LoginPasswordPopup(
-          contact: _submittedContact!,
-          contactType: _submittedType!,
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => LoginPasswordPopup(
+            contact: _submittedContact!,
+            contactType: _submittedType!,
+          ),
         ),
       );
       return;
@@ -193,7 +192,7 @@ class _LoginSignupScreenState extends State<LoginSignupScreen> {
           AuthScaffold(
             children: [
               SizedBox(height: context.w(_canClose ? 12 : 30)),
-              Center(child: WanderLogo.still(width: context.w(180))),
+              Center(child: WanderLogo.still(width: context.w(130))),
               SizedBox(height: context.w(46)),
               Center(
                 child: Text(
@@ -269,30 +268,30 @@ class _LoginSignupScreenState extends State<LoginSignupScreen> {
               SizedBox(height: context.w(12)),
               SocialAuthSection(isGate: widget.isGate),
               SizedBox(height: context.w(20)),
-              const _TermsLine(),
+              // const _TermsLine(),
             ],
           ),
-          if (_canClose)
-            Positioned(
-              top: MediaQuery.of(context).padding.top + context.w(8),
-              right: context.w(16),
-              child: GestureDetector(
-                onTap: () => Navigator.of(context).pop(),
-                child: Container(
-                  height: context.w(34),
-                  width: context.w(34),
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFF4F4F5),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.close,
-                    size: context.w(18),
-                    color: AppColors.authInk,
-                  ),
-                ),
-              ),
-            ),
+          // if (_canClose)
+          //   Positioned(
+          //     top: MediaQuery.of(context).padding.top + context.w(8),
+          //     right: context.w(16),
+          //     child: GestureDetector(
+          //       onTap: () => Navigator.of(context).pop(),
+          //       child: Container(
+          //         height: context.w(34),
+          //         width: context.w(34),
+          //         decoration: const BoxDecoration(
+          //           color: Color(0xFFF4F4F5),
+          //           shape: BoxShape.circle,
+          //         ),
+          //         child: Icon(
+          //           Icons.close,
+          //           size: context.w(18),
+          //           color: AppColors.authInk,
+          //         ),
+          //       ),
+          //     ),
+          //   ),
         ],
       ),
     );

@@ -77,12 +77,12 @@ class WanderLogo extends StatelessWidget {
   // (as a fraction of the logo width) and the scale it grows out of. The
   // windows overlap generously so the pieces cascade instead of stepping.
   static const _steps = <_LogoStep>[
-    _LogoStep(WanderLogoLayers.markBlue, 0.00, 0.30, Offset(-0.05, 0.08), 0.90),
-    _LogoStep(WanderLogoLayers.markOrange, 0.14, 0.46, Offset(0.06, 0.08), 0.90),
-    _LogoStep(WanderLogoLayers.markTeal, 0.32, 0.60, Offset(0.04, -0.08), 0.90),
-    _LogoStep(WanderLogoLayers.wordWander, 0.48, 0.74, Offset(-0.02, 0.05), 0.95),
-    _LogoStep(WanderLogoLayers.wordNova, 0.62, 0.86, Offset(0.02, 0.05), 0.95),
-    _LogoStep(WanderLogoLayers.wordTagline, 0.76, 1.00, Offset(0, 0.04), 0.97),
+    _LogoStep(WanderLogoLayers.markBlue, 0.00, 0.38, Offset(-0.04, 0.06), 0.92),
+    _LogoStep(WanderLogoLayers.markOrange, 0.12, 0.52, Offset(0.05, 0.06), 0.92),
+    _LogoStep(WanderLogoLayers.markTeal, 0.26, 0.64, Offset(0.03, -0.06), 0.92),
+    _LogoStep(WanderLogoLayers.wordWander, 0.42, 0.78, Offset(-0.02, 0.04), 0.96),
+    _LogoStep(WanderLogoLayers.wordNova, 0.54, 0.88, Offset(0.02, 0.04), 0.96),
+    _LogoStep(WanderLogoLayers.wordTagline, 0.66, 1.00, Offset(0, 0.03), 0.97),
   ];
 
   @override
@@ -109,10 +109,11 @@ class WanderLogo extends StatelessWidget {
   }
 
   Widget _buildStep(_LogoStep step) {
-    // Quartic ease-out for the travel: fast on entry, a long glide to rest.
+    // Quintic ease-out for the travel: quick off the mark, then a long,
+    // almost imperceptible glide into place.
     final motion = CurvedAnimation(
       parent: progress,
-      curve: Interval(step.begin, step.end, curve: Curves.easeOutQuart),
+      curve: Interval(step.begin, step.end, curve: Curves.easeOutQuint),
     );
     // Opacity lands a little before the movement does, so nothing arrives
     // while still visibly fading.
@@ -121,7 +122,7 @@ class WanderLogo extends StatelessWidget {
       curve: Interval(
         step.begin,
         step.begin + (step.end - step.begin) * 0.72,
-        curve: Curves.easeOut,
+        curve: Curves.easeOutSine,
       ),
     );
 

@@ -19,12 +19,14 @@
                             <imageView opaque="NO" clipsSubviews="YES" multipleTouchEnabled="YES" contentMode="center" image="LaunchImage" translatesAutoresizingMaskIntoConstraints="NO" id="YRO-k0-Ey4">
                             </imageView>
                         </subviews>
-                        <!-- AppColors.navy (0xff07163B) — the Flutter SplashScreen's own
-                             background. Previously white, which flashed before the splash
-                             painted. LaunchImage is still the 1x1 transparent placeholder,
-                             so this shows as a plain navy screen and the logo arrives with
-                             the splash's animation. -->
-                        <color key="backgroundColor" red="0.027450980392156862" green="0.086274509803921568" blue="0.23137254901960785" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                        <!-- AppColors.splashTop (0xffD4F2FF) — the top of the Flutter
+                             SplashScreen's gradient, so the handover from the OS launch
+                             window to the splash is invisible. LaunchImage is still the
+                             1x1 transparent placeholder, so this shows as a plain pale
+                             blue screen and the logo arrives with the splash animation.
+                             Keep in sync with AppColors.splashTop and with
+                             android/app/src/main/res/values/colors.xml. -->
+                        <color key="backgroundColor" red="0.83137254901960786" green="0.94901960784313721" blue="1" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
                         <constraints>
                             <constraint firstItem="YRO-k0-Ey4" firstAttribute="centerX" secondItem="Ze5-6b-2t3" secondAttribute="centerX" id="1a2-6s-vTC"/>
                             <constraint firstItem="YRO-k0-Ey4" firstAttribute="centerY" secondItem="Ze5-6b-2t3" secondAttribute="centerY" id="4X2-HB-R7a"/>

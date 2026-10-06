@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:wander_nova/core/resources/app_colours.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -911,116 +912,170 @@ class _CustomDrawerState extends State<CustomDrawer>
     Navigator.pop(context);
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.white,
+        insetPadding: EdgeInsets.symmetric(horizontal: context.w(12), vertical: context.h(24)),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(context.borderRadiusLarge),
+          borderRadius: BorderRadius.circular(context.w(12)),
         ),
-        title: Row(
-          children: [
-            Container(
-              padding: EdgeInsets.all(context.w(8)),
-              decoration: BoxDecoration(
-                color: Colors.red.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.logout_rounded, color: Colors.red),
-            ),
-            SizedBox(width: context.w(12)),
-            Flexible(
-              child: Text(
-                'Sign Out',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: context.titleLarge,
-                  fontWeight: FontWeight.w600,
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(
+            context.w(22),
+            context.w(30),
+            context.w(22),
+            context.w(26),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                height: context.w(64),
+                width: context.w(64),
+                decoration: const BoxDecoration(
+                  color: AppColors.accent,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.logout_rounded,
+                  color: Colors.white,
+                  size: context.w(34),
                 ),
               ),
-            ),
-          ],
-        ),
-        content: Text(
-          'Are you sure you want to sign out?',
-          style: TextStyle(
-            fontSize: context.bodyMedium,
-            color: Colors.grey.shade700,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(
-              'Cancel',
-              style: TextStyle(
-                fontSize: context.bodyMedium,
-                color: Colors.grey.shade600,
+              SizedBox(height: context.w(22)),
+              Text(
+                'Logout?',
+                style: TextStyle(
+                  fontSize: context.fs(20),
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.authInk,
+                ),
               ),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.pop(ctx);
-
-              final logoutBloc = sl<LogoutBloc>();
-
-              logoutBloc.stream
-                  .firstWhere(
-                    (state) => state is LogoutSuccess || state is LogoutFailed,
-                  )
-                  .then((state) {
-                    if (state is LogoutSuccess) {
-                      print(
-                        'Logout API successful: ${state.logoutEntity.message}',
-                      );
-
-                      SharedPreferences.getInstance().then((prefs) async {
-                        final prefManager = await PreferencesManager.create(
-                          prefs,
-                        );
-                        await prefManager.clearUserData();
-                        await prefManager.clearAuth();
-
-                        if (mounted) {
-                          setState(() {
-                            _isLoggedIn = false;
-                            _userName = '';
-                            _userEmail = '';
-                            _userAvatar = null;
-                          });
-                        }
-                      });
-                      scaffoldMessenger.showSnackBar(
-                        SnackBar(
-                          content: Text('Logged Out Successfully'),
-                          backgroundColor: Colors.red,
-                        ),
-                      );
-                    } else if (state is LogoutFailed) {
-                      print('Logout API failed: ${state.error.message}');
-                      scaffoldMessenger.showSnackBar(
-                        SnackBar(
-                          content: Text('Logout failed Please try again'),
-                          backgroundColor: Colors.red,
-                        ),
-                      );
-                    }
-                  });
-
-              logoutBloc.add(LogoutRequested());
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(context.r(8)),
+              SizedBox(height: context.w(8)),
+              Text(
+                'Are you sure, Do you want to Logout?',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: context.fs(12),
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.authSubtle,
+                ),
               ),
-            ),
-            child: Text(
-              'Sign Out',
-              style: TextStyle(fontSize: context.bodyMedium),
-            ),
+              SizedBox(height: context.w(26)),
+              Row(
+                children: [
+                  Expanded(
+                    child: SizedBox(
+                      height: context.w(46),
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        style: OutlinedButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          side: const BorderSide(
+                            color: AppColors.OrangeColor,
+                            width: 1,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(context.w(12)),
+                          ),
+                        ),
+                        child: Text(
+                          'CANCEL',
+                          style: TextStyle(
+                            fontSize: context.fs(14),
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 0.4,
+                            color: AppColors.OrangeColor,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  SizedBox(width: context.w(14)),
+                  Expanded(
+                    child: SizedBox(
+                      height: context.w(46),
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.OrangeColor,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(context.w(12)),
+                          ),
+                        ),
+                        onPressed: () async {
+                          Navigator.pop(ctx);
+
+                          final logoutBloc = sl<LogoutBloc>();
+
+                          logoutBloc.stream
+                              .firstWhere(
+                                (state) =>
+                                    state is LogoutSuccess ||
+                                    state is LogoutFailed,
+                              )
+                              .then((state) {
+                                if (state is LogoutSuccess) {
+                                  print(
+                                    'Logout API successful: ${state.logoutEntity.message}',
+                                  );
+
+                                  SharedPreferences.getInstance().then((
+                                    prefs,
+                                  ) async {
+                                    final prefManager =
+                                        await PreferencesManager.create(prefs);
+                                    await prefManager.clearUserData();
+                                    await prefManager.clearAuth();
+
+                                    if (mounted) {
+                                      setState(() {
+                                        _isLoggedIn = false;
+                                        _userName = '';
+                                        _userEmail = '';
+                                        _userAvatar = null;
+                                      });
+                                    }
+                                  });
+                                  scaffoldMessenger.showSnackBar(
+                                    SnackBar(
+                                      content: Text('Logged Out Successfully'),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                } else if (state is LogoutFailed) {
+                                  print(
+                                    'Logout API failed: ${state.error.message}',
+                                  );
+                                  scaffoldMessenger.showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        'Logout failed Please try again',
+                                      ),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                }
+                              });
+
+                          logoutBloc.add(LogoutRequested());
+                        },
+                        child: Text(
+                          'LOGOUT',
+                          style: TextStyle(
+                            fontSize: context.fs(15),
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 0.4,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

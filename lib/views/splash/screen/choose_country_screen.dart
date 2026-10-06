@@ -71,7 +71,9 @@ class ChooseCountryScreen extends StatefulWidget {
 
 class _ChooseCountryScreenState extends State<ChooseCountryScreen>
     with SingleTickerProviderStateMixin {
-  static const _entrance = Duration(milliseconds: 900);
+  static const _entrance = Duration(milliseconds: 1250);
+
+  final _rowKey = GlobalKey();
 
   late final AnimationController _controller;
   SplashCountry _country = SplashCountry.india;
@@ -93,19 +95,80 @@ class _ChooseCountryScreenState extends State<ChooseCountryScreen>
   Future<void> _choose() async {
     if (_isContinuing) return;
 
-    final picked = await showModalBottomSheet<SplashCountry>(
+    final anchor = _rowKey.currentContext?.findRenderObject() as RenderBox?;
+    final overlay =
+        Overlay.of(context).context.findRenderObject() as RenderBox?;
+    if (anchor == null || overlay == null) return;
+
+    final topLeft = anchor.localToGlobal(Offset.zero, ancestor: overlay);
+    final bottomRight = anchor.localToGlobal(
+      anchor.size.bottomRight(Offset.zero),
+      ancestor: overlay,
+    );
+
+    final picked = await showMenu<SplashCountry>(
       context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (_) => _CountrySheet(selected: _country),
+      color: Colors.white,
+      elevation: 8,
+      constraints: BoxConstraints(minWidth: anchor.size.width),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(context.w(14)),
+        side: const BorderSide(color: Color(0xFFEDEDF0)),
+      ),
+      // Hangs off the bottom edge of the row, like a dropdown should.
+      position: RelativeRect.fromLTRB(
+        topLeft.dx,
+        bottomRight.dy + context.w(6),
+        overlay.size.width - bottomRight.dx,
+        0,
+      ),
+      items: [
+        for (final country in SplashCountry.all)
+          PopupMenuItem<SplashCountry>(
+            value: country,
+            height: context.w(42),
+            padding: EdgeInsets.symmetric(horizontal: context.w(14)),
+            child: _buildMenuRow(country),
+          ),
+      ],
     );
     if (picked == null || !mounted) return;
 
     setState(() => _country = picked);
     // Let the row repaint with the new country before moving on.
-    await Future<void>.delayed(const Duration(milliseconds: 280));
+    await Future<void>.delayed(const Duration(milliseconds: 320));
     if (!mounted) return;
     await _continue();
+  }
+
+  Widget _buildMenuRow(SplashCountry country) {
+    final isSelected = country.isoCode == _country.isoCode;
+
+    return Row(
+      children: [
+        Text(country.flag, style: TextStyle(fontSize: context.fs(14))),
+        SizedBox(width: context.w(10)),
+        Expanded(
+          child: Text(
+            country.name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: context.fs(12.5),
+              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+              letterSpacing: 0.3,
+              color: isSelected ? AppColors.AppBlue : AppColors.authInk,
+            ),
+          ),
+        ),
+        if (isSelected)
+          Icon(
+            Icons.check_rounded,
+            size: context.w(15),
+            color: AppColors.AppBlue,
+          ),
+      ],
+    );
   }
 
   Future<void> _continue() async {
@@ -125,20 +188,49 @@ class _ChooseCountryScreenState extends State<ChooseCountryScreen>
   Animation<double> _step(double begin, double end) {
     return CurvedAnimation(
       parent: _controller,
-      curve: Interval(begin, end, curve: Curves.easeOutQuart),
+      curve: Interval(begin, end, curve: Curves.easeOutQuint),
     );
   }
 
   Widget _rise(Animation<double> animation, Widget child) {
     return AnimatedBuilder(
       animation: animation,
-      builder: (context, inner) => Opacity(
-        opacity: animation.value.clamp(0.0, 1.0),
-        child: Transform.translate(
-          offset: Offset(0, context.w(18) * (1 - animation.value)),
-          child: inner,
-        ),
-      ),
+      builder: (context, inner) {
+        final t = animation.value.clamp(0.0, 1.0);
+        return Opacity(
+          opacity: t,
+          child: Transform.translate(
+            offset: Offset(0, context.w(14) * (1 - t)),
+            child: inner,
+          ),
+        );
+      },
+      child: child,
+    );
+  }
+
+  /// The arc and plane arrive as if they were shed by the logo: they start
+  /// small, up where the mark is, and glide down into place at the bottom.
+  Widget _descendFromLogo(Animation<double> animation, Widget child) {
+    return AnimatedBuilder(
+      animation: animation,
+      builder: (context, inner) {
+        final t = animation.value.clamp(0.0, 1.0);
+        final rest = 1 - t;
+        return Opacity(
+          opacity: Curves.easeOutSine.transform(t),
+          child: Transform.translate(
+            // At rest the art sits at the bottom; at t=0 it is lifted up to
+            // roughly where the mark sits.
+            offset: Offset(0, -context.hp(38) * rest),
+            child: Transform.scale(
+              scale: 0.45 + (0.55 * t),
+              alignment: Alignment.bottomCenter,
+              child: inner,
+            ),
+          ),
+        );
+      },
       child: child,
     );
   }
@@ -154,8 +246,8 @@ class _ChooseCountryScreenState extends State<ChooseCountryScreen>
             left: 0,
             right: 0,
             bottom: 0,
-            child: _rise(
-              _step(0.4, 1.0),
+            child: _descendFromLogo(
+              _step(0.18, 1.0),
               Image.asset(
                 WanderLogoLayers.countryBottomArt,
                 fit: BoxFit.fitWidth,
@@ -170,13 +262,13 @@ class _ChooseCountryScreenState extends State<ChooseCountryScreen>
                 Center(
                   child: Hero(
                     tag: WanderLogo.heroTag,
-                    child: WanderLogo.still(width: context.w(206)),
+                    child: WanderLogo.still(width: context.w(160)),
                   ),
                 ),
                 SizedBox(height: context.h(92)),
                 Padding(
                   padding: EdgeInsets.symmetric(horizontal: context.w(28)),
-                  child: _rise(_step(0.25, 0.85), _buildCountryRow()),
+                  child: _rise(_step(0.30, 0.95), _buildCountryRow()),
                 ),
               ],
             ),
@@ -188,6 +280,7 @@ class _ChooseCountryScreenState extends State<ChooseCountryScreen>
 
   Widget _buildCountryRow() {
     return Container(
+      key: _rowKey,
       height: context.w(58),
       padding: EdgeInsets.only(left: context.w(12), right: context.w(4)),
       decoration: BoxDecoration(
@@ -244,7 +337,7 @@ class _ChooseCountryScreenState extends State<ChooseCountryScreen>
                           maxLines: 1,
                           softWrap: false,
                           style: TextStyle(
-                            fontSize: context.fs(10.5),
+                            fontSize: context.fs(10),
                             fontWeight: FontWeight.w500,
                             color: Colors.white,
                           ),
@@ -272,84 +365,6 @@ class _ChooseCountryScreenState extends State<ChooseCountryScreen>
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _CountrySheet extends StatelessWidget {
-  const _CountrySheet({required this.selected});
-
-  final SplashCountry selected;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: EdgeInsets.all(context.w(16)),
-      padding: EdgeInsets.symmetric(vertical: context.w(16)),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(context.w(24)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.10),
-            blurRadius: 28,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: ConstrainedBox(
-        constraints: BoxConstraints(maxHeight: context.hp(60)),
-        child: ListView.separated(
-          shrinkWrap: true,
-          padding: EdgeInsets.symmetric(horizontal: context.w(16)),
-          itemCount: SplashCountry.all.length,
-          separatorBuilder: (_, __) => SizedBox(height: context.w(14)),
-          itemBuilder: (context, index) {
-            final country = SplashCountry.all[index];
-            final isSelected = country.isoCode == selected.isoCode;
-
-            return GestureDetector(
-              onTap: () => Navigator.of(context).pop(country),
-              child: Container(
-                height: context.w(96),
-                padding: EdgeInsets.symmetric(horizontal: context.w(20)),
-                decoration: BoxDecoration(
-                  color: isSelected ? Colors.white : const Color(0xFFF7F7F8),
-                  borderRadius: BorderRadius.circular(context.w(18)),
-                  border: Border.all(
-                    color: isSelected
-                        ? AppColors.AppBlue
-                        : const Color(0xFFEDEDF0),
-                    width: isSelected ? 2 : 1,
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Text(
-                      country.flag,
-                      style: TextStyle(fontSize: context.fs(40)),
-                    ),
-                    SizedBox(width: context.w(22)),
-                    Expanded(
-                      child: Text(
-                        country.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: context.fs(26),
-                          fontWeight: FontWeight.w500,
-                          letterSpacing: 1,
-                          color: AppColors.authInk,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        ),
       ),
     );
   }
