@@ -127,6 +127,7 @@ flutter:
     - assets/Newimage/
     - assets/HbookImage/
     - assets/home/
+    - assets/trisha/
 
   fonts:
     # Display face for the splash / auth headings. Bundled rather than fetched

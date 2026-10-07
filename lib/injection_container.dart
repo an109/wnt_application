@@ -385,6 +385,7 @@ import 'views/Send_otp/presentation/bloc/send_otp_bloc.dart';
 import 'core/network/dio_client.dart';
 import 'core/utils/storage/shared_preference.dart';
 import 'core/constants/urls.dart';
+import 'views/TrishaAI/data/data_source/trisha_api_service.dart';
 
 
 final sl = GetIt.instance;
@@ -418,6 +419,7 @@ Future<void> initializeDependencies() async {
   sl.registerLazySingleton<AirportApiService>(() => AirportApiServiceImpl(sl<DioClient>().instance),);
   sl.registerLazySingleton<AuthApiService>(() => AuthApiServiceImpl(sl<Dio>()),);
   sl.registerLazySingleton<FlightApiService>(() => FlightApiService(sl<DioClient>()),);
+  sl.registerLazySingleton<TrishaApiService>(() => TrishaApiService(sl<DioClient>().instance));
   sl.registerFactory<FareRuleApiService>(() => FareRuleApiServiceImpl(sl<DioClient>().instance),);
   sl.registerFactory<FareQuoteApiService>(() => FareQuoteApiServiceImpl(sl<DioClient>().instance),);
   sl.registerFactory<SsrApiService>(() => SsrApiServiceImpl(sl<DioClient>().instance));

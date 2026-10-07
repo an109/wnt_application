@@ -63,6 +63,11 @@
 	</array>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
 	<key>NSCameraUsageDescription</key>
 	<string>Wander Nova needs camera access so you can take a photo of a document or ID when you attach it to a booking, and so web pages opened for payment or check-in verification can capture a photo if you choose to.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>

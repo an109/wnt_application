@@ -16,6 +16,7 @@ import 'package:wander_nova/core/utils/storage/shared_preference.dart';
 import 'package:wander_nova/views/home/presentation/screens/searchSection.dart';
 import '../../../../injection_container.dart';
 import '../../../../newUIWidgets/Home_nav.dart';
+import '../../../TrishaAI/presentation/screen/trisha_chat_screen.dart';
 import '../../../Holidays/presentation/screen/holidays_screen.dart';
 import '../../../Hotel/screen/hotel_screen.dart';
 import '../../../MainApi/presentation/bloc/general_setting_bloc.dart';
@@ -291,8 +292,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   }
                 },
                 onCenterTap: () {
-                  // Center GIF button action
-                  debugPrint("AI button clicked");
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const TrishaChatScreen()),
+                  );
                 },
               ),
             ),

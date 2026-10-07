@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import 'package:wander_nova/core/resources/app_colours.dart';
+import 'package:wander_nova/views/TrishaAI/presentation/widgets/trisha_style.dart';
 
 /// Home bottom bar from the "MAIN HOME" Figma frame: Home, Trip, the AI
 /// button, Offer and Wishlist (indices 0–3, AI excluded).
@@ -28,7 +29,7 @@ class CustomBottomNav extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final barHeight = context.fx(64);
-    final aiSize = context.fx(44);
+    final aiSize = context.fx(52);
     // The AI button is centred on the bar's top edge.
     final overhang = aiSize / 2;
 
@@ -98,7 +99,7 @@ class CustomBottomNav extends StatelessWidget {
           ),
 
           // ============================================================
-          // CENTER AI BUTTON
+          // CENTER AI BUTTON — the Trisha orb with its soft blue halo
           // ============================================================
           Positioned(
             top: 0,
@@ -109,22 +110,22 @@ class CustomBottomNav extends StatelessWidget {
                 height: aiSize,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
+                  color: Colors.white,
                   border: Border.all(color: Colors.white, width: context.fx(4)),
-                  image: const DecorationImage(
-                    image: AssetImage('assets/Newgif/ai_frame.png'),
-                    fit: BoxFit.cover,
-                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0x4D4A9FE8),
+                      blurRadius: context.fx(40),
+                      spreadRadius: context.fx(12),
+                    ),
+                  ],
                 ),
                 child: ClipOval(
-                  child: OverflowBox(
-                    maxWidth: context.fx(63),
-                    maxHeight: context.fx(67),
-                    child: Image.asset(
-                      'assets/Newgif/home_ai.gif',
-                      width: context.fx(63),
-                      height: context.fx(67),
-                      fit: BoxFit.cover,
-                    ),
+                  child: Image.asset(
+                    TrishaStyle.orbAsset,
+                    fit: BoxFit.cover,
+                    // Until the orb is exported from Figma, keep the old animation.
+                    errorBuilder: (_, __, ___) => Image.asset('assets/Newgif/home_ai.gif', fit: BoxFit.cover),
                   ),
                 ),
               ),
