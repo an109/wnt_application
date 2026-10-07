@@ -67,6 +67,10 @@
 	<string>Wander Nova needs camera access so you can take a photo of a document or ID when you attach it to a booking, and so web pages opened for payment or check-in verification can capture a photo if you choose to.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>Wander Nova uses your location to show how far hotels are from you and to sort nearby stays.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Wander Nova uses the microphone so you can search places by voice.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Wander Nova uses speech recognition to turn your voice into a search.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Wander Nova uses your location to show how far this hotel is from you.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>

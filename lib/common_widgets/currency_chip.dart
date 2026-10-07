@@ -4,6 +4,8 @@ import 'package:wander_nova/UI_helper/currency_converter.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import 'package:wander_nova/core/resources/app_colours.dart';
 
+import '../views/currency/presentation/screen/currency_screen.dart';
+
 /// Flag + currency symbol chip from the Figma top bars (home, flight…).
 ///
 /// Static display of the saved preferred currency — not a picker. Rebuilds
@@ -20,37 +22,45 @@ class CurrencyChip extends StatelessWidget {
         final symbol = CurrencyConverter.getSymbol(currency);
         final flag = CurrencyConverter.getFlag(currency);
 
-        return Container(
-          height: context.fx(36),
-          padding: EdgeInsets.symmetric(horizontal: context.fx(6)),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border.all(color: const Color(0xFFCCCCCC), width: 0.5),
-            borderRadius: BorderRadius.circular(context.fx(6)),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(flag, style: TextStyle(fontSize: context.ffs(14))),
-              SizedBox(width: context.fx(4)),
-              Text(
-                symbol,
-                style: TextStyle(
-                  color: AppColors.AppBlue,
-                  fontSize: context.ffs(14),
-                  fontWeight: FontWeight.w700,
+        return GestureDetector(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const CurrencyScreen()),
+            );
+          },
+          child: Container(
+            height: context.fx(36),
+            padding: EdgeInsets.symmetric(horizontal: context.fx(6)),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border.all(color: const Color(0xFFCCCCCC), width: 0.5),
+              borderRadius: BorderRadius.circular(context.fx(6)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(flag, style: TextStyle(fontSize: context.ffs(14))),
+                SizedBox(width: context.fx(4)),
+                Text(
+                  symbol,
+                  style: TextStyle(
+                    color: AppColors.AppBlue,
+                    fontSize: context.ffs(14),
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
-              ),
-              SizedBox(width: context.fx(2)),
-              RotatedBox(
-                quarterTurns: 1,
-                child: SvgPicture.asset(
-                  'assets/home/chevron_down.svg',
-                  width: context.fx(6),
-                  height: context.fx(10),
+                SizedBox(width: context.fx(2)),
+                RotatedBox(
+                  quarterTurns: 1,
+                  child: SvgPicture.asset(
+                    'assets/home/chevron_down.svg',
+                    width: context.fx(6),
+                    height: context.fx(10),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         );
       },

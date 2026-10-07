@@ -65,24 +65,24 @@ class HomeViewAll extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            'View all',
-            style: TextStyle(
-              fontSize: context.ffs(12),
-              fontWeight: onCard ? FontWeight.w700 : FontWeight.w400,
-              color: onCard ? AppColors.OrangeColor : AppColors.AppBlue,
-            ),
-          ),
-          SizedBox(width: context.fx(4)),
-          // The Figma icon is an up-arrow turned 90° to point right.
-          RotatedBox(
-            quarterTurns: 1,
-            child: SvgPicture.asset(
-              onCard ? '$_icons/arrow_orange.svg' : '$_icons/arrow_blue.svg',
-              width: context.fx(12),
-              height: context.fx(12),
-            ),
-          ),
+          // Text(
+          //   'View all',
+          //   style: TextStyle(
+          //     fontSize: context.ffs(12),
+          //     fontWeight: onCard ? FontWeight.w700 : FontWeight.w400,
+          //     color: onCard ? AppColors.OrangeColor : AppColors.AppBlue,
+          //   ),
+          // ),
+          // SizedBox(width: context.fx(4)),
+          // // The Figma icon is an up-arrow turned 90° to point right.
+          // RotatedBox(
+          //   quarterTurns: 1,
+          //   child: SvgPicture.asset(
+          //     onCard ? '$_icons/arrow_orange.svg' : '$_icons/arrow_blue.svg',
+          //     width: context.fx(12),
+          //     height: context.fx(12),
+          //   ),
+          // ),
         ],
       ),
     );
@@ -1004,13 +1004,166 @@ class _HomeTravelStoriesState extends State<HomeTravelStories> {
               return _CardRail(
                 height: context.fx(114),
                 itemCount: state.stories.length,
-                itemBuilder: (context, i) => _StoryCard(story: state.stories[i]),
+                itemBuilder: (context, i) => StoryCard(story: state.stories[i]),
               );
             }
             return const SizedBox.shrink();
           },
         ),
       ],
+    );
+  }
+}
+
+class StoryCard extends StatelessWidget {
+  final TravelStoryEntity story;
+
+  const StoryCard({required this.story});
+
+  @override
+  Widget build(BuildContext context) {
+    // Design highlights the title's last word in orange
+    // ("Best Honeymoon / Destinations").
+    final words = story.title.trim().split(RegExp(r'\s+'));
+    final lead = words.length > 1 ? '${words.sublist(0, words.length - 1).join(' ')}\n' : '';
+    final accent = words.isEmpty ? '' : words.last;
+    final category = story.category?.trim() ?? '';
+
+    return GestureDetector(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => TravelStoryDetailScreen(slug: story.slug),
+        ),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(context.fx(8)),
+        child: SizedBox(
+          width: context.fx(220),
+          height: context.fx(114),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              _CardImage(
+                url: story.featuredImageUrl ?? story.headerImageUrl,
+                fallbackIcon: Icons.image,
+              ),
+              const DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.bottomCenter,
+                    end: Alignment.topCenter,
+                    colors: [Color(0xE6000000), Color(0x66000000), Color(0x1A000000)],
+                    stops: [0.0, 0.4, 1.0],
+                  ),
+                ),
+              ),
+              Padding(
+                padding: EdgeInsets.all(context.fx(8)),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(context.fx(12)),
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 3, sigmaY: 3),
+                        child: Container(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: context.fx(9),
+                            vertical: context.fx(5),
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(context.fx(12)),
+                            border: Border.all(color: Colors.white.withOpacity(0.2)),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text.rich(
+                                TextSpan(
+                                  children: [
+                                    TextSpan(text: lead),
+                                    TextSpan(
+                                      text: accent,
+                                      style: const TextStyle(color: AppColors.OrangeColor),
+                                    ),
+                                  ],
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: context.ffs(12),
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              if (category.isNotEmpty) ...[
+                                SizedBox(height: context.fx(4)),
+                                Text(
+                                  category.toUpperCase(),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: context.ffs(6),
+                                    letterSpacing: 2,
+                                    color: Colors.white.withOpacity(0.6),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: context.fx(4)),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            story.excerpt ?? '',
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: context.ffs(8),
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                        SizedBox(width: context.fx(6)),
+                        Container(
+                          width: context.fx(18),
+                          height: context.fx(18),
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.84),
+                            shape: BoxShape.circle,
+                          ),
+                          // Figma: up-arrow flipped vertically, then -90°.
+                          child: Transform(
+                            alignment: Alignment.center,
+                            transform: Matrix4.rotationZ(-math.pi / 2)
+                              ..multiply(Matrix4.diagonal3Values(1, -1, 1)),
+                            child: SvgPicture.asset(
+                              '$_icons/story_arrow.svg',
+                              width: context.fx(12),
+                              height: context.fx(12),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -1039,8 +1192,8 @@ class _StoryCard extends StatelessWidget {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(context.fx(8)),
         child: SizedBox(
-          width: context.fx(220),
-          height: context.fx(114),
+          width: context.fx(144),
+          height: context.fx(192),
           child: Stack(
             fit: StackFit.expand,
             children: [

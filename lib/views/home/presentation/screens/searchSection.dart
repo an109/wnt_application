@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import 'package:wander_nova/core/resources/app_colours.dart';
+import 'package:speech_to_text/speech_to_text.dart' as stt;
 
 class SlidingSearchSection extends StatefulWidget {
   final bool isVisible;
@@ -13,7 +14,10 @@ class SlidingSearchSection extends StatefulWidget {
     required this.isVisible,
     this.onHide,
     this.initialSearchText,
+    this.startWithVoice = false,
   });
+
+  final bool startWithVoice;
 
   @override
   State<SlidingSearchSection> createState() => _SlidingSearchSectionState();
@@ -26,6 +30,9 @@ class _SlidingSearchSectionState extends State<SlidingSearchSection>
   late Animation<double> _fadeAnimation;
   final FocusNode _searchFocusNode = FocusNode();
   final TextEditingController _searchController = TextEditingController();
+  final stt.SpeechToText _speech = stt.SpeechToText();
+  bool _speechReady = false;
+  bool _isListening = false;
 
   @override
   void initState() {
@@ -49,7 +56,7 @@ class _SlidingSearchSectionState extends State<SlidingSearchSection>
       _controller.forward();
       // Focus the search field after animation completes
       _controller.addStatusListener((status) {
-        if (status == AnimationStatus.completed) {
+        if (status == AnimationStatus.completed && !_isListening) {
           _searchFocusNode.requestFocus();
         }
       });
@@ -58,27 +65,89 @@ class _SlidingSearchSectionState extends State<SlidingSearchSection>
     if (widget.initialSearchText != null) {
       _searchController.text = widget.initialSearchText!;
     }
+
+    if (widget.isVisible && widget.startWithVoice) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _toggleListening());
+    }
   }
 
   @override
   void didUpdateWidget(SlidingSearchSection oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.isVisible && !oldWidget.isVisible) {
+      if (widget.startWithVoice) {
+        WidgetsBinding.instance.addPostFrameCallback((_) => _toggleListening());
+      }
       _controller.forward();
       // Focus the search field after animation completes
       _controller.addStatusListener((status) {
-        if (status == AnimationStatus.completed) {
+        if (status == AnimationStatus.completed && !_isListening) {
           _searchFocusNode.requestFocus();
         }
       });
     } else if (!widget.isVisible && oldWidget.isVisible) {
+      if (_isListening) {
+        _speech.stop();
+        _isListening = false;
+      }
       _searchFocusNode.unfocus();
       _controller.reverse();
     }
   }
 
+  Future<void> _toggleListening() async {
+    if (_isListening) {
+      await _speech.stop();
+      if (mounted) setState(() => _isListening = false);
+      return;
+    }
+
+    bool available = _speechReady;
+    if (!available) {
+      try {
+        available = await _speech.initialize(
+          onStatus: (status) {
+            if ((status == 'done' || status == 'notListening') && mounted) {
+              setState(() => _isListening = false);
+            }
+          },
+          onError: (_) {
+            if (mounted) setState(() => _isListening = false);
+          },
+        );
+      } catch (_) {
+        available = false;
+      }
+    }
+    _speechReady = available;
+
+    if (!mounted) return;
+    if (!available) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Voice search is unavailable. Please allow microphone access.'),
+        ),
+      );
+      return;
+    }
+
+    _searchFocusNode.unfocus();
+    setState(() => _isListening = true);
+    await _speech.listen(
+      listenOptions: stt.SpeechListenOptions(partialResults: true),
+      onResult: (result) {
+        if (!mounted) return;
+        _searchController.value = TextEditingValue(
+          text: result.recognizedWords,
+          selection: TextSelection.collapsed(offset: result.recognizedWords.length),
+        );
+      },
+    );
+  }
+
   @override
   void dispose() {
+    _speech.cancel();
     _searchFocusNode.dispose();
     _searchController.dispose();
     _controller.dispose();
@@ -193,11 +262,20 @@ class _SlidingSearchSectionState extends State<SlidingSearchSection>
                               },
                             ),
                           ),
-                          Image.asset(
-                            'assets/NewIcons/micHD.png',
-                            width: context.w(14),
-                            height: context.w(14),
-                            color: AppColors.AppBlue,
+                          GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: _toggleListening,
+                            child: Padding(
+                              padding: EdgeInsets.all(context.w(6)),
+                              child: Image.asset(
+                                'assets/NewIcons/micHD.png',
+                                width: context.w(14),
+                                height: context.w(14),
+                                color: _isListening
+                                    ? Colors.red
+                                    : AppColors.AppBlue,
+                              ),
+                            ),
                           ),
                         ],
                       ),

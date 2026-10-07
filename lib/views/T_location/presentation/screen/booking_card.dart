@@ -1074,7 +1074,8 @@ class _TransportBookingCardState extends State<TransportBookingCard> {
               color: AppColors.AppBlue,
               ),
               SizedBox(width: context.w(10),),
-              Column(
+              Flexible(
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -1096,6 +1097,7 @@ class _TransportBookingCardState extends State<TransportBookingCard> {
                     style: TextStyle(fontSize: context.fs(11), color: _muted),
                   ),
                 ],
+              ),
               ),
             ],
           ),

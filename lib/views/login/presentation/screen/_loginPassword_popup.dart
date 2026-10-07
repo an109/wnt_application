@@ -262,7 +262,7 @@ class _LoginPasswordPopupState extends State<LoginPasswordPopup> {
               'Enter your password for\n${widget.contact}',
               textAlign: TextAlign.center,
               style: TextStyle(
-                fontSize: context.fs(13.5),
+                fontSize: context.fs(12),
                 color: AppColors.authSubtle,
                 height: 1.4,
               ),
@@ -345,20 +345,23 @@ class _LoginPasswordPopupState extends State<LoginPasswordPopup> {
   }
 
   // ============================================================
-  // FORGOT PASSWORD — STEP 1: ENTER EMAIL
+  // FORGOT PASSWORD — STEP 1: ENTER EMAIL / PHONE
   // ============================================================
   Widget _buildForgotEmailStage(BuildContext context) {
+    final isPhone = widget.contactType == ContactType.phone;
     return AuthScaffold(
       onBack: () => setState(() => _forgotStage = _ForgotStage.none),
       children: [
         ..._stageHeading(
           context,
           title: 'Forgot Password',
-          subtitle: 'Please enter your email to reset the password',
+          subtitle: isPhone
+              ? 'Please enter your mobile number to reset the password'
+              : 'Please enter your email to reset the password',
         ),
         TextField(
           controller: _forgotEmailController,
-          keyboardType: TextInputType.emailAddress,
+          keyboardType: isPhone ? TextInputType.phone : TextInputType.emailAddress,
           cursorColor: AppColors.AppBlue,
           onChanged: (_) {
             if (_forgotEmailError != null) {
@@ -372,9 +375,9 @@ class _LoginPasswordPopupState extends State<LoginPasswordPopup> {
           ),
           decoration: authFieldDecoration(
             context,
-            label: 'EMAIL ADDRESS',
-            hintText: 'you@example.com',
-            icon: Icons.mail,
+            label: isPhone ? 'MOBILE NUMBER' : 'EMAIL ADDRESS',
+            hintText: isPhone ? '+1 234 567 8900' : 'you@example.com',
+            icon: isPhone ? Icons.phone : Icons.mail,
             hasError: _forgotEmailError != null,
           ),
         ),
@@ -565,17 +568,26 @@ class _LoginPasswordPopupState extends State<LoginPasswordPopup> {
   }
 
   void _sendForgotOtp() {
-    final email = _forgotEmailController.text.trim();
-    if (email.isEmpty || !_emailRegex.hasMatch(email)) {
-      setState(() => _forgotEmailError = 'Please enter a valid email address');
-      return;
+    final contact = _forgotEmailController.text.trim();
+    final isPhone = widget.contactType == ContactType.phone;
+
+    if (isPhone) {
+      if (contact.isEmpty) {
+        setState(() => _forgotEmailError = 'Please enter your mobile number');
+        return;
+      }
+    } else {
+      if (contact.isEmpty || !_emailRegex.hasMatch(contact)) {
+        setState(() => _forgotEmailError = 'Please enter a valid email address');
+        return;
+      }
     }
     setState(() => _forgotEmailError = null);
 
     _sendOtpBloc.add(
       SendOtpRequested(
-        contact: email,
-        type: ContactType.email,
+        contact: contact,
+        type: isPhone ? ContactType.phone : ContactType.email,
         purpose: 'login',
       ),
     );
