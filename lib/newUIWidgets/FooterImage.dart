@@ -12,7 +12,7 @@ class AuthFooterBadge extends StatelessWidget {
     return Center(
       child: Image.asset(
         WanderLogoLayers.footerBadge,
-        width: context.w(170),
+        width: context.w(130),
         fit: BoxFit.contain,
         filterQuality: FilterQuality.medium,
       ),

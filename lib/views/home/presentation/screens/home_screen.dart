@@ -26,6 +26,7 @@ import '../../../ExclusiveDeals/presentation/bloc/exclusive_deals_bloc.dart';
 import '../../../ExclusiveDeals/presentation/bloc/exclusive_deals_event.dart';
 import '../../../flight_popularDestination/presentation/bloc/destination_bloc.dart';
 import '../../../flight_popularDestination/presentation/bloc/destination_event.dart';
+import '../../../notifications/notifications_screen.dart';
 import '../../../travel_stories/presentation/bloc/travel_stories_bloc.dart';
 import '../../../travel_stories/presentation/bloc/travel_stories_event.dart';
 import '../../../trending_route/presentation/bloc/trending_routes_bloc.dart';
@@ -132,6 +133,7 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _bottomNavVisible = true;
   double _lastScrollOffset = 0;
   bool _showSlidingSearch = false;
+  bool _startVoiceSearch = false;
 
   // ---------------------------------------------------------------------
   // Scroll-based expand/pin for the hero's search bar: once the hero's own
@@ -374,9 +376,11 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             SlidingSearchSection(
               isVisible: _showSlidingSearch,
+              startWithVoice: _startVoiceSearch,
               onHide: () {
                 setState(() {
                   _showSlidingSearch = false;
+                  _startVoiceSearch = false;
                 });
               },
             ),
@@ -527,7 +531,12 @@ class _HomeScreenState extends State<HomeScreen> {
         const CurrencyChip(),
         SizedBox(width: context.fx(16)),
         GestureDetector(
-          onTap: () {},
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+            );
+          },
           child: SvgPicture.asset(
             'assets/home/notification.svg',
             width: context.fx(24),
@@ -578,10 +587,20 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
             ),
-            SvgPicture.asset(
-              'assets/home/mic.svg',
-              width: context.fx(24),
-              height: context.fx(24),
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () {
+                setState(() {
+                  _startVoiceSearch = true;
+                  _showSlidingSearch = true;
+                });
+                SystemChannels.textInput.invokeMethod('TextInput.hide');
+              },
+              child: SvgPicture.asset(
+                'assets/home/mic.svg',
+                width: context.fx(24),
+                height: context.fx(24),
+              ),
             ),
           ],
         ),

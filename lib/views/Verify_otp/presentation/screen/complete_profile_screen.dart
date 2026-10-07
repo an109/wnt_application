@@ -80,11 +80,11 @@ class _CompleteProfilePopupState extends State<CompleteProfilePopup> {
         child: Form(
           key: _formKey,
           child: AuthScaffold(
-            // onBack: Navigator.of(context).canPop()
-            //     ? () => Navigator.of(context).pop()
-            //     : null,
+            onBack: Navigator.of(context).canPop()
+                ? () => Navigator.of(context).pop()
+                : null,
             children: [
-              // SizedBox(height: context.w(10)),
+              SizedBox(height: context.w(40)),
               Center(
                 child: Text(
                   'Set a new password',
