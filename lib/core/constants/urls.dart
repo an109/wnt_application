@@ -175,6 +175,12 @@ class Urls {
   static const String signup = '$basesUrl/auth/signup/';
   static const String login = '$basesUrl/auth/login/';
   static const String walletBalance = '$basesUrl/wallet/balance/';
+  // User notification feed (wallet transaction / low-balance alerts).
+  static const String walletNotifications = '$basesUrl/wallet/notifications/';
+  static const String walletNotificationsMarkRead =
+      '$basesUrl/wallet/notifications/mark-read/';
+  static const String walletNotificationPreferences =
+      '$basesUrl/wallet/notification-preferences/';
   static const String logout = '$basesUrl/auth/logout/';
   static const String tokenRefresh = '$basesUrl/auth/token/refresh/';
   static const String deleteAccount = '$basesUrl/auth/delete-account/';
@@ -184,6 +190,8 @@ class Urls {
   static const String transportBookings = '$basesUrl/transport/bookings/';
   static const String hotelBookingsList = '$basesUrl/tbo-hotel/bookings/list/';
   static const String bookings = '$basesUrl/flights/bookings';
+  static const String myRefunds = '$basesUrl/refunds/my/';
+  static const String cancellationSettings = '$basesUrl/settings/cancellation/';
 
   // Visa Applications / Upcoming Trips
   static const String visaApplications = '$basesUrl/visa-applications/';

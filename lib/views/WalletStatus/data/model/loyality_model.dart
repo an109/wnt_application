@@ -12,6 +12,7 @@ class LoyaltyModel extends LoyaltyEntity {
     String? nextTier,
     String? nextTierLabel,
     int? bookingsNeeded,
+    List<LoyaltyTierInfo> tiers = const [],
   }) : super(
     success: success,
     tier: tier,
@@ -22,6 +23,7 @@ class LoyaltyModel extends LoyaltyEntity {
     nextTier: nextTier,
     nextTierLabel: nextTierLabel,
     bookingsNeeded: bookingsNeeded,
+    tiers: tiers,
   );
 
   factory LoyaltyModel.fromJson(Map<String, dynamic> json) {
@@ -35,6 +37,10 @@ class LoyaltyModel extends LoyaltyEntity {
       nextTier: json['next_tier'],
       nextTierLabel: json['next_tier_label'],
       bookingsNeeded: json['bookings_needed'],
+      tiers: [
+        for (final t in (json['tiers'] as List? ?? const []))
+          if (t is Map) LoyaltyTierInfo.fromJson(Map<String, dynamic>.from(t)),
+      ],
     );
   }
 
@@ -49,6 +55,7 @@ class LoyaltyModel extends LoyaltyEntity {
       'next_tier': nextTier,
       'next_tier_label': nextTierLabel,
       'bookings_needed': bookingsNeeded,
+      'tiers': [for (final t in tiers) t.toJson()],
     };
   }
 }

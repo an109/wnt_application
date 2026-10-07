@@ -1,3 +1,4 @@
+import 'package:wander_nova/views/MyBookings/Screen/MyBooking_Screen.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -272,7 +273,12 @@ class _HomeScreenState extends State<HomeScreen> {
                   if (index == 0) {
                     // Home
                   } else if (index == 1) {
-                    // Trip
+                    // Trip — the home tab stays selected underneath.
+                    setState(() => selectedNavIndex = 0);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const MyBookingScreen()),
+                    );
                   } else if (index == 2) {
                     // Offer — the home tab stays selected underneath.
                     setState(() => selectedNavIndex = 0);

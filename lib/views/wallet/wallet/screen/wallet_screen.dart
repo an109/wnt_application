@@ -71,10 +71,15 @@ class _WalletScreenState extends State<WalletScreen> {
   bool get _filtersActive =>
       _selectedTime != TimeFilter.allTime || _searchQuery.isNotEmpty;
 
+  /// Login saves `firstname` / `lastname` (no `name` key), so build the
+  /// holder name from those; a plain `name` still wins when present.
   String get _holderName {
-    final name = (sl<PreferencesManager>().getUserData()?['name'] ?? '')
-        .toString()
-        .trim();
+    final data = sl<PreferencesManager>().getUserData() ?? const {};
+    String read(String key) => (data[key] ?? '').toString().trim();
+    final full = read('name');
+    final name = full.isNotEmpty
+        ? full
+        : '${read('firstname')} ${read('lastname')}'.trim();
     return name.isEmpty ? 'Wander Nova' : name;
   }
 

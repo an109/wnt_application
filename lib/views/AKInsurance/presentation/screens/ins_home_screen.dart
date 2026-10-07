@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../UI_helper/responsive_layout.dart';
+import '../../../../common_widgets/app_loader.dart';
 import '../../../../common_widgets/custom_drawer.dart';
 import '../../../../injection_container.dart' as di;
 import '../../../ExclusiveDeals/presentation/bloc/exclusive_deals_bloc.dart';
-import '../../../MainApi/presentation/bloc/general_setting_bloc.dart';
-import '../../../MainApi/presentation/bloc/general_settings_event.dart';
-import '../../../MainApi/presentation/bloc/general_settings_state.dart';
 import '../../../countries/domain/entities/country_entity.dart';
 import '../../../countries/presentation/bloc/country_bloc.dart';
 import '../../../countries/presentation/bloc/country_event.dart';
@@ -30,9 +29,8 @@ import 'ins_quotes_screen.dart';
 /// reading the same bloc instance instead of re-issuing the search.
 ///
 /// Everything the form offers is live: the policy-type tabs come from
-/// ProviderChecklist, the country lists from `CountryBloc`, and the hero
-/// photo from the section-heroes setting — the same sources the previous
-/// screen used.
+/// ProviderChecklist and the country lists from `CountryBloc` — the same
+/// sources the previous screen used.
 class InsHomeScreen extends StatefulWidget {
   const InsHomeScreen({super.key});
 
@@ -42,8 +40,6 @@ class InsHomeScreen extends StatefulWidget {
 
 class _InsHomeScreenState extends State<InsHomeScreen> {
   late final AkInsuranceBloc _bloc;
-
-  String? _heroImage;
 
   /// Null until both the checklist and the country list have arrived — the
   /// query cannot be built without a real policy type and origin country.
@@ -58,9 +54,6 @@ class _InsHomeScreenState extends State<InsHomeScreen> {
     if (context.read<CountryBloc>().state is! CountryLoaded) {
       context.read<CountryBloc>().add(const LoadCountriesEvent());
     }
-    context
-        .read<GeneralSettingsBloc>()
-        .add(const LoadSectionHeroes(domain: 'thewandernova.com'));
   }
 
   @override
@@ -133,12 +126,9 @@ class _InsHomeScreenState extends State<InsHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocListener<GeneralSettingsBloc, GeneralSettingsState>(
-      listener: (_, state) {
-        if (state is SectionHeroesLoaded) {
-          setState(() => _heroImage = state.sectionHeroes.flights);
-        }
-      },
+    // White page (no hero photo), so the status bar icons go dark.
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.dark,
       child: Scaffold(
         drawer: const CustomDrawer(),
         backgroundColor: Colors.white,
@@ -168,7 +158,7 @@ class _InsHomeScreenState extends State<InsHomeScreen> {
                               query: query,
                               policyTypes: types,
                               countries: countries,
-                              heroImage: _heroImage,
+                              heroImage: null,
                               onChanged: (q) => setState(() => _query = q),
                               onExplore: _explore,
                             ),
@@ -197,25 +187,11 @@ class _InsHomeScreenState extends State<InsHomeScreen> {
 
   /// Shown only while ProviderChecklist and the country list are still in
   /// flight — the form cannot be drawn before it knows the real policy
-  /// types, and showing a half-populated hero would be worse.
+  /// types, and showing a half-populated form would be worse.
   Widget _heroPlaceholder(BuildContext context) {
-    return SizedBox(
-      height: context.h(420),
-      child: DecoratedBox(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFF4A90E2), Color(0xFF87CEEB)],
-          ),
-        ),
-        child: const Center(
-          child: CircularProgressIndicator(
-            strokeWidth: 2.4,
-            valueColor: AlwaysStoppedAnimation(Colors.white),
-          ),
-        ),
-      ),
+    return AppLoadingView(
+      message: 'Loading insurance options…',
+      height: context.fx(420),
     );
   }
 }

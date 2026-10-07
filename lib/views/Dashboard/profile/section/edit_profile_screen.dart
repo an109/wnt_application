@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:wander_nova/core/resources/app_colours.dart';
+import '../widgets/account_kit.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import 'package:wander_nova/views/Profile/presentation/bloc/profile_bloc.dart';
@@ -6,10 +9,6 @@ import 'package:wander_nova/views/Profile/presentation/bloc/profile_event.dart';
 
 import '../../../Profile/domain/entities/ProfileEntity.dart';
 import '../../../Profile/presentation/bloc/profile_state.dart';
-import '../widgets/profile_dropdown_field.dart';
-import '../widgets/profile_phone_field.dart';
-import '../widgets/profile_section_title.dart';
-import '../widgets/profile_text_field.dart';
 
 import '../../../../injection_container.dart';
 import 'package:wander_nova/common_widgets/app_loader.dart';
@@ -89,10 +88,19 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _profileBloc = sl<ProfileBloc>();
     _profileBloc.add(const GetProfileEvent());
 
+    // Until the profile API answers, show the names the Profile screen
+    // already has (it passes first/last separately; older callers only pass
+    // the full name, which is split on the first space).
+    final fullName = (widget.userData?['name'] ?? '').toString().trim();
+    final splitAt = fullName.indexOf(' ');
     firstNameController = TextEditingController(
-      text: widget.userData?['name'] ?? '',
+      text: widget.userData?['firstName'] ??
+          (splitAt < 0 ? fullName : fullName.substring(0, splitAt)),
     );
-    lastNameController = TextEditingController();
+    lastNameController = TextEditingController(
+      text: widget.userData?['lastName'] ??
+          (splitAt < 0 ? '' : fullName.substring(splitAt + 1)),
+    );
     addressController = TextEditingController(
       text: widget.userData?['address'] ?? '',
     );
@@ -119,6 +127,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     phoneController.dispose();
     dobController.dispose();
     emailController.dispose();
+    _oldPassword.dispose();
+    _newPassword.dispose();
+    _confirmPassword.dispose();
     super.dispose();
   }
 
@@ -177,18 +188,54 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _profileBloc.add(PatchProfileEvent(profile));
   }
 
-  Future<void> _selectDate() async {
-    DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: DateTime.now(),
-      firstDate: DateTime(1950),
-      lastDate: DateTime.now(),
-    );
+  // ---------------------------------------------------------------- password
+  // Figma "Edit profile 2": the password row expands into an inline
+  // old / new / confirm panel.
 
-    if (picked != null) {
-      dobController.text = "${picked.year}-${picked.month}-${picked.day}";
-      // dobController.text = "${picked.day}-${picked.month}-${picked.year}";
+  final _passwordFormKey = GlobalKey<FormState>();
+  final _oldPassword = TextEditingController();
+  final _newPassword = TextEditingController();
+  final _confirmPassword = TextEditingController();
+  bool _passwordOpen = false;
+  bool _showOld = false;
+  bool _showNew = false;
+  bool _showConfirm = false;
+
+  /// Same rules the previous change-password dialog enforced.
+  String? _passwordRule(String? value) {
+    final v = value ?? '';
+    if (v.isEmpty) return 'Enter a new password';
+    if (v.length < 6) return 'Minimum 6 characters required';
+    if (v.length > 16) return 'Maximum 16 characters allowed';
+    if (!RegExp(r'[A-Z]').hasMatch(v)) return 'Include at least 1 uppercase letter';
+    if (!RegExp(r'[a-z]').hasMatch(v)) return 'Include at least 1 lowercase letter';
+    if (!RegExp(r'[0-9]').hasMatch(v)) return 'Include at least 1 number';
+    if (!RegExp(r'[!@#$%^&*(),.?":{}|<>]').hasMatch(v)) {
+      return 'Include at least 1 special character';
     }
+    return null;
+  }
+
+  void _submitPassword() {
+    if (!_passwordFormKey.currentState!.validate()) return;
+    // There is no change-password endpoint in the app's API yet (only the
+    // OTP-based reset on the login screen), so say so instead of pretending
+    // the password changed.
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Changing your password here is coming soon. Use "Forgot password" on the login screen for now.',
+          ),
+        ),
+      );
+  }
+
+  void _comingSoon(String what) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text('$what coming soon')));
   }
 
   @override
@@ -203,180 +250,50 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             const SnackBar(content: Text('Profile updated successfully')),
           );
         } else if (state is ProfileError) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text(state.message)));
+          ScaffoldMessenger.of(context)
+              .showSnackBar(SnackBar(content: Text(state.message)));
         }
       },
-      child: Scaffold(
-        backgroundColor: const Color(0xFFF5F7FA),
-        appBar: AppBar(
-          elevation: 0,
-          backgroundColor: Colors.white,
-          title: Text(
-            "Edit Profile",
-            style: TextStyle(
-              fontSize: context.titleMedium,
-              fontWeight: FontWeight.w700,
-              color: Colors.black87,
-            ),
-          ),
-          leading: IconButton(
-            onPressed: () {
-              Navigator.pop(context);
-            },
-            icon: Icon(
-              Icons.arrow_back_ios_new,
-              size: context.iconSmall,
-              color: Colors.black87,
-            ),
-          ),
-        ),
-        body: BlocBuilder<ProfileBloc, ProfileState>(
+      child: AnnotatedRegion<SystemUiOverlayStyle>(
+        value: SystemUiOverlayStyle.dark,
+        child: BlocBuilder<ProfileBloc, ProfileState>(
           bloc: _profileBloc,
           builder: (context, state) {
-            if (state is ProfileLoading) {
-              return const AppLoadingView(message: 'Loading your profile…');
-            }
-
             final isUpdating = state is ProfileUpdateLoading;
-
-            return SafeArea(
-              child: SingleChildScrollView(
-                padding: context.horizontalPadding.copyWith(
-                  top: context.gapLarge,
-                  bottom: context.gapXLarge,
-                ),
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(
-                      maxWidth: context.isDesktop
-                          ? 1000
-                          : context.isTablet
-                          ? 800
-                          : double.infinity,
-                    ),
-                    child: Container(
-                      padding: EdgeInsets.all(context.gapLarge),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(
-                          context.borderRadiusLarge,
+            return Scaffold(
+              backgroundColor: Colors.white,
+              bottomNavigationBar: state is ProfileLoading
+                  ? null
+                  : SafeArea(
+                      top: false,
+                      child: Padding(
+                        padding: EdgeInsets.fromLTRB(
+                          context.fx(16),
+                          context.fx(8),
+                          context.fx(16),
+                          context.fx(16),
                         ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.04),
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const ProfileSectionTitle(title: "Basic Information"),
-                          SizedBox(height: context.gapLarge),
-                          _buildBasicInfoSection(),
-                          SizedBox(height: context.gapXLarge),
-                          const ProfileSectionTitle(title: "Contact Details"),
-                          SizedBox(height: context.gapLarge),
-                          _buildAddressSection(),
-                          SizedBox(height: context.gapLarge),
-                          ProfilePhoneField(
-                            controller: phoneController,
-                            errorText: _phoneError,
-                            onChanged: _validatePhone,
-                          ),
-                          SizedBox(height: context.gapXLarge),
-                          const ProfileSectionTitle(title: "Personal Details"),
-                          SizedBox(height: context.gapLarge),
-                          ProfileTextField(
-                            label: "DOB (Date of Birth)",
-                            hint: "dd-mm-yyyy",
-                            controller: dobController,
-                            suffixIcon: IconButton(
-                              onPressed: _selectDate,
-                              icon: const Icon(Icons.calendar_month_outlined),
-                            ),
-                          ),
-                          SizedBox(height: context.gapXLarge),
-                          CheckboxListTile(
-                            value: newsletterSubscribed,
-                            onChanged: isUpdating
-                                ? null
-                                : (value) {
-                                    setState(() {
-                                      newsletterSubscribed = value ?? false;
-                                    });
-                                  },
-                            contentPadding: EdgeInsets.zero,
-                            title: Text(
-                              "Sign up for Monthly Newsletter, Promotions and Low fare alerts",
-                              style: TextStyle(fontSize: context.bodySmall),
-                            ),
-                          ),
-                          CheckboxListTile(
-                            value: smsAlertsEnabled,
-                            onChanged: isUpdating
-                                ? null
-                                : (value) {
-                                    setState(() {
-                                      smsAlertsEnabled = value ?? false;
-                                    });
-                                  },
-                            contentPadding: EdgeInsets.zero,
-                            title: Text(
-                              "Sign up for free SMS alerts",
-                              style: TextStyle(fontSize: context.bodySmall),
-                            ),
-                          ),
-                          SizedBox(height: context.gapXLarge),
-                          Wrap(
-                            alignment: WrapAlignment.end,
-                            spacing: context.gapMedium,
-                            runSpacing: context.gapMedium,
-                            children: [
-                              OutlinedButton(
-                                onPressed: isUpdating
-                                    ? null
-                                    : () => Navigator.pop(context),
-                                style: OutlinedButton.styleFrom(
-                                  padding: EdgeInsets.symmetric(
-                                    horizontal: context.gapLarge,
-                                    vertical: context.gapMedium,
-                                  ),
-                                ),
-                                child: const Text("CANCEL"),
-                              ),
-                              ElevatedButton(
-                                onPressed: isUpdating ? null : _saveProfile,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.red,
-                                  foregroundColor: Colors.white,
-                                  padding: EdgeInsets.symmetric(
-                                    horizontal: context.gapLarge,
-                                    vertical: context.gapMedium,
-                                  ),
-                                ),
-                                child: isUpdating
-                                    ? const SizedBox(
-                                        width: 20,
-                                        height: 20,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          color: Colors.white,
-                                        ),
-                                      )
-                                    : const Text("SAVE"),
-                              ),
-                            ],
-                          ),
-                        ],
+                        child: AccountPrimaryButton(
+                          label: 'SAVE',
+                          onPressed: _saveProfile,
+                          loading: isUpdating,
+                        ),
                       ),
                     ),
-                  ),
-                ),
-              ),
+              body: state is ProfileLoading
+                  ? const SafeArea(
+                      child: AppLoadingView(message: 'Loading your profile…'),
+                    )
+                  : ListView(
+                      padding: EdgeInsets.only(bottom: context.fx(24)),
+                      children: [
+                        _buildHeader(),
+                        Padding(
+                          padding: EdgeInsets.symmetric(horizontal: context.fx(16)),
+                          child: _buildForm(isUpdating),
+                        ),
+                      ],
+                    ),
             );
           },
         ),
@@ -384,194 +301,322 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     );
   }
 
-  Widget _buildBasicInfoSection() {
-    if (context.isMobile) {
-      return Column(
+  Widget _buildHeader() {
+    final name = '${firstNameController.text} ${lastNameController.text}'.trim();
+    final avatar = context.fx(104);
+    return SizedBox(
+      height: context.statusBarHeight + context.fx(230),
+      child: Stack(
         children: [
-          ProfileDropdownField(
-            label: "Title",
-            value: title,
-            items: const ["Mr", "Mrs", "Ms"],
-            onChanged: (value) {
-              setState(() {
-                title = value!;
-              });
-            },
+          Positioned.fill(
+            child: CustomPaint(painter: _WavyHeaderPainter()),
           ),
-          SizedBox(height: context.gapLarge),
-          ProfileTextField(
-            label: "First Name",
-            hint: "First Name",
-            controller: firstNameController,
+          Padding(
+            padding: EdgeInsets.fromLTRB(
+              context.fx(16),
+              context.statusBarHeight + context.fx(8),
+              context.fx(16),
+              0,
+            ),
+            child: const AccountTopBar(title: 'Edit Profile'),
           ),
-          SizedBox(height: context.gapLarge),
-          ProfileTextField(
-            label: "Last Name",
-            hint: "Last Name",
-            controller: lastNameController,
+          Positioned(
+            left: 0,
+            right: 0,
+            top: context.statusBarHeight + context.fx(84),
+            child: Center(
+              child: SizedBox(
+                width: avatar,
+                height: avatar,
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Container(
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white,
+                      ),
+                      padding: EdgeInsets.all(context.fx(4)),
+                      child: AccountAvatar(name: name, size: avatar - context.fx(8)),
+                    ),
+                    Positioned(
+                      right: context.fx(4),
+                      bottom: context.fx(6),
+                      child: Semantics(
+                        button: true,
+                        label: 'Change photo',
+                        child: GestureDetector(
+                          onTap: () => _comingSoon('Profile photo upload'),
+                          child: Container(
+                            width: context.fx(26),
+                            height: context.fx(26),
+                            decoration: BoxDecoration(
+                              color: kAccountOrange,
+                              borderRadius: BorderRadius.circular(context.fx(7)),
+                              border: Border.all(color: Colors.white, width: 2),
+                            ),
+                            child: Icon(Icons.photo_camera_rounded,
+                                size: context.fx(14), color: Colors.white),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
-          SizedBox(height: context.gapLarge),
-          ProfileTextField(
-            label: "Email",
-            hint: "Email",
-            controller: emailController,
-            keyboardType: TextInputType.emailAddress,
-            errorText: _emailError,
-            onChanged: _validateEmail,
-          ),
-          SizedBox(height: context.gapMedium),
-          // ProfilePhoneField(controller: phoneController),
         ],
+      ),
+    );
+  }
+
+  Widget _buildForm(bool isUpdating) {
+    final gap = SizedBox(height: context.fx(16));
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SizedBox(height: context.fx(8)),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: TextField(
+                controller: firstNameController,
+                enabled: !isUpdating,
+                textCapitalization: TextCapitalization.words,
+                style: accountValueStyle(context),
+                decoration: accountInputDecoration(
+                  context,
+                  label: 'First Name',
+                  icon: Icons.person_rounded,
+                ),
+              ),
+            ),
+            SizedBox(width: context.fx(12)),
+            Expanded(
+              child: TextField(
+                controller: lastNameController,
+                enabled: !isUpdating,
+                textCapitalization: TextCapitalization.words,
+                style: accountValueStyle(context),
+                decoration: accountInputDecoration(
+                  context,
+                  label: 'Last Name',
+                  icon: Icons.person_rounded,
+                ),
+              ),
+            ),
+          ],
+        ),
+        gap,
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            AccountPhoneCode(code: _profileBloc.currentProfile?.phoneCode ?? '+91'),
+            SizedBox(width: context.fx(8)),
+            Expanded(
+              child: TextField(
+                controller: phoneController,
+                enabled: !isUpdating,
+                keyboardType: TextInputType.phone,
+                onChanged: _validatePhone,
+                style: accountValueStyle(context),
+                decoration: accountInputDecoration(
+                  context,
+                  label: 'Phone Number',
+                  errorText: _phoneError,
+                ),
+              ),
+            ),
+          ],
+        ),
+        gap,
+        TextField(
+          controller: emailController,
+          enabled: !isUpdating,
+          keyboardType: TextInputType.emailAddress,
+          onChanged: _validateEmail,
+          style: accountValueStyle(context),
+          decoration: accountInputDecoration(
+            context,
+            label: 'EMAIL ADDRESS',
+            icon: Icons.mail_rounded,
+            errorText: _emailError,
+          ),
+        ),
+        gap,
+        _passwordOpen ? _buildPasswordPanel() : _buildPasswordRow(),
+      ],
+    );
+  }
+
+  Widget _buildPasswordRow() {
+    return InputDecorator(
+      decoration: accountInputDecoration(
+        context,
+        label: 'PASSWORD',
+        suffix: Padding(
+          padding: EdgeInsets.only(right: context.fx(8)),
+          child: TextButton(
+            onPressed: () => setState(() => _passwordOpen = true),
+            child: Text(
+              'Change Password',
+              style: TextStyle(
+                fontSize: context.ffs(12),
+                color: AppColors.AppBlue,
+                decoration: TextDecoration.underline,
+                decorationColor: AppColors.AppBlue,
+              ),
+            ),
+          ),
+        ),
+      ),
+      child: Text('••••••••••', style: accountValueStyle(context)),
+    );
+  }
+
+  Widget _buildPasswordPanel() {
+    Widget field(
+      TextEditingController c,
+      String label,
+      bool visible,
+      VoidCallback toggle,
+      String? Function(String?) validator,
+    ) {
+      return TextFormField(
+        controller: c,
+        obscureText: !visible,
+        style: accountValueStyle(context),
+        validator: validator,
+        decoration: accountInputDecoration(
+          context,
+          label: label,
+          suffix: IconButton(
+            tooltip: visible ? 'Hide password' : 'Show password',
+            onPressed: toggle,
+            icon: Icon(
+              visible ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+              size: context.fx(18),
+              color: kAccountMuted,
+            ),
+          ),
+        ),
       );
     }
 
-    return Column(
-      children: [
-        Row(
-          children: [
-            Expanded(
-              flex: 1,
-              child: ProfileDropdownField(
-                label: "Title",
-                value: title,
-                items: const ["Mr", "Mrs", "Ms"],
-                onChanged: (value) {
-                  setState(() {
-                    title = value!;
-                  });
-                },
+    final gap = SizedBox(height: context.fx(14));
+    return Container(
+      padding: EdgeInsets.all(context.fx(12)),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(context.fx(12)),
+        border: Border.all(color: kAccountLine),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => setState(() => _passwordOpen = false),
+            child: InputDecorator(
+              decoration: accountInputDecoration(
+                context,
+                label: 'PASSWORD',
+                suffix: Icon(Icons.keyboard_arrow_up_rounded,
+                    size: context.fx(22), color: kAccountMuted),
+              ),
+              child: Text('••••••••••', style: accountValueStyle(context)),
+            ),
+          ),
+          SizedBox(height: context.fx(12)),
+          Container(
+            padding: EdgeInsets.all(context.fx(12)),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF4FBFE),
+              borderRadius: BorderRadius.circular(context.fx(12)),
+              border: Border.all(color: const Color(0xFFE6F1F7)),
+            ),
+            child: Form(
+              key: _passwordFormKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  SizedBox(height: context.fx(4)),
+                  field(
+                    _oldPassword,
+                    'OLD PASSWORD',
+                    _showOld,
+                    () => setState(() => _showOld = !_showOld),
+                    (v) => (v ?? '').isEmpty ? 'Enter your current password' : null,
+                  ),
+                  gap,
+                  field(
+                    _newPassword,
+                    'NEW PASSWORD',
+                    _showNew,
+                    () => setState(() => _showNew = !_showNew),
+                    _passwordRule,
+                  ),
+                  gap,
+                  field(
+                    _confirmPassword,
+                    'CONFIRM PASSWORD',
+                    _showConfirm,
+                    () => setState(() => _showConfirm = !_showConfirm),
+                    (v) => v != _newPassword.text ? 'Passwords do not match' : null,
+                  ),
+                  SizedBox(height: context.fx(18)),
+                  AccountPrimaryButton(label: 'SAVE', onPressed: _submitPassword),
+                ],
               ),
             ),
-            SizedBox(width: context.gapMedium),
-            Expanded(
-              flex: 2,
-              child: ProfileTextField(
-                label: "First Name",
-                hint: "First Name",
-                controller: firstNameController,
-              ),
-            ),
-            SizedBox(width: context.gapMedium),
-            Expanded(
-              flex: 2,
-              child: ProfileTextField(
-                label: "Last Name",
-                hint: "Last Name",
-                controller: lastNameController,
-              ),
-            ),
-          ],
-        ),
-        SizedBox(height: context.gapLarge),
-        Row(
-          children: [
-            Expanded(
-              child: ProfileTextField(
-                label: "Email",
-                hint: "Email",
-                controller: emailController,
-                keyboardType: TextInputType.emailAddress,
-              ),
-            ),
-            SizedBox(width: context.gapMedium),
-            Expanded(
-              child: ProfilePhoneField(
-                controller: phoneController,
-                errorText: _phoneError,
-                onChanged: _validatePhone,
-              ),
-            ),
-          ],
-        ),
-      ],
+          ),
+        ],
+      ),
     );
+  }
+}
+
+/// Light-blue header with soft contour lines and a curved bottom edge
+/// (Figma "Edit profile" background).
+class _WavyHeaderPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+    final shape = Path()
+      ..lineTo(w, 0)
+      ..lineTo(w, h - 34)
+      ..quadraticBezierTo(w * 0.62, h - 10, w * 0.38, h - 22)
+      ..quadraticBezierTo(w * 0.16, h - 32, 0, h - 14)
+      ..close();
+    canvas.drawPath(
+      shape,
+      Paint()
+        ..shader = const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Colors.white, Color(0xFFE7F5FD), Color(0xFFCDEBFB)],
+          stops: [0.0, 0.45, 1.0],
+        ).createShader(Offset.zero & size),
+    );
+
+    canvas.save();
+    canvas.clipPath(shape);
+    final line = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1
+      ..color = Colors.white.withValues(alpha: 0.7);
+    for (var i = 0; i < 7; i++) {
+      final y = h * 0.25 + i * 16.0;
+      final p = Path()..moveTo(-20, y);
+      p.cubicTo(w * 0.25, y - 40, w * 0.5, y + 30, w * 0.75, y - 18);
+      p.quadraticBezierTo(w * 0.9, y - 34, w + 20, y - 6);
+      canvas.drawPath(p, line);
+    }
+    canvas.restore();
   }
 
-  Widget _buildAddressSection() {
-    return Column(
-      children: [
-        ProfileTextField(
-          label: "Address",
-          hint: "Address",
-          controller: addressController,
-        ),
-        SizedBox(height: context.gapLarge),
-        context.isMobile
-            ? Column(
-                children: [
-                  ProfileTextField(
-                    label: "City",
-                    hint: "City",
-                    controller: cityController,
-                  ),
-                  SizedBox(height: context.gapLarge),
-                  ProfileTextField(
-                    label: "State",
-                    hint: "State",
-                    controller: stateController,
-                  ),
-                  SizedBox(height: context.gapLarge),
-                  ProfileDropdownField(
-                    label: "Country",
-                    value: country,
-                    items: const ["India", "USA", "Canada"],
-                    onChanged: (value) {
-                      setState(() {
-                        country = value!;
-                      });
-                    },
-                  ),
-                  SizedBox(height: context.gapLarge),
-                  ProfileTextField(
-                    label: "Pin Code",
-                    hint: "Pin Code",
-                    controller: pinController,
-                    keyboardType: TextInputType.number,
-                  ),
-                ],
-              )
-            : Row(
-                children: [
-                  Expanded(
-                    child: ProfileTextField(
-                      label: "City",
-                      hint: "City",
-                      controller: cityController,
-                    ),
-                  ),
-                  SizedBox(width: context.gapMedium),
-                  Expanded(
-                    child: ProfileTextField(
-                      label: "State",
-                      hint: "State",
-                      controller: stateController,
-                    ),
-                  ),
-                  SizedBox(width: context.gapMedium),
-                  Expanded(
-                    child: ProfileDropdownField(
-                      label: "Country",
-                      value: country,
-                      items: const ["India", "USA", "Canada"],
-                      onChanged: (value) {
-                        setState(() {
-                          country = value!;
-                        });
-                      },
-                    ),
-                  ),
-                  SizedBox(width: context.gapMedium),
-                  Expanded(
-                    child: ProfileTextField(
-                      label: "Pin Code",
-                      hint: "Pin Code",
-                      controller: pinController,
-                      keyboardType: TextInputType.number,
-                    ),
-                  ),
-                ],
-              ),
-      ],
-    );
-  }
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

@@ -8,6 +8,7 @@ import 'package:wander_nova/common_widgets/fast_network_image_cache_manager.dart
 import 'package:wander_nova/core/resources/app_colours.dart';
 
 import '../../newUIWidgets/Home_nav.dart';
+import '../MyBookings/Screen/MyBooking_Screen.dart';
 import '../ExclusiveDeals/domain/entities/exclusive_deal_entity.dart';
 import '../ExclusiveDeals/presentation/bloc/exclusive_deals_bloc.dart';
 import '../ExclusiveDeals/presentation/bloc/exclusive_deals_event.dart';
@@ -142,6 +143,11 @@ class _OffersScreenState extends State<OffersScreen> {
     // Home lives underneath this screen; the other tabs aren't built yet
     // (same as on the home screen).
     if (index == 0) Navigator.of(context).maybePop();
+    if (index == 1) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const MyBookingScreen()),
+      );
+    }
   }
 
   @override

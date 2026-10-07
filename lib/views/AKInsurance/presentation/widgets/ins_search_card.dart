@@ -1,8 +1,9 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../../../UI_helper/responsive_layout.dart';
+import '../../../../common_widgets/app_surface.dart';
+import '../../../../common_widgets/currency_chip.dart';
 import '../../../../core/resources/app_colours.dart';
 import '../../../countries/domain/entities/country_entity.dart';
 import '../screens/ins_date_screen.dart';
@@ -22,13 +23,15 @@ class InsSearchCard extends StatelessWidget {
   final InsSearchQuery query;
   final List<InsPolicyType> policyTypes;
   final List<CountryEntity> countries;
+  /// No longer shown (the landing screen has no hero photo now); kept so
+  /// existing callers compile unchanged.
   final String? heroImage;
   final ValueChanged<InsSearchQuery> onChanged;
   final VoidCallback onExplore;
 
-  /// `false` is the landing hero (white text over the photo); `true` is the
-  /// "Edit Your Search" screen, which is the same form on a plain white
-  /// page with a grey tab bar and a full-width CTA.
+  /// `false` is the landing screen (white page, "← Insurance" top bar,
+  /// raised cards — same look as Flight/Hotel); `true` is the "Edit Your
+  /// Search" drawer, which uses bordered cards and a full-width CTA.
   final bool light;
 
   /// The CTA's wording — "Explore Plans" on the hero, "MODIFY SEARCH" on
@@ -49,15 +52,19 @@ class InsSearchCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        if (!light) Positioned.fill(child: _Backdrop(heroImage: heroImage)),
-        Column(
+    return Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             SizedBox(
-              height: light ? context.h(4) : context.statusBarHeight + context.h(8),
+              height: light ? context.h(4) : context.statusBarHeight + context.fx(16),
             ),
+            if (!light) ...[
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: context.fx(16)),
+                child: const _TopBar(),
+              ),
+              SizedBox(height: context.fx(18)),
+            ],
             _TypeTabs(
               types: policyTypes,
               selected: query.policyType,
@@ -88,22 +95,24 @@ class InsSearchCard extends StatelessWidget {
                 ),
               ),
             ),
-            SizedBox(height: context.h(14)),
+            SizedBox(height: light ? context.h(14) : context.fx(16)),
             Padding(
-              padding: EdgeInsets.symmetric(horizontal: context.w(14)),
+              padding: EdgeInsets.symmetric(
+                horizontal: light ? context.w(14) : context.fx(16),
+              ),
               child: Column(
                 children: [
                   _countryRow(context),
-                  SizedBox(height: context.h(10)),
+                  SizedBox(height: light ? context.h(10) : context.fx(12)),
                   query.isStudent
                       ? _studentDateRow(context)
                       : _dateCard(context),
-                  SizedBox(height: context.h(10)),
+                  SizedBox(height: light ? context.h(10) : context.fx(12)),
                   _travellersCard(context),
                 ],
               ),
             ),
-            SizedBox(height: context.h(22)),
+            SizedBox(height: light ? context.h(22) : context.fx(24)),
             light
                 ? Padding(
                     padding:
@@ -116,10 +125,8 @@ class InsSearchCard extends StatelessWidget {
                     ),
                   )
                 : _exploreButton(context),
-            SizedBox(height: context.h(26)),
+            SizedBox(height: light ? context.h(26) : context.fx(16)),
           ],
-        ),
-      ],
     );
   }
 
@@ -221,7 +228,7 @@ class InsSearchCard extends StatelessWidget {
         horizontal: context.w(14),
         vertical: context.h(12),
       ),
-      decoration: insCard(context, border: light, shadow: !light),
+      decoration: insFieldDecoration(context, light: light),
       child: Row(
         children: [
           Expanded(
@@ -263,7 +270,7 @@ class InsSearchCard extends StatelessWidget {
                 horizontal: context.w(14),
                 vertical: context.h(12),
               ),
-              decoration: insCard(context, border: light, shadow: !light),
+              decoration: insFieldDecoration(context, light: light),
               child: _dateColumn(context, 'START DATE', query.startDate),
             ),
           ),
@@ -401,7 +408,7 @@ class InsSearchCard extends StatelessWidget {
         horizontal: context.w(14),
         vertical: context.h(12),
       ),
-      decoration: insCard(context, border: light, shadow: !light),
+      decoration: insFieldDecoration(context, light: light),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
@@ -506,34 +513,96 @@ class InsSearchCard extends StatelessWidget {
   Widget _exploreButton(BuildContext context) {
     return Center(
       child: SizedBox(
-        height: context.h(42),
+        width: context.fx(210),
+        height: context.fx(42),
         child: ElevatedButton(
           onPressed: onExplore,
           style: ElevatedButton.styleFrom(
-            backgroundColor: InsTokens.orange,
+            backgroundColor: AppColors.orange,
             foregroundColor: Colors.white,
-            elevation: 8,
-            shadowColor: InsTokens.orange.withOpacity(0.45),
-            padding: EdgeInsets.symmetric(horizontal: context.w(28)),
+            elevation: 6,
+            shadowColor: AppColors.orange.withValues(alpha: 0.45),
+            padding: EdgeInsets.symmetric(horizontal: context.fx(8)),
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(context.r(30)),
+              borderRadius: BorderRadius.circular(context.fx(21)),
             ),
           ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'Explore Plans',
-                style: TextStyle(
-                  fontSize: context.fs(14),
-                  fontWeight: FontWeight.w600,
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Explore Plans',
+                  style: TextStyle(
+                    fontSize: context.ffs(14),
+                    fontWeight: FontWeight.w500,
+                    color: Colors.white,
+                  ),
                 ),
-              ),
-              SizedBox(width: context.w(12)),
-              Icon(Icons.arrow_forward_rounded, size: context.w(16)),
-            ],
+                SizedBox(width: context.fx(10)),
+                Icon(Icons.arrow_forward, size: context.fx(18), color: Colors.white),
+              ],
+            ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Card decoration for the form fields: raised white cards on the landing
+/// screen (shared [kRaisedCardShadow], like Flight/Hotel), bordered cards in
+/// the edit drawer.
+BoxDecoration insFieldDecoration(BuildContext context, {required bool light}) {
+  if (light) return insCard(context, border: true, shadow: false);
+  return BoxDecoration(
+    color: Colors.white,
+    borderRadius: BorderRadius.circular(context.fx(12)),
+    boxShadow: kRaisedCardShadow,
+  );
+}
+
+/// "← Insurance" with the currency chip and bell — same bar as Flight/Hotel.
+class _TopBar extends StatelessWidget {
+  const _TopBar();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: context.fx(36),
+      child: Row(
+        children: [
+          Semantics(
+            button: true,
+            label: 'Back',
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => Navigator.of(context).maybePop(),
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: context.fx(6)),
+                child: Icon(Icons.arrow_back, size: context.fx(24), color: Colors.black),
+              ),
+            ),
+          ),
+          SizedBox(width: context.fx(16)),
+          Text(
+            'Insurance',
+            style: TextStyle(
+              fontSize: context.ffs(20),
+              fontWeight: FontWeight.w600,
+              color: Colors.black,
+            ),
+          ),
+          const Spacer(),
+          const CurrencyChip(),
+          SizedBox(width: context.fx(16)),
+          SvgPicture.asset(
+            'assets/home/notification.svg',
+            width: context.fx(24),
+            height: context.fx(24),
+          ),
+        ],
       ),
     );
   }
@@ -556,10 +625,10 @@ class _FieldLabel extends StatelessWidget {
         Text(
           text,
           style: TextStyle(
-            fontSize: context.fs(8.5),
-            fontWeight: FontWeight.w700,
-            color: AppColors.subhead,
-            letterSpacing: 0.5,
+            fontSize: context.ffs(9),
+            fontWeight: FontWeight.w600,
+            color: const Color(0xFF757575),
+            letterSpacing: 0.6,
           ),
         ),
         if (chevron) ...[
@@ -604,7 +673,7 @@ class _FieldCard extends StatelessWidget {
           horizontal: context.w(12),
           vertical: context.h(11),
         ),
-        decoration: insCard(context, border: light, shadow: !light),
+        decoration: insFieldDecoration(context, light: light),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
@@ -658,7 +727,7 @@ class _TenureField extends StatelessWidget {
         horizontal: context.w(12),
         vertical: context.h(11),
       ),
-      decoration: insCard(context, border: light, shadow: !light),
+      decoration: insFieldDecoration(context, light: light),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
@@ -732,9 +801,7 @@ class _TypeTabs extends StatelessWidget {
     // off it.
     final track = DecoratedBox(
       decoration: BoxDecoration(
-        color: light
-            ? const Color(0xFFF3F5F9)
-            : Colors.white.withOpacity(0.22),
+        color: light ? const Color(0xFFF3F5F9) : const Color(0xFFEEF3FA),
         borderRadius: BorderRadius.circular(context.r(26)),
       ),
       child: const SizedBox.expand(),
@@ -742,11 +809,12 @@ class _TypeTabs extends StatelessWidget {
 
     return Padding(
       padding: EdgeInsets.fromLTRB(
-        context.w(6),
+        // Landing screen: same 16px gutter as the cards below.
+        light ? context.w(6) : context.fx(16),
         // Room for the badge to overhang without being cut off by the
         // Column above.
         context.h(6),
-        context.w(6),
+        light ? context.w(6) : context.fx(16),
         context.h(8),
       ),
       child: Stack(
@@ -755,13 +823,7 @@ class _TypeTabs extends StatelessWidget {
           Positioned.fill(
             child: ClipRRect(
               borderRadius: BorderRadius.circular(context.r(26)),
-              // The frosted look only makes sense over the photo.
-              child: light
-                  ? track
-                  : BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-                      child: track,
-                    ),
+              child: track,
             ),
           ),
           Padding(padding: EdgeInsets.all(context.w(5)), child: row),
@@ -785,6 +847,15 @@ class _TypeTabs extends StatelessWidget {
         decoration: BoxDecoration(
           color: isSelected ? Colors.white : Colors.transparent,
           borderRadius: BorderRadius.circular(context.r(22)),
+          boxShadow: isSelected
+              ? const [
+                  BoxShadow(
+                    color: Color(0x14000000),
+                    blurRadius: 6,
+                    offset: Offset(0, 2),
+                  ),
+                ]
+              : null,
         ),
         child: Text(
           type.label,
@@ -793,7 +864,7 @@ class _TypeTabs extends StatelessWidget {
             fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
             color: isSelected
                 ? InsTokens.blue
-                : (light ? InsTokens.subGrey : Colors.white),
+                : (light ? InsTokens.subGrey : const Color(0xFF757575)),
           ),
         ),
       ),
@@ -838,84 +909,6 @@ class _TypeTabs extends StatelessWidget {
                   fontWeight: FontWeight.w700,
                   color: Colors.white,
                 ),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-/// Hero photo behind the form, with the white fade that melts it into the
-/// page below.
-class _Backdrop extends StatelessWidget {
-  final String? heroImage;
-
-  const _Backdrop({required this.heroImage});
-
-  @override
-  Widget build(BuildContext context) {
-    const fallback = DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Color(0xFF4A90E2), Color(0xFF87CEEB)],
-        ),
-      ),
-    );
-
-    final hero = heroImage;
-
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        if (hero != null && hero.isNotEmpty)
-          Image.network(
-            hero,
-            fit: BoxFit.cover,
-            alignment: Alignment.topCenter,
-            errorBuilder: (_, __, ___) => fallback,
-            loadingBuilder: (_, child, progress) =>
-                progress == null ? child : fallback,
-          )
-        else
-          fallback,
-
-        // Darken the very top so the white tab text stays readable.
-        DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Colors.black.withOpacity(0.20),
-                Colors.black.withOpacity(0.0),
-              ],
-              stops: const [0.0, 0.28],
-            ),
-          ),
-        ),
-
-        // Melt the photo into the white page beneath the CTA.
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: 0,
-          child: Container(
-            height: context.h(120),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.bottomCenter,
-                end: Alignment.topCenter,
-                colors: [
-                  Colors.white,
-                  Colors.white.withOpacity(0.85),
-                  Colors.white.withOpacity(0.35),
-                  Colors.transparent,
-                ],
-                stops: const [0.0, 0.35, 0.7, 1.0],
               ),
             ),
           ),

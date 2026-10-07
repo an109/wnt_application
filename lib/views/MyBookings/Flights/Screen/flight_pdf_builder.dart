@@ -211,6 +211,52 @@ class FlightPdfBuilder {
   }
 
   // =========================================================================
+  // CANCELLATION RECEIPT
+  // =========================================================================
+  /// Receipt for a cancelled booking. [refund] rows are label → value
+  /// (already formatted); empty when no refund request exists yet.
+  static pw.Document buildCancellationReceipt({
+    required FlightBookEntity booking,
+    required String route,
+    required String cancelledOn,
+    required List<(String, String)> refund,
+    pw.ImageProvider? logo,
+  }) {
+    final pdf = pw.Document();
+    pdf.addPage(pw.MultiPage(
+      pageFormat: PdfPageFormat.a4,
+      margin: const pw.EdgeInsets.fromLTRB(28, 28, 28, 28),
+      header: (context) => _pageHeader('CANCELLATION ${_ascii(booking.pnr)}', logo),
+      footer: _footer,
+      build: (context) => [
+        pw.Text('CANCELLATION RECEIPT', style: pw.TextStyle(fontSize: 22, fontWeight: pw.FontWeight.bold, color: _c(_navy))),
+        pw.SizedBox(height: 14),
+        _billingRow('Passenger:', _ascii(_primaryPassengerName(booking))),
+        _billingRow('PNR:', _ascii(booking.pnr.isEmpty ? '-' : booking.pnr)),
+        _billingRow('Booking ID:', _ascii(booking.tboBookingId.isNotEmpty ? booking.tboBookingId : '${booking.id}')),
+        _billingRow('Route:', _ascii(route)),
+        _billingRow('Travel date:', _ascii(booking.departureDate)),
+        _billingRow('Cancelled on:', _ascii(cancelledOn.isEmpty ? '-' : cancelledOn)),
+        pw.SizedBox(height: 14),
+        pw.Divider(color: _c(_divider)),
+        pw.SizedBox(height: 10),
+        _amountRow('AMOUNT PAID', _ascii('${booking.currency} ${booking.totalAmount}'), big: true),
+        pw.SizedBox(height: 14),
+        _sectionTitle('REFUND'),
+        pw.SizedBox(height: 6),
+        if (refund.isEmpty)
+          _pdfParagraph('No refund request has been raised for this booking yet.')
+        else
+          for (final (label, value) in refund) _billingRow('$label:', _ascii(value)),
+        pw.SizedBox(height: 18),
+        _pdfParagraph('Refunds are subject to airline cancellation penalties and are credited to the original '
+            'payment method or the WanderNova wallet, as chosen when the refund was requested.'),
+      ],
+    ));
+    return pdf;
+  }
+
+  // =========================================================================
   // PAGE 1 CONTENT
   // =========================================================================
   static List<pw.Widget> _page1Content({

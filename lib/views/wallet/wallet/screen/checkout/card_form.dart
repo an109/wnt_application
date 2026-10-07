@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 
+import '../../../../Dashboard/profile/widgets/account_kit.dart'
+    show accountInputDecoration;
 import 'checkout_ui.dart';
 
 /// Inline card entry used by the Card and EMI sections. Calls [onSubmit] with
@@ -16,12 +18,18 @@ class CardForm extends StatefulWidget {
   /// checkouts keep the inline button.
   final CheckoutSubmitController? submitController;
 
+  /// Figma "Add Top Up" look: outlined fields with the label on the border
+  /// (CARD NUMBER, VALID THRU, CVV/CVC, NAME ON CARD) and a leading icon.
+  /// Off by default so the other checkouts keep their current fields.
+  final bool outlinedLabels;
+
   const CardForm({
     super.key,
     required this.payLabel,
     required this.busy,
     required this.onSubmit,
     this.submitController,
+    this.outlinedLabels = false,
   });
 
   @override
@@ -108,9 +116,28 @@ class _CardFormState extends State<CardForm> {
     );
   }
 
+  InputDecoration _decoration(
+    String label, {
+    required String outlinedLabel,
+    required IconData icon,
+    String? hint,
+    Widget? suffix,
+  }) {
+    if (!widget.outlinedLabels) {
+      return checkoutInput(context, label, hint: hint, suffix: suffix);
+    }
+    return accountInputDecoration(
+      context,
+      label: outlinedLabel,
+      icon: icon,
+      hint: hint,
+      suffix: suffix,
+    ).copyWith(counterText: ''); // no "0/3" under CVV in this design
+  }
+
   @override
   Widget build(BuildContext context) {
-    final gap = SizedBox(height: context.h(12));
+    final gap = SizedBox(height: context.h(widget.outlinedLabels ? 16 : 12));
     // The fields validate on submit, so the card is always "ready to try" —
     // a half-filled form reports its own errors rather than greying the
     // screen's button out.
@@ -133,11 +160,14 @@ class _CardFormState extends State<CardForm> {
               final n = detectCardNetwork(v);
               if (n != _network) setState(() => _network = n);
             },
-            decoration: checkoutInput(
-              context,
+            decoration: _decoration(
               'Card number',
+              outlinedLabel: 'CARD NUMBER',
+              icon: Icons.credit_card_rounded,
               hint: 'XXXX XXXX XXXX XXXX',
-              suffix: _networkBadge(context),
+              suffix: widget.outlinedLabels && _network == CardNetwork.unknown
+                  ? null
+                  : _networkBadge(context),
             ),
             validator: (v) =>
                 isValidCardNumber(v ?? '') ? null : 'Enter a valid card number',
@@ -153,7 +183,12 @@ class _CardFormState extends State<CardForm> {
                   textInputAction: TextInputAction.next,
                   autofillHints: const [AutofillHints.creditCardExpirationDate],
                   inputFormatters: [ExpiryFormatter()],
-                  decoration: checkoutInput(context, 'Expiry', hint: 'MM/YY'),
+                  decoration: _decoration(
+                    'Expiry',
+                    outlinedLabel: 'VALID THRU (MM/YY)',
+                    icon: Icons.calendar_month_rounded,
+                    hint: 'MM/YY',
+                  ),
                   validator: _validateExpiry,
                 ),
               ),
@@ -167,9 +202,10 @@ class _CardFormState extends State<CardForm> {
                   maxLength: _network.cvvLength,
                   autofillHints: const [AutofillHints.creditCardSecurityCode],
                   inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  decoration: checkoutInput(
-                    context,
+                  decoration: _decoration(
                     'CVV',
+                    outlinedLabel: 'CVV/CVC',
+                    icon: Icons.lock_rounded,
                     hint: _network.cvvLength == 4 ? '••••' : '•••',
                     suffix: IconButton(
                       splashRadius: 18,
@@ -200,7 +236,11 @@ class _CardFormState extends State<CardForm> {
             textInputAction: TextInputAction.done,
             autofillHints: const [AutofillHints.creditCardName],
             onFieldSubmitted: (_) => _submit(),
-            decoration: checkoutInput(context, 'Name on card'),
+            decoration: _decoration(
+              'Name on card',
+              outlinedLabel: 'NAME ON CARD',
+              icon: Icons.person_rounded,
+            ),
             validator: (v) =>
                 (v ?? '').trim().length >= 2 ? null : 'Enter the name on card',
           ),

@@ -1,6 +1,12 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
+import 'package:wander_nova/core/resources/app_colours.dart';
+import '../../../DeleteAccount/presentation/screen/delete_account_screen.dart';
+import '../widgets/account_kit.dart';
+import 'add_traveller_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:wander_nova/views/Profile/presentation/bloc/profile_bloc.dart';
 
@@ -9,10 +15,8 @@ import '../../../../injection_container.dart';
 import '../../../Profile/domain/entities/ProfileEntity.dart';
 import '../../../Profile/presentation/bloc/profile_event.dart';
 import '../../../Profile/presentation/bloc/profile_state.dart';
-import '../../Section/add_traveller_popup.dart';
 import '../../Section/data/traveller_api_service.dart';
 import '../../../../UI_helper/responsive_layout.dart';
-import '../section/change_password_dialogue.dart';
 import '../section/edit_profile_screen.dart';
 import 'package:wander_nova/common_widgets/app_loader.dart';
 
@@ -119,6 +123,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
         setState(() {
           _userData = {
             'name': '${userData['firstname'] ?? ''} ${userData['lastname'] ?? ''}'.trim(),
+            'firstName': userData['firstname'] ?? '',
+            'lastName': userData['lastname'] ?? '',
             'email': userData['email'] ?? 'Not Available',
             'phone': userData['phone_number'] ?? 'Not Available',
             'address': userData['address'] ?? 'Not Available',
@@ -205,30 +211,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return null;
   }
 
-  void _showAddTravellerModal() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) {
-        return AddTravellerModal(
-          onTravellerAdded: (traveller) {
-            setState(() {
-              _travellers.add(traveller);
-            });
-
-            _saveTravellers();
-          },
-        );
-      },
-    );
-  }
-
   // Maps ProfileEntity to your screen's expected format
   void _updateUserDataFromEntity(ProfileEntity profile) {
     setState(() {
       _userData = {
         'name': '${profile.firstName} ${profile.lastName}'.trim(),
+        'firstName': profile.firstName,
+        'lastName': profile.lastName,
+        'phoneCode': profile.phoneCode,
         'email': profile.email ?? 'Not Available',
         'phone': profile.phoneNumber,
         'address': profile.address,
@@ -286,702 +276,321 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
-
-      appBar: AppBar(
-        elevation: 0,
+    final gutter = EdgeInsets.symmetric(horizontal: context.fx(16));
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.dark,
+      child: Scaffold(
         backgroundColor: Colors.white,
-        surfaceTintColor: Colors.white,
-
-        leading: IconButton(
-          onPressed: () {
-            Navigator.pop(context);
-          },
-          icon: Icon(
-            Icons.arrow_back_ios_new,
-            size: context.iconSmall,
-            color: Colors.black87,
-          ),
-        ),
-
-        title: Text(
-          "My Profile",
-          style: TextStyle(
-            fontSize: context.titleMedium,
-            fontWeight: FontWeight.w700,
-            color: Colors.black87,
-          ),
-        ),
-      ),
-
-      body: _isLoading && !_isRefreshing
-          ? const AppLoadingView(message: 'Loading your profile…')
-          : RefreshIndicator(
-        onRefresh: _refreshProfile,
-        color: const Color(0xFF0054A0),
-        backgroundColor: Colors.white,
-        child: SafeArea(
-          child: SingleChildScrollView(
-            physics: const AlwaysScrollableScrollPhysics(), // ✅ Required for pull-to-refresh
-            padding: context.horizontalPadding.copyWith(
-              top: context.gapMedium,
-              bottom: context.gapXLarge,
-            ),
-            child: Center(
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxWidth: context.isDesktop
-                      ? 900
-                      : context.isTablet
-                      ? 700
-                      : double.infinity,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildProfileHeader(),
-                    SizedBox(height: context.gapLarge),
-                    _buildPersonalInfoCard(),
-                    SizedBox(height: context.gapLarge),
-                    _buildTravellerSection(),
-                  ],
-                ),
+        body: SafeArea(
+          child: Column(
+            children: [
+              Padding(
+                padding: gutter.copyWith(top: context.fx(8)),
+                child: const AccountTopBar(title: 'Profile'),
               ),
-            ),
+              Expanded(
+                child: _isLoading && !_isRefreshing
+                    ? const AppLoadingView(message: 'Loading your profile…')
+                    : RefreshIndicator(
+                        onRefresh: _refreshProfile,
+                        color: AppColors.AppBlue,
+                        backgroundColor: Colors.white,
+                        child: ListView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          padding: gutter.copyWith(
+                            top: context.fx(16),
+                            bottom: context.fx(32),
+                          ),
+                          children: [
+                            AccountHeaderCard(
+                              name: _userData?['name'] ?? '',
+                              phone: _displayValue(_userData?['phone']),
+                              email: _displayValue(_userData?['email']),
+                            ),
+                            SizedBox(height: context.fx(28)),
+                            _buildPersonalInfoCard(),
+                            SizedBox(height: context.fx(24)),
+                            _buildTravellerSection(),
+                            SizedBox(height: context.fx(24)),
+                            AccountSectionCard(
+                              title: 'Delete Account',
+                              icon: Icons.delete_rounded,
+                              iconColor: const Color(0xFFE5484D),
+                              trailing: Icon(
+                                Icons.chevron_right_rounded,
+                                size: context.fx(22),
+                                color: kAccountMuted,
+                              ),
+                              onTap: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const DeleteAccountScreen(),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+              ),
+            ],
           ),
         ),
       ),
     );
   }
 
-  // =========================================================
-  // PROFILE HEADER
-  // =========================================================
+  /// API placeholders ("Not Available") read as empty in the new UI.
+  String _displayValue(dynamic value) {
+    final text = (value ?? '').toString().trim();
+    return text == 'Not Available' ? '' : text;
+  }
 
-  Widget _buildProfileHeader() {
-    final name = _userData?['name'] ?? 'Welcome';
-
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.all(context.gapLarge),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [
-            Color(0xFF0054A0),
-            Color(0xFF1976D2),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(
-          context.borderRadiusLarge,
-        ),
-      ),
-      child: Column(
-        children: [
-          CircleAvatar(
-            radius: context.isMobile ? 38 : 48,
-            backgroundColor: Colors.white,
-            child: Text(
-              name.isNotEmpty ? name[0].toUpperCase() : "U",
-              style: TextStyle(
-                fontSize: context.headlineSmall,
-                fontWeight: FontWeight.bold,
-                color: const Color(0xFF0054A0),
-              ),
-            ),
-          ),
-
-          SizedBox(height: context.gapMedium),
-
-          Text(
-            name,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: context.titleLarge,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
-          ),
-
-          SizedBox(height: context.gapXXSmall),
-
-          Text(
-            _userData?['email'] ?? 'No email available',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: context.bodyMedium,
-              color: Colors.white.withOpacity(0.9),
-            ),
-          ),
-        ],
-      ),
+  Future<void> _openEditProfile() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => EditProfileScreen(userData: _userData)),
     );
+    if (mounted) _refreshProfile();
   }
 
   // =========================================================
-  // PERSONAL INFO CARD
+  // PERSONAL INFORMATION
   // =========================================================
 
   Widget _buildPersonalInfoCard() {
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.all(context.gapLarge),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(
-          context.borderRadiusLarge,
+    final gap = SizedBox(height: context.fx(16));
+    return AccountSectionCard(
+      title: 'Personal Information',
+      icon: Icons.person_rounded,
+      iconColor: kAccountOrange,
+      trailing: Semantics(
+        button: true,
+        label: 'Edit profile',
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: _openEditProfile,
+          child: Icon(Icons.edit_square, size: context.fx(20), color: AppColors.AppBlue),
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
       ),
-
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildSectionTitle(
-            title: "Personal Information",
-            icon: Icons.person_outline,
-          ),
-
-          SizedBox(height: context.gapLarge),
-
-          _buildInfoTile(
-            icon: Icons.person_outline,
-            title: "Full Name",
-            value: _userData?['name'] ?? 'Not Available',
-          ),
-
-          SizedBox(height: context.gapMedium),
-
-          _buildInfoTile(
-            icon: Icons.email_outlined,
-            title: "Email Address",
-            value: _userData?['email'] ?? 'Not Available',
-          ),
-
-          SizedBox(height: context.gapMedium),
-
-          _buildInfoTile(
-            icon: Icons.phone_outlined,
-            title: "Phone Number",
-            value: _userData?['phone'] ?? 'Not Available',
-          ),
-
-          SizedBox(height: context.gapMedium),
-
-          _buildInfoTile(
-            icon: Icons.location_on_outlined,
-            title: "Address",
-            value: _userData?['address'] ?? 'Not Available',
-          ),
-
-          SizedBox(height: context.gapLarge),
-
-          Wrap(
-            spacing: context.gapMedium,
-            runSpacing: context.gapMedium,
+          SizedBox(height: context.fx(4)),
+          Row(
             children: [
-              ElevatedButton.icon(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => EditProfileScreen(
-                        userData: _userData,
-                      ),
-                    ),
-                  );
-                  if (mounted) _refreshProfile();
-                },
-
-                icon: Icon(
-                  Icons.edit_outlined,
-                  size: context.iconSmall,
-                ),
-
-                label: Text(
-                  "Edit Profile",
-                  style: TextStyle(
-                    fontSize: context.bodyMedium,
-                  ),
-                ),
-
-                style: ElevatedButton.styleFrom(
-                  elevation: 0,
-                  backgroundColor: const Color(0xFF0054A0),
-                  foregroundColor: Colors.white,
-                  padding: EdgeInsets.symmetric(
-                    horizontal: context.gapLarge,
-                    vertical: context.gapMedium,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(
-                      context.borderRadiusMedium,
-                    ),
-                  ),
+              Expanded(
+                child: AccountDisplayField(
+                  label: 'First Name',
+                  value: (_userData?['firstName'] ?? '').toString().toUpperCase(),
+                  icon: Icons.person_rounded,
                 ),
               ),
-
-              OutlinedButton.icon(
-                onPressed: () => showChangePasswordDialog(
-                  context: context,
-                  name: _userData?['name'] ?? '',
-                  email: _userData?['email'] ?? '',
-                  onSave: () => debugPrint("Password Changed"),
-                ),
-
-                icon: Icon(
-                  Icons.lock_outline,
-                  size: context.iconSmall,
-                ),
-
-                label: Text(
-                  "Change Password",
-                  style: TextStyle(
-                    fontSize: context.bodyMedium,
-                  ),
-                ),
-
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.black87,
-                  side: BorderSide(
-                    color: Colors.grey.shade300,
-                  ),
-                  padding: EdgeInsets.symmetric(
-                    horizontal: context.gapLarge,
-                    vertical: context.gapMedium,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(
-                      context.borderRadiusMedium,
-                    ),
-                  ),
+              SizedBox(width: context.fx(12)),
+              Expanded(
+                child: AccountDisplayField(
+                  label: 'Last Name',
+                  value: (_userData?['lastName'] ?? '').toString().toUpperCase(),
+                  icon: Icons.person_rounded,
                 ),
               ),
             ],
           ),
+          gap,
+          Row(
+            children: [
+              AccountPhoneCode(code: (_userData?['phoneCode'] ?? '+91').toString()),
+              SizedBox(width: context.fx(8)),
+              Expanded(
+                child: AccountDisplayField(
+                  label: 'Phone Number',
+                  value: _displayValue(_userData?['phone']),
+                ),
+              ),
+            ],
+          ),
+          gap,
+          AccountDisplayField(
+            label: 'EMAIL ADDRESS',
+            value: _displayValue(_userData?['email']),
+            icon: Icons.mail_rounded,
+          ),
+          gap,
+          AccountDisplayField(
+            label: 'PASSWORD',
+            value: '••••••••••',
+            suffix: Icon(Icons.visibility_off_outlined, size: context.fx(18), color: kAccountMuted),
+          ),
         ],
       ),
     );
   }
 
   // =========================================================
-  // INFO TILE
+  // TRAVELLERS
   // =========================================================
 
-  Widget _buildInfoTile({
-    required IconData icon,
-    required String title,
-    required String value,
-  }) {
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.all(context.w(12)),
-      decoration: BoxDecoration(
-        color: Colors.grey.shade50,
-        borderRadius: BorderRadius.circular(
-          context.borderRadiusMedium,
-        ),
-      ),
+  Future<void> _openAddTraveller() async {
+    final traveller = await Navigator.push<Map<String, dynamic>>(
+      context,
+      MaterialPageRoute(builder: (_) => const AddTravellerScreen()),
+    );
+    if (traveller == null || !mounted) return;
+    setState(() => _travellers.add(traveller));
+    _saveTravellers();
+  }
 
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+  String _travellerSummary(Map<String, dynamic> t) {
+    final parts = <String>[];
+    final dob = DateTime.tryParse((t['dob'] ?? '').toString());
+    if (dob != null) parts.add('DOB: ${DateFormat('dd MMM yyyy').format(dob)}');
+    final gender = (t['gender'] ?? '').toString();
+    if (gender.isNotEmpty) parts.add(gender);
+    final passport = (t['passportNumber'] ?? '').toString();
+    if (passport.isNotEmpty) parts.add('Passport: $passport');
+    return parts.join(' | ');
+  }
+
+  Widget _buildTravellerSection() {
+    return AccountSectionCard(
+      title: 'Add Travellers',
+      icon: Icons.groups_rounded,
+      iconColor: AppColors.AppBlue,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Container(
-            padding: EdgeInsets.all(context.gapSmall),
-            decoration: BoxDecoration(
-              color: const Color(0xFF0054A0).withOpacity(0.1),
-              borderRadius: BorderRadius.circular(
-                context.borderRadiusSmall,
+          for (var i = 0; i < _travellers.length; i++) _travellerRow(i),
+          if (_travellers.isEmpty)
+            Padding(
+              padding: EdgeInsets.only(bottom: context.fx(12)),
+              child: Text(
+                'No travellers saved yet. Add the people you travel with to book faster.',
+                style: TextStyle(fontSize: context.ffs(11), color: kAccountMuted),
               ),
             ),
-            child: Icon(
-              icon,
-              size: context.iconSmall,
-              color: const Color(0xFF0054A0),
-            ),
-          ),
+          SizedBox(height: context.fx(8)),
+          _addTravellerButton(),
+        ],
+      ),
+    );
+  }
 
-          SizedBox(width: context.gapMedium),
-
+  Widget _travellerRow(int index) {
+    final t = _travellers[index];
+    final name = '${t['firstName'] ?? ''} ${t['lastName'] ?? ''}'.trim();
+    final summary = _travellerSummary(t);
+    return Container(
+      padding: EdgeInsets.symmetric(vertical: context.fx(10)),
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: kAccountLine)),
+      ),
+      child: Row(
+        children: [
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  title,
+                  name.isEmpty ? 'Traveller' : name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: context.bodySmall,
-                    color: Colors.grey.shade600,
+                    fontSize: context.ffs(13),
+                    fontWeight: FontWeight.w500,
+                    color: kAccountInk,
                   ),
                 ),
-
-                SizedBox(height: context.gapXXSmall),
-
-                Text(
-                  value,
-                  style: TextStyle(
-                    fontSize: context.bodyMedium,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black87,
+                if (summary.isNotEmpty)
+                  Text(
+                    summary,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: context.ffs(11), color: kAccountMuted),
                   ),
-                ),
               ],
             ),
           ),
-        ],
-      ),
-    );
-  }
-
-  // =========================================================
-  // TRAVELLER SECTION
-  // =========================================================
-
-  Widget _buildTravellerSection() {
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.all(context.gapLarge),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(
-          context.borderRadiusLarge,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (context.isMobile)
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildSectionTitle(
-                  title: "Travellers",
-                  icon: Icons.group_outlined,
-                ),
-
-                SizedBox(height: context.gapMedium),
-
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: _showAddTravellerModal,
-
-                    icon: const Icon(Icons.add),
-
-                    label: const Text("Add Traveller"),
-
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF0054A0),
-                      foregroundColor: Colors.white,
-                      padding: EdgeInsets.symmetric(
-                        vertical: context.gapMedium,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(
-                          context.borderRadiusMedium,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            )
-          else
-            Row(
-              mainAxisAlignment:
-              MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: _buildSectionTitle(
-                    title: "Travellers",
-                    icon: Icons.group_outlined,
-                  ),
-                ),
-
-                ElevatedButton.icon(
-                  onPressed: _showAddTravellerModal,
-
-                  icon: const Icon(Icons.add),
-
-                  label: const Text("Add Traveller"),
-
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF0054A0),
-                    foregroundColor: Colors.white,
-                    padding: EdgeInsets.symmetric(
-                      horizontal: context.gapLarge,
-                      vertical: context.gapMedium,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(
-                        context.borderRadiusMedium,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-
-          SizedBox(height: context.gapLarge),
-
-          TextField(
-            decoration: InputDecoration(
-              hintText: "Search travellers",
-
-              prefixIcon: const Icon(Icons.search),
-
-              filled: true,
-
-              fillColor: Colors.grey.shade100,
-
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(
-                  context.borderRadiusMedium,
-                ),
-                borderSide: BorderSide.none,
-              ),
-
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(
-                  context.borderRadiusMedium,
-                ),
-                borderSide: BorderSide.none,
-              ),
-
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(
-                  context.borderRadiusMedium,
-                ),
-                borderSide: const BorderSide(
-                  color: Color(0xFF0054A0),
-                ),
-              ),
-            ),
-          ),
-
-          SizedBox(height: context.gapLarge),
-
-          _travellers.isEmpty
-              ? _buildEmptyState()
-              : _buildTravellerList(),
-        ],
-      ),
-    );
-  }
-
-  // =========================================================
-  // EMPTY STATE
-  // =========================================================
-
-  Widget _buildEmptyState() {
-    return Padding(
-      padding: EdgeInsets.symmetric(
-        vertical: context.gapXXLarge,
-      ),
-      child: Center(
-        child: Column(
-          children: [
-            Icon(
-              Icons.travel_explore_outlined,
-              size: context.iconXLarge * 1.7,
-              color: Colors.grey.shade300,
-            ),
-
-            SizedBox(height: context.gapMedium),
-
-            Text(
-              "No Travellers Added",
-              style: TextStyle(
-                fontSize: context.titleMedium,
-                fontWeight: FontWeight.w700,
-                color: Colors.black87,
-              ),
-            ),
-
-            SizedBox(height: context.gapXXSmall),
-
-            Text(
-              "Your saved travellers will appear here.",
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: context.bodyMedium,
-                color: Colors.grey.shade600,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // =========================================================
-  // TRAVELLER LIST
-  // =========================================================
-
-  Widget _buildTravellerList() {
-    return ListView.separated(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-
-      itemCount: _travellers.length,
-
-      separatorBuilder: (_, __) {
-        return SizedBox(height: context.gapMedium);
-      },
-
-      itemBuilder: (_, index) {
-        final traveller = _travellers[index];
-
-        final fullName =
-            "${traveller['firstName'] ?? ''} ${traveller['lastName'] ?? ''}";
-
-        return Container(
-          padding: EdgeInsets.all(context.w(12)),
-
-          decoration: BoxDecoration(
-            color: Colors.grey.shade50,
-            borderRadius: BorderRadius.circular(
-              context.borderRadiusMedium,
-            ),
-          ),
-
-          child: Row(
-            children: [
-              CircleAvatar(
-                radius: context.isMobile ? 24 : 30,
-                backgroundColor:
-                const Color(0xFF0054A0).withOpacity(0.1),
-
-                child: Text(
-                  fullName.isNotEmpty
-                      ? fullName[0].toUpperCase()
-                      : "T",
-
-                  style: TextStyle(
-                    color: const Color(0xFF0054A0),
-                    fontWeight: FontWeight.bold,
-                    fontSize: context.bodyLarge,
-                  ),
-                ),
-              ),
-
-              SizedBox(width: context.gapMedium),
-
-              Expanded(
-                child: Column(
-                  crossAxisAlignment:
-                  CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      fullName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: context.bodyMedium,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.black87,
-                      ),
-                    ),
-
-                    SizedBox(height: context.gapXXSmall),
-
-                    Text(
-                      "${traveller['nationality'] ?? 'N/A'} • ${traveller['paxType'] ?? 'Adult'}",
-
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-
-                      style: TextStyle(
-                        fontSize: context.bodySmall,
-                        color: Colors.grey.shade600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              PopupMenuButton<String>(
-                icon: const Icon(Icons.more_vert),
-
-                onSelected: (value) {
-                  if (value == 'delete') {
-                    setState(() {
-                      _travellers.removeAt(index);
-                    });
-
-                    _saveTravellers();
-                  }
-                },
-
-                itemBuilder: (_) {
-                  return const [
-                    PopupMenuItem(
-                      value: 'delete',
-                      child: Text('Delete'),
-                    ),
-                  ];
-                },
-              ),
+          PopupMenuButton<String>(
+            tooltip: 'Traveller options',
+            icon: Icon(Icons.edit_square, size: context.fx(20), color: AppColors.AppBlue),
+            onSelected: (value) {
+              if (value == 'remove') {
+                setState(() => _travellers.removeAt(index));
+                _saveTravellers();
+              }
+            },
+            itemBuilder: (_) => const [
+              PopupMenuItem(value: 'remove', child: Text('Remove')),
             ],
           ),
-        );
-      },
+        ],
+      ),
     );
   }
 
-  // =========================================================
-  // SECTION TITLE
-  // =========================================================
-
-  Widget _buildSectionTitle({
-    required String title,
-    required IconData icon,
-  }) {
-    return Row(
-      children: [
-        Container(
-          padding: EdgeInsets.all(context.gapSmall),
-          decoration: BoxDecoration(
-            color: const Color(0xFF0054A0).withOpacity(0.1),
-            borderRadius: BorderRadius.circular(
-              context.borderRadiusSmall,
+  Widget _addTravellerButton() {
+    return Semantics(
+      button: true,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: _openAddTraveller,
+        child: CustomPaint(
+          painter: _DashedBorderPainter(
+            color: const Color(0xFFBFE3F7),
+            radius: context.fx(12),
+          ),
+          child: Container(
+            height: context.fx(52),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF6FBFF),
+              borderRadius: BorderRadius.circular(context.fx(12)),
             ),
-          ),
-          child: Icon(
-            icon,
-            color: const Color(0xFF0054A0),
-            size: context.iconSmall,
-          ),
-        ),
-
-        SizedBox(width: context.gapSmall),
-
-        Expanded(
-          child: Text(
-            title,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: context.titleMedium,
-              fontWeight: FontWeight.bold,
-              color: Colors.black87,
+            alignment: Alignment.center,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.add_circle_rounded, size: context.fx(20), color: AppColors.AppBlue),
+                SizedBox(width: context.fx(8)),
+                Text(
+                  'Add New Adult',
+                  style: TextStyle(
+                    fontSize: context.ffs(14),
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.AppBlue,
+                  ),
+                ),
+              ],
             ),
           ),
         ),
-      ],
+      ),
     );
   }
+}
+
+class _DashedBorderPainter extends CustomPainter {
+  final Color color;
+  final double radius;
+
+  _DashedBorderPainter({required this.color, required this.radius});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+    final path = Path()
+      ..addRRect(RRect.fromRectAndRadius(
+        (Offset.zero & size).deflate(0.5),
+        Radius.circular(radius),
+      ));
+    for (final metric in path.computeMetrics()) {
+      for (double d = 0; d < metric.length; d += 9) {
+        canvas.drawPath(metric.extractPath(d, d + 5), paint);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_DashedBorderPainter old) =>
+      old.color != color || old.radius != radius;
 }

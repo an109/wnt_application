@@ -507,6 +507,7 @@ class _WalletTopUpCheckoutScreenState extends State<WalletTopUpCheckoutScreen> {
           payLabel: 'Pay ${formatInr(_amount)}',
           busy: _busy,
           submitController: _submit,
+          outlinedLabels: true,
           onSubmit: (card) => _pay({'method': 'card', 'card': card}),
         ),
       ),
@@ -1322,7 +1323,7 @@ class _MethodRow extends StatelessWidget {
                     children: [
                       Text(
                         title,
-                        maxLines: 1,
+                        maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontSize: context.fs(13),
@@ -1334,7 +1335,7 @@ class _MethodRow extends StatelessWidget {
                         SizedBox(height: context.h(2)),
                         Text(
                           subtitle!,
-                          maxLines: 1,
+                          maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontSize: context.fs(10),
@@ -1347,7 +1348,16 @@ class _MethodRow extends StatelessWidget {
                 ),
                 if (brands.isNotEmpty) ...[
                   SizedBox(width: context.w(6)),
-                  _BrandCluster(brands),
+                  // Capped so the method name and subtitle keep their room;
+                  // the chips scale down instead of truncating the text.
+                  ConstrainedBox(
+                    constraints: BoxConstraints(maxWidth: context.w(118)),
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerRight,
+                      child: _BrandCluster(brands),
+                    ),
+                  ),
                 ],
               ],
             ),

@@ -32,6 +32,22 @@ class FlightBookEntity extends Equatable {
   final String created;
   final String updated;
 
+  /// `is_cancelled` — set once the ticket is cancelled with the supplier.
+  final bool isCancelled;
+
+  /// `tbo_segments` — one map per leg: fromCode, toCode, fromCity, toCity,
+  /// airline, airlineCode, flightNumber, departureTime, arrivalTime,
+  /// duration ("HH:MM:SS"), baggage, cabinBaggage, terminal.
+  final List<Map<String, dynamic>> tboSegments;
+
+  /// `price_breakdown` (Akbar bookings only): flight_fare, ssr_amount,
+  /// seat_amount, convenience_fee, platform_fee, booking_mgmt_fee,
+  /// coupon_discount, coupon_code, total_paid. Null when unknown.
+  final Map<String, dynamic>? priceBreakdown;
+
+  /// `cancelled_at` (ISO datetime) when [isCancelled].
+  final String? cancelledAt;
+
   const FlightBookEntity({
     required this.id,
     required this.flightType,
@@ -63,6 +79,10 @@ class FlightBookEntity extends Equatable {
     required this.passengersData,
     required this.created,
     required this.updated,
+    this.isCancelled = false,
+    this.tboSegments = const [],
+    this.priceBreakdown,
+    this.cancelledAt,
   });
 
   @override
@@ -97,6 +117,10 @@ class FlightBookEntity extends Equatable {
     passengersData,
     created,
     updated,
+    isCancelled,
+    tboSegments,
+    priceBreakdown,
+    cancelledAt,
   ];
 }
 

@@ -7,6 +7,8 @@ class ReferralModel extends ReferralEntity {
     required super.referralLink,
     required super.totalReferrals,
     required super.totalEarned,
+    super.referrerBonus,
+    super.bonusEnabled,
   });
 
   factory ReferralModel.fromJson(Map<String, dynamic> json) {
@@ -16,6 +18,8 @@ class ReferralModel extends ReferralEntity {
       referralLink: json['referral_link'] ?? '',
       totalReferrals: json['total_referrals'] ?? 0,
       totalEarned: json['total_earned'] ?? '0.00',
+      referrerBonus: json['referrer_bonus']?.toString(),
+      bonusEnabled: json['referral_bonus_enabled'] as bool?,
     );
   }
 
@@ -26,6 +30,8 @@ class ReferralModel extends ReferralEntity {
       'referral_link': referralLink,
       'total_referrals': totalReferrals,
       'total_earned': totalEarned,
+      'referrer_bonus': referrerBonus,
+      'referral_bonus_enabled': bonusEnabled,
     };
   }
 }

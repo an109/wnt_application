@@ -7,12 +7,19 @@ class ReferralEntity extends Equatable {
   final int totalReferrals;
   final String totalEarned;
 
+  /// Per-friend bonus for the referrer (₹) and whether referral bonuses are
+  /// switched on. Null on backends that don't send them yet.
+  final String? referrerBonus;
+  final bool? bonusEnabled;
+
   const ReferralEntity({
     required this.success,
     required this.referralCode,
     required this.referralLink,
     required this.totalReferrals,
     required this.totalEarned,
+    this.referrerBonus,
+    this.bonusEnabled,
   });
 
   @override
@@ -22,5 +29,7 @@ class ReferralEntity extends Equatable {
     referralLink,
     totalReferrals,
     totalEarned,
+    referrerBonus,
+    bonusEnabled,
   ];
 }

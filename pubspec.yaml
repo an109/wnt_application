@@ -69,6 +69,8 @@ dependencies:
   animated_text_kit: ^4.2.2
   # PDF generation
   pdf: ^3.10.4
+  # Already pulled in by pdf; listed so the app can draw the ticket barcode.
+  barcode: ^2.2.8
   printing: ^5.11.1
   screenshot: ^3.0.0
   # File storage
