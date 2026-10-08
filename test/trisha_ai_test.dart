@@ -2,10 +2,12 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:wander_nova/injection_container.dart' show sl;
 import 'package:wander_nova/views/TrishaAI/data/data_source/trisha_api_service.dart';
 import 'package:wander_nova/views/TrishaAI/data/model/trisha_models.dart';
 import 'package:wander_nova/views/TrishaAI/presentation/bloc/trisha_chat_bloc.dart';
 import 'package:wander_nova/views/TrishaAI/presentation/bloc/trisha_chat_event.dart';
+import 'package:wander_nova/views/TrishaAI/presentation/screen/trisha_history_screen.dart';
 import 'package:wander_nova/views/TrishaAI/presentation/widgets/trisha_cards.dart';
 import 'package:wander_nova/views/TrishaAI/presentation/widgets/trisha_input_bar.dart';
 import 'package:wander_nova/views/TrishaAI/presentation/widgets/trisha_messages.dart';
@@ -27,10 +29,37 @@ class FakeTrishaApi extends TrishaApiService {
   }
 
   @override
-  Future<TrishaReply> sendAction({required String sessionId, required String type, Map<String, dynamic> data = const {}}) async {
-    sent.add('action:$type');
+  Future<TrishaReply> sendAction({
+    required String sessionId,
+    required String type,
+    Map<String, dynamic> data = const {},
+    String? label,
+  }) async {
+    sent.add('action:$type${label == null ? '' : ':$label'}');
     return TrishaReply(sessionId: sessionId, text: 'ok');
   }
+
+  @override
+  Future<List<TrishaChatSummary>> listChats({DateTime? before, int limit = 20}) async => [
+        TrishaChatSummary(sessionId: 'old1', title: 'delhi airport se taj palace cab', flow: 'transfer',
+            lastMessage: 'Here are cars…', updatedAt: DateTime.now()),
+        TrishaChatSummary(sessionId: 'old2', title: 'goa hotels', flow: 'hotel', lastMessage: 'Pick a room',
+            updatedAt: DateTime.now().subtract(const Duration(days: 1))),
+      ];
+
+  @override
+  Future<TrishaChatHistory> getChat(String sessionId) async => TrishaChatHistory.fromJson({
+        'session_id': sessionId,
+        'messages': [
+          {'role': 'assistant', 'text': 'Hi Arun!', 'cards': [], 'quick_replies': ['Book a flight']},
+          {'role': 'user', 'text': 'goa hotels', 'cards': [], 'quick_replies': []},
+          {'role': 'assistant', 'text': 'Pick a room', 'cards': [{'type': 'web_sources', 'data': {'sources': []}}],
+           'quick_replies': ['Room 1']},
+        ],
+      });
+
+  @override
+  Future<void> deleteChat(String sessionId) async => sent.add('delete:$sessionId');
 }
 
 const flights = [
@@ -99,6 +128,59 @@ final allCards = <TrishaCard>[
     'details': ['Recharge on your trip with an exciting trek to Kolukkumalai! Board your Jeep from Chinnakanal'],
     'image': null, 'delta': null, 'delta_text': '₹4,194 per person', 'is_selected': true,
   }),
+  const TrishaCard(type: 'transfer_option', data: {
+    'option_number': 2, 'vehicle_type': 'Private Van', 'car': 'Kia Carnival with a very long model name here',
+    'car_class': 'Business', 'image': null, 'provider': 'First-Choice Taxi Services Private Limited',
+    'provider_rating': 4.6, 'provider_reviews': 16965, 'seats': 5, 'bags': 5, 'num_vehicles': 2, 'price': 123456,
+    'currency': 'INR', 'passengers': 4, 'minutes': 25, 'free_cancel_hours': 6.0, 'wait_minutes': 60,
+    'included': ['Meet & Greet', 'WiFi', 'English speaking driver', 'In-seat power'],
+  }),
+  const TrishaCard(type: 'transfer_review', data: {
+    'pickup': 'Manohar International Airport (GOX)', 'dropoff': 'Calangute, Goa, India, a long address line here',
+    'date': '2026-11-20', 'time': '18:00', 'passengers': 4, 'car': 'Kia Carnival', 'vehicle_type': 'Private Van',
+    'image': null, 'provider': 'First-Choice Taxi', 'seats': 5, 'bags': 5, 'flight_number': '6E 2134',
+    'free_cancel_hours': null, 'included': [], 'price': 2931, 'currency': 'INR',
+  }),
+  const TrishaCard(type: 'transfer_booking_confirmed', data: {
+    'confirmation_number': 'MZ12345', 'pickup': 'GOX', 'dropoff': 'Calangute', 'date': '2026-11-20', 'time': '18:00',
+    'passengers': 1, 'car': 'Kia Carnival', 'provider': 'First-Choice Taxi', 'image': null, 'flight_number': null,
+    'free_cancel_hours': 6.5, 'amount_paid': 2931, 'currency': 'INR',
+  }),
+  const TrishaCard(type: 'insurance_plan', data: {
+    'option_number': 1, 'plan_id': 'P1', 'name': 'Travel Assure Explorer Gold with a very long plan name',
+    'logo': null, 'document': 'https://x/wording.pdf', 'recommended': true,
+    'provider': 'ICICI Lombard General Insurance', 'premium': 145123, 'currency': 'INR',
+    'sum_insured': 250000, 'cover_currency': 'USD', 'highlights': ['Medical', 'Baggage loss', 'Trip delay'],
+  }),
+  const TrishaCard(type: 'insurance_plan_details', data: {
+    'name': 'Explorer', 'provider': 'RELIGARE', 'premium': 1720, 'currency': 'INR', 'sum_insured': 100000,
+    'cover_currency': 'USD', 'more_benefits': 4, 'terms': ['https://x/tnc.pdf'], 'notes': ['Ages 0-70 only'],
+    'benefits': [
+      {'title': 'Medical expenses including hospitalisation abroad', 'cover': 'USD 100,000', 'deductible': 'USD 100'},
+      {'title': 'Loss of checked-in baggage', 'cover': 'USD 500', 'deductible': ''},
+    ],
+  }),
+  const TrishaCard(type: 'insurance_details_form', data: {
+    'questions': [{'title': 'Diabetes', 'code': 'PEDDiabetes', 'selection_type': 'checkbox'}],
+    'nominee_relations': ['Spouse', 'Mother'], 'states': ['Rajasthan', 'Delhi'],
+    'prefill': {'city': 'Jaipur', 'state': 'Rajasthan'},
+  }),
+  const TrishaCard(type: 'insurance_review', data: {
+    'plan': 'Explorer', 'provider': 'RELIGARE', 'countries': ['Thailand', 'United Arab Emirates'],
+    'start_date': '2026-11-01', 'end_date': '2026-11-10', 'policy_type': 'Family',
+    'travellers': ['Rakesh Khatri', 'Priya Khatri', 'Aarav Khatri'], 'nominee': 'Sunita Khatri (Mother)',
+    'health': 'No pre-existing disease', 'sum_insured': 100000, 'cover_currency': 'USD', 'premium': 1720,
+    'currency': 'INR',
+  }),
+  const TrishaCard(type: 'insurance_confirmed', data: {
+    'policy_number': 'POL-778899', 'transaction_id': 'TXN-1', 'plan': 'Explorer', 'provider': 'RELIGARE',
+    'countries': ['Thailand'], 'start_date': '2026-11-01', 'end_date': null, 'travellers': 1,
+    'amount_paid': 1720, 'currency': 'INR',
+  }),
+  const TrishaCard(type: 'traveller_picker', data: {
+    'travellers': [{'id': 1, 'number': 1, 'name': 'Rakesh K.', 'pax_type': 'ADT', 'missing': []}],
+    'required': {}, 'min': 1, 'max': 6, 'title': "Select who's travelling",
+  }),
   const TrishaCard(type: 'holiday_review', data: {
     'title': 'Affectionate Kerala', 'image': null, 'nights': 3, 'start_date': '2026-11-15', 'flight_included': false,
     'origin': '', 'travellers': [{'name': 'Arun S.', 'pax_type': 'ADT'}], 'total': 49451, 'tax': 2355,
@@ -150,6 +232,58 @@ void main() {
     await tester.pumpWidget(MaterialApp(home: Scaffold(body: child)));
     await tester.pump();
   }
+
+  testWidgets('insurance form sends its details as an action, never as chat text', (tester) async {
+    final sent = <Map<String, dynamic>>[];
+    String? bubble;
+    final handler = TrishaCardHandler(
+      action: (type, {data, label}) {
+        sent.add({'type': type, ...?data});
+        bubble = label;
+      },
+      addTraveller: () {},
+      openProfile: ({thenAction}) {},
+      pay: (_) {},
+      openFlights: () {},
+    );
+    await pumpPhone(
+      tester,
+      SingleChildScrollView(
+        child: TrishaCardView(
+          active: true,
+          handler: handler,
+          card: const TrishaCard(type: 'insurance_details_form', data: {
+            'questions': [{'title': 'Diabetes', 'code': 'PEDDiabetes', 'selection_type': 'checkbox'}],
+            'nominee_relations': ['Spouse', 'Mother'], 'states': ['Rajasthan', 'Delhi'],
+            'prefill': {'city': 'Jaipur', 'state': 'Rajasthan', 'nominee': {'relation': 'Mother'}},
+          }),
+        ),
+      ),
+    );
+    Future<void> type(String label, String text) async {
+      final field = find.widgetWithText(TextField, label);
+      await tester.ensureVisible(field);
+      await tester.enterText(field, text);
+    }
+
+    await type('First name', 'Sunita');
+    await type('Last name', 'Khatri');
+    await type('Address line 1', '12 MG Road');
+    await type('Pincode', '302001');
+    await tester.ensureVisible(find.text('Yes'));
+    await tester.tap(find.text('Yes'));
+    await tester.pump();
+    await tester.ensureVisible(find.text('Diabetes'));
+    await tester.tap(find.text('Diabetes'));
+    await tester.pump();
+    await tester.ensureVisible(find.text('Continue'));
+    await tester.tap(find.text('Continue'));
+    expect(sent.single['type'], 'insurance_details');
+    expect(sent.single['nominee'], {'first_name': 'Sunita', 'last_name': 'Khatri', 'relation': 'Mother'});
+    expect((sent.single['address'] as Map)['state'], 'Rajasthan');
+    expect(sent.single['health'], containsPair('conditions', ['PEDDiabetes']));
+    expect(bubble, 'Details added');
+  });
 
   testWidgets('every card type renders on a phone without overflow', (tester) async {
     final actions = <String>[];
@@ -226,6 +360,48 @@ void main() {
     await tester.pump();
     await tester.tap(find.byIcon(Icons.arrow_upward_rounded));
     expect(sent, ['Book a flight', 'kal delhi se goa']);
+  });
+
+  testWidgets('recent chats lists past chats and returns the tapped one', (tester) async {
+    final api = FakeTrishaApi();
+    sl.registerSingleton<TrishaApiService>(api);
+    addTearDown(() => sl.unregister<TrishaApiService>());
+    String? picked = 'unset';
+    await pumpPhone(
+      tester,
+      Builder(
+        builder: (context) => TextButton(
+          onPressed: () async => picked = await Navigator.push<String>(
+            context,
+            MaterialPageRoute(builder: (_) => const TrishaHistoryScreen(currentSessionId: 'old1')),
+          ),
+          child: const Text('open'),
+        ),
+      ),
+    );
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.text('delhi airport se taj palace cab'), findsOneWidget);
+    expect(find.text('Open now'), findsOneWidget);
+    expect(find.text('Yesterday'), findsOneWidget);
+    await tester.tap(find.text('goa hotels'));
+    await tester.pumpAndSettle();
+    expect(picked, 'old2');
+  });
+
+  test('bloc: a past chat reopens with its messages and continues in the same session', () async {
+    final api = FakeTrishaApi();
+    final bloc = TrishaChatBloc(api: api)..add(const TrishaChatOpened('old2'));
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+    expect(bloc.state.sessionId, 'old2');
+    expect(bloc.state.messages.map((m) => m.text), ['Hi Arun!', 'goa hotels', 'Pick a room']);
+    expect(bloc.state.isWelcome, isFalse);
+    expect(bloc.state.messages.last.cards.single.type, 'web_sources');
+    bloc.add(const TrishaActionSent('confirm_booking', label: 'Confirm & pay'));
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+    expect(api.sent.last, 'action:confirm_booking:Confirm & pay');
+    await bloc.close();
   });
 
   test('bloc: start, message, action', () async {

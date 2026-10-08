@@ -1,10 +1,16 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../../../core/constants/urls.dart';
 import '../model/trisha_models.dart';
+
+/// What a customer sees when Thrisha can't be reached. Debug builds add how to
+/// fix it locally; release builds never show server or adb details.
+String _offline(String detail) => kDebugMode
+    ? "Thrisha is offline right now. ($detail. Dev: check the thrisha-ai service on the server)"
+    : "Thrisha is offline right now. Please check your internet connection and try again.";
 
 class TrishaException implements Exception {
   final String message;
@@ -22,15 +28,12 @@ class TrishaApiService {
 
   TrishaApiService(this._dio);
 
-  /// Where Trisha may be, in order of preference:
-  /// - TRISHA_URL (--dart-define), when given;
-  /// - 127.0.0.1: the iOS simulator, or a phone after `adb reverse tcp:8090 tcp:8090`
-  ///   (works over USB and wireless debugging, whatever the Mac's IP is);
-  /// - 10.0.2.2: the Android emulator's name for the Mac.
+  /// Where Thrisha is: the live service on the production server, in debug and
+  /// release builds alike. To use a Thrisha running on this Mac instead:
+  ///   flutter run --dart-define=TRISHA_URL=http://127.0.0.1:8090
+  /// (with `scripts/connect-phone.sh` for a real phone).
   static List<String> get candidates => [
-        if (Urls.trishaBaseUrl.isNotEmpty) Urls.trishaBaseUrl,
-        'http://127.0.0.1:8090',
-        if (Platform.isAndroid) 'http://10.0.2.2:8090',
+        Urls.trishaBaseUrl.isNotEmpty ? Urls.trishaBaseUrl : Urls.trishaProductionUrl,
       ];
 
   static String? _resolved;
@@ -52,10 +55,7 @@ class TrishaApiService {
         continue;
       }
     }
-    throw TrishaException(
-      "I can't reach Thrisha (tried ${candidates.join(', ')}). "
-      'Is the server running? On a phone, run: adb reverse tcp:8090 tcp:8090',
-    );
+    throw TrishaException(_offline('tried ${candidates.join(', ')}'));
   }
 
   // A flight search polls the supplier for up to ~45 s and ticketing can take
@@ -69,21 +69,71 @@ class TrishaApiService {
   /// reported after 15 s instead of the long reply timeout.
   Future<TrishaReply> startChat() => _post('/v1/chat/start', null).timeout(
         const Duration(seconds: 15),
-        onTimeout: () => throw TrishaException("I can't reach Thrisha at $baseUrl. Is the server running?"),
+        onTimeout: () => throw TrishaException(_offline('no answer from $baseUrl')),
       );
 
   Future<TrishaReply> sendMessage({required String sessionId, required String text}) =>
       _post('/v1/chat', {'session_id': sessionId, 'message': text});
 
+  /// [label] is what the chat showed as the user's bubble; it is kept for the
+  /// chat history only.
   Future<TrishaReply> sendAction({
     required String sessionId,
     required String type,
     Map<String, dynamic> data = const {},
+    String? label,
   }) =>
       _post('/v1/chat', {
         'session_id': sessionId,
         'action': {'type': type, 'data': data},
+        if (label != null && label.isNotEmpty) 'label': label.length > 120 ? label.substring(0, 120) : label,
       });
+
+  // ---- chat history -------------------------------------------------------------
+
+  /// The user's past chats, newest first; pass the last row's [before] for more.
+  Future<List<TrishaChatSummary>> listChats({DateTime? before, int limit = 20}) async {
+    final body = await _get('/v1/chats', {
+      'limit': limit,
+      if (before != null) 'before': before.toUtc().toIso8601String(),
+    });
+    return (body['chats'] as List? ?? const [])
+        .whereType<Map>()
+        .map((c) => TrishaChatSummary.fromJson(c.cast<String, dynamic>()))
+        .toList();
+  }
+
+  Future<TrishaChatHistory> getChat(String sessionId) async =>
+      TrishaChatHistory.fromJson(await _get('/v1/chats/$sessionId', null));
+
+  Future<void> deleteChat(String sessionId) async {
+    try {
+      await _dio.delete('${await _base()}/v1/chats/$sessionId');
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404) return; // already gone
+      throw _error(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> _get(String path, Map<String, dynamic>? query) async {
+    try {
+      final res = await _dio.get('${await _base()}$path', queryParameters: query);
+      return (res.data as Map).cast<String, dynamic>();
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404) throw const TrishaException('This chat is no longer available.');
+      throw _error(e);
+    }
+  }
+
+  TrishaException _error(DioException e) {
+    final status = e.response?.statusCode;
+    if (status == 401) return const TrishaException('Please log in to chat with Thrisha.');
+    if (status == null) {
+      _resolved = null;
+      return TrishaException(_offline('lost $baseUrl'));
+    }
+    return const TrishaException('Something went wrong. Please try again.');
+  }
 
   Future<TrishaReply> _post(String path, Map<String, dynamic>? body) async {
     try {
@@ -99,7 +149,7 @@ class TrishaApiService {
       }
       if (status == null) {
         _resolved = null; // the server may have moved; probe again next time
-        throw TrishaException("I can't reach Thrisha at $baseUrl. Please check the server and your connection.");
+        throw TrishaException(_offline('lost $baseUrl'));
       }
       throw const TrishaException('Something went wrong. Please try again.');
     }

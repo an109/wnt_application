@@ -68,3 +68,55 @@ class TrishaMessage {
         saved: saved ?? this.saved,
       );
 }
+
+
+/// One row of the chat history list (`GET /v1/chats`).
+class TrishaChatSummary {
+  final String sessionId;
+  final String title;
+
+  /// flight / hotel / holiday / transfer / insurance, or null for general chat.
+  final String? flow;
+  final String lastMessage;
+  final DateTime updatedAt;
+
+  const TrishaChatSummary({
+    required this.sessionId,
+    required this.title,
+    required this.flow,
+    required this.lastMessage,
+    required this.updatedAt,
+  });
+
+  factory TrishaChatSummary.fromJson(Map<String, dynamic> json) => TrishaChatSummary(
+        sessionId: json['session_id']?.toString() ?? '',
+        title: json['title']?.toString() ?? 'Chat',
+        flow: json['flow']?.toString(),
+        lastMessage: json['last_message']?.toString() ?? '',
+        updatedAt: DateTime.tryParse(json['updated_at']?.toString() ?? '')?.toLocal() ?? DateTime.now(),
+      );
+}
+
+/// A past chat reopened from the history (`GET /v1/chats/{id}`).
+class TrishaChatHistory {
+  final String sessionId;
+  final List<({bool fromUser, String text, List<TrishaCard> cards, List<String> quickReplies})> messages;
+
+  const TrishaChatHistory({required this.sessionId, required this.messages});
+
+  factory TrishaChatHistory.fromJson(Map<String, dynamic> json) => TrishaChatHistory(
+        sessionId: json['session_id']?.toString() ?? '',
+        messages: [
+          for (final m in (json['messages'] as List? ?? const []).whereType<Map>())
+            (
+              fromUser: m['role'] == 'user',
+              text: m['text']?.toString() ?? '',
+              cards: (m['cards'] as List? ?? const [])
+                  .whereType<Map>()
+                  .map((c) => TrishaCard.fromJson(c.cast<String, dynamic>()))
+                  .toList(),
+              quickReplies: (m['quick_replies'] as List? ?? const []).map((q) => q.toString()).toList(),
+            ),
+        ],
+      );
+}

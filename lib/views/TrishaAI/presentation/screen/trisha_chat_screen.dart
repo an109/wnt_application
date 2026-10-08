@@ -16,6 +16,7 @@ import '../widgets/trisha_input_bar.dart';
 import '../widgets/trisha_messages.dart';
 import '../widgets/trisha_style.dart';
 import '../widgets/trisha_welcome.dart';
+import 'trisha_history_screen.dart';
 
 /// Trisha AI chat (Figma "AI 1", "AI 2", "AI 3"). Opened from the orb in the
 /// home bottom bar.
@@ -109,6 +110,21 @@ class _TrishaChatViewState extends State<_TrishaChatView> {
         'status': r.code == Razorpay.PAYMENT_CANCELLED ? 'cancelled' : 'failed',
       }));
 
+  /// Recent chats: reopen one, or start a new chat.
+  Future<void> _openHistory() async {
+    final current = _bloc.state.sessionId;
+    final picked = await Navigator.push<String>(
+      context,
+      MaterialPageRoute(builder: (_) => TrishaHistoryScreen(currentSessionId: current)),
+    );
+    if (!mounted || picked == null) return;
+    if (picked.isEmpty) {
+      _bloc.add(const TrishaChatStarted());
+    } else if (picked != current) {
+      _bloc.add(TrishaChatOpened(picked));
+    }
+  }
+
   void _scrollToEnd() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scroll.hasClients) {
@@ -189,11 +205,21 @@ class _TrishaChatViewState extends State<_TrishaChatView> {
                     )
                   : const SizedBox.shrink(),
             ),
+            TrishaCircleButton(
+              icon: Icons.history_rounded,
+              iconSize: context.fx(18),
+              onTap: _openHistory,
+            ),
+            SizedBox(width: context.fx(8)),
             PopupMenuButton<String>(
               onSelected: (v) {
                 if (v == 'new') _bloc.add(const TrishaChatStarted());
+                if (v == 'history') _openHistory();
               },
-              itemBuilder: (_) => const [PopupMenuItem(value: 'new', child: Text('New chat'))],
+              itemBuilder: (_) => const [
+                PopupMenuItem(value: 'new', child: Text('New chat')),
+                PopupMenuItem(value: 'history', child: Text('Recent chats')),
+              ],
               child: Container(
                 width: context.fx(32),
                 height: context.fx(32),

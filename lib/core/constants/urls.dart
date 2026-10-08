@@ -7,10 +7,12 @@ class Urls {
 
   static const String basesUrl = 'https://thewandernova.com/api';
 
-  // Trisha AI chat service (separate from the main backend). Empty means
-  // "this machine" (see TrishaApiService.baseUrl). For a real phone:
-  //   flutter run --dart-define=TRISHA_URL=http://<your-mac-ip>:8090
+  // Thrisha AI chat service. Empty = the live service (trishaProductionUrl).
+  // Only to test a local copy: flutter run --dart-define=TRISHA_URL=http://127.0.0.1:8090
   static const String trishaBaseUrl = String.fromEnvironment('TRISHA_URL');
+
+  /// Thrisha AI on the production server (nginx → thrisha-ai service).
+  static const String trishaProductionUrl = 'https://thewandernova.com/thrisha';
 
   static const String airports = '$basesUrl/flights/airports';
   static const String flightSearch = '$basesUrl/akbar/ExpressSearch/';

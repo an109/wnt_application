@@ -17,6 +17,30 @@ class TrishaChatBloc extends Bloc<TrishaChatEvent, TrishaChatState> {
     on<TrishaRetried>(_onRetried);
     on<TrishaFeedbackGiven>(_onFeedback);
     on<TrishaMessageSaved>(_onSaved);
+    on<TrishaChatOpened>(_onOpened);
+  }
+
+  Future<void> _onOpened(TrishaChatOpened event, Emitter<TrishaChatState> emit) async {
+    _failedCall = null;
+    emit(const TrishaChatState(starting: true));
+    try {
+      final chat = await api.getChat(event.sessionId);
+      emit(TrishaChatState(
+        sessionId: chat.sessionId,
+        messages: [
+          for (final m in chat.messages)
+            TrishaMessage(
+              id: _nextId(),
+              fromUser: m.fromUser,
+              text: m.text,
+              cards: m.cards,
+              quickReplies: m.quickReplies,
+            ),
+        ],
+      ));
+    } on TrishaException catch (e) {
+      emit(state.copyWith(starting: false, error: () => e.message));
+    }
   }
 
   String _nextId() => 'm${_seq++}';
@@ -48,7 +72,7 @@ class TrishaChatBloc extends Bloc<TrishaChatEvent, TrishaChatState> {
     await _exchange(
       emit,
       userText: event.label,
-      call: (sessionId) => api.sendAction(sessionId: sessionId, type: event.type, data: event.data),
+      call: (sessionId) => api.sendAction(sessionId: sessionId, type: event.type, data: event.data, label: event.label),
     );
   }
 

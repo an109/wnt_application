@@ -5,8 +5,12 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 import '../../../../UI_helper/responsive_layout.dart';
+import '../../../AKInsurance/presentation/tokens/ins_tokens.dart';
+import '../../../AKInsurance/presentation/widgets/ins_common.dart' show InsProviderLogo;
 import '../../data/model/trisha_models.dart';
 import 'trisha_style.dart';
+
+part 'trisha_insurance_cards.dart';
 
 /// What a card can ask the chat screen to do.
 class TrishaCardHandler {
@@ -133,6 +137,34 @@ class TrishaCardView extends StatelessWidget {
         return _HolidayPayOptionsCard(data: d, active: active, handler: handler);
       case 'holiday_booking_confirmed':
         return _HolidayConfirmedCard(data: d);
+      case 'transfer_option':
+        return _TransferOptionCard(
+          data: d,
+          onTap: active
+              ? () => handler.action('select_option',
+                  data: {'option_number': d['option_number']}, label: 'Car ${d['option_number']} · ${d['car']}')
+              : null,
+        );
+      case 'transfer_review':
+        return _TransferReviewCard(data: d, active: active, handler: handler);
+      case 'transfer_booking_confirmed':
+        return _TransferConfirmedCard(data: d);
+      case 'insurance_plan':
+        return _InsurancePlanCard(
+          data: d,
+          onTap: active
+              ? () => handler.action('select_option',
+                  data: {'option_number': d['option_number']}, label: 'Plan ${d['option_number']} · ${d['name']}')
+              : null,
+        );
+      case 'insurance_plan_details':
+        return _InsurancePlanDetailsCard(data: d);
+      case 'insurance_details_form':
+        return _InsuranceDetailsForm(data: d, active: active, handler: handler);
+      case 'insurance_review':
+        return _InsuranceReviewCard(data: d, active: active, handler: handler);
+      case 'insurance_confirmed':
+        return _InsuranceConfirmedCard(data: d);
       case 'web_sources':
         return _WebSourcesCard(data: d);
       case 'open_flight_booking':
@@ -393,6 +425,15 @@ class _TravellerPickerCardState extends State<_TravellerPickerCard> {
       .values
       .fold<int>(0, (sum, v) => sum + ((v as num?)?.toInt() ?? 0));
 
+  /// Insurance asks for "everyone travelling": any count from min to max.
+  int? get _max => (widget.data['max'] as num?)?.toInt();
+
+  bool get _countOk {
+    if (_needed > 0) return _picked.length == _needed;
+    final max = _max;
+    return max != null && _picked.length >= ((widget.data['min'] as num?)?.toInt() ?? 1) && _picked.length <= max;
+  }
+
   static const _singular = {'adults': 'adult', 'children': 'child', 'infants': 'infant'};
 
   String get _requiredText => (widget.data['required'] as Map? ?? {})
@@ -407,7 +448,10 @@ class _TravellerPickerCardState extends State<_TravellerPickerCard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Select $_requiredText', style: TrishaStyle.body(context, 12, weight: FontWeight.w600)),
+          Text(
+            _needed > 0 ? 'Select $_requiredText' : '${widget.data['title'] ?? 'Select travellers'} (up to ${_max ?? 1})',
+            style: TrishaStyle.body(context, 12, weight: FontWeight.w600),
+          ),
           SizedBox(height: context.fx(6)),
           if (travellers.isEmpty)
             Text('No saved travellers yet.', style: TrishaStyle.body(context, 12, color: TrishaStyle.hint)),
@@ -438,7 +482,7 @@ class _TravellerPickerCardState extends State<_TravellerPickerCard> {
           SizedBox(height: context.fx(8)),
           _PrimaryButton(
             label: 'Continue',
-            onTap: widget.active && _picked.length == _needed && _needed > 0
+            onTap: widget.active && _countOk
                 ? () {
                     final names = travellers.where((t) => _picked.contains(t['id'])).map((t) => '${t['name']}');
                     widget.handler.action(
@@ -1008,6 +1052,286 @@ class _HotelConfirmedCard extends StatelessWidget {
           _StayLines(data: data),
           Text('Paid ${_money(data['amount_paid'])} · Ref ${data['booking_reference'] ?? '-'}',
               style: TrishaStyle.body(context, 11, color: TrishaStyle.hint)),
+        ],
+      ),
+    );
+  }
+}
+
+
+// ---- airport transfers -------------------------------------------------------------
+
+String _cancelText(dynamic hours) {
+  final h = (hours as num?)?.toDouble();
+  if (h == null) return 'Non-refundable';
+  final v = h == h.roundToDouble() ? h.toInt().toString() : h.toStringAsFixed(1);
+  return 'Free cancellation until ${v}h before pickup';
+}
+
+class _CarImage extends StatelessWidget {
+  final String? url;
+  final double width;
+  final double height;
+
+  const _CarImage({required this.url, required this.width, required this.height});
+
+  @override
+  Widget build(BuildContext context) {
+    final placeholder = Container(
+      width: width,
+      height: height,
+      color: TrishaStyle.listBg,
+      alignment: Alignment.center,
+      child: Icon(Icons.directions_car_rounded, size: context.fx(26), color: TrishaStyle.hint),
+    );
+    if (url == null || url!.isEmpty) return placeholder;
+    return CachedNetworkImage(
+      imageUrl: url!,
+      width: width,
+      height: height,
+      fit: BoxFit.contain,
+      placeholder: (_, __) => placeholder,
+      errorWidget: (_, __, ___) => placeholder,
+    );
+  }
+}
+
+/// Seats · bags · supplier rating — shared by the option and review cards.
+class _CarFacts extends StatelessWidget {
+  final Map<String, dynamic> data;
+
+  const _CarFacts({required this.data});
+
+  @override
+  Widget build(BuildContext context) {
+    final rating = data['provider_rating'] as num?;
+    final style = TrishaStyle.body(context, 11, color: TrishaStyle.hint, height: 1.3);
+    final icon = context.fx(13);
+    return Wrap(
+      spacing: context.fx(10),
+      runSpacing: context.fx(4),
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(Icons.person_outline_rounded, size: icon, color: TrishaStyle.hint),
+          SizedBox(width: context.fx(2)),
+          Text('${data['seats']}', style: style),
+        ]),
+        Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(Icons.luggage_outlined, size: icon, color: TrishaStyle.hint),
+          SizedBox(width: context.fx(2)),
+          Text('${data['bags']}', style: style),
+        ]),
+        if (rating != null)
+          Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(Icons.star_rounded, size: icon, color: const Color(0xFFF5A623)),
+            SizedBox(width: context.fx(2)),
+            Text('$rating${(data['provider_reviews'] as num? ?? 0) > 0 ? ' (${_inr.format(data['provider_reviews'])})' : ''}',
+                style: style),
+          ]),
+      ],
+    );
+  }
+}
+
+class _TransferOptionCard extends StatelessWidget {
+  final Map<String, dynamic> data;
+  final VoidCallback? onTap;
+
+  const _TransferOptionCard({required this.data, this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final included = (data['included'] as List? ?? []).map((e) => '$e').toList();
+    final vehicles = (data['num_vehicles'] as num?) ?? 1;
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(context.fx(14)),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Container(
+          padding: EdgeInsets.all(context.fx(12)),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(context.fx(14)),
+            border: Border.all(color: TrishaStyle.cardBorder),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(context.fx(8)),
+                    child: _CarImage(url: data['image'] as String?, width: context.fx(84), height: context.fx(56)),
+                  ),
+                  SizedBox(width: context.fx(10)),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('${data['option_number']}. ${data['car']}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TrishaStyle.body(context, 13, weight: FontWeight.w700, height: 1.25)),
+                        Text(
+                          [
+                            '${data['vehicle_type']}',
+                            if ('${data['car_class'] ?? ''}'.isNotEmpty && data['car_class'] != 'Standard') '${data['car_class']}',
+                            if (vehicles > 1) '$vehicles cars',
+                          ].join(' · '),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TrishaStyle.body(context, 11, color: TrishaStyle.hint, height: 1.3),
+                        ),
+                        SizedBox(height: context.fx(4)),
+                        _CarFacts(data: data),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: context.fx(8)),
+              Text('by ${data['provider']}',
+                  maxLines: 1, overflow: TextOverflow.ellipsis,
+                  style: TrishaStyle.body(context, 11, color: TrishaStyle.hint, height: 1.3)),
+              if (included.isNotEmpty) ...[
+                SizedBox(height: context.fx(6)),
+                Wrap(spacing: context.fx(5), runSpacing: context.fx(5), children: [
+                  for (final t in included.take(3)) _Chip(t),
+                ]),
+              ],
+              SizedBox(height: context.fx(8)),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Expanded(
+                    child: Text(_cancelText(data['free_cancel_hours']),
+                        maxLines: 2,
+                        style: TrishaStyle.body(context, 10,
+                            color: data['free_cancel_hours'] != null ? _green : TrishaStyle.hint, height: 1.3)),
+                  ),
+                  SizedBox(width: context.fx(8)),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(_money(data['price']), style: TrishaStyle.body(context, 16, weight: FontWeight.w700, height: 1.1)),
+                      Text('total ride', style: TrishaStyle.body(context, 10, color: TrishaStyle.hint, height: 1.2)),
+                    ],
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// From → to, date and time, passengers: the ride itself.
+class _RideLines extends StatelessWidget {
+  final Map<String, dynamic> data;
+
+  const _RideLines({required this.data});
+
+  @override
+  Widget build(BuildContext context) {
+    final pax = (data['passengers'] as num?)?.toInt() ?? 1;
+    Widget line(IconData icon, String text) => Padding(
+          padding: EdgeInsets.only(bottom: context.fx(6)),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Icon(icon, size: context.fx(14), color: TrishaStyle.brandBlue),
+            SizedBox(width: context.fx(8)),
+            Expanded(child: Text(text, style: TrishaStyle.body(context, 12, height: 1.35))),
+          ]),
+        );
+    return Column(children: [
+      line(Icons.trip_origin_rounded, '${data['pickup']}'),
+      line(Icons.place_rounded, '${data['dropoff']}'),
+      line(Icons.schedule_rounded, '${_date(data['date'])}, ${data['time'] ?? ''} · $pax passenger${pax == 1 ? '' : 's'}'),
+      if (data['flight_number'] != null) line(Icons.flight_land_rounded, 'Flight ${data['flight_number']}'),
+    ]);
+  }
+}
+
+class _TransferReviewCard extends StatelessWidget {
+  final Map<String, dynamic> data;
+  final bool active;
+  final TrishaCardHandler handler;
+
+  const _TransferReviewCard({required this.data, required this.active, required this.handler});
+
+  @override
+  Widget build(BuildContext context) {
+    return _CardBox(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(context.fx(8)),
+              child: _CarImage(url: data['image'] as String?, width: context.fx(72), height: context.fx(48)),
+            ),
+            SizedBox(width: context.fx(10)),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('${data['car']}', maxLines: 1, overflow: TextOverflow.ellipsis,
+                    style: TrishaStyle.body(context, 14, weight: FontWeight.w700, height: 1.25)),
+                Text('${data['vehicle_type']} · by ${data['provider']}', maxLines: 1, overflow: TextOverflow.ellipsis,
+                    style: TrishaStyle.body(context, 11, color: TrishaStyle.hint, height: 1.3)),
+              ]),
+            ),
+          ]),
+          const Divider(color: TrishaStyle.cardBorder),
+          _RideLines(data: data),
+          Text(_cancelText(data['free_cancel_hours']),
+              style: TrishaStyle.body(context, 11,
+                  color: data['free_cancel_hours'] != null ? _green : TrishaStyle.hint)),
+          const Divider(color: TrishaStyle.cardBorder),
+          Row(children: [
+            Text('Total', style: TrishaStyle.body(context, 13, weight: FontWeight.w600)),
+            const Spacer(),
+            Text(_money(data['price']), style: TrishaStyle.body(context, 18, weight: FontWeight.w700, height: 1)),
+          ]),
+          SizedBox(height: context.fx(12)),
+          _PrimaryButton(
+            label: 'Confirm & pay',
+            onTap: active ? () => handler.action('confirm_booking', label: 'Confirm & pay') : null,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TransferConfirmedCard extends StatelessWidget {
+  final Map<String, dynamic> data;
+
+  const _TransferConfirmedCard({required this.data});
+
+  @override
+  Widget build(BuildContext context) {
+    return _CardBox(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            Icon(Icons.check_circle_rounded, color: Colors.green.shade600, size: context.fx(22)),
+            SizedBox(width: context.fx(8)),
+            Text('Ride confirmed', style: TrishaStyle.body(context, 14, weight: FontWeight.w700)),
+          ]),
+          SizedBox(height: context.fx(10)),
+          Text('Confirmation number', style: TrishaStyle.body(context, 11, color: TrishaStyle.hint)),
+          SelectableText('${data['confirmation_number'] ?? '-'}',
+              style: TrishaStyle.body(context, 20, weight: FontWeight.w700, height: 1.2).copyWith(letterSpacing: 1.5)),
+          SizedBox(height: context.fx(10)),
+          Text('${data['car']} · ${data['provider']}', style: TrishaStyle.body(context, 13, weight: FontWeight.w600)),
+          SizedBox(height: context.fx(8)),
+          _RideLines(data: data),
+          Text('Paid ${_money(data['amount_paid'])} · ${_cancelText(data['free_cancel_hours'])}',
+              style: TrishaStyle.body(context, 11, color: TrishaStyle.hint, height: 1.35)),
         ],
       ),
     );

@@ -58,3 +58,15 @@ class TrishaMessageSaved extends TrishaChatEvent {
   @override
   List<Object?> get props => [messageId];
 }
+
+
+/// Reopens a past chat from the history: its messages are shown and new
+/// messages continue the same chat.
+class TrishaChatOpened extends TrishaChatEvent {
+  final String sessionId;
+
+  const TrishaChatOpened(this.sessionId);
+
+  @override
+  List<Object?> get props => [sessionId];
+}
