@@ -1002,7 +1002,7 @@ class _HomeTravelStoriesState extends State<HomeTravelStories> {
                 return const _RailMessage(message: 'No travel stories available');
               }
               return _CardRail(
-                height: context.fx(114),
+                height: context.fx(244),
                 itemCount: state.stories.length,
                 itemBuilder: (context, i) => StoryCard(story: state.stories[i]),
               );

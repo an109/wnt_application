@@ -409,7 +409,7 @@ class _CustomerSupportSectionState extends State<CustomerSupportSection> {
                 fontWeight: FontWeight.w500,
                 color: _kInk,
               ),
-              decoration: _fieldDecoration(hintText: '9876543212'),
+              decoration: _fieldDecoration(hintText: '9999999999'),
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
                   return 'Please enter phone number';

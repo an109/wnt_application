@@ -1,3 +1,4 @@
+import 'package:wander_nova/views/splash/splash_screen.dart';
 
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -1235,6 +1236,7 @@ class _CustomDrawerState extends State<CustomDrawer>
 
   void _showLogoutDialog(BuildContext context) {
     final scaffoldMessenger = ScaffoldMessenger.of(context);
+    final rootNavigator = Navigator.of(context, rootNavigator: true);
     Navigator.pop(context);
     showDialog(
       context: context,
@@ -1365,6 +1367,12 @@ class _CustomDrawerState extends State<CustomDrawer>
                                         _tierKey = null;
                                       });
                                     }
+                                    rootNavigator.pushAndRemoveUntil(
+                                      MaterialPageRoute(
+                                        builder: (_) => const SplashScreen(),
+                                      ),
+                                      (route) => false,
+                                    );
                                   });
                                   scaffoldMessenger.showSnackBar(
                                     SnackBar(

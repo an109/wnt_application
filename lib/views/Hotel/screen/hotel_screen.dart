@@ -1,6 +1,7 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:wander_nova/views/home/presentation/widgets/home_top_widgets.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
@@ -81,8 +82,14 @@ class _HotelBookingScreenState extends State<HotelBookingScreen> {
               SliverToBoxAdapter(child: SizedBox(height: context.h(24))),
 
             /// EXCLUSIVE DEALS / AD BANNER SECTION
-            const SliverToBoxAdapter(
-              child: DealsSection(),
+            // const SliverToBoxAdapter(
+            //   child: DealsSection(),
+            // ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: context.w(16)),
+                child: const HomeOffersCarousel(categories: ['hotel']),
+              ),
             ),
 
 

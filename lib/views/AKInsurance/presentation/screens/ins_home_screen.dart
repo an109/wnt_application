@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wander_nova/views/home/presentation/widgets/home_top_widgets.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -167,7 +168,11 @@ class _InsHomeScreenState extends State<InsHomeScreen> {
                     SliverToBoxAdapter(
                       child: BlocProvider<ExclusiveDealsBloc>(
                         create: (_) => di.sl<ExclusiveDealsBloc>(),
-                        child: const DealsSection(),
+                        // child: const DealsSection(),
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(horizontal: context.w(16)),
+                          child: const HomeOffersCarousel(categories: ['insurance']),
+                        ),
                       ),
                     ),
                     SliverToBoxAdapter(child: SizedBox(height: context.h(24))),

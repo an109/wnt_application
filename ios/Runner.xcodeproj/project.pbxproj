@@ -203,7 +203,7 @@
 				3B06AD1E1E4923F5004D2608 /* Thin Binary */,
 				73D9B9813F78D642BD9AC5E0 /* [CP] Embed Pods Frameworks */,
 				E61992D61D0A563710931986 /* [CP] Copy Pods Resources */,
-				A367A75456C98829004CE480 /* [WNT] Copy vendored framework dSYMs */,
+				BE1E55F8CC68B234288A8950 /* [WNT] Copy vendored framework dSYMs */,
 			);
 			buildRules = (
 			);
@@ -303,23 +303,7 @@
 			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
 			showEnvVarsInLog = 0;
 		};
-		3B06AD1E1E4923F5004D2608 /* Thin Binary */ = {
-			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputPaths = (
-				"${TARGET_BUILD_DIR}/${INFOPLIST_PATH}",
-			);
-			name = "Thin Binary";
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "/bin/sh \"$FLUTTER_ROOT/packages/flutter_tools/bin/xcode_backend.sh\" embed_and_thin";
-		};
-		5FE708AF5105B583208E92BE /* [WNT] Copy vendored framework dSYMs */ = {
+		2FE8A1AB5C7FFD44754D87A1 /* [WNT] Copy vendored framework dSYMs */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
@@ -338,6 +322,22 @@
 			shellPath = /bin/sh;
 			shellScript = "# Only builds that generate dSYMs (release / archive) need this.\n[ \"${DEBUG_INFORMATION_FORMAT}\" = \"dwarf-with-dsym\" ] || exit 0\n[ -n \"${DWARF_DSYM_FOLDER_PATH}\" ] || exit 0\n[ -d \"${PODS_ROOT}\" ] || exit 0\n\nmkdir -p \"${DWARF_DSYM_FOLDER_PATH}\"\n\nfind \"${PODS_ROOT}\" -type d -name \"*.framework.dSYM\" -path \"*.xcframework/*\" | while read -r dsym; do\n  slice=$(basename \"$(dirname \"$(dirname \"$dsym\")\")\")\n\n  # Only iOS slices; skip Catalyst/tvOS/watchOS variants.\n  case \"$slice\" in\n    ios-*) ;;\n    *) continue ;;\n  esac\n  case \"$slice\" in\n    *maccatalyst*) continue ;;\n  esac\n\n  case \"$slice\" in\n    *-simulator) is_simulator=1 ;;\n    *) is_simulator=0 ;;\n  esac\n\n  if [ \"${PLATFORM_NAME}\" = \"iphonesimulator\" ]; then\n    [ \"$is_simulator\" = \"1\" ] || continue\n  else\n    [ \"$is_simulator\" = \"0\" ] || continue\n  fi\n\n  name=$(basename \"$dsym\")\n  rm -rf \"${DWARF_DSYM_FOLDER_PATH}/${name}\"\n  cp -R \"$dsym\" \"${DWARF_DSYM_FOLDER_PATH}/${name}\"\n  echo \"note: copied ${name} ($slice) into the archive\"\ndone\n";
 			showEnvVarsInLog = 0;
+		};
+		3B06AD1E1E4923F5004D2608 /* Thin Binary */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"${TARGET_BUILD_DIR}/${INFOPLIST_PATH}",
+			);
+			name = "Thin Binary";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "/bin/sh \"$FLUTTER_ROOT/packages/flutter_tools/bin/xcode_backend.sh\" embed_and_thin";
 		};
 		73D9B9813F78D642BD9AC5E0 /* [CP] Embed Pods Frameworks */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -378,7 +378,7 @@
 			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
 			showEnvVarsInLog = 0;
 		};
-		96A393DB9972B168B8C243F7 /* [WNT] Copy vendored framework dSYMs */ = {
+		880811796A5E0D1CAC40D557 /* [WNT] Copy vendored framework dSYMs */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
@@ -413,7 +413,7 @@
 			shellPath = /bin/sh;
 			shellScript = "/bin/sh \"$FLUTTER_ROOT/packages/flutter_tools/bin/xcode_backend.sh\" build";
 		};
-		A367A75456C98829004CE480 /* [WNT] Copy vendored framework dSYMs */ = {
+		BE1E55F8CC68B234288A8950 /* [WNT] Copy vendored framework dSYMs */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;

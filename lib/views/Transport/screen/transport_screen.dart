@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wander_nova/views/home/presentation/widgets/home_top_widgets.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
@@ -88,7 +89,11 @@ class _TransportBookingScreenState extends State<TransportBookingScreen> {
             SliverToBoxAdapter(
               child: BlocProvider<ExclusiveDealsBloc>(
                 create: (context) => sl<ExclusiveDealsBloc>(),
-                child: const DealsSection(),
+                // child: const DealsSection(),
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: context.w(16)),
+                  child: const HomeOffersCarousel(categories: ['transport']),
+                ),
               ),
             ),
 

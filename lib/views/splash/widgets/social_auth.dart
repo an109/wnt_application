@@ -60,6 +60,7 @@ class _SocialAuthSectionState extends State<SocialAuthSection> {
       if (mounted) context.read<AuthBloc>().add(GoogleLoginRequested(idToken));
     } catch (e) {
       debugPrint('SocialAuth: Google Sign-In error: $e');
+      if (mounted) _snack('Google sign-in failed: $e', Colors.red);
     } finally {
       if (mounted) setState(() => _isGoogleLoading = false);
     }

@@ -368,7 +368,11 @@ class HomeAdBanner extends StatelessWidget {
 /// loading — or if there are none — it shows the static "Travelling
 /// Information" slide so the layout never jumps or goes blank.
 class HomeOffersCarousel extends StatefulWidget {
-  const HomeOffersCarousel({super.key});
+  const HomeOffersCarousel({super.key, this.categories});
+
+  /// When set, only offers whose category or owner tab contains one of these
+  /// keywords are shown (same matching as DealsSection's tabs).
+  final List<String>? categories;
 
   @override
   State<HomeOffersCarousel> createState() => _HomeOffersCarouselState();
@@ -396,8 +400,18 @@ class _HomeOffersCarouselState extends State<HomeOffersCarousel> {
   /// The 3 newest active offers; "View Details" opens the Offers screen
   /// led by that offer.
   List<HomeInfoSlide> _slides(List<ExclusiveDealEntity> deals) {
+    final filters = widget.categories;
+    final matching = filters == null
+        ? deals
+        : deals.where((deal) {
+            final category = deal.category.toLowerCase();
+            final ownerTab = deal.ownerTab.toLowerCase();
+            return filters.any((f) =>
+                category.contains(f.toLowerCase()) ||
+                ownerTab.contains(f.toLowerCase()));
+          }).toList();
     return [
-      for (final deal in latestOffers(deals).take(3))
+      for (final deal in latestOffers(matching).take(3))
         HomeInfoSlide(
           title: deal.title.trim(),
           body: offerSummary(deal),
