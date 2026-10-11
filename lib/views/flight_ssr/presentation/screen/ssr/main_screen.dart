@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wander_nova/UI_helper/auth_guard.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../../UI_helper/responsive_layout.dart';
 import '../../../../../common_widgets/airline_logo.dart';
@@ -421,7 +422,7 @@ class _SSRMainScreenState extends State<SSRMainScreen> {
           SizedBox(
             height: context.h(44),
             child: ElevatedButton(
-              onPressed: isLastTab ? _navigateToPayment : nextPage,
+              onPressed: isLastTab ? () => requireLogin(context, _navigateToPayment) : nextPage,
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.OrangeColor,
                 elevation: 0,

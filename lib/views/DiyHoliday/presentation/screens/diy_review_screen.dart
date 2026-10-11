@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wander_nova/UI_helper/auth_guard.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
@@ -1198,7 +1199,7 @@ class _DiyReviewScreenState extends State<DiyReviewScreen> {
             SizedBox(
               height: context.h(46),
               child: ElevatedButton(
-                onPressed: _bookingInFlight ? null : _continue,
+                onPressed: _bookingInFlight ? null : () => requireLogin(context, _continue),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: DiyTokens.orange,
                   foregroundColor: Colors.white,

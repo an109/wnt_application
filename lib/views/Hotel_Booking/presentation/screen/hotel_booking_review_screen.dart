@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wander_nova/UI_helper/auth_guard.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:lottie/lottie.dart';
 import 'package:wander_nova/views/Hotel_Booking/presentation/screen/widgets/about_hotel_section.dart';
@@ -1017,8 +1018,10 @@ class _HotelBookingReviewScreenState extends State<HotelBookingReviewScreen> {
                           bookingCode: widget.bookingCode,
                           isConverting: _isConverting,
                           promoDiscount: _promoDiscountAmount,
-                          onContinueToPayment: () =>
-                              _navigateToPayment(room, hotelResult.currency),
+                          onContinueToPayment: () => requireLogin(
+                            context,
+                            () => _navigateToPayment(room, hotelResult.currency),
+                          ),
                         ),
                         SizedBox(height: context.h(20)),
                       ],

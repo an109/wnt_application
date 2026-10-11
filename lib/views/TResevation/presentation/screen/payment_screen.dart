@@ -1453,11 +1453,11 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 style: TextStyle(fontSize: context.fs(12), color: AppColors.subhead)),
             ])),
             SizedBox(width: context.w(8)),
-            Container(
-              padding: EdgeInsets.symmetric(horizontal: context.w(12), vertical: context.h(7)),
-              decoration: BoxDecoration(color: AppColors.AppBlue, borderRadius: BorderRadius.circular(context.r(8))),
-              child: Text('PAY', style: TextStyle(fontSize: context.fs(12), fontWeight: FontWeight.w800, color: Colors.white)),
-            ),
+            // Container(
+            //   padding: EdgeInsets.symmetric(horizontal: context.w(12), vertical: context.h(7)),
+            //   decoration: BoxDecoration(color: AppColors.AppBlue, borderRadius: BorderRadius.circular(context.r(8))),
+            //   child: Text('PAY', style: TextStyle(fontSize: context.fs(12), fontWeight: FontWeight.w800, color: Colors.white)),
+            // ),
           ]),
         ),
       ),

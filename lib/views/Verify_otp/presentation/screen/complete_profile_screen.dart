@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wander_nova/UI_helper/auth_guard.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../UI_helper/contact_type.dart';
@@ -295,7 +296,9 @@ class _CompleteProfilePopupState extends State<CompleteProfilePopup> {
         '${entity.user.firstname} ${entity.user.lastname}',
       );
 
-      // 2. Hand over to the confirmation screen, which owns the move to home.
+      // 2. Back to the booking that asked for sign-in, if any; otherwise the
+      // confirmation screen, which owns the move to home.
+      if (mounted && AuthReturn.tryReturn()) return;
       if (mounted) {
         Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
           MaterialPageRoute(

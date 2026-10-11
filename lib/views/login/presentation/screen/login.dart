@@ -3,7 +3,10 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import 'package:wander_nova/core/resources/app_colours.dart';
 
+import '../../../../UI_helper/auth_guard.dart';
 import '../../../../UI_helper/contact_type.dart';
+import '../../../../UI_helper/navigation_queue.dart';
+import '../../../home/presentation/screens/home_screen.dart';
 import '../../../Send_otp/presentation/bloc/send_otp_bloc.dart';
 import '../../../Send_otp/presentation/bloc/send_otp_event.dart';
 import '../../../Send_otp/presentation/bloc/send_otp_state.dart';
@@ -50,8 +53,29 @@ class _LoginSignupScreenState extends State<LoginSignupScreen> {
   String? _submittedContact;
   ContactType? _submittedType;
 
+  Route<dynamic>? _route;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (widget.isGate || _route != null) return;
+    _route = ModalRoute.of(context);
+    AuthReturn.register(_route);
+  }
+
+  /// Guests can browse without an account; sign-in is asked for again only
+  /// when they book or pay.
+  void _skip() {
+    NavigationQueueService().clear();
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const HomeScreen()),
+      (route) => false,
+    );
+  }
+
   @override
   void dispose() {
+    AuthReturn.unregister(_route);
     _emailController.dispose();
     _phoneController.dispose();
     super.dispose();
@@ -190,6 +214,7 @@ class _LoginSignupScreenState extends State<LoginSignupScreen> {
           child: Stack(
         children: [
           AuthScaffold(
+            onBack: _canClose ? () => Navigator.of(context).pop() : null,
             children: [
               SizedBox(height: context.w(_canClose ? 12 : 30)),
               Center(child: WanderLogo.still(width: context.w(130))),
@@ -271,6 +296,31 @@ class _LoginSignupScreenState extends State<LoginSignupScreen> {
               // const _TermsLine(),
             ],
           ),
+          if (widget.isGate)
+            Positioned(
+              top: MediaQuery.of(context).padding.top + context.w(8),
+              right: context.w(12),
+              child: TextButton(
+                onPressed: _skip,
+                style: TextButton.styleFrom(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: context.w(12),
+                    vertical: context.w(6),
+                  ),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: Text(
+                  'SKIP',
+                  style: TextStyle(
+                    fontSize: context.fs(13),
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.5,
+                    color: AppColors.AppBlue,
+                  ),
+                ),
+              ),
+            ),
           // if (_canClose)
           //   Positioned(
           //     top: MediaQuery.of(context).padding.top + context.w(8),

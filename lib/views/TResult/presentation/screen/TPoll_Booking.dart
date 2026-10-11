@@ -6,7 +6,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:lottie/lottie.dart';
+import 'package:wander_nova/UI_helper/auth_guard.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
+import 'package:wander_nova/views/login/presentation/screen/login.dart';
 import 'package:wander_nova/common_widgets/compact_time_picker_dialog.dart';
 import 'package:wander_nova/common_widgets/floating_close_dialog_card.dart';
 import 'package:wander_nova/views/TResevation/presentation/screen/payment_screen.dart';
@@ -180,6 +182,36 @@ class _TPollBookingScreenState extends State<TPollBookingScreen> {
     }
     final authState = sl<AuthBloc>().state;
     if (authState is AuthAuthenticated) _applyUserData(authState.user);
+  }
+
+  /// Same as hotel: guests fill the form freely, then sign in from the pay
+  /// button; payment only opens for a signed-in user.
+  Future<void> _loginToBook() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const LoginSignupScreen()),
+    );
+    if (!mounted || !isUserLoggedIn()) return;
+    try {
+      final userData = sl<PreferencesManager>().getUserData();
+      if (userData == null) return;
+      final user = UserEntity.fromJson(userData);
+      setState(() {
+        _accountEmail = user.email;
+        _userId = int.tryParse(user.id) ?? 0;
+        // Keep whatever the guest already typed; only fill the gaps.
+        if (_firstNameController.text.trim().isEmpty) {
+          _firstNameController.text = user.firstname ?? '';
+        }
+        if (_lastNameController.text.trim().isEmpty) {
+          _lastNameController.text = user.lastname ?? '';
+        }
+        if (_emailController.text.trim().isEmpty) {
+          _emailController.text = user.email;
+        }
+      });
+    } catch (e) {
+      debugPrint('Error reading user after login: $e');
+    }
   }
 
   void _applyUserData(UserEntity user) {
@@ -1771,7 +1803,7 @@ class _TPollBookingScreenState extends State<TPollBookingScreen> {
               height: context.h(44),
               width: context.w(149),
               child: ElevatedButton(
-                onPressed: _validateAndProceed,
+                onPressed: isUserLoggedIn() ? _validateAndProceed : _loginToBook,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.OrangeColor,
                   elevation: 0,
@@ -1779,7 +1811,7 @@ class _TPollBookingScreenState extends State<TPollBookingScreen> {
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(context.r(12))),
                 ),
-                child: Text('PAY NOW',
+                child: Text(isUserLoggedIn() ? 'PAY NOW' : 'LOG-IN TO BOOK',
                     style: TextStyle(
                         fontSize: context.fs(14),
                         fontWeight: FontWeight.w500,

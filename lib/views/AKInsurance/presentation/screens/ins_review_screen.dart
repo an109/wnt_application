@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:wander_nova/UI_helper/auth_guard.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
@@ -1244,9 +1245,14 @@ class _InsReviewScreenState extends State<InsReviewScreen> {
             SizedBox(
               width: context.w(147),
               child: InsPrimaryButton(
-                label: 'PAY NOW',
+                label: isUserLoggedIn() ? 'PAY NOW' : 'LOG-IN TO BOOK',
                 busy: _verifying,
-                onPressed: _payNow,
+                onPressed: isUserLoggedIn()
+                    ? _payNow
+                    : () async {
+                        await openLogin(context);
+                        if (mounted) setState(() {});
+                      },
               ),
             ),
           ],

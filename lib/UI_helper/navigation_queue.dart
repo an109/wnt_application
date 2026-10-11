@@ -33,6 +33,13 @@ class NavigationQueueService {
     }
   }
 
+  /// Removes and returns the pending action without running it.
+  VoidCallback? takePending() {
+    final action = _isWaitingForLogin ? _pendingNavigation : null;
+    _clear();
+    return action;
+  }
+
   // Clear the queue (e.g., when login is cancelled)
   void clear() {
     _clear();

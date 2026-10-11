@@ -2,13 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import '../../../../UI_helper/currency_converter.dart';
-import '../../../../UI_helper/navigation_queue.dart';
-import '../../../../core/utils/storage/shared_preference.dart';
 import '../../../../core/resources/app_colours.dart';
-import '../../../../injection_container.dart';
-import '../../../auth/presentation/bloc/auth_bloc.dart';
-import '../../../auth/presentation/bloc/auth_state.dart';
-import '../../../login/presentation/screen/login.dart';
 import '../../domain/entities/TPollSearchEntity.dart';
 
 /// Transport search-result card (Figma "Transport results").
@@ -97,43 +91,9 @@ class TpollVehicleCard extends StatelessWidget {
     return items;
   }
 
-  void _handleTap(BuildContext context) {
-    final isLoggedIn = sl<AuthBloc>().state is AuthAuthenticated ||
-        sl<PreferencesManager>().isLoggedIn();
+  // Booking form is open to guests; sign-in is asked for on its pay button.
+  void _handleTap(BuildContext context) => onTap();
 
-    if (isLoggedIn) {
-      onTap();
-      return;
-    }
-
-    // The booking screen needs a signed-in user: park the navigation, show
-    // the login popup, and LoginSuccessScreen resumes it once login succeeds.
-    NavigationQueueService().setPendingNavigation(onTap);
-    showGeneralDialog(
-      context: context,
-      barrierDismissible: true,
-      barrierLabel: 'Login',
-      barrierColor: Colors.black.withValues(alpha: 0.15),
-      transitionDuration: const Duration(milliseconds: 300),
-      pageBuilder: (_, __, ___) => const LoginSignupScreen(),
-      transitionBuilder: (_, animation, __, child) {
-        return FadeTransition(
-          opacity: animation,
-          child: ScaleTransition(
-            scale: Tween<double>(begin: 0.95, end: 1).animate(
-              CurvedAnimation(parent: animation, curve: Curves.easeOut),
-            ),
-            child: child,
-          ),
-        );
-      },
-    ).then((_) {
-      // Dismissed without logging in → drop the parked navigation so it can't
-      // fire later. After a successful login it was already consumed, so this
-      // is a no-op.
-      NavigationQueueService().clear();
-    });
-  }
 
   // ── build ───────────────────────────────────────────────────────────────
   @override

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:pinput/pinput.dart';
 import '../../../../UI_helper/contact_type.dart';
+import '../../../../UI_helper/auth_guard.dart';
 import '../../../../core/error/data_state.dart';
 import '../../../../core/resources/app_colours.dart';
 import '../../../../UI_helper/responsive_layout.dart';
@@ -722,6 +723,8 @@ class _LoginPasswordPopupState extends State<LoginPasswordPopup> {
     }
 
     print('Login successful: User data saved');
+
+    if (mounted && AuthReturn.tryReturn()) return;
 
     if (mounted) {
       // Clear the whole auth stack rather than popping a fixed number of

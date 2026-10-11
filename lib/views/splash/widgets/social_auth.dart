@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:wander_nova/UI_helper/auth_guard.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:wander_nova/injection_container.dart' as di;
@@ -130,6 +131,8 @@ class _SocialAuthSectionState extends State<SocialAuthSection> {
         }
       });
     }
+
+    if (AuthReturn.tryReturn()) return;
 
     Navigator.push(
       context,

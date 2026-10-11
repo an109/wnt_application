@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wander_nova/UI_helper/auth_guard.dart';
 import 'package:intl/intl.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import 'package:wander_nova/common_widgets/airline_logo.dart';
@@ -575,7 +576,7 @@ class AkTripReviewScreen extends StatelessWidget {
           width: double.infinity,
           height: context.h(52),
           child: ElevatedButton(
-            onPressed: () => _continue(context),
+            onPressed: () => requireLogin(context, () => _continue(context)),
             style: ElevatedButton.styleFrom(
               backgroundColor: _sec,
               elevation: 0,

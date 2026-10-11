@@ -942,12 +942,16 @@ class _RoomOptionCardState extends State<_RoomOptionCard> {
                       children: [
                         Row(
                           children: [
-                            Text(
-                              rg.boardBasisDescription.isEmpty ? 'Room Only' : rg.boardBasisDescription,
-                              style: TextStyle(
-                                fontSize: context.fs(13),
-                                fontWeight: FontWeight.w700,
-                                color: _navy,
+                            Flexible(
+                              child: Text(
+                                rg.boardBasisDescription.isEmpty ? 'Room Only' : rg.boardBasisDescription,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: context.fs(13),
+                                  fontWeight: FontWeight.w700,
+                                  color: _navy,
+                                ),
                               ),
                             ),
                           ],

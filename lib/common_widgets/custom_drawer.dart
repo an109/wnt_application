@@ -779,25 +779,25 @@ class _CustomDrawerState extends State<CustomDrawer>
               : _currentCurrency,
           onTap: () => _showCurrencyPicker(context),
         ),
-        _buildMenuItem(
-          context,
-          icon: Icons.translate_rounded,
-          title: 'Language',
-          subtitle: 'English',
-          onTap: () => _comingSoon(context, 'More languages'),
-          showDivider: includeDeleteAccount,
-        ),
+        // _buildMenuItem(
+        //   context,
+        //   icon: Icons.translate_rounded,
+        //   title: 'Language',
+        //   subtitle: 'English',
+        //   onTap: () => _comingSoon(context, 'More languages'),
+        //   showDivider: includeDeleteAccount,
+        // ),
         // Not in the Figma menu; account deletion must stay reachable
         // (store policy).
-        if (includeDeleteAccount)
-          _buildMenuItem(
-            context,
-            icon: Icons.delete_outline_rounded,
-            title: 'Delete Account',
-            onTap: () => _navigateTo(context, '/delete-account'),
-            isDestructive: true,
-            showDivider: false,
-          ),
+        // if (includeDeleteAccount)
+        //   _buildMenuItem(
+        //     context,
+        //     icon: Icons.delete_outline_rounded,
+        //     title: 'Delete Account',
+        //     onTap: () => _navigateTo(context, '/delete-account'),
+        //     isDestructive: true,
+        //     showDivider: false,
+        //   ),
       ],
     );
   }
@@ -1088,22 +1088,16 @@ class _CustomDrawerState extends State<CustomDrawer>
   Widget _buildFooter(BuildContext context) {
     return Column(
       children: [
-        Image.asset(
-          'assets/images/wander_logo.png',
-          height: context.fx(34),
-          fit: BoxFit.contain,
-        ),
-        if (_appVersion.isNotEmpty && _appVersion != '_') ...[
-          SizedBox(height: context.fx(6)),
+        if (_appVersion.isNotEmpty && _appVersion != '_')
           Text(
-            _appVersion,
+            'Version ${_appVersion.substring(1)}',
             style: TextStyle(
-              fontSize: context.ffs(10),
-              color: Colors.grey.shade400,
+              fontSize: context.ffs(11),
+              fontWeight: FontWeight.w500,
+              color: Colors.grey.shade500,
               letterSpacing: 0.5,
             ),
           ),
-        ],
       ],
     );
   }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wander_nova/UI_helper/auth_guard.dart';
 import 'package:intl/intl.dart';
 import 'policy_detail_Screen.dart';
 import '../../../../UI_helper/responsive_layout.dart';
@@ -908,7 +909,14 @@ class _InsuranceBookingScreenState extends State<InsuranceBookingScreen> {
             Expanded(
               flex: 3,
               child: ElevatedButton(
-                onPressed: _isProcessing ? null : _onProceed,
+                onPressed: _isProcessing
+                    ? null
+                    : isUserLoggedIn()
+                        ? _onProceed
+                        : () async {
+                            await openLogin(context);
+                            if (mounted) setState(() {});
+                          },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: _accentOrange,
                   foregroundColor: Colors.white,
@@ -928,7 +936,7 @@ class _InsuranceBookingScreenState extends State<InsuranceBookingScreen> {
                         ),
                       )
                     : Text(
-                        'PROCEED TO PAY',
+                        isUserLoggedIn() ? 'PROCEED TO PAY' : 'LOG-IN TO BOOK',
                         style: TextStyle(
                           fontSize: context.fs(13),
                           fontWeight: FontWeight.w800,
