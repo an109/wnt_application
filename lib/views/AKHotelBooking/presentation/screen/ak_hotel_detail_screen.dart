@@ -2,6 +2,8 @@ import 'dart:ui' as ui;
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:wander_nova/views/wishlist/wishlist_heart.dart';
+import 'package:wander_nova/views/wishlist/wishlist_store.dart';
 import 'package:flutter/rendering.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -101,7 +103,11 @@ class _AkHotelDetailScreenState extends State<AkHotelDetailScreen> {
 
   final ScrollController _scrollController = ScrollController();
   bool _collapsed = false;
-  bool _favorite = false;
+  WishlistItem get _wishlistItem => WishlistItem(
+        id: 'hotel_${widget.hotelId.isNotEmpty ? widget.hotelId : widget.hotelName}',
+        title: widget.hotelName,
+        images: widget.fallbackImages,
+      );
 
   final GlobalKey _overviewKey = GlobalKey();
   final GlobalKey _amenitiesKey = GlobalKey();
@@ -426,11 +432,25 @@ class _AkHotelDetailScreenState extends State<AkHotelDetailScreen> {
               if (!_collapsed)
                 Padding(
                   padding: EdgeInsets.only(right: context.w(6)),
-                  child: _CircleIconButton(
-                    icon: _favorite ? Icons.favorite : Icons.favorite_border,
-                    overPhoto: true,
-                    iconColor: _favorite ? Colors.red : Colors.white,
-                    onTap: () => setState(() => _favorite = !_favorite),
+                  child: ListenableBuilder(
+                    listenable: WishlistStore.instance,
+                    builder: (context, _) {
+                      final saved = WishlistStore.instance.contains(_wishlistItem.id);
+                      return _CircleIconButton(
+                        icon: saved ? Icons.favorite : Icons.favorite_border,
+                        overPhoto: true,
+                        iconColor: saved ? Colors.red : Colors.white,
+                        onTap: () {
+                          WishlistStore.instance.toggle(_wishlistItem);
+                          ScaffoldMessenger.of(context)
+                            ..hideCurrentSnackBar()
+                            ..showSnackBar(SnackBar(
+                              content: Text(saved ? 'Removed from wishlist' : 'Added to wishlist'),
+                              duration: const Duration(seconds: 1),
+                            ));
+                        },
+                      );
+                    },
                   ),
                 ),
               Padding(

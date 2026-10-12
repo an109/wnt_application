@@ -2,6 +2,7 @@ import 'package:wander_nova/views/splash/splash_screen.dart';
 
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:wander_nova/views/wishlist/wishlist_screen.dart';
 import 'package:wander_nova/core/resources/app_colours.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -592,7 +593,13 @@ class _CustomDrawerState extends State<CustomDrawer>
             iconColor: const Color(0xFFE5484D),
             tint: const Color(0xFFFDECEF),
             label: 'Wishlists',
-            onTap: () => _comingSoon(context, 'Wishlists'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const WishlistScreen()),
+              );
+            },
           ),
         ),
       ],

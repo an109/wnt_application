@@ -1,5 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:wander_nova/views/wishlist/wishlist_heart.dart';
+import 'package:wander_nova/views/wishlist/wishlist_store.dart';
 import 'package:shimmer/shimmer.dart';
 import '../../../../UI_helper/responsive_layout.dart';
 import '../../../../common_widgets/fast_network_image_cache_manager.dart';
@@ -28,7 +30,6 @@ class _AkHotelRecommendedCardState extends State<AkHotelRecommendedCard> {
   static const _muted = AppColors.subhead;
   static const _imageSize = 68.0;
 
-  bool _favorite = false;
 
   @override
   Widget build(BuildContext context) {
@@ -76,17 +77,14 @@ class _AkHotelRecommendedCardState extends State<AkHotelRecommendedCard> {
                   Positioned(
                     top: context.h(4),
                     right: context.w(4),
-                    child: GestureDetector(
-                      onTap: () => setState(() => _favorite = !_favorite),
-                      child: Container(
-                        padding: EdgeInsets.all(context.w(4)),
-                        decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-                        child: Icon(
-                          _favorite ? Icons.favorite : Icons.favorite_border,
-                          size: context.w(11),
-                          color: _favorite ? const Color(0xFFFF4D4F) : Color(0xFFFF4D4F),
-                        ),
-                      ),
+                    child: WishlistHeart(
+                      size: 11,
+                      item: WishlistItem(
+                  id: 'hotel_${widget.hotel.hotelCode.isNotEmpty ? widget.hotel.hotelCode : widget.hotel.hotelName}',
+                  title: widget.hotel.hotelName,
+                  subtitle: widget.hotel.address.isNotEmpty ? widget.hotel.address : widget.hotel.cityName,
+                  images: widget.hotel.images.isNotEmpty ? widget.hotel.images : [widget.hotel.image],
+                ),
                     ),
                   ),
                 ],

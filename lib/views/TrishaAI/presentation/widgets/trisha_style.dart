@@ -24,10 +24,42 @@ class TrishaStyle {
   // Exported from the Figma file (frame "AI 1"). Until a file is added, the
   // widgets below fall back to a plain placeholder rather than crashing.
   static const orbAsset = 'assets/trisha/trisha_orb.png'; // "FULL ai"
-  static const cardFlightAsset = 'assets/trisha/card_flight.png';
-  static const cardStayAsset = 'assets/trisha/card_stay.png';
-  static const cardHolidayAsset = 'assets/trisha/card_holiday.png';
-  static const micAsset = 'assets/trisha/mic_ai.svg'; // mingcute:mic-ai-fill
+  static const cardFlightAsset = 'assets/NewIcons/aiflight.png';
+  static const cardStayAsset = 'assets/NewIcons/aihotel.png';
+  static const cardHolidayAsset = 'assets/NewIcons/aiholiday.png';
+  static const micAsset = 'assets/NewIcons/aimic.png'; // mingcute:mic-ai-fill
+
+
+// inside TrishaStyle:
+
+  /// "Hi, ANJLI" — Manrope Bold 24 / 100% / 0 tracking (Figma AI 2).
+  static TextStyle welcomeGreeting(BuildContext context) => GoogleFonts.manuale(
+    fontSize: context.ffs(24),
+    fontWeight: FontWeight.w700,
+    height: 1.0,
+    letterSpacing: 0.4,
+  );
+
+  /// Greeting sub-line — Manrope 12 / 18px / 1px tracking (Figma AI 2).
+  static TextStyle welcomeSub(BuildContext context, {FontWeight weight = FontWeight.w400}) =>
+      GoogleFonts.manrope(
+        fontSize: context.ffs(12),
+        fontWeight: weight,
+        height: 18 / 12,        // 1.5
+        letterSpacing: 1,
+      );
+
+  /// Figma gradient used on the greeting: #00A1E4 → #0080F3 → #2BFCFF.
+  static const LinearGradient welcomeGradient = LinearGradient(
+    begin: Alignment.centerLeft,
+    end: Alignment.centerRight,
+    colors: [
+      Color(0xFF00A1E4),
+      Color(0xFF0080F3),
+      Color(0xFF2BFCFF),
+    ],
+    stops: [0.0, 0.5, 1.0],
+  );
 
   /// Display serif used for "Thrisha.AI", "Hi, NAME" and the "Thrisha" label.
   static TextStyle display(BuildContext context, double size, {FontWeight weight = FontWeight.w700}) =>
@@ -124,20 +156,15 @@ class TrishaMicIcon extends StatelessWidget {
 
   const TrishaMicIcon({super.key, required this.size});
 
-  // flutter_svg reports a missing asset as an unhandled error instead of using
-  // errorBuilder, so check the bundle once before asking for the SVG.
-  static final Future<bool> _exported = AssetManifest.loadFromAssetBundle(rootBundle)
-      .then((m) => m.listAssets().contains(TrishaStyle.micAsset))
-      .catchError((_) => false);
-
   @override
   Widget build(BuildContext context) {
-    final fallback = Icon(Icons.mic_rounded, size: size, color: TrishaStyle.brandBlue);
-    return FutureBuilder<bool>(
-      future: _exported,
-      builder: (context, snap) => snap.data == true
-          ? SvgPicture.asset(TrishaStyle.micAsset, width: size, height: size)
-          : fallback,
+    return Image.asset(
+      TrishaStyle.micAsset,
+      width: size,
+      height: size,
+      fit: BoxFit.contain,
+      errorBuilder: (_, __, ___) =>
+          Icon(Icons.mic_rounded, size: size, color: TrishaStyle.brandBlue),
     );
   }
 }

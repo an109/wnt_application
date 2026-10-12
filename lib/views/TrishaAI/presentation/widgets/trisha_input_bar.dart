@@ -70,11 +70,21 @@ class _TrishaInputBarState extends State<TrishaInputBar> {
             context.fx(16),
             context.fx(14),
             context.fx(16),
-            context.fx(14) + MediaQuery.of(context).padding.bottom,
+            context.fx(45) + MediaQuery.of(context).padding.bottom,
           ),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(context.fx(24))),
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(24),   // ← Figma curve
+              topRight: Radius.circular(24),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.06),
+                blurRadius: 20,
+                offset: const Offset(0, -6),    // shadow lifts upward
+              ),
+            ],
           ),
           child: Row(
             children: [

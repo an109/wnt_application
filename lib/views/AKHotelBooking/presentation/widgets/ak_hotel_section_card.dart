@@ -1,5 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:wander_nova/views/wishlist/wishlist_heart.dart';
+import 'package:wander_nova/views/wishlist/wishlist_store.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:shimmer/shimmer.dart';
 import '../../../../UI_helper/responsive_layout.dart';
@@ -39,7 +41,6 @@ class _AkHotelSectionCardState extends State<AkHotelSectionCard> {
 
   final PageController _pageController = PageController();
   int _page = 0;
-  bool _favorite = false;
 
   @override
   void dispose() {
@@ -259,16 +260,13 @@ class _AkHotelSectionCardState extends State<AkHotelSectionCard> {
             Positioned(
               top: context.h(6),
               right: context.w(6),
-              child: GestureDetector(
-                onTap: () => setState(() => _favorite = !_favorite),
-                child: Container(
-                  padding: EdgeInsets.all(context.w(5)),
-                  decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-                  child: Icon(
-                    _favorite ? Icons.favorite : Icons.favorite_border,
-                    size: context.w(13),
-                    color: _favorite ? const Color(0xFFFF4D4F) : Color(0xFFFF4D4F),
-                  ),
+              child: WishlistHeart(
+                size: 13,
+                item: WishlistItem(
+                  id: 'hotel_${widget.hotel.hotelCode.isNotEmpty ? widget.hotel.hotelCode : widget.hotel.hotelName}',
+                  title: widget.hotel.hotelName,
+                  subtitle: widget.hotel.address.isNotEmpty ? widget.hotel.address : widget.hotel.cityName,
+                  images: widget.hotel.images.isNotEmpty ? widget.hotel.images : [widget.hotel.image],
                 ),
               ),
             ),

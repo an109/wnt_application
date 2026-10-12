@@ -1,6 +1,7 @@
 import 'package:wander_nova/views/MyBookings/Screen/MyBooking_Screen.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:wander_nova/views/wishlist/wishlist_screen.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -290,7 +291,11 @@ class _HomeScreenState extends State<HomeScreen> {
                       MaterialPageRoute(builder: (_) => const OffersScreen()),
                     );
                   } else if (index == 3) {
-                    // Wishlist
+                    setState(() => selectedNavIndex = 0);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const WishlistScreen()),
+                    );
                   }
                 },
                 onCenterTap: () {

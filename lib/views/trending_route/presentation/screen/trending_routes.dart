@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:wander_nova/views/wishlist/wishlist_heart.dart';
+import 'package:wander_nova/views/wishlist/wishlist_store.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import '../../../../UI_helper/currency_converter.dart';
@@ -430,10 +432,15 @@ class _TrendingPackagesViewState extends State<TrendingPackagesView> {
                     ),
                   ],
                 ),
-                child: Image.asset(
-                  'assets/NewIcons/heartHD.png',
-                  width: context.w(18),
-                  height: context.h(18),
+                child: Center(
+                  child: WishlistHeartImage(
+                    item: WishlistItem(
+                      id: 'route_${route.fromCode}_${route.toCode}',
+                      title: '${route.from} to ${route.to}',
+                      subtitle: '${route.fromCode} - ${route.toCode}',
+                      images: [route.imageUrl],
+                    ),
+                  ),
                 ),
               ),
             ),

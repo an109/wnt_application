@@ -243,72 +243,77 @@ class _DestinationSearchScreenState extends State<DestinationSearchScreen> {
           children: [
             Padding(
               padding: EdgeInsets.symmetric(horizontal: context.w(14)),
-              child: Image.asset(
-                field == _ActiveField.from
-                    ? 'assets/NewIcons/arrowBack.png'
-                    : 'assets/NewIcons/destinationIcon.png',
-                width: _active == _ActiveField.from
-                    ? context.w(16)  // Blue for From/Departure
-                    : context.w(20),
-                // width: context.w(20),
-                height: _active == _ActiveField.from
-                    ? context.h(16)  // Blue for From/Departure
-                    : context.h(20),
-                // height: context.w(20),
-                color: field == _ActiveField.from
-                    ? AppColors.subhead  // Blue for From/Departure
-                    : Color(0xFFCCCCCC), // Orange for To/Arrival
+              child: GestureDetector(
+                onTap: () {
+                  if (field == _ActiveField.from) {
+                    Navigator.of(context).pop();
+                  }
+                },
+                child: Image.asset(
+                  field == _ActiveField.from
+                      ? 'assets/NewIcons/arrowBack.png'
+                      : 'assets/NewIcons/destinationIcon.png',
+                  width: field == _ActiveField.from
+                      ? context.w(16)
+                      : context.w(20),
+                  height: field == _ActiveField.from
+                      ? context.h(16)
+                      : context.h(20),
+                  color: field == _ActiveField.from
+                      ? AppColors.subhead
+                      : const Color(0xFFCCCCCC),
+                ),
               ),
             ),
             Expanded(
               child: isActive
                   ? TextField(
-                controller: _controller,
-                focusNode: _focusNode,
-                autofocus: true,
-                decoration: InputDecoration(
-                  hintText: placeholder,
-                  hintStyle: TextStyle(
-                    fontSize: context.fs(12),
-                    fontWeight: FontWeight.w500,
-                    color: const Color(0xFF9CA3AF),
-                  ),
-                  border: InputBorder.none,
-                  isDense: true,
-                  contentPadding: EdgeInsets.zero,
-                ),
-                style: TextStyle(
-                  fontSize: context.fs(12),
-                  fontWeight: FontWeight.w500,
-                  color: AppColors.black,
-                ),
-                onChanged: _onQueryChanged,
-              )
-                  : Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    airport?.cityName ?? placeholder,
-                    style: TextStyle(
-                      fontSize: context.fs(14),
-                      fontWeight: FontWeight.w700,
-                      color: airport != null
-                          ? AppColors.navy
-                          : const Color(0xFF9CA3AF),
-                    ),
-                  ),
-                  if (airport != null)
-                    Text(
-                      airport.airportName,
-                      style: TextStyle(
-                        fontSize: context.fs(11),
-                        fontWeight: FontWeight.w400,
-                        color: const Color(0xFF6B7280),
+                      controller: _controller,
+                      focusNode: _focusNode,
+                      autofocus: true,
+                      decoration: InputDecoration(
+                        hintText: placeholder,
+                        hintStyle: TextStyle(
+                          fontSize: context.fs(12),
+                          fontWeight: FontWeight.w500,
+                          color: const Color(0xFF9CA3AF),
+                        ),
+                        border: InputBorder.none,
+                        isDense: true,
+                        contentPadding: EdgeInsets.zero,
                       ),
+                      style: TextStyle(
+                        fontSize: context.fs(12),
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.black,
+                      ),
+                      onChanged: _onQueryChanged,
+                    )
+                  : Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          airport?.cityName ?? placeholder,
+                          style: TextStyle(
+                            fontSize: context.fs(14),
+                            fontWeight: FontWeight.w700,
+                            color: airport != null
+                                ? AppColors.navy
+                                : const Color(0xFF9CA3AF),
+                          ),
+                        ),
+                        if (airport != null)
+                          Text(
+                            airport.airportName,
+                            style: TextStyle(
+                              fontSize: context.fs(11),
+                              fontWeight: FontWeight.w400,
+                              color: const Color(0xFF6B7280),
+                            ),
+                          ),
+                      ],
                     ),
-                ],
-              ),
             ),
             if (!isActive && airport == null)
               Padding(
@@ -370,11 +375,12 @@ class _DestinationSearchScreenState extends State<DestinationSearchScreen> {
                   : context.w(20),
               // width: context.w(20),
               height: _active == _ActiveField.from
-                  ? context.h(16)  // Blue for From/Departure
+                  ? context.h(16) // Blue for From/Departure
                   : context.h(20),
               // height: context.w(20),
               color: _active == _ActiveField.from
-                  ? AppColors.subhead  // Blue for From/Departure
+                  ? AppColors
+                        .subhead // Blue for From/Departure
                   : Color(0xFFCCCCCC), // Orange for To/Arrival
             ),
             title: Text(
@@ -426,6 +432,4 @@ class _DestinationSearchScreenState extends State<DestinationSearchScreen> {
       ),
     );
   }
-
-
 }

@@ -3,6 +3,7 @@ import 'dart:ui';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:wander_nova/views/wishlist/wishlist_store.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -142,21 +143,47 @@ class HomeSectionHeader extends StatelessWidget {
   }
 }
 
-/// White 18px wishlist badge with the outlined heart.
+/// White 18px wishlist badge; tapping saves [item], filling the heart.
 class HomeHeartBadge extends StatelessWidget {
-  const HomeHeartBadge({super.key});
+  final WishlistItem item;
+
+  const HomeHeartBadge({super.key, required this.item});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: context.fx(18),
-      height: context.fx(18),
-      padding: EdgeInsets.all(context.fx(3)),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        shape: BoxShape.circle,
-      ),
-      child: SvgPicture.asset('$_icons/heart_outline.svg'),
+    return ListenableBuilder(
+      listenable: WishlistStore.instance,
+      builder: (context, _) {
+        final saved = WishlistStore.instance.contains(item.id);
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () {
+            WishlistStore.instance.toggle(item);
+            ScaffoldMessenger.maybeOf(context)
+              ?..hideCurrentSnackBar()
+              ..showSnackBar(SnackBar(
+                content: Text(saved ? 'Removed from wishlist' : 'Added to wishlist'),
+                duration: const Duration(seconds: 1),
+              ));
+          },
+          // Larger hit area than the 18px badge itself.
+          child: Padding(
+            padding: EdgeInsets.all(context.fx(4)),
+            child: Container(
+              width: context.fx(18),
+              height: context.fx(18),
+              padding: EdgeInsets.all(context.fx(3)),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+              ),
+              child: saved
+                  ? Icon(Icons.favorite, size: context.fx(12), color: const Color(0xFFFF4D4F))
+                  : SvgPicture.asset('$_icons/heart_outline.svg'),
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -475,9 +502,16 @@ class _DestinationCard extends StatelessWidget {
               _CardImage(url: destination.imageUrl, fallbackIcon: Icons.location_city),
               const DecoratedBox(decoration: BoxDecoration(gradient: _cardScrim)),
               Positioned(
-                top: context.fx(8),
-                right: context.fx(7),
-                child: const HomeHeartBadge(),
+                top: context.fx(4),
+                right: context.fx(3),
+                child: HomeHeartBadge(
+                  item: WishlistItem(
+                    id: 'destination_${destination.name}',
+                    title: destination.name,
+                    subtitle: destination.tagline,
+                    images: [destination.imageUrl],
+                  ),
+                ),
               ),
               Positioned(
                 left: context.fx(8),
@@ -656,9 +690,16 @@ class _RouteCard extends StatelessWidget {
               _CardImage(url: route.imageUrl, fallbackIcon: Icons.flight),
               const DecoratedBox(decoration: BoxDecoration(gradient: _cardScrim)),
               Positioned(
-                top: context.fx(8),
-                right: context.fx(7),
-                child: const HomeHeartBadge(),
+                top: context.fx(4),
+                right: context.fx(3),
+                child: HomeHeartBadge(
+                  item: WishlistItem(
+                    id: 'route_${route.fromCode}_${route.toCode}',
+                    title: '${route.from} to ${route.to}',
+                    subtitle: '${route.fromCode} - ${route.toCode}',
+                    images: [route.imageUrl],
+                  ),
+                ),
               ),
               Positioned(
                 left: context.fx(8),
@@ -822,9 +863,16 @@ class _HotelCard extends StatelessWidget {
                   children: [
                     _CardImage(url: hotel['image'] as String?, fallbackIcon: Icons.hotel),
                     Positioned(
-                      top: context.fx(4),
-                      right: context.fx(4),
-                      child: const HomeHeartBadge(),
+                      top: 0,
+                      right: 0,
+                      child: HomeHeartBadge(
+                        item: WishlistItem(
+                          id: 'hotel_${hotel['name']}',
+                          title: hotel['name']?.toString() ?? '',
+                          subtitle: hotel['location']?.toString() ?? '',
+                          images: [if (hotel['image'] is String) hotel['image'] as String],
+                        ),
+                      ),
                     ),
                   ],
                 ),

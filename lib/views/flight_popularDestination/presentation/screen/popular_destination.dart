@@ -1,5 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:wander_nova/views/wishlist/wishlist_heart.dart';
+import 'package:wander_nova/views/wishlist/wishlist_store.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import '../../../../UI_helper/currency_converter.dart';
@@ -404,10 +406,15 @@ class _PopularDestinationsState extends State<PopularDestinations> {
                     ),
                   ],
                 ),
-                child: Image.asset(
-                  'assets/NewIcons/heartHD.png',
-                  width: context.w(18),
-                  height: context.h(18),
+                child: Center(
+                  child: WishlistHeartImage(
+                    item: WishlistItem(
+                      id: 'destination_${destination.name}',
+                      title: destination.name,
+                      subtitle: destination.tagline,
+                      images: [destination.imageUrl],
+                    ),
+                  ),
                 ),
               ),
             ),

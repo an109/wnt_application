@@ -21,26 +21,34 @@ class TrishaWelcome extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(height: context.fx(24)),
+          // ---- Greeting (gradient + Manrope Bold 24) ----
           ShaderMask(
-            shaderCallback: (r) => const LinearGradient(
-              colors: [TrishaStyle.brandBlue, TrishaStyle.brandBlueLight],
-            ).createShader(r),
+            blendMode: BlendMode.srcIn,
+            shaderCallback: (r) => TrishaStyle.welcomeGradient.createShader(r),
             child: Text(
               'Hi, ${name.toUpperCase()}',
-              style: TrishaStyle.display(context, 26).copyWith(color: Colors.white),
+              style: TrishaStyle.welcomeGreeting(context).copyWith(color: Colors.white),
             ),
           ),
-          SizedBox(height: context.fx(4)),
+          SizedBox(height: context.fx(6)),
+
+// ---- Sub-line (Manrope 12 / 1px tracking) ----
           SizedBox(
             width: context.fx(279),
             child: Text.rich(
               TextSpan(
                 children: [
-                  TextSpan(text: 'I’m Thrisha', style: TextStyle(color: TrishaStyle.accent)),
-                  const TextSpan(text: ' - your personal travel assistant. Let’s plan your next trip together.'),
+                  TextSpan(
+                    text: 'I’m Trisha',
+                    style: TrishaStyle.welcomeSub(context, weight: FontWeight.w600)
+                        .copyWith(color: TrishaStyle.accent),       // orange
+                  ),
+                  TextSpan(
+                    text: ' - your personal travel assistant. Let’s plan your next trip together.',
+                    style: TrishaStyle.welcomeSub(context),          // regular, default text color
+                  ),
                 ],
               ),
-              style: TrishaStyle.body(context, 12, height: 1.5).copyWith(letterSpacing: 0.3),
             ),
           ),
           // Figma: orb centred ~170 px below the greeting, cards ~130 px above
