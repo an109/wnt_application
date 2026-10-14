@@ -307,17 +307,17 @@ class _SearchCardState extends State<SearchCard> {
 
   void _performSearch() async {
     /// REMOVE THIS WHEN MULTI-CITY WILL WORK
-    if (isMultiCityMode) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Multi-city search coming soon!'),
-          backgroundColor: Colors.orange,
-          behavior: SnackBarBehavior.floating,
-          duration: Duration(seconds: 2),
-        ),
-      );
-      return;
-    }
+    // if (isMultiCityMode) {
+    //   ScaffoldMessenger.of(context).showSnackBar(
+    //     const SnackBar(
+    //       content: Text('Multi-city search coming soon!'),
+    //       backgroundColor: Colors.orange,
+    //       behavior: SnackBarBehavior.floating,
+    //       duration: Duration(seconds: 2),
+    //     ),
+    //   );
+    //   return;
+    // }
 
     if (!_validateBeforeSearch()) return;
 
