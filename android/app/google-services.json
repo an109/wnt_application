@@ -1,39 +1,26 @@
 {
   "project_info": {
-    "project_number": "99880015098",
-    "project_id": "wandernova-493912"
+    "project_number": "613825335674",
+    "project_id": "wander-nova-8f14d",
+    "storage_bucket": "wander-nova-8f14d.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:99880015098:android:0000000000000000",
+        "mobilesdk_app_id": "1:613825335674:android:9c4ab434137d72b8d786c3",
         "android_client_info": {
           "package_name": "com.application.wandernova"
         }
       },
-      "oauth_client": [
-        {
-          "client_id": "99880015098-o585d840371c4j01vc2alcrqa74mevdh.apps.googleusercontent.com",
-          "client_type": 3
-        },
-        {
-          "client_id": "99880015098-3bothf029lmtpts3u0ijcr115e1ss6r5.apps.googleusercontent.com",
-          "client_type": 1
-        }
-      ],
+      "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyBUgMjct6QR1cmkO_4eYu2WQGTZGCIz8ng"
+          "current_key": "AIzaSyBBi7Udc64Nw92gxuCzhuB1GBwNgyo86oA"
         }
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": [
-            {
-              "client_id": "99880015098-o585d840371c4j01vc2alcrqa74mevdh.apps.googleusercontent.com",
-              "client_type": 3
-            }
-          ]
+          "other_platform_oauth_client": []
         }
       }
     }

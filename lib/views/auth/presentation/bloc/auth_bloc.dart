@@ -1,5 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/error/data_state.dart';
+import '../../../../core/services/notification_service.dart';
 import '../../../../core/utils/storage/shared_preference.dart';
 import '../../domain/entity/user_entity.dart';
 import '../../domain/usecase/apple_auth_usecase.dart';
@@ -41,6 +42,10 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     }
     await preferencesManager.saveUserType(int.tryParse(user.userType ?? '0') ?? 0);
     emit(AuthAuthenticated(user));
+    // Local notification on a fresh social login (not on silent restore).
+    NotificationService.instance.showLoginNotification(
+      name: user.name ?? user.firstname,
+    );
   }
 
   Future<void> _onAuthCheckStatusRequested(

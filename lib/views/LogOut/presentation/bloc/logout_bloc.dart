@@ -1,5 +1,6 @@
 import 'package:bloc/bloc.dart';
 import '../../../../core/error/data_state.dart';
+import '../../../../core/services/notification_service.dart';
 import '../../domain/entity/logout_entity.dart';
 import '../../domain/usecase/logout_usecase.dart';
 import 'logout_event.dart';
@@ -22,6 +23,7 @@ class LogoutBloc extends Bloc<LogoutEvent, LogoutState> {
 
     if (result is DataSuccess<LogoutEntity>) {
       emit(LogoutSuccess(result.data!));
+      NotificationService.instance.showLogoutNotification();
     } else if (result is DataFailed<LogoutEntity>) {
       emit(LogoutFailed(result.error!));
     }

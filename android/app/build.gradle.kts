@@ -23,6 +23,8 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
+        // Required by flutter_local_notifications (uses newer Java APIs).
+        isCoreLibraryDesugaringEnabled = true
     }
 
     kotlinOptions {
@@ -80,5 +82,7 @@ dependencies {
     // Native bridge for Razorpay's Android Custom Checkout SDK, wired up in
     // MainActivity.kt for the flight payment flow. No iOS equivalent exists.
     implementation("com.razorpay:customui:3.9.22")
+    // Required by flutter_local_notifications core library desugaring.
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 }
 

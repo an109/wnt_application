@@ -2,6 +2,7 @@ import 'dart:developer' as developer;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:wander_nova/core/services/notification_service.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import 'package:wander_nova/views/AKFlight_tui/presentation/bloc/akflight_Search_bloc.dart';
@@ -70,6 +71,8 @@ void main() async {
   if (sl.isRegistered<ExchangeRateBloc>()) {
     sl<ExchangeRateBloc>().add(const FetchExchangeRates());
   }
+  await NotificationService.instance.initialize();
+
   developer.log('', name: '');
   runApp(const MyApp());
 }

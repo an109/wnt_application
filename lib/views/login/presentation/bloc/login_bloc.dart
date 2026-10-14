@@ -1,6 +1,7 @@
 import 'package:bloc/bloc.dart';
 import 'package:dio/dio.dart';
 import '../../../../core/error/data_state.dart';
+import '../../../../core/services/notification_service.dart';
 import '../../domain/entity/login_entity.dart';
 import '../../domain/usecase/login_usecase.dart';
 import 'login_event.dart';
@@ -54,6 +55,9 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
       if (result is DataSuccess<LoginEntity>) {
         print('LoginBloc: Login successful');
         emit(LoginSuccess(result.data!));
+        NotificationService.instance.showLoginNotification(
+          name: result.data!.user.firstname,
+        );
       } else if (result is DataFailed<LoginEntity>) {
         final error = result.error;
         print('LoginBloc: Login failed - ${error?.message}');
