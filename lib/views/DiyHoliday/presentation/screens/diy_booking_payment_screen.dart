@@ -108,7 +108,7 @@ class _DiyBookingPaymentScreenState extends State<DiyBookingPaymentScreen> {
           paymentReference: paid.reference,
           paymentId: '',
           enquiryReference: paid.balance > 0
-              ? 'Balance ${diyMoney(paid.balance, currency: paid.currency)}'
+              ? 'Balance ${diyChargeMoney(paid.balance, currency: paid.currency)}'
                     '${paid.balanceDueOn.isEmpty ? '' : ' due by ${diyDayDate(paid.balanceDueOn)}'}'
               : null,
         ),
@@ -168,7 +168,7 @@ class _DiyBookingPaymentScreenState extends State<DiyBookingPaymentScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Pay ${diyMoney(widget.link.amount, currency: widget.link.currency)}',
+                'Pay ${diyChargeMoney(widget.link.amount, currency: widget.link.currency)}',
                 style: TextStyle(
                   fontSize: context.fs(16),
                   fontWeight: FontWeight.w700,

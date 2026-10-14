@@ -181,7 +181,7 @@ class DiyBookingConfirmedScreen extends StatelessWidget {
                 ),
               ),
               Text(
-                diyMoney(amount, currency: currency),
+                diyChargeMoney(amount, currency: currency),
                 style: TextStyle(
                   fontSize: context.fs(17),
                   fontWeight: FontWeight.w800,

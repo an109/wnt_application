@@ -438,7 +438,10 @@ class _PaymentSectionState extends State<PaymentSection>
         data: {
           'amount': amount,
           'currency': 'INR',
-          'reference_id': 'visa_${DateTime.now().millisecondsSinceEpoch}',
+          // The backend only accepts payments for orders made for this
+          // application (reference visa_<id>).
+          'reference_id': 'visa_${widget.formData['applicationId']}',
+          'transaction_type': 'visa',
         },
       );
 
@@ -483,6 +486,8 @@ class _PaymentSectionState extends State<PaymentSection>
     _completePaymentOnBackend(
       paymentReference: response.paymentId ?? '',
       paymentMode: 'razorpay',
+      razorpayOrderId: response.orderId,
+      razorpaySignature: response.signature,
     );
   }
 
@@ -504,6 +509,8 @@ class _PaymentSectionState extends State<PaymentSection>
   Future<void> _completePaymentOnBackend({
     required String paymentReference,
     required String paymentMode,
+    String? razorpayOrderId,
+    String? razorpaySignature,
   }) async {
     final applicationId = widget.formData['applicationId'];
     if (applicationId == null) {
@@ -523,6 +530,8 @@ class _PaymentSectionState extends State<PaymentSection>
               .toString(),
           'payment_reference': paymentReference,
           'payment_mode': paymentMode,
+          if (razorpayOrderId != null) 'razorpay_order_id': razorpayOrderId,
+          if (razorpaySignature != null) 'razorpay_signature': razorpaySignature,
         },
       );
 

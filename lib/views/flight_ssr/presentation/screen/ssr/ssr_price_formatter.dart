@@ -3,24 +3,10 @@ import '../../../../../core/utils/storage/shared_preference.dart';
 import '../../../../../injection_container.dart' as di;
 
 class SsrPriceFormatter {
+  /// SSR price in the user's currency (stays in [currency] if no rate).
   static String format(double amount, String currency) {
     if (amount <= 0) return 'Free';
-    try {
-      final targetCurrency =
-          di.sl<PreferencesManager>().getPreferredCurrency() ?? 'INR';
-      final sourceCurrency = currency.isEmpty ? 'INR' : currency;
-      final converted =
-          sourceCurrency.toUpperCase() == targetCurrency.toUpperCase()
-          ? amount
-          : CurrencyConverter.convert(
-              amount: amount,
-              fromCurrency: sourceCurrency,
-              toCurrency: targetCurrency,
-            );
-      return CurrencyConverter.format(converted, targetCurrency);
-    } catch (_) {
-      return CurrencyConverter.format(amount, currency);
-    }
+    return CurrencyConverter.display(amount, fromCurrency: currency.isEmpty ? 'INR' : currency);
   }
 
   static String unit(double amount, String currency, String suffix) {

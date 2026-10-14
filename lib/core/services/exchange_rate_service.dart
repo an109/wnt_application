@@ -1,62 +1,60 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../utils/storage/shared_preference.dart';
 import '../../injection_container.dart';
 import 'geo_location_services.dart';
+import '../constants/urls.dart';
+import '../../UI_helper/currency_converter.dart';
 
 class ExchangeRateService {
-  static const String _exchangeRateApiUrl = 'https://open.er-api.com/v6/latest/';
+  static const _updatedKey = 'exchange_rates_updated';
+  static const _freshFor = Duration(hours: 1);
 
-  /// Fetch latest exchange rates for base currency (usually USD)
-  static Future<Map<String, double>?> fetchExchangeRates({String base = 'USD'}) async {
-    try {
-      final response = await http.get(
-        Uri.parse('$_exchangeRateApiUrl$base'),
-      ).timeout(const Duration(seconds: 10));
+  static Future<Map<String, double>?>? _inFlight;
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final rates = data['rates'] as Map<String, dynamic>;
-
-        final result = <String, double>{};
-        for (final entry in rates.entries) {
-          if (entry.value is num) {
-            result[entry.key] = (entry.value as num).toDouble();
-          }
-        }
-
-        // Cache the rates
-        final prefs = sl<PreferencesManager>();
-        await prefs.setString('exchange_rates_cache', jsonEncode(result));
-        await prefs.setString('exchange_rates_updated', DateTime.now().toIso8601String());
-
-        return result;
-      }
-    } catch (e) {
-      print('⚠️ Failed to fetch exchange rates: $e');
-    }
-
-    // Return cached rates as fallback
-    final prefs = sl<PreferencesManager>();
-    return prefs.getCachedExchangeRates();
+  /// Fetches USD-based rates from our backend (falling back to the public
+  /// feed), caches them for [CurrencyConverter] and tells listening screens.
+  /// Concurrent callers share one request.
+  static Future<Map<String, double>?> fetchExchangeRates() {
+    return _inFlight ??= _fetch().whenComplete(() => _inFlight = null);
   }
 
-  /// Get rates with cache (don't fetch too often)
-  static Future<Map<String, double>?> getRatesWithCache({bool forceRefresh = false}) async {
-    final prefs = sl<PreferencesManager>();
-
-    if (!forceRefresh) {
-      // Check if rates are fresh (less than 1 hour old)
-      final lastUpdated = prefs.getString('exchange_rates_updated');
-      if (lastUpdated != null) {
-        final updatedTime = DateTime.parse(lastUpdated);
-        if (DateTime.now().difference(updatedTime).inHours < 1) {
-          return prefs.getCachedExchangeRates();
-        }
+  static Future<Map<String, double>?> _fetch() async {
+    for (final url in [Urls.exchangeRatePrimary, Urls.exchangeRateFallback, Urls.exchangeRateLastResort]) {
+      try {
+        final response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 10));
+        if (response.statusCode != 200) continue;
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final rates = (data['rates'] ?? data['conversion_rates']) as Map<String, dynamic>?;
+        if (rates == null || rates.isEmpty) continue;
+        final result = <String, double>{
+          for (final e in rates.entries)
+            if (e.value is num) e.key.toUpperCase(): (e.value as num).toDouble(),
+        };
+        final prefs = sl<PreferencesManager>();
+        await prefs.setString('exchange_rates_cache', jsonEncode(result));
+        await prefs.setString(_updatedKey, DateTime.now().toIso8601String());
+        // Keep the ExchangeRate bloc's freshness stamp in step.
+        await prefs.setInt('exchange_rates_cache_time', DateTime.now().millisecondsSinceEpoch);
+        CurrencyConverter.ratesVersion.value++;
+        return result;
+      } catch (e) {
+        print('⚠️ Exchange rates from $url failed: $e');
       }
     }
+    return sl<PreferencesManager>().getCachedExchangeRates();
+  }
 
-    return await fetchExchangeRates();
+  /// Cached rates when fresh, otherwise a new fetch.
+  static Future<Map<String, double>?> getRatesWithCache({bool forceRefresh = false}) async {
+    final prefs = sl<PreferencesManager>();
+    final cached = prefs.getCachedExchangeRates();
+    if (!forceRefresh && cached != null) {
+      final updated = DateTime.tryParse(prefs.getString(_updatedKey) ?? '');
+      if (updated != null && DateTime.now().difference(updated) < _freshFor) return cached;
+    }
+    return fetchExchangeRates();
   }
 
   /// Initialize user's preferred currency.
@@ -74,12 +72,14 @@ class ExchangeRateService {
       // First launch: default to INR, no geolocation lookup.
       await prefs.savePreferredCurrency('INR');
       await prefs.setCurrencyAutoDetect(false);
-      await getRatesWithCache(forceRefresh: true);
+      unawaited(getRatesWithCache(forceRefresh: true));
       return;
     }
 
     if (!prefs.isCurrencyAutoDetect()) {
-      // User manually chose a currency — don't override their choice.
+      // User manually chose a currency — don't override their choice, but
+      // keep the rates current (in the background; start-up never waits).
+      unawaited(getRatesWithCache());
       return;
     }
 
@@ -90,7 +90,7 @@ class ExchangeRateService {
     print('💰 Preferred currency set to: ${geoInfo.currencyCode} based on IP');
 
     // Fetch exchange rates in background
-    await getRatesWithCache(forceRefresh: true);
+    unawaited(getRatesWithCache(forceRefresh: true));
   }
 
   /// Force a fresh IP-based lookup and switch back to auto-detected currency.

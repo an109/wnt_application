@@ -88,30 +88,8 @@ String formatTrendingRoutePrice(
   String currency, {
   String? targetCurrency,
 }) {
-  double finalPrice = price.toDouble();
-  if (targetCurrency != null) {
-    finalPrice = CurrencyConverter.convert(
-      amount: finalPrice,
-      fromCurrency: currency,
-      toCurrency: targetCurrency,
-    );
-    currency = targetCurrency;
-  }
-
-  final priceStr = finalPrice.toStringAsFixed(0);
-  final buffer = StringBuffer();
-  final len = priceStr.length;
-
-  for (var i = 0; i < len; i++) {
-    if (i > 0 && (len - i) % 3 == 0) {
-      buffer.write(',');
-    }
-    buffer.write(priceStr[i]);
-  }
-
-  final symbols = {'INR': '₹', 'USD': '\$', 'AED': 'د.إ', 'EUR': '€', 'GBP': '£'};
-  final symbol = symbols[currency.toUpperCase()] ?? '$currency ';
-  return '$symbol$buffer';
+  if (targetCurrency == null) return CurrencyConverter.format(price.toDouble(), currency);
+  return CurrencyConverter.display(price.toDouble(), fromCurrency: currency, toCurrency: targetCurrency);
 }
 
 /// The date shown on trending-route cards (today, `dd/MM/yyyy`).

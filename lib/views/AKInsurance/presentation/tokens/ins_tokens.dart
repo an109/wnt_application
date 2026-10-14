@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../UI_helper/responsive_layout.dart';
+import 'package:wander_nova/UI_helper/currency_converter.dart';
 import '../../../../core/resources/app_colours.dart';
 
 /// Every colour, radius and text style the redesigned insurance flow uses,
@@ -96,6 +97,10 @@ class InsTokens {
   /// `₹ 6,784` — Indian digit grouping, no paise, as every Figma screen
   /// shows it.
   static String rupees(num value) => _money.format(value);
+
+  /// A premium shown while choosing a plan, in the customer's currency
+  /// (rupees on the payment and confirmation screens use [rupees]).
+  static String price(num value) => CurrencyConverter.display(value.toDouble());
 
   /// `USD 50,000` — the coverage figure on a plan card.
   static String coverage(num value, {String currency = 'USD'}) =>

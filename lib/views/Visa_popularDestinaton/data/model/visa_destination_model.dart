@@ -15,6 +15,12 @@ class VisaPopularDestinationModel extends VisaPopularDestinationEntity {
     required super.priceIncludesItems,
     required super.showInPopular,
     required super.isActive,
+    super.heroBannerImage,
+    super.approvalRateText,
+    super.requirementsHeading,
+    super.faqs,
+    super.requiredDocuments,
+    super.appInsights,
   });
 
   factory VisaPopularDestinationModel.fromJson(Map<String, dynamic> json) {
@@ -41,6 +47,30 @@ class VisaPopularDestinationModel extends VisaPopularDestinationEntity {
           [],
       showInPopular: json['show_in_popular'] ?? false,
       isActive: json['is_active'] ?? false,
+      heroBannerImage:
+          json['hero_banner_image']?.toString() ??
+          json['hero_banner_image_url']?.toString() ??
+          '',
+      approvalRateText: json['approval_rate_text']?.toString() ?? '',
+      requirementsHeading: json['requirements_heading']?.toString() ?? '',
+      faqs: (json['faqs'] as List<dynamic>?)
+              ?.whereType<Map>()
+              .map((f) => {
+                    'q': (f['q'] ?? f['question'] ?? '').toString(),
+                    'a': (f['a'] ?? f['answer'] ?? '').toString(),
+                  })
+              .where((f) => f['q']!.isNotEmpty)
+              .toList() ??
+          [],
+      // Admin stores either plain labels or {label, required}.
+      requiredDocuments: (json['required_documents'] as List<dynamic>?)
+              ?.map((d) => d is Map ? (d['label'] ?? '').toString() : d.toString())
+              .where((d) => d.isNotEmpty)
+              .toList() ??
+          [],
+      appInsights: json['app_insights'] is Map
+          ? (json['app_insights'] as Map).cast<String, dynamic>()
+          : const {},
     );
   }
 
@@ -75,6 +105,7 @@ class VisaTypeModel extends VisaTypeEntity {
     required super.processing,
     required super.taxCurrency,
     required super.feesCurrency,
+    super.category,
   });
 
   factory VisaTypeModel.fromJson(Map<String, dynamic> json) {
@@ -82,13 +113,14 @@ class VisaTypeModel extends VisaTypeEntity {
       stay: json['stay'] ?? '',
       entry: json['entry'] ?? '',
       title: json['title'] ?? '',
-      taxInr: json['taxInr'] ?? 0,
+      taxInr: _parseNum(json['taxInr']).toInt(),
       feesInr: _parseNum(json['feesInr']),
       popular: json['popular'] ?? false,
       validity: json['validity'] ?? '',
       processing: json['processing'] ?? '',
       taxCurrency: json['tax_currency'] ?? 'INR',
       feesCurrency: json['fees_currency'] ?? 'USD',
+      category: json['category']?.toString() ?? '',
     );
   }
 

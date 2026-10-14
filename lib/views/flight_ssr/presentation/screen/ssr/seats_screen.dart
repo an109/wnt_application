@@ -9,6 +9,7 @@ import '../../bloc/ssr_bloc.dart';
 import '../../bloc/ssr_event.dart';
 import '../../bloc/ssr_state.dart';
 import 'ssr_price_formatter.dart';
+import 'package:wander_nova/common_widgets/currency_scope.dart';
 import 'package:wander_nova/common_widgets/app_loader.dart';
 
 class SeatScreen extends StatefulWidget {
@@ -366,8 +367,8 @@ class _SeatScreenState extends State<SeatScreen> {
         child: Row(
           children: [
             swatch(_freeColor, 'Free'),
-            if (bands.hasLow) swatch(bands.lowColor, bands.lowLabel),
-            if (bands.hasHigh) swatch(bands.highColor, bands.highLabel),
+            if (bands.hasLow) swatch(bands.lowColor, bands.lowLabel(context)),
+            if (bands.hasHigh) swatch(bands.highColor, bands.highLabel(context)),
             swatch(Colors.grey.shade300, 'Booked', border: Border.all(color: _stroke)),
           ],
         ),
@@ -424,10 +425,8 @@ class _PriceBands {
   bool get hasLow => lowMin != null;
   bool get hasHigh => highMin != null;
 
-  String get lowLabel => hasLow ? '${_fmt(lowMin!)} - ${_fmt(lowMax!)}' : '';
-  String get highLabel => hasHigh ? '${_fmt(highMin!)} - ${_fmt(highMax!)}' : '';
-
-  static String _fmt(double v) => '₹${v.toStringAsFixed(0)}';
+  String lowLabel(BuildContext c) => hasLow ? '${c.money(lowMin!)} - ${c.money(lowMax!)}' : '';
+  String highLabel(BuildContext c) => hasHigh ? '${c.money(highMin!)} - ${c.money(highMax!)}' : '';
 
   factory _PriceBands.from(List<SeatOptionEntity> seats) {
     final paid = seats

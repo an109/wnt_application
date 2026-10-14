@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:wander_nova/core/resources/app_colours.dart';
+import 'package:wander_nova/common_widgets/currency_scope.dart';
 import '../../../../../UI_helper/responsive_layout.dart';
 
 class ForYourStaySection extends StatelessWidget {
@@ -222,7 +223,7 @@ class ForYourStaySection extends StatelessWidget {
                 Row(
                   children: [
                     Text(
-                      "₹${hotel['price']}",
+                      context.moneyOf(hotel['price']),
                       style: TextStyle(
                         fontSize: context.fs(14),
                         fontWeight: FontWeight.w700,

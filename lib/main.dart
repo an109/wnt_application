@@ -52,26 +52,34 @@ import 'package:wander_nova/views/travel_stories/presentation/bloc/travel_storie
 import 'package:wander_nova/views/trending_route/presentation/bloc/trending_routes_bloc.dart';
 import 'package:wander_nova/views/wallet/presentation/bloc/wallet_bloc.dart';
 
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+
 import 'core/services/exchange_rate_service.dart';
+import 'core/services/push_notification_service.dart';
+import 'common_widgets/currency_scope.dart';
 import 'core/utils/route_observer.dart';
 import 'views/Send_otp/presentation/bloc/send_otp_bloc.dart';
-import 'core/utils/storage/shared_preference.dart';
 import 'injection_container.dart' as di;
 import 'injection_container.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Config comes from google-services.json / GoogleService-Info.plist.
+  await Firebase.initializeApp();
+  FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
   await di.initializeDependencies();
 
-  final prefs = sl<PreferencesManager>();
-  await prefs.remove('exchange_rates_cache');
-  await prefs.remove('exchange_rates_cache_time');
+  // Last known rates are kept so prices still convert offline; they are
+  // refreshed in the background.
   await ExchangeRateService.initializeUserCurrency();
   if (sl.isRegistered<ExchangeRateBloc>()) {
     sl<ExchangeRateBloc>().add(const FetchExchangeRates());
   }
   developer.log('', name: '');
   runApp(const MyApp());
+  // After runApp so the permission prompt never delays the first frame.
+  PushNotificationService.instance.init();
 }
 
 class MyApp extends StatelessWidget {
@@ -131,10 +139,12 @@ class MyApp extends StatelessWidget {
       ],
 
       child: MaterialApp(
+        navigatorKey: PushNotificationService.navigatorKey,
         debugShowCheckedModeBanner: false,
         title: 'WanderNova',
         navigatorObservers: [appRouteObserver],
-        builder: (context, child) => ResponsiveAppWrapper(child: child),
+        // CurrencyScope: prices redraw when the currency or rates change.
+        builder: (context, child) => CurrencyScope(child: ResponsiveAppWrapper(child: child)),
         theme: ThemeData(
           // primarySwatch: Colors.blue,
           //   textTheme: GoogleFonts.poppinsTextTheme(),

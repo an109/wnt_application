@@ -31,6 +31,7 @@ import '../../../trending_route/domain/entities/trending_routes_entity.dart';
 import '../../../trending_route/presentation/bloc/trending_routes_bloc.dart';
 import '../../../trending_route/presentation/bloc/trending_routes_event.dart';
 import '../../../trending_route/presentation/bloc/trending_routes_state.dart';
+import 'package:wander_nova/common_widgets/currency_scope.dart';
 import '../../../trending_route/presentation/screen/trending_routes.dart'
     show
         formatTrendingRoutePrice,
@@ -926,7 +927,7 @@ class _HotelCard extends StatelessWidget {
                     TextSpan(
                       children: [
                         TextSpan(
-                          text: '₹ ${hotel['price']} ',
+                          text: '${context.moneyOf(hotel['price'])} ',
                           style: TextStyle(
                             fontSize: context.ffs(12),
                             color: Colors.black,

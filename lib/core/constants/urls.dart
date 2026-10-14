@@ -1,12 +1,17 @@
 class Urls {
-  static const String baseUrl = 'http://167.71.233.208:8032/api/';
-  // static const String baseUrl = 'https://thewandernova.com/api/';
-  static const String basesUrl = 'http://167.71.233.208:8032/api';
-  // static const String basesUrl = 'https://thewandernova.com/api';
+  // API server: the deployed server.
+  //static const String _apiHost = 'http://167.71.233.208:8032';
+  // Local backend for testing:
+  // static const String _apiHost = 'http://192.168.1.42:8000';
+  // static const String baseUrl = '$_apiHost/api/';
+  // static const String basesUrl = '$_apiHost/api';
+  static const String baseUrl = 'https://thewandernova.com/api/';
+  static const String basesUrl = 'https://thewandernova.com/api';
 
-  // Thrisha AI chat service. Empty = the live service (trishaProductionUrl).
-  // Only to test a local copy: flutter run --dart-define=TRISHA_URL=http://127.0.0.1:8090
-  static const String trishaBaseUrl = String.fromEnvironment('TRISHA_URL');
+  // Thrisha AI chat service: the live service.
+  static const String trishaBaseUrl = trishaProductionUrl;
+  // Local copy for testing:
+  // static const String trishaBaseUrl = 'http://127.0.0.1:8090';
 
   /// Thrisha AI on the production server (nginx → thrisha-ai service).
   static const String trishaProductionUrl = 'https://thewandernova.com/thrisha';
@@ -167,12 +172,14 @@ class Urls {
   // Saves a holiday package booking after a successful CCAvenue/wallet payment.
   static const String holidayBookings = '$basesUrl/holidays/bookings/';
 
-  // Exchange Rate API endpoints
-  // static const String exchangeRatePrimary = 'https://v6.exchangerate-api.com/v6/5dff9de8575af8e0fcbeb0c5/latest/USD';
-  static const String exchangeRatePrimary =
-      'https://open.er-api.com/v6/latest/USD';
+  // Exchange rates, tried in order: our backend (ExchangeRate-API, cached
+  // 6 h), ExchangeRate-API directly (same key the website uses), then the
+  // keyless public feed as a last resort.
+  static const String currencyRates = '$basesUrl/currency/rates/';
+  static const String exchangeRatePrimary = '${currencyRates}?base=USD';
   static const String exchangeRateFallback =
-      'https://open.er-api.com/v6/latest/USD';
+      'https://v6.exchangerate-api.com/v6/d0b3edbb25befab9de9f4786/latest/USD';
+  static const String exchangeRateLastResort = 'https://open.er-api.com/v6/latest/USD';
 
   static const String sendOtp = '$basesUrl/auth/send-otp/';
   static const String verifyOtp = '$basesUrl/auth/verify-otp/';
@@ -185,6 +192,11 @@ class Urls {
       '$basesUrl/wallet/notifications/mark-read/';
   static const String walletNotificationPreferences =
       '$basesUrl/wallet/notification-preferences/';
+
+  // Push notifications (FCM): device token + offers the admin has pushed.
+  static const String deviceRegister = '$basesUrl/devices/register/';
+  static const String deviceUnregister = '$basesUrl/devices/unregister/';
+  static const String pushNotifications = '$basesUrl/notifications/';
   static const String logout = '$basesUrl/auth/logout/';
   static const String tokenRefresh = '$basesUrl/auth/token/refresh/';
   static const String deleteAccount = '$basesUrl/auth/delete-account/';

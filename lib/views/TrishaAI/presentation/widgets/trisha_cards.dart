@@ -8,6 +8,7 @@ import '../../../../UI_helper/responsive_layout.dart';
 import '../../../AKInsurance/presentation/tokens/ins_tokens.dart';
 import '../../../AKInsurance/presentation/widgets/ins_common.dart' show InsProviderLogo;
 import '../../data/model/trisha_models.dart';
+import 'package:wander_nova/UI_helper/currency_converter.dart';
 import 'trisha_style.dart';
 
 part 'trisha_insurance_cards.dart';
@@ -45,7 +46,11 @@ String _nights(dynamic n) {
   final v = (n as num?)?.toInt() ?? 0;
   return '$v night${v == 1 ? '' : 's'}';
 }
-String _money(dynamic v) => '₹${_inr.format(num.tryParse('$v') ?? 0)}';
+/// Fares and room prices, shown in the user's currency.
+String _money(dynamic v) => CurrencyConverter.display((num.tryParse('$v') ?? 0).toDouble());
+
+/// Amounts charged or paid — always rupees.
+String _inrMoney(dynamic v) => '₹${_inr.format(num.tryParse('$v') ?? 0)}';
 
 const _paxNames = {'ADT': 'Adult', 'CHD': 'Child', 'INF': 'Infant'};
 
@@ -611,10 +616,10 @@ class _PaymentCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('Amount to pay', style: TrishaStyle.body(context, 11, color: TrishaStyle.hint)),
-            Text(_money(data['display_amount']), style: TrishaStyle.body(context, 22, weight: FontWeight.w700, height: 1.3)),
+            Text(_inrMoney(data['display_amount']), style: TrishaStyle.body(context, 22, weight: FontWeight.w700, height: 1.3)),
             Text('${data['description'] ?? ''}', style: TrishaStyle.body(context, 11, color: TrishaStyle.hint)),
             SizedBox(height: context.fx(12)),
-            _PrimaryButton(label: 'Pay ${_money(data['display_amount'])} securely', onTap: onPay),
+            _PrimaryButton(label: 'Pay ${_inrMoney(data['display_amount'])} securely', onTap: onPay),
           ],
         ),
       );
@@ -655,7 +660,7 @@ class _ConfirmedCard extends StatelessWidget {
           ),
           SizedBox(height: context.fx(6)),
           Text(
-            'Paid ${_money(data['amount_paid'])} · Ref ${data['booking_reference'] ?? '-'}',
+            'Paid ${_inrMoney(data['amount_paid'])} · Ref ${data['booking_reference'] ?? '-'}',
             style: TrishaStyle.body(context, 11, color: TrishaStyle.hint),
           ),
         ],

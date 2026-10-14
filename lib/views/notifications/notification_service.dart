@@ -4,15 +4,23 @@ import '../../core/constants/urls.dart';
 import '../../core/network/dio_client.dart';
 import '../../injection_container.dart';
 
-/// One item of `GET /api/wallet/notifications/`.
+/// One item of the notification screen: a wallet alert from
+/// `GET /api/wallet/notifications/` or an offer the admin pushed, from
+/// `GET /api/notifications/`.
 class AppNotification {
   final int id;
-  final String type; // 'transaction' | 'low_balance'
+  final String type; // 'transaction' | 'low_balance' | 'offer'
   final String title;
   final String message;
   final bool isRead;
   final Map<String, dynamic> metadata;
   final DateTime? created;
+
+  /// Offers only: banner image and what tapping it opens (same `type` /
+  /// `value` the push carried).
+  final String? imageUrl;
+  final String linkType;
+  final String linkValue;
 
   const AppNotification({
     required this.id,
@@ -22,7 +30,26 @@ class AppNotification {
     required this.isRead,
     required this.metadata,
     required this.created,
+    this.imageUrl,
+    this.linkType = 'none',
+    this.linkValue = '',
   });
+
+  bool get isOffer => type == 'offer';
+
+  factory AppNotification.fromOffer(Map<String, dynamic> json) => AppNotification(
+    id: (json['id'] as num?)?.toInt() ?? 0,
+    type: 'offer',
+    title: (json['title'] ?? '').toString(),
+    message: (json['body'] ?? '').toString(),
+    // Offers carry no per-user read state; they are never shown as unread.
+    isRead: true,
+    metadata: const {},
+    created: DateTime.tryParse((json['sent_at'] ?? '').toString())?.toLocal(),
+    imageUrl: (json['image_url'] ?? '').toString().isEmpty ? null : json['image_url'].toString(),
+    linkType: (json['link_type'] ?? 'none').toString(),
+    linkValue: (json['link_value'] ?? '').toString(),
+  );
 
   factory AppNotification.fromJson(Map<String, dynamic> json) => AppNotification(
     id: (json['id'] as num?)?.toInt() ?? 0,
@@ -45,13 +72,36 @@ class NotificationFeed {
 }
 
 /// Thin client for the backend's user notification endpoints (wallet
-/// transaction and low-balance alerts). Uses the app's authenticated Dio.
+/// transaction / low-balance alerts and pushed offers). Uses the app's
+/// authenticated Dio.
 class NotificationService {
   NotificationService({Dio? dio}) : _dio = dio ?? sl<DioClient>().instance;
 
   final Dio _dio;
 
+  /// Wallet alerts and pushed offers, newest first. Either source may fail
+  /// on its own (wallet alerts need a login) — the feed only fails when
+  /// both do.
   Future<NotificationFeed> fetch({int limit = 100}) async {
+    final results = await Future.wait([
+      _walletFeed(limit).then<NotificationFeed?>((f) => f).catchError((_) => null),
+      offers().then<List<AppNotification>?>((o) => o).catchError((_) => null),
+    ]);
+    final wallet = results[0] as NotificationFeed?;
+    final offerItems = results[1] as List<AppNotification>?;
+    if (wallet == null && offerItems == null) {
+      throw Exception('Notifications unavailable');
+    }
+    final items = [...?wallet?.items, ...?offerItems]
+      ..sort((a, b) {
+        final at = a.created, bt = b.created;
+        if (at == null || bt == null) return at == null ? 1 : -1;
+        return bt.compareTo(at);
+      });
+    return NotificationFeed(items: items, unreadCount: wallet?.unreadCount ?? 0);
+  }
+
+  Future<NotificationFeed> _walletFeed(int limit) async {
     final res = await _dio.get(
       Urls.walletNotifications,
       queryParameters: {'limit': limit},
@@ -66,8 +116,19 @@ class NotificationService {
     );
   }
 
-  /// Unread count only (for the drawer badge).
-  Future<int> unreadCount() async => (await fetch(limit: 1)).unreadCount;
+  /// Offers already pushed to this user (or to everyone).
+  Future<List<AppNotification>> offers() async {
+    final res = await _dio.get(Urls.pushNotifications);
+    final data = res.data is Map ? res.data as Map : const {};
+    return [
+      for (final n in (data['items'] as List? ?? const []))
+        if (n is Map) AppNotification.fromOffer(Map<String, dynamic>.from(n)),
+    ];
+  }
+
+  /// Unread count only (for the drawer badge) — wallet alerts only, since
+  /// offers have no read state.
+  Future<int> unreadCount() async => (await _walletFeed(1)).unreadCount;
 
   Future<void> markAllRead() =>
       _dio.post(Urls.walletNotificationsMarkRead, data: {'all': true});

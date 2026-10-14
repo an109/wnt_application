@@ -15,6 +15,7 @@ import '../../../../flight_payment/presentation/screen/payment_screen.dart';
 import '../../../../flight_search/presentation/screen/booking_screen.dart';
 import 'baggage_screen.dart';
 import 'meal_screen.dart';
+import 'package:wander_nova/common_widgets/currency_scope.dart';
 import 'seats_screen.dart';
 
 /// Add-ons screen — Figma "Flighjt seat 1" / "Flighjt meals" / "Flighjt
@@ -404,7 +405,7 @@ class _SSRMainScreenState extends State<SSRMainScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  '₹ ${_runningTotal.toStringAsFixed(0)}',
+                  context.money(_runningTotal),
                   style: TextStyle(
                     color: _title900,
                     fontSize: context.fs(24),

@@ -7,12 +7,14 @@ import '../data_source/exchange_rate_api_service.dart';
 import '../models/exchange_rate_model.dart';
 import '../../../../../core/utils/storage/shared_preference.dart';
 import '../../../../../injection_container.dart' as injection;
+import '../../../../../core/constants/urls.dart';
+import '../../../../../UI_helper/currency_converter.dart';
 
 class ExchangeRateRepositoryImpl implements ExchangeRateRepository {
   final ExchangeRateApiService apiService;
   static const String _cacheKey = 'exchange_rates_cache';
   static const String _cacheTimeKey = 'exchange_rates_cache_time';
-  static const int _cacheDurationHours = 24;
+  static const int _cacheDurationHours = 6;
 
   ExchangeRateRepositoryImpl(this.apiService);
 
@@ -59,7 +61,17 @@ class ExchangeRateRepositoryImpl implements ExchangeRateRepository {
       }
 
       // Fetch from primary API
-      final response = await apiService.fetchExchangeRates(apiUrl: apiUrl);
+      Response response;
+      try {
+        response = await apiService.fetchExchangeRates(apiUrl: apiUrl);
+      } on DioException {
+        // Backend unreachable: ExchangeRate-API directly, then the public feed.
+        try {
+          response = await apiService.fetchExchangeRates(apiUrl: Urls.exchangeRateFallback);
+        } on DioException {
+          response = await apiService.fetchExchangeRates(apiUrl: Urls.exchangeRateLastResort);
+        }
+      }
 
       if (response.data['result'] == 'success') {
         final rates = _extractRates(response.data);
@@ -71,7 +83,7 @@ class ExchangeRateRepositoryImpl implements ExchangeRateRepository {
       } else {
         // Try fallback API
         final fallbackResponse = await apiService.fetchExchangeRates(
-          apiUrl: 'https://open.er-api.com/v6/latest/USD',
+          apiUrl: Urls.exchangeRateLastResort,
         );
 
         if (fallbackResponse.data['result'] == 'success') {
@@ -170,6 +182,8 @@ class ExchangeRateRepositoryImpl implements ExchangeRateRepository {
 
     await prefs.setString(_cacheKey, jsonEncode(rates));
     await prefs.setInt(_cacheTimeKey, DateTime.now().millisecondsSinceEpoch);
+    await prefs.setString('exchange_rates_updated', DateTime.now().toIso8601String());
+    CurrencyConverter.ratesVersion.value++;
   }
 
   // Static memory cache

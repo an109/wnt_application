@@ -14,6 +14,16 @@ class VisaPopularDestinationEntity extends Equatable {
   final List<String> priceIncludesItems;
   final bool showInPopular;
   final bool isActive;
+  final String heroBannerImage;
+  final String approvalRateText;
+  final String requirementsHeading;
+  /// `{q, a}` pairs from the destination's FAQ list.
+  final List<Map<String, String>> faqs;
+  /// Labels of the documents the applicant must provide.
+  final List<String> requiredDocuments;
+  /// Admin-entered stats for the app visa page (forecast, portal uptime …);
+  /// empty when not filled in.
+  final Map<String, dynamic> appInsights;
 
   const VisaPopularDestinationEntity({
     required this.id,
@@ -29,6 +39,12 @@ class VisaPopularDestinationEntity extends Equatable {
     required this.priceIncludesItems,
     required this.showInPopular,
     required this.isActive,
+    this.heroBannerImage = '',
+    this.approvalRateText = '',
+    this.requirementsHeading = '',
+    this.faqs = const [],
+    this.requiredDocuments = const [],
+    this.appInsights = const {},
   });
 
   @override
@@ -46,6 +62,12 @@ class VisaPopularDestinationEntity extends Equatable {
     priceIncludesItems,
     showInPopular,
     isActive,
+    heroBannerImage,
+    approvalRateText,
+    requirementsHeading,
+    faqs,
+    requiredDocuments,
+    appInsights,
   ];
 }
 
@@ -60,6 +82,8 @@ class VisaTypeEntity extends Equatable {
   final String processing;
   final String taxCurrency;
   final String feesCurrency;
+  /// Optional admin override: visa_free | on_arrival | e_visa | sticker.
+  final String category;
 
   const VisaTypeEntity({
     required this.stay,
@@ -72,6 +96,7 @@ class VisaTypeEntity extends Equatable {
     required this.processing,
     required this.taxCurrency,
     required this.feesCurrency,
+    this.category = '',
   });
 
   @override
@@ -86,5 +111,6 @@ class VisaTypeEntity extends Equatable {
     processing,
     taxCurrency,
     feesCurrency,
+    category,
   ];
 }

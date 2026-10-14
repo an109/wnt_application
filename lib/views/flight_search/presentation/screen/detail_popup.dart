@@ -33,6 +33,7 @@ import 'package:wander_nova/views/flight_search/domain/entities/fare_trip_type.d
 import 'package:wander_nova/views/AKSmartPricer/domain/usecase/AKSmartPricer_usecase.dart';
 import 'package:wander_nova/views/AKGetSPricer/domain/usecase/AKGetSPricer_usecase.dart';
 import 'package:wander_nova/views/flight_search/presentation/screen/booking_screen.dart';
+import 'package:wander_nova/common_widgets/currency_scope.dart';
 import 'package:wander_nova/core/resources/app_colours.dart';
 
 class FlightDetailsPopup extends StatefulWidget {
@@ -1279,7 +1280,7 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup> with SingleTick
                 ),
                 SizedBox(height: context.h(4)),
                 Text(
-                  '₹${option.amount.toStringAsFixed(0)}',
+                  context.money(option.amount),
                   style: TextStyle(
                     color: selected ? AppColors.AppBlue : AppColors.subhead,
                     fontSize: context.fs(12),
@@ -1598,7 +1599,7 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup> with SingleTick
                     textBaseline: TextBaseline.alphabetic,
                     children: [
                       Text(
-                        '₹ ${_selectedAmount.toStringAsFixed(0)}',
+                        context.money(_selectedAmount),
                         style: TextStyle(color: _title900, fontSize: context.fs(16), fontWeight: FontWeight.w700),
                       ),
                       Text(
@@ -1788,7 +1789,7 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup> with SingleTick
                   ],
                 ),
                 Text(
-                  'at ₹469 / adult',
+                  'at ${context.money(469)} / adult',
                   style: TextStyle(
                     color: AppColors.subhead,
                     fontSize: context.fs(12),
@@ -2282,7 +2283,7 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup> with SingleTick
       builder: (dialogContext) => AlertDialog(
         title: const Text('Fare Updated'),
         content: Text(
-          'The price for this flight has changed to ₹${newAmount.toStringAsFixed(0)}. '
+          'The price for this flight has changed to ${context.money(newAmount)}. '
               'Do you want to continue with the new fare?',
         ),
         actions: [

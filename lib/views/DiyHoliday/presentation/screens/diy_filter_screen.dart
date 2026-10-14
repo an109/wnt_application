@@ -121,13 +121,20 @@ Future<DiyFilters?> openDiyFilterScreen(
   );
 }
 
-/// Quick budget picks from the design, per person: (label, min, max).
-const List<(String, double?, double?)> _budgetPicks = [
-  ('< ₹15,000', null, 15000),
-  ('₹15,000 - ₹20,000', 15000, 20000),
-  ('₹20,000 - ₹25,000', 20000, 25000),
-  ('> ₹25,000', 25000, null),
+/// Quick budget picks from the design, per person in INR: (min, max).
+const List<(double?, double?)> _budgetPicks = [
+  (null, 15000),
+  (15000, 20000),
+  (20000, 25000),
+  (25000, null),
 ];
+
+/// "< ₹15,000", "₹15,000 - ₹20,000" … in the customer's currency.
+String _budgetLabel(double? low, double? high) {
+  if (low == null) return '< ${diyMoney(high!)}';
+  if (high == null) return '> ${diyMoney(low)}';
+  return '${diyMoney(low)} - ${diyMoney(high)}';
+}
 
 /// The design's hotel category chips. 2 is the backend's "below three star".
 const Map<int, String> _starOptions = {
@@ -435,9 +442,9 @@ class _DiyFilterScreenState extends State<DiyFilterScreen> {
             spacing: context.w(10),
             runSpacing: context.h(10),
             children: [
-              for (final (label, low, high) in _budgetPicks)
+              for (final (low, high) in _budgetPicks)
                 _chip(
-                  label: label,
+                  label: _budgetLabel(low, high),
                   selected:
                       _f.budgetMin == low &&
                       _f.budgetMax == high &&

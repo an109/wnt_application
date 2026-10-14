@@ -248,7 +248,7 @@ class InsPlanCard extends StatelessWidget {
                             ),
                             SizedBox(height: context.h(2)),
                             Text(
-                              InsTokens.rupees(plan.premium),
+                              InsTokens.price(plan.premium),
                               style: TextStyle(
                                 fontSize: context.fs(14),
                                 fontWeight: FontWeight.w600,

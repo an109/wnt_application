@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:intl/intl.dart';
 import '../core/utils/storage/shared_preference.dart';
 import '../core/services/exchange_rate_service.dart';
 import '../injection_container.dart';
@@ -25,6 +26,21 @@ class CurrencyConverter {
   static final ValueNotifier<String> currencyListenable =
       ValueNotifier<String>(getPreferredCurrency());
 
+  /// Bumped whenever fresh exchange rates are cached, so converted prices
+  /// redraw even when the selected currency itself didn't change.
+  static final ValueNotifier<int> ratesVersion = ValueNotifier<int>(0);
+
+  /// Fires on a currency switch or a rate refresh — listen to this around
+  /// any converted price.
+  static final Listenable changes = Listenable.merge([currencyListenable, ratesVersion]);
+
+  /// Whether [from] → [to] can be converted with the cached rates.
+  static bool canConvert(String from, String to) {
+    if (from.toUpperCase() == to.toUpperCase()) return true;
+    final rates = sl<PreferencesManager>().getCachedExchangeRates();
+    return rates != null && rates[from.toUpperCase()] != null && rates[to.toUpperCase()] != null;
+  }
+
   static bool isAutoDetectEnabled() {
     final prefs = sl<PreferencesManager>();
     return prefs.isCurrencyAutoDetect();
@@ -36,6 +52,8 @@ class CurrencyConverter {
     await prefs.savePreferredCurrency(currency);
     await prefs.setCurrencyAutoDetect(false);
     currencyListenable.value = currency;
+    // Make sure rates for the new currency are on hand.
+    ExchangeRateService.getRatesWithCache();
   }
 
   /// User picked "Auto" from settings — re-detect from IP and follow it again.
@@ -70,26 +88,13 @@ class CurrencyConverter {
     return result;
   }
 
+  /// `₹12,34,567` (Indian grouping) or `$1,234`; cents only below 100.
   static String format(double amount, String currency) {
-    final symbols = {
-      'INR': '₹',
-      'USD': '\$',
-      'AED': 'د.إ',
-      'EUR': '€',
-      'GBP': '£',
-    };
-    final symbol = symbols[currency.toUpperCase()] ?? '$currency ';
-    final priceStr = amount.toStringAsFixed(0);
-
-    final buffer = StringBuffer();
-    final len = priceStr.length;
-    for (var i = 0; i < len; i++) {
-      if (i > 0 && (len - i) % 3 == 0 && len > 3) {
-        buffer.write(',');
-      }
-      buffer.write(priceStr[i]);
-    }
-    return '$symbol$buffer';
+    final code = currency.toUpperCase();
+    final f = NumberFormat.decimalPattern(code == 'INR' ? 'en_IN' : 'en_US')
+      ..maximumFractionDigits = amount.abs() < 100 && code != 'INR' && code != 'JPY' ? 2 : 0
+      ..minimumFractionDigits = 0;
+    return '${getSymbol(code)}${f.format(amount)}';
   }
 
   // Add to your existing CurrencyConverter class
@@ -140,14 +145,27 @@ class CurrencyConverter {
   static String getFlag(String currency) =>
       _currencyFlags[currency.toUpperCase()] ?? '\u{1F3F3}\u{FE0F}';
 
-  static String getSymbol(String currency) {
-    final symbols = {
-      'INR': '₹',
-      'USD': '\$',
-      'AED': 'د.إ',
-      'EUR': '€',
-      'GBP': '£',
-    };
-    return symbols[currency.toUpperCase()] ?? '$currency ';
+  static const Map<String, String> _symbols = {
+    'INR': '₹',
+    'USD': '\$',
+    'AED': 'د.إ ',
+    'EUR': '€',
+    'GBP': '£',
+    'AUD': 'A\$',
+    'CAD': 'C\$',
+    'SGD': 'S\$',
+    'JPY': '¥',
+    'CNY': 'CN¥',
+  };
+
+  static String getSymbol(String currency) => _symbols[currency.toUpperCase()] ?? '${currency.toUpperCase()} ';
+
+  /// [amount] in [fromCurrency] shown in the user's currency, e.g. "$120".
+  /// Without a usable rate it stays in [fromCurrency] rather than showing a
+  /// wrong number with the wrong symbol.
+  static String display(double amount, {String fromCurrency = 'INR', String? toCurrency}) {
+    final to = toCurrency ?? getPreferredCurrency();
+    if (!canConvert(fromCurrency, to)) return format(amount, fromCurrency);
+    return format(convert(amount: amount, fromCurrency: fromCurrency, toCurrency: to), to);
   }
 }

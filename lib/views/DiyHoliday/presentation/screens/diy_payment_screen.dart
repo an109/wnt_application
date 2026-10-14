@@ -13,6 +13,7 @@ import '../../data/diy_holiday_api.dart';
 import '../../data/diy_search_query.dart';
 import '../../data/diy_traveller.dart';
 import '../widgets/diy_common.dart';
+import 'package:wander_nova/common_widgets/currency_scope.dart';
 import 'diy_booking_confirmed_screen.dart';
 
 /// Payment for a holiday booking.
@@ -378,13 +379,22 @@ class _DiyPaymentScreenState extends State<DiyPaymentScreen> {
                   ],
                 ),
               ),
-              Text(
-                diyMoney(widget.amount, currency: widget.currency),
-                style: TextStyle(
-                  fontSize: context.fs(21),
-                  fontWeight: FontWeight.w800,
-                  color: DiyTokens.navy,
-                ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    diyChargeMoney(widget.amount, currency: widget.currency),
+                    style: TextStyle(
+                      fontSize: context.fs(21),
+                      fontWeight: FontWeight.w800,
+                      color: DiyTokens.navy,
+                    ),
+                  ),
+                  if (widget.currency == 'INR' && context.moneyHint(widget.amount).isNotEmpty)
+                    Text(context.moneyHint(widget.amount),
+                        style: TextStyle(fontSize: context.fs(11), color: DiyTokens.subGrey)),
+                ],
               ),
             ],
           ),

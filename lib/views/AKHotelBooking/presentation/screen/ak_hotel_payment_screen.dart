@@ -21,6 +21,7 @@ import '../../../wallet/wallet/screen/checkout/checkout_ui.dart';
 import '../../../wallet/wallet/screen/checkout/method_sections.dart';
 import '../../../wallet/wallet/screen/checkout/upi_section.dart';
 import 'ak_hotel_booking_confirmed_screen.dart';
+import 'package:wander_nova/common_widgets/currency_scope.dart';
 import 'package:wander_nova/common_widgets/app_loader.dart';
 
 /// Payment step for the Akbar Hotels flow: this app's own gateway (Razorpay
@@ -692,6 +693,18 @@ class _AkHotelPaymentScreenState extends State<AkHotelPaymentScreen> {
 
   // ==================== TOTAL DUE ====================
   Widget _totalDue(BuildContext context) {
+    final hint = context.moneyHint(widget.netAmount);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        _totalDueRow(context),
+        if (hint.isNotEmpty)
+          Text('$hint · charged in INR', style: TextStyle(fontSize: context.fs(12), color: _muted)),
+      ],
+    );
+  }
+
+  Widget _totalDueRow(BuildContext context) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

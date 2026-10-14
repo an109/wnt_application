@@ -6,6 +6,7 @@ import '../../../domain/entities/ssr_entity.dart';
 import '../../bloc/ssr_bloc.dart';
 import '../../bloc/ssr_event.dart';
 import '../../bloc/ssr_state.dart';
+import 'ssr_price_formatter.dart';
 import 'package:wander_nova/common_widgets/app_loader.dart';
 
 
@@ -437,7 +438,10 @@ class _SpecialServiceScreenState extends State<SpecialServiceScreen> {
                 ),
               ),
               Text(
-                totalPrice <= 0 ? 'Free' : 'USD ${totalPrice.toStringAsFixed(2)}',
+                SsrPriceFormatter.format(
+                  totalPrice,
+                  selectedServices.isEmpty ? 'INR' : selectedServices.first.currency,
+                ),
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: context.bodyLarge,

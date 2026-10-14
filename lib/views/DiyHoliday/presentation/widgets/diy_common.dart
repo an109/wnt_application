@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 
 import '../../../../core/resources/app_colours.dart';
+import 'package:wander_nova/UI_helper/currency_converter.dart';
 import 'package:wander_nova/common_widgets/app_loader.dart';
 
 /// Tokens shared by every DIY Holiday screen so the flow stays visually
@@ -28,7 +29,12 @@ final NumberFormat _inr = NumberFormat.currency(
   decimalDigits: 0,
 );
 
-String diyMoney(num value, {String currency = 'INR'}) {
+/// A price shown to the customer, in the currency they picked.
+String diyMoney(num value, {String currency = 'INR'}) =>
+    CurrencyConverter.display(value.toDouble(), fromCurrency: currency);
+
+/// An amount being charged or already paid — always in its own currency.
+String diyChargeMoney(num value, {String currency = 'INR'}) {
   if (currency == 'INR') return _inr.format(value);
   return '$currency ${value.toStringAsFixed(0)}';
 }

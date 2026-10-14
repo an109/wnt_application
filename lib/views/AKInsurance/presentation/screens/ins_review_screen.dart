@@ -523,7 +523,7 @@ class _InsReviewScreenState extends State<InsReviewScreen> {
                     child: _statChip(
                       context,
                       'Premium',
-                      InsTokens.rupees(widget.plan.premium),
+                      InsTokens.price(widget.plan.premium),
                       InsTokens.blue,
                     ),
                   ),
@@ -1216,7 +1216,7 @@ class _InsReviewScreenState extends State<InsReviewScreen> {
                   Row(
                     children: [
                       Text(
-                        InsTokens.rupees(_total),
+                        InsTokens.price(_total),
                         style: TextStyle(
                           fontSize: context.fs(24),
                           fontWeight: FontWeight.w700,

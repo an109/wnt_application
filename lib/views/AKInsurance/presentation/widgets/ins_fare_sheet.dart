@@ -176,7 +176,7 @@ class InsFareSheet extends StatelessWidget {
               ),
             ),
             Text(
-              InsTokens.rupees(baseFare + taxes),
+              InsTokens.price(baseFare + taxes),
               style: TextStyle(
                 fontSize: context.fs(24),
                 fontWeight: FontWeight.w700,
@@ -227,7 +227,7 @@ class InsFareSheet extends StatelessWidget {
             ),
           ),
           Text(
-            InsTokens.rupees(value),
+            InsTokens.price(value),
             style: TextStyle(
               fontSize: context.fs(19),
               color: InsTokens.navy,

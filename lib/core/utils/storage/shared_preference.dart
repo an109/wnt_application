@@ -31,8 +31,22 @@ class PreferencesManager {
     final token = _prefs.getString(_tokenKey);
     return (token != null && token.isNotEmpty) ? token : null;
   }
-  Future<bool> saveToken(String token) => _prefs.setString(_tokenKey, token);
-  Future<bool> clearToken() => _prefs.remove(_tokenKey);
+  /// Told when the session starts (`true`) or ends (`false`), so the push
+  /// service can link or unlink this device's FCM token. Every login path
+  /// ends in [saveToken] and every logout in [clearToken] / [clearAuth].
+  static void Function(bool loggedIn)? onAuthChanged;
+
+  Future<bool> saveToken(String token) async {
+    final saved = await _prefs.setString(_tokenKey, token);
+    onAuthChanged?.call(true);
+    return saved;
+  }
+
+  Future<bool> clearToken() async {
+    final removed = await _prefs.remove(_tokenKey);
+    onAuthChanged?.call(false);
+    return removed;
+  }
 
   // User type methods
   int? getUserType() => _prefs.getInt(_userTypeKey);
@@ -231,6 +245,7 @@ class PreferencesManager {
   int? getUserId() => _prefs?.getInt('user_id');
 
   Future<void> clearAuth() async {
+    onAuthChanged?.call(false);
     await _prefs.remove(_tokenKey); // 'auth_token'
     await _prefs.remove('refresh_token');
     await _prefs.remove('user_id');

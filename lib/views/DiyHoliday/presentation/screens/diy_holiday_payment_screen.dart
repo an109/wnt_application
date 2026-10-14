@@ -274,7 +274,7 @@ class _DiyHolidayPaymentScreenState extends State<DiyHolidayPaymentScreen> {
           paymentReference: paid.reference,
           paymentId: paymentId,
           enquiryReference: paid.balance > 0
-              ? 'Balance ${diyMoney(paid.balance, currency: paid.currency)}'
+              ? 'Balance ${diyChargeMoney(paid.balance, currency: paid.currency)}'
                     '${paid.balanceDueOn.isEmpty ? '' : ' due by ${diyDayDate(paid.balanceDueOn)}'}'
               : null,
         ),
@@ -480,7 +480,7 @@ class _DiyHolidayPaymentScreenState extends State<DiyHolidayPaymentScreen> {
                   ),
                 ),
                 Text(
-                  diyMoney(_amount, currency: widget.booking.currency),
+                  diyChargeMoney(_amount, currency: widget.booking.currency),
                   style: TextStyle(
                     fontSize: context.fs(19),
                     fontWeight: FontWeight.w700,
@@ -583,7 +583,7 @@ class _DiyHolidayPaymentScreenState extends State<DiyHolidayPaymentScreen> {
             ),
           ),
           Text(
-            diyMoney(value, currency: b.currency),
+            diyChargeMoney(value, currency: b.currency),
             style: TextStyle(
               fontSize: context.fs(strong ? 16 : 12.5),
               fontWeight: strong ? FontWeight.w700 : FontWeight.w500,

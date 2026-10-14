@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -6,12 +7,14 @@ import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import 'package:wander_nova/common_widgets/app_loader.dart';
 import 'package:wander_nova/core/resources/app_colours.dart';
 
+import '../../core/services/push_notification_service.dart';
 import '../Dashboard/profile/widgets/account_kit.dart';
 import 'notification_service.dart';
 
 /// Notifications — Figma "Notification" / "Notification empty". Shows the
-/// user's notification feed from the backend grouped by day; the switch in
-/// the top bar turns those alerts on or off.
+/// user's notification feed from the backend grouped by day — wallet alerts
+/// plus every offer pushed to the phone, so a push swiped away from the tray
+/// is still here. The switch in the top bar turns wallet alerts on or off.
 class NotificationsScreen extends StatefulWidget {
   /// Injectable for tests; defaults to the app's authenticated client.
   final NotificationService? service;
@@ -217,6 +220,7 @@ class _NotificationCard extends StatelessWidget {
 
   /// Icon from the notification type / what it's about.
   IconData get _icon {
+    if (item.isOffer) return Icons.local_offer_rounded;
     final m = item.metadata;
     final what = '${m['booking_type'] ?? ''} ${item.title}'.toLowerCase();
     if (item.type == 'low_balance') return Icons.notifications_active_rounded;
@@ -248,9 +252,29 @@ class _NotificationCard extends StatelessWidget {
     return parts.isEmpty ? null : parts.join(' • ');
   }
 
+  /// Offers open what their push opened; wallet alerts are read-only.
+  bool get _tappable => item.isOffer && item.linkType != 'none';
+
   @override
   Widget build(BuildContext context) {
+    final card = _card(context);
+    if (!_tappable) return card;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(context.fx(12)),
+        onTap: () => PushNotificationService.instance.openFromData({
+          'type': item.linkType,
+          'value': item.linkValue,
+        }),
+        child: card,
+      ),
+    );
+  }
+
+  Widget _card(BuildContext context) {
     final footer = _footer;
+    final image = item.imageUrl;
     return Container(
       padding: EdgeInsets.all(context.fx(14)),
       decoration: BoxDecoration(
@@ -302,6 +326,33 @@ class _NotificationCard extends StatelessWidget {
                   item.message,
                   style: TextStyle(fontSize: context.ffs(11.5), color: kAccountMuted, height: 1.35),
                 ),
+                if (image != null) ...[
+                  SizedBox(height: context.fx(10)),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(context.fx(8)),
+                    child: AspectRatio(
+                      aspectRatio: 2,
+                      child: CachedNetworkImage(
+                        imageUrl: image,
+                        fit: BoxFit.cover,
+                        placeholder: (_, _) => Container(color: const Color(0xFFDDEFFC)),
+                        // A broken banner just disappears; the text still says it all.
+                        errorWidget: (_, _, _) => const SizedBox.shrink(),
+                      ),
+                    ),
+                  ),
+                ],
+                if (_tappable) ...[
+                  SizedBox(height: context.fx(8)),
+                  Text(
+                    item.linkType == 'url' ? 'Open link →' : 'View offer →',
+                    style: TextStyle(
+                      fontSize: context.ffs(12),
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.AppBlue,
+                    ),
+                  ),
+                ],
                 if (footer != null) ...[
                   SizedBox(height: context.fx(6)),
                   Row(

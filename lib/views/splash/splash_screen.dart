@@ -5,6 +5,7 @@ import 'package:wander_nova/core/resources/app_colours.dart';
 import 'package:wander_nova/injection_container.dart' as di;
 
 import '../../UI_helper/responsive_layout.dart';
+import '../../core/services/push_notification_service.dart';
 import '../../core/utils/storage/shared_preference.dart';
 import '../home/presentation/screens/home_screen.dart';
 import '../login/presentation/screen/login.dart';
@@ -55,13 +56,15 @@ SplashDestination splashDestination() {
 /// screen for a session we already have, otherwise the login gate, which is
 /// the only way through.
 void continuePastSplash(BuildContext context) {
+  final loggedIn = hasStoredSession();
   Navigator.of(context).pushReplacement(
     fadeRoute(
-      hasStoredSession()
-          ? const HomeScreen()
-          : const LoginSignupScreen(isGate: true),
+      loggedIn ? const HomeScreen() : const LoginSignupScreen(isGate: true),
     ),
   );
+  // A push that cold-started the app opens on top of home, never over the
+  // login gate.
+  if (loggedIn) PushNotificationService.instance.openPendingLaunch();
 }
 
 /// Entry screen. Builds the Wander Nova mark a stroke at a time, then hands

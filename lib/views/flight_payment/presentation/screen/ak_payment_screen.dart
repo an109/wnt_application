@@ -29,6 +29,7 @@ import 'package:wander_nova/views/wallet/wallet/screen/checkout/upi_section.dart
 import 'package:wander_nova/views/flight_search/presentation/screen/seat_addons_screen.dart';
 import 'package:wander_nova/views/flight_ticket/presentation/screen/ak_ticket_confirmation_screen.dart';
 import 'package:wander_nova/views/wallet/data/data_source/wallet_api_service.dart';
+import 'package:wander_nova/common_widgets/currency_scope.dart';
 import 'package:wander_nova/common_widgets/app_loader.dart';
 
 /// Payment + ticketing for the Akbar flow. CreateItinerary has already
@@ -163,14 +164,9 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
   /// Akbar amounts (netAmount, wallet balance) are always in INR — this
   /// converts to whatever currency the user has picked in Settings, instead
   /// of always showing a hardcoded ₹.
-  String _displayAmount(double amountInInr) {
-    final prefs = sl<PreferencesManager>();
-    final target = prefs.getPreferredCurrency() ?? 'INR';
-    final converted = target.toUpperCase() == 'INR'
-        ? amountInInr
-        : CurrencyConverter.convert(amount: amountInInr, fromCurrency: 'INR', toCurrency: target);
-    return CurrencyConverter.format(converted, target);
-  }
+  /// Amounts on this page are charged in INR, so they are shown in INR;
+  /// the "≈" line under Total Due gives the user's own currency.
+  String _displayAmount(double amountInInr) => CurrencyConverter.format(amountInInr, 'INR');
 
   /// The Trip Secure premium, in raw INR — never the user's display currency.
   /// [AkInsuranceQuotesModel] defaults a missing currency to 'INR' already,
@@ -1016,6 +1012,11 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(fontSize: context.fs(13), color: _muted),
                 ),
+                if (context.moneyHint(_totalChargeInInr).isNotEmpty)
+                  Text(
+                    '${context.moneyHint(_totalChargeInInr)} · charged in INR',
+                    style: TextStyle(fontSize: context.fs(12), color: _muted),
+                  ),
               ],
             ),
           ),

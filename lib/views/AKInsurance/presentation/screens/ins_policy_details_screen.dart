@@ -225,7 +225,7 @@ class InsPolicyDetailsScreen extends StatelessWidget {
                                 child: _chip(
                                   context,
                                   'Premium',
-                                  InsTokens.rupees(
+                                  InsTokens.price(
                                       details?.premium ?? plan.premium),
                                   InsTokens.blue,
                                 ),
@@ -401,7 +401,7 @@ class InsPolicyDetailsScreen extends StatelessWidget {
                       ),
                       SizedBox(height: context.h(2)),
                       Text(
-                        InsTokens.rupees(total),
+                        InsTokens.price(total),
                         style: TextStyle(
                           fontSize: context.fs(11),
                           fontWeight: FontWeight.w600,

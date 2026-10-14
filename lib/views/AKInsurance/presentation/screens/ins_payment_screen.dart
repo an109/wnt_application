@@ -30,6 +30,7 @@ import '../tokens/ins_tokens.dart';
 import '../widgets/ins_common.dart';
 import '../widgets/ins_plan_card.dart';
 import 'ins_confirmed_screen.dart';
+import 'package:wander_nova/common_widgets/currency_scope.dart';
 import 'package:wander_nova/common_widgets/app_loader.dart';
 
 /// "Payment" — Figma `Payment option INSURANCE 1` / `… 2`.
@@ -542,13 +543,22 @@ class _InsPaymentScreenState extends State<InsPaymentScreen> {
                     ),
                   ),
                 ),
-                Text(
-                  InsTokens.rupees(widget.amount),
-                  style: TextStyle(
-                    fontSize: context.fs(20),
-                    fontWeight: FontWeight.w700,
-                    color: InsTokens.navy,
-                  ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      InsTokens.rupees(widget.amount),
+                      style: TextStyle(
+                        fontSize: context.fs(20),
+                        fontWeight: FontWeight.w700,
+                        color: InsTokens.navy,
+                      ),
+                    ),
+                    if (context.moneyHint(widget.amount).isNotEmpty)
+                      Text(context.moneyHint(widget.amount),
+                          style: TextStyle(fontSize: context.fs(11), color: InsTokens.subGrey)),
+                  ],
                 ),
                 SizedBox(width: context.w(8)),
                 Icon(Icons.keyboard_arrow_down_rounded,
