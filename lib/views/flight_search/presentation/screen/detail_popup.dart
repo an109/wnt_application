@@ -257,6 +257,7 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup> with SingleTick
   void _loadFareFamilyDetails() {
     if (_fareOptions.isEmpty) return;
     final isDm = widget.tripType == 'DM';
+    final isRt = widget.tripType == 'RT';
     final legTuis = isDm
         ? [
             widget.tui,
@@ -264,6 +265,35 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup> with SingleTick
               if (leg.tui != null) leg.tui!,
           ]
         : <String>[];
+
+    // RT: the backend requires EXACTLY 2 trips (outbound + return) in one call.
+    // Sending only outbound fare options causes the backend to call SmartPricer
+    // with a single trip — consuming the search TUI without caching the RT
+    // pricing TUI/net_amount, causing "Net Amount Mismatch" at CreateItinerary.
+    if (isRt && widget.additionalLegs.isNotEmpty) {
+      final returnLeg = widget.additionalLegs.first;
+      _fareFamilyDetailsBloc.add(LoadAkFareFamilyDetailsEvent(
+        AkFareFamilyDetailsRequestEntity(
+          tui: widget.tui,
+          tuis: legTuis,
+          tripType: widget.tripType,
+          trips: [
+            AkFareFamilyDetailsTripRequestEntity(
+              index: _selectedIndex,
+              amount: _selectedAmount,
+              orderId: 1,
+            ),
+            AkFareFamilyDetailsTripRequestEntity(
+              index: returnLeg.resultIndex,
+              amount: returnLeg.amount,
+              orderId: 2,
+            ),
+          ],
+        ),
+      ));
+      return;
+    }
+
 
     // Send ALL fare options so the backend returns baggage+rules for every
     // fare family, not just the currently selected one. The website does the

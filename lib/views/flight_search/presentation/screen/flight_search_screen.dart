@@ -1970,6 +1970,7 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
                         color: AppColors.AppBlue,
                       ),
                       children: [
+                        if (widget.travellers == 1)
                         TextSpan(
                           text: ' /adult',
                           style: TextStyle(
@@ -2440,6 +2441,7 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
           flightNumber: _displayFlightNo(flight, codeOverride: airlineCode),
           logo: _airlineLogo(flight, context.w(46)),
           priceText: priceText,
+          perLabel: widget.travellers == 1 ? '/adult' : '',
           departureCity: flight.originName ?? _locationName(flight.origin ?? ''),
           departureCode: (flight.origin ?? '').trim().toUpperCase(),
           departureTime: _formatTime(flight.departureTime),
@@ -3257,6 +3259,7 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
           flightNumber: _displayFlightNo(flight, codeOverride: airlineCode),
           logo: _airlineLogo(flight, context.w(46)),
           priceText: priceText,
+          perLabel: widget.travellers == 1 ? '/adult' : '',
           departureCity:
               flight.originName ?? _locationName(flight.origin ?? ''),
           departureCode: (flight.origin ?? '').trim().toUpperCase(),
@@ -3866,6 +3869,7 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
         flightNumber: _displayFlightNo(flight, codeOverride: airlineCode),
         logo: _airlineLogo(flight, context.w(46)),
         priceText: priceText,
+        perLabel: widget.travellers == 1 ? '/adult' : '',
         departureCity: flight.originName ??
             _locationName(flight.origin ?? widget.fromCode),
         departureCode:
@@ -4110,6 +4114,7 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
         flightNumber: _displayFlightNo(flight, codeOverride: airlineCode),
         logo: _airlineLogo(flight, context.w(46), isNavy: true), // Pass isNavy: true
         priceText: priceText,
+        perLabel: widget.travellers == 1 ? '/adult' : '',
         departureCity: flight.originName ??
             _locationName(flight.origin ?? widget.fromCode),
         departureCode:
@@ -4639,6 +4644,7 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
         text: _convertFlightPrice(amount, apiCurrency),
         style: style,
         children: [
+          if (widget.travellers == 1)
           TextSpan(
             text: ' /adult',
             style: style.copyWith(

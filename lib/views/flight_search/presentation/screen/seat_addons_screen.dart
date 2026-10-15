@@ -44,6 +44,7 @@ class _PaxDescriptor {
 
 class _SeatPick {
   final int ssid;
+  final int tripIndex;
   final int fuid;
   final int paxId;
   final double fare;
@@ -52,6 +53,7 @@ class _SeatPick {
 
   const _SeatPick({
     required this.ssid,
+    required this.tripIndex,
     required this.fuid,
     required this.paxId,
     required this.fare,
@@ -61,10 +63,10 @@ class _SeatPick {
 }
 
 /// Composite key for [_SeatAddonsScreenState._seatPicks] — a passenger picks
-/// one seat per flight segment, not one seat total, so the key must include
-/// the segment (fuid) alongside the passenger, or a later leg's pick
-/// silently overwrites an earlier leg's for the same passenger.
-String _seatPickKey(int fuid, int paxId) => '$fuid-$paxId';
+/// one seat per flight segment. Key includes tripIndex because Akbar can
+/// return the same fuid for outbound and return legs on RT bookings,
+/// which would cause one leg's pick to silently overwrite the other.
+String _seatPickKey(int tripIndex, int fuid, int paxId) => '$tripIndex-$fuid-$paxId';
 
 class _SsrPick {
   final int id;
@@ -215,6 +217,12 @@ class _SeatAddonsScreenState extends State<SeatAddonsScreen> {
   int _currentIndex = 0;
 
   int _activePaxId = 1;
+  int _activeLegIndex = 0;
+  // One GlobalKey per leg so the leg-pill taps can scroll the seat list there.
+  late final List<GlobalKey> _legKeys;
+  // Key on the SizedBox that wraps the seat ListView — used to get the
+  // viewport's screen-space position for the pill-scroll calculation.
+  final GlobalKey _seatListViewKey = GlobalKey();
   final Map<String, _SeatPick> _seatPicks = {};
   final List<_SsrPick> _ssrPicks = [];
   bool _submitting = false;
@@ -261,6 +269,9 @@ class _SeatAddonsScreenState extends State<SeatAddonsScreen> {
     super.initState();
     _pax = _buildPax();
     _activePaxId = _pax.isNotEmpty ? _pax.first.paxId : 1;
+
+    final legCount = 1 + widget.additionalLegs.length;
+    _legKeys = List.generate(legCount, (_) => GlobalKey());
 
     _seatLayoutBloc = sl<AkSeatLayoutBloc>();
     _ssrBloc = sl<AkSsrBloc>();
@@ -596,6 +607,86 @@ class _SeatAddonsScreenState extends State<SeatAddonsScreen> {
     );
   }
 
+  /// Label for leg [i]: "DEL - DXB" from the route/additionalLegs list.
+  String _legPillLabel(int i) {
+    if (i == 0) return '${widget.route.from} - ${widget.route.to}';
+    final leg = widget.additionalLegs[i - 1];
+    return '${leg.from} - ${leg.to}';
+  }
+
+  void _scrollToLeg(int index) {
+    if (index < 0 || index >= _legKeys.length) return;
+    setState(() => _activeLegIndex = index);
+    // Always defer to post-frame so the setState rebuild completes first
+    // and the GlobalKey contexts are fresh.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_seatScrollController.hasClients) return;
+      final anchorCtx = _legKeys[index].currentContext;
+      final viewCtx = _seatListViewKey.currentContext;
+      if (anchorCtx == null || viewCtx == null) return;
+      final anchorRo = anchorCtx.findRenderObject() as RenderBox?;
+      final viewRo = viewCtx.findRenderObject() as RenderBox?;
+      if (anchorRo == null || viewRo == null || !anchorRo.attached || !viewRo.attached) return;
+
+      // Compute anchor's Y position relative to the visible ListView area
+      // using screen-space coordinates, then convert to a scroll offset.
+      final anchorScreenY = anchorRo.localToGlobal(Offset.zero).dy;
+      final viewScreenY = viewRo.localToGlobal(Offset.zero).dy;
+      final relativeY = anchorScreenY - viewScreenY;
+
+      final position = _seatScrollController.position;
+      final target = (position.pixels + relativeY).clamp(
+        position.minScrollExtent,
+        position.maxScrollExtent,
+      );
+      _seatScrollController.animateTo(
+        target,
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeOutCubic,
+      );
+    });
+  }
+
+  Widget _legPill(BuildContext context, int index) {
+    final active = _activeLegIndex == index;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => _scrollToLeg(index),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: EdgeInsets.symmetric(horizontal: context.w(10), vertical: context.h(6)),
+        decoration: BoxDecoration(
+          color: active ? AppColors.AppBlue : Colors.white.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(context.r(20)),
+          border: Border.all(
+            color: active ? AppColors.AppBlue : const Color(0xFFB0C4DE),
+            width: 1.2,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            AirlineLogo(
+              code: _routeAirlineCode(),
+              name: widget.route.airline,
+              size: context.w(18),
+              borderRadius: BorderRadius.circular(context.r(4)),
+            ),
+            SizedBox(width: context.w(6)),
+            Text(
+              _legPillLabel(index),
+              style: TextStyle(
+                color: active ? Colors.white : _title900,
+                fontSize: context.fs(11),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   // ==================== LARGE ROUTE CARD (Figma node 458:5338) ====================
   Widget _routeCardLarge(BuildContext context) {
     final route = widget.route;
@@ -613,38 +704,52 @@ class _SeatAddonsScreenState extends State<SeatAddonsScreen> {
       ),
       child: Row(
         children: [
-          // The real carrier mark for this booking, resolved from the flight
-          // number's IATA code — never a static placeholder.
-          AirlineLogo(
-            code: _routeAirlineCode(),
-            name: route.airline,
-            size: context.w(38),
-            borderRadius: BorderRadius.circular(context.r(8)),
-          ),
-          SizedBox(width: context.w(16)),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  _routeLabel(),
-                  style: TextStyle(
-                    color: _title900,
-                    fontSize: context.fs(18),
-                    fontWeight: FontWeight.w700,
-                    height: 1.4,
-                  ),
-                ),
-                Text(
-                  route.airline.isNotEmpty ? route.airline : _routeLabel(),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(color: _title900, fontSize: context.fs(12), height: 1.33),
-                ),
-              ],
+          if (widget.additionalLegs.isEmpty) ...[
+            // Single-leg: show airline logo + route label as before.
+            AirlineLogo(
+              code: _routeAirlineCode(),
+              name: route.airline,
+              size: context.w(38),
+              borderRadius: BorderRadius.circular(context.r(8)),
             ),
-          ),
+            SizedBox(width: context.w(16)),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    _routeLabel(),
+                    style: TextStyle(
+                      color: _title900,
+                      fontSize: context.fs(18),
+                      fontWeight: FontWeight.w700,
+                      height: 1.4,
+                    ),
+                  ),
+                  Text(
+                    route.airline.isNotEmpty ? route.airline : _routeLabel(),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: _title900, fontSize: context.fs(12), height: 1.33),
+                  ),
+                ],
+              ),
+            ),
+          ] else ...[
+            // RT / multi-city: leg-pill selectors so user can jump to each
+            // leg's seat map and see which leg they're currently scrolled to.
+            Expanded(
+              child: Row(
+                children: [
+                  for (int i = 0; i < 1 + widget.additionalLegs.length; i++) ...[
+                    if (i > 0) SizedBox(width: context.w(8)),
+                    _legPill(context, i),
+                  ],
+                ],
+              ),
+            ),
+          ],
           SizedBox(width: context.w(8)),
           GestureDetector(
             behavior: HitTestBehavior.opaque,
@@ -905,7 +1010,9 @@ class _SeatAddonsScreenState extends State<SeatAddonsScreen> {
           children: [
             _paxSelector(context),
             Expanded(
-              child: ListView(
+              child: SizedBox.expand(
+                key: _seatListViewKey,
+                child: ListView(
                 controller: _seatScrollController,
                 // Momentum-based physics so the seat map glides to a stop
                 // instead of halting abruptly.
@@ -916,16 +1023,26 @@ class _SeatAddonsScreenState extends State<SeatAddonsScreen> {
                 children: [
                   for (final tripIndex in sortedTrips) ...[
                     if (showLegLabels) ...[
-                      _legLabel(context, tripIndex),
+                      // Key on the label itself (non-zero height) so that
+                      // Scrollable.ensureVisible can locate this section.
+                      SizedBox(
+                        key: tripIndex < _legKeys.length ? _legKeys[tripIndex] : null,
+                        child: _legLabel(context, tripIndex),
+                      ),
                       SizedBox(height: context.h(10)),
+                    ] else if (tripIndex < _legKeys.length) ...[
+                      // OW: no label, but keep a real-height anchor so
+                      // ensureVisible has something to target.
+                      SizedBox(key: _legKeys[tripIndex], height: 1),
                     ],
                     for (final segment in legGroups[tripIndex]!) ...[
-                      _airplaneBody(context, segment, showCaption: showLegLabels),
+                      _airplaneBody(context, segment, showCaption: showLegLabels, tripIndex: tripIndex),
                       SizedBox(height: context.h(18)),
                     ],
                   ],
                 ],
               ),
+              ), // SizedBox.expand
             ),
           ],
         );
@@ -985,7 +1102,7 @@ class _SeatAddonsScreenState extends State<SeatAddonsScreen> {
   /// sitting in the aisle gap. Columns are aligned into a true grid (an
   /// absent seat leaves a blank slot) so headers line up with their column.
   Widget _airplaneBody(BuildContext context, AkSeatLayoutSegmentEntity segment,
-      {required bool showCaption}) {
+      {required bool showCaption, required int tripIndex}) {
     final colXs = segment.seats.map((s) => int.tryParse(s.xValue) ?? 0).toSet().toList()..sort();
     final rowYs = segment.seats.map((s) => int.tryParse(s.yValue) ?? 0).toSet().toList()..sort();
 
@@ -1092,7 +1209,7 @@ class _SeatAddonsScreenState extends State<SeatAddonsScreen> {
                       final seat = seatAt['$x|${rowYs[ri]}'];
                       return seat == null
                           ? SizedBox(width: size, height: size)
-                          : _seatCell(context, segment.fuid, seat, size);
+                          : _seatCell(context, tripIndex, segment.fuid, seat, size);
                     },
                     SizedBox(
                       width: aisleW,
@@ -1127,15 +1244,14 @@ class _SeatAddonsScreenState extends State<SeatAddonsScreen> {
   }
 
   /// One seat in the grid (Figma nodes 456:4592 / 456:4606 / 456:4650 …).
-  Widget _seatCell(BuildContext context, int fuid, AkSeatEntity seat, double size) {
+  Widget _seatCell(BuildContext context, int tripIndex, int fuid, AkSeatEntity seat, double size) {
     final blockedByExit = seat.isEmergencyExit && _hasChildOrInfant;
     final unavailable = !seat.selectable || blockedByExit;
-    final myPick = _seatPicks[_seatPickKey(fuid, _activePaxId)];
+    final myPick = _seatPicks[_seatPickKey(tripIndex, fuid, _activePaxId)];
     final isMine = myPick?.ssid == seat.ssid;
-    // Scoped to this segment (fuid) — seat IDs are only unique within a
-    // single flight's seat map.
+    // Scoped to this segment — seat IDs are only unique within a single flight.
     final takenByOther =
-        !isMine && _seatPicks.values.any((p) => p.fuid == fuid && p.ssid == seat.ssid);
+        !isMine && _seatPicks.values.any((p) => p.fuid == fuid && p.tripIndex == tripIndex && p.ssid == seat.ssid);
     final inactive = unavailable || takenByOther;
 
     final isFree = !inactive && seat.selectable && seat.fare <= 0;
@@ -1190,12 +1306,13 @@ class _SeatAddonsScreenState extends State<SeatAddonsScreen> {
 
     void toggle() {
       setState(() {
-        final key = _seatPickKey(fuid, _activePaxId);
+        final key = _seatPickKey(tripIndex, fuid, _activePaxId);
         if (isMine) {
           _seatPicks.remove(key);
         } else {
           _seatPicks[key] = _SeatPick(
             ssid: seat.ssid,
+            tripIndex: tripIndex,
             fuid: fuid,
             paxId: _activePaxId,
             fare: seat.fare,
@@ -2460,8 +2577,9 @@ class _SeatAddonsScreenState extends State<SeatAddonsScreen> {
                     Icon(Icons.info, size: context.w(12), color: AppColors.subhead),
                   ],
                 ),
+                if (widget.travellerCount == 1)
                 Text(
-                  'FOR ${widget.travellerCount} ADULT${widget.travellerCount > 1 ? 'S' : ''}',
+                  'FOR 1 ADULT',
                   style: TextStyle(
                       color: AppColors.subhead,
                       fontSize: context.fs(8),

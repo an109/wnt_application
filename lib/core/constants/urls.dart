@@ -1,12 +1,9 @@
 class Urls {
-  // API server: the deployed server.
-  //static const String _apiHost = 'http://167.71.233.208:8032';
-  // Local backend for testing:
-  // static const String _apiHost = 'http://192.168.1.42:8000';
-  // static const String baseUrl = '$_apiHost/api/';
-  // static const String basesUrl = '$_apiHost/api';
+
   static const String baseUrl = 'https://thewandernova.com/api/';
+  // static const String baseUrl = 'http://167.71.233.208:8032/api/';
   static const String basesUrl = 'https://thewandernova.com/api';
+  // static const String basesUrl = 'http://167.71.233.208:8032/api';
 
   // Thrisha AI chat service: the live service.
   static const String trishaBaseUrl = trishaProductionUrl;
