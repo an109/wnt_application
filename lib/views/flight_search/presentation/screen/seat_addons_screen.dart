@@ -568,6 +568,15 @@ class _SeatAddonsScreenState extends State<SeatAddonsScreen> {
     return (sep > 0 ? flightNo.substring(0, sep) : flightNo).trim();
   }
 
+  String _routeLabel() {
+    if (widget.additionalLegs.isEmpty) {
+      return '${widget.route.from} - ${widget.route.to}';
+    }
+    final all = [widget.route, ...widget.additionalLegs];
+    final codes = [for (final r in all) r.from, all.last.to];
+    return codes.join(' · ');
+  }
+
   Widget _routeBadgeCompact(BuildContext context) {
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -580,7 +589,7 @@ class _SeatAddonsScreenState extends State<SeatAddonsScreen> {
         ),
         SizedBox(width: context.w(8)),
         Text(
-          '${widget.route.from} - ${widget.route.to}',
+          _routeLabel(),
           style: TextStyle(color: _title900, fontSize: context.fs(14), fontWeight: FontWeight.w700),
         ),
       ],
@@ -619,7 +628,7 @@ class _SeatAddonsScreenState extends State<SeatAddonsScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  '${route.from} - ${route.to}',
+                  _routeLabel(),
                   style: TextStyle(
                     color: _title900,
                     fontSize: context.fs(18),
@@ -628,7 +637,7 @@ class _SeatAddonsScreenState extends State<SeatAddonsScreen> {
                   ),
                 ),
                 Text(
-                  route.airline.isNotEmpty ? route.airline : '${route.from} to ${route.to}',
+                  route.airline.isNotEmpty ? route.airline : _routeLabel(),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(color: _title900, fontSize: context.fs(12), height: 1.33),

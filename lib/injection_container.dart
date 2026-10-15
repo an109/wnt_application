@@ -31,6 +31,11 @@ import 'package:wander_nova/views/AKFareRule/data/repository/AKFareRule_reposito
 import 'package:wander_nova/views/AKFareRule/domain/repository/AKFareRule_repository.dart';
 import 'package:wander_nova/views/AKFareRule/domain/usecase/AKFareRule_usecase.dart';
 import 'package:wander_nova/views/AKFareRule/presentation/bloc/AKFareRule_bloc.dart';
+import 'package:wander_nova/views/AKFareFamilyDetails/data/data_source/AKFareFamilyDetails_api_service.dart';
+import 'package:wander_nova/views/AKFareFamilyDetails/data/repository/AKFareFamilyDetails_repository_impl.dart';
+import 'package:wander_nova/views/AKFareFamilyDetails/domain/repository/AKFareFamilyDetails_repository.dart';
+import 'package:wander_nova/views/AKFareFamilyDetails/domain/usecase/AKFareFamilyDetails_usecase.dart';
+import 'package:wander_nova/views/AKFareFamilyDetails/presentation/bloc/AKFareFamilyDetails_bloc.dart';
 import 'package:wander_nova/views/AKAcceptFareChange/data/data_source/AKAcceptFareChange_api_service.dart';
 import 'package:wander_nova/views/AKAcceptFareChange/data/repository/AKAcceptFareChange_repository_impl.dart';
 import 'package:wander_nova/views/AKAcceptFareChange/domain/repository/AKAcceptFareChange_repository.dart';
@@ -477,6 +482,7 @@ Future<void> initializeDependencies() async {
   sl.registerFactory<AkGetSPricerApiService>(() => AkGetSPricerApiServiceImpl(sl<DioClient>().instance));
   sl.registerFactory<AkSmartPricerApiService>(() => AkSmartPricerApiServiceImpl(sl<DioClient>().instance));
   sl.registerFactory<AkFareRuleApiService>(() => AkFareRuleApiServiceImpl(sl<DioClient>().instance));
+  sl.registerFactory<AkFareFamilyDetailsApiService>(() => AkFareFamilyDetailsApiServiceImpl(sl<DioClient>().instance));
   sl.registerFactory<AkAcceptFareChangeApiService>(() => AkAcceptFareChangeApiServiceImpl(sl<DioClient>().instance));
   sl.registerFactory<AkTravelCheckListApiService>(() => AkTravelCheckListApiServiceImpl(sl<DioClient>().instance));
   sl.registerFactory<AkCreateItineraryApiService>(() => AkCreateItineraryApiServiceImpl(sl<DioClient>().instance));
@@ -562,6 +568,7 @@ Future<void> initializeDependencies() async {
   sl.registerLazySingleton<AkGetSPricerRepository>(() => AkGetSPricerRepositoryImpl(sl<AkGetSPricerApiService>()));
   sl.registerLazySingleton<AkSmartPricerRepository>(() => AkSmartPricerRepositoryImpl(sl<AkSmartPricerApiService>()));
   sl.registerLazySingleton<AkFareRuleRepository>(() => AkFareRuleRepositoryImpl(sl<AkFareRuleApiService>()));
+  sl.registerLazySingleton<AkFareFamilyDetailsRepository>(() => AkFareFamilyDetailsRepositoryImpl(sl<AkFareFamilyDetailsApiService>()));
   sl.registerLazySingleton<AkAcceptFareChangeRepository>(() => AkAcceptFareChangeRepositoryImpl(sl<AkAcceptFareChangeApiService>()));
   sl.registerLazySingleton<AkTravelCheckListRepository>(() => AkTravelCheckListRepositoryImpl(sl<AkTravelCheckListApiService>()));
   sl.registerLazySingleton<AkCreateItineraryRepository>(() => AkCreateItineraryRepositoryImpl(sl<AkCreateItineraryApiService>()));
@@ -658,6 +665,7 @@ Future<void> initializeDependencies() async {
   sl.registerLazySingleton<AkGetSPricerUseCase>(() => AkGetSPricerUseCase(sl<AkGetSPricerRepository>()));
   sl.registerLazySingleton<AkSmartPricerUseCase>(() => AkSmartPricerUseCase(sl<AkSmartPricerRepository>()));
   sl.registerLazySingleton<AkFareRuleUseCase>(() => AkFareRuleUseCase(sl<AkFareRuleRepository>()));
+  sl.registerLazySingleton<AkFareFamilyDetailsUseCase>(() => AkFareFamilyDetailsUseCase(sl<AkFareFamilyDetailsRepository>()));
   sl.registerLazySingleton<AkAcceptFareChangeUseCase>(() => AkAcceptFareChangeUseCase(sl<AkAcceptFareChangeRepository>()));
   sl.registerLazySingleton<AkTravelCheckListUseCase>(() => AkTravelCheckListUseCase(sl<AkTravelCheckListRepository>()));
   sl.registerLazySingleton<AkCreateItineraryUseCase>(() => AkCreateItineraryUseCase(sl<AkCreateItineraryRepository>()));
@@ -769,6 +777,7 @@ Future<void> initializeDependencies() async {
   sl.registerFactory<AkGetSPricerBloc>(() => AkGetSPricerBloc(sl<AkGetSPricerUseCase>()));
   sl.registerFactory<AkSmartPricerBloc>(() => AkSmartPricerBloc(sl<AkSmartPricerUseCase>()));
   sl.registerFactory<AkFareRuleBloc>(() => AkFareRuleBloc(sl<AkFareRuleUseCase>()));
+  sl.registerFactory<AkFareFamilyDetailsBloc>(() => AkFareFamilyDetailsBloc(sl<AkFareFamilyDetailsUseCase>()));
   sl.registerFactory<AkTravelCheckListBloc>(() => AkTravelCheckListBloc(sl<AkTravelCheckListUseCase>()));
   sl.registerFactory<AkCreateItineraryBloc>(() => AkCreateItineraryBloc(sl<AkCreateItineraryUseCase>()));
   sl.registerFactory<AkStartPayBloc>(() => AkStartPayBloc(sl<AkStartPayUseCase>()));

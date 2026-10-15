@@ -18,6 +18,11 @@ class Urls {
 
   static const String airports = '$basesUrl/flights/airports';
   static const String flightSearch = '$basesUrl/akbar/ExpressSearch/';
+  static const String multiCitySearch = '$basesUrl/akbar/MultiCity/Search/';
+  static const String multiCityPoll = '$basesUrl/akbar/MultiCity/Poll/';
+  static const String multiCitySmartPricer = '$basesUrl/akbar/MultiCity/SmartPricer/';
+  static const String multiCityGetSPricer = '$basesUrl/akbar/MultiCity/GetSPricer/';
+  static const String multiCityCreateItinerary = '$basesUrl/akbar/MultiCity/CreateItinerary/';
   static const String getExpSearch = '$basesUrl/akbar/GetExpSearch/';
   static const String flightInfo = '$basesUrl/akbar/FlightInfo/';
   static const String fareFamilyDetails = '$basesUrl/akbar/FareFamilyDetails/';

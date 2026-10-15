@@ -100,6 +100,12 @@ class FlightSearchRequestModel extends FlightSearchRequestEntity {
         to: trip.to,
         onwardDate: trip.onwardDate,
         returnDate: trip.returnDate,
+        fromCity: trip.fromCity,
+        toCity: trip.toCity,
+        fromArptName: trip.fromArptName,
+        toArptName: trip.toArptName,
+        orderId: trip.orderId,
+        onwardCabin: trip.onwardCabin,
       )).toList(),
     );
   }

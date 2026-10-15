@@ -1,6 +1,10 @@
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
+import 'package:dio/dio.dart';
+import 'package:wander_nova/core/constants/urls.dart';
+import 'package:wander_nova/views/AKFlights/data/model/AKFlights_model.dart';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -94,6 +98,10 @@ class FlightSearchScreen extends StatefulWidget {
   /// Empty/null for ON/RT/RS/IM — those use [tui] (a single shared TUI).
   final List<String>? tuis;
 
+  /// Session ID returned by MultiCity/Search/ — required for MultiCity/SmartPricer/,
+  /// MultiCity/GetSPricer/, and MultiCity/CreateItinerary/ in the DM booking flow.
+  final String? sessionId;
+
   const FlightSearchScreen({
     super.key,
     required this.from,
@@ -114,6 +122,7 @@ class FlightSearchScreen extends StatefulWidget {
     this.fareType = 'ON',
     this.multiCityLegs,
     this.tuis,
+    this.sessionId,
   });
 
   @override
@@ -182,13 +191,10 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
   static const int _dateStripDays = 30;
 
   static const _sortOptions = [
-    "Lowest Price",
-    "Direct Flights First",
-    "Earliest Departure",
-    "Latest Departure",
-    "Earliest Arrival",
-    "Latest Arrival",
-    "Shortest Duration",
+    "Price: Low to High",
+    "Price: High to Low",
+    "Departure: Earliest",
+    "Duration: Shortest",
   ];
 
   // ---------------------------------------------------------------------------
@@ -206,6 +212,12 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
   List<List<FlightEntity>>? _dmLegLists;
   bool _dmSearchCompleted = false;
   bool _dmSearchLoading = false;
+
+  // IM-only: leg lists built by polling MultiCity/Poll/ so Trips[1] (zero-fare
+  // partners) are NOT dropped by the standard GetExpSearch zero-fare filter.
+  List<List<FlightEntity>>? _imLegLists;
+  bool _imSearchCompleted = false;
+  bool _imSearchLoading = false;
 
   // Round trip / special return only (`hasReturnLeg`) — the Wego-style
   // two-step selector: 0 = pick the departing flight, 1 = pick the
@@ -255,9 +267,65 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
         widget.tuis != null &&
         widget.tuis!.length > 1) {
       _triggerDmFlightSearch();
+    } else if (_fareTripType == FareTripType.internationalMulticity) {
+      _triggerImFlightSearch();
     } else {
       _akflightsBloc.add(LoadAkflightsEvent(tui: _currentTui));
     }
+  }
+
+  /// IM polling via MultiCity/Poll/ so Trips[1..N] (zero-fare partner legs)
+  /// survive. Standard GetExpSearch drops all zero-fare rows, which deletes
+  /// every return leg of an IM journey before Flutter ever sees it.
+  Future<void> _triggerImFlightSearch() async {
+    if (!mounted) return;
+    setState(() {
+      _imSearchLoading = true;
+      _imLegLists = null;
+    });
+
+    final tuis = widget.tuis?.isNotEmpty == true
+        ? widget.tuis!
+        : [_currentTui];
+    final sessionId = widget.sessionId ?? '';
+    final dio = sl<Dio>();
+    const maxPolls = 20;
+    const pollInterval = Duration(seconds: 2);
+
+    for (var poll = 0; poll < maxPolls; poll++) {
+      if (!mounted) return;
+      try {
+        final res = await dio.post(
+          Urls.multiCityPoll,
+          data: {'tuis': tuis, 'session_id': sessionId},
+        );
+        final data = res.data as Map<String, dynamic>;
+        if (data['success'] == true || data['Trips'] != null) {
+          final parsed = AkflightsSearchModel.fromJson({
+            'success': data['success'] ?? true,
+            'Completed': data['completed'] ?? data['Completed'] ?? false,
+            'Trips': data['Trips'] ?? [],
+          });
+          final legLists = _mapAkflightsToLegLists(parsed, imMode: true);
+          final completed = parsed.completed;
+          if (mounted) {
+            setState(() {
+              _imLegLists = legLists;
+              _imSearchCompleted = completed;
+              if (_imSearchLoading && legLists.any((l) => l.isNotEmpty)) {
+                _imSearchLoading = false;
+              }
+            });
+          }
+          if (completed) break;
+        }
+      } catch (_) {
+        // Keep polling on transient errors.
+      }
+      if (poll < maxPolls - 1) await Future.delayed(pollInterval);
+    }
+
+    if (mounted) setState(() => _imSearchLoading = false);
   }
 
   /// Polls GetExpSearch for each DM leg's TUI in parallel, then merges the
@@ -417,6 +485,20 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
       return _buildMultiLegContent(legLists, isCompleted: _dmSearchCompleted);
     }
 
+    // IM uses MultiCity/Poll/ so Trips[1] (zero-fare return legs) survive.
+    if (_fareTripType == FareTripType.internationalMulticity) {
+      final legLists = _imLegLists;
+      if (_imSearchLoading && (legLists == null || legLists.every((l) => l.isEmpty))) {
+        return loadingScreen;
+      }
+      if (legLists == null) return loadingScreen;
+      final anyFlights = legLists.any((l) => l.isNotEmpty);
+      if (!anyFlights && !_imSearchCompleted) return loadingScreen;
+      _updateMaxPrice(legLists.expand((l) => l).toList());
+      _autoSelectFirstFlights(legLists);
+      return _buildMultiLegContent(legLists, isCompleted: _imSearchCompleted);
+    }
+
     return BlocBuilder<AkflightsBloc, AkflightsState>(
       builder: (context, state) {
         if (_isRefetchingTui || state is AkflightsLoading) {
@@ -567,11 +649,24 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
   /// results in its own list instead of pooling them — used by the RT/RS/
   /// IM/DM results screen, which needs the user to pick one flight per leg
   /// rather than one flight overall.
-  List<List<FlightEntity>> _mapAkflightsToLegLists(ak.AkflightsSearchEntity data) {
-    return data.trips.map((trip) {
-      final raw = _rawFlightsForTrip(trip);
-      return _cheapestPerFlight(raw.flights, raw.siblings);
-    }).toList();
+  List<List<FlightEntity>> _mapAkflightsToLegLists(
+    ak.AkflightsSearchEntity data, {
+    bool imMode = false,
+  }) {
+    final result = <List<FlightEntity>>[];
+    for (var i = 0; i < data.trips.length; i++) {
+      final raw = _rawFlightsForTrip(data.trips[i]);
+      // For IM, Trips[1..N] are zero-fare paired legs. Each entry has the same
+      // airline/flight/time as its sibling entries, so _cheapestPerFlight would
+      // collapse ALL of them into one, destroying the ReturnIdentifier map.
+      // Return the raw list for those legs so every pairing is preserved.
+      if (imMode && i > 0) {
+        result.add(raw.flights);
+      } else {
+        result.add(_cheapestPerFlight(raw.flights, raw.siblings));
+      }
+    }
+    return result;
   }
 
   List<FlightEntity> _cheapestPerFlight(
@@ -1692,19 +1787,23 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
     final filtered = _applyFilters(outboundFlights);
     final selected = _legSelections.isNotEmpty ? _legSelections[0] : null;
 
-    // Build a lookup: returnIdentifier → paired return flight from Trips[1].
-    // Fall back to resultIndex lookup when returnIdentifier is absent (0/null).
-    final Map<int, FlightEntity> returnByReturnId = {};
-    final Map<String, FlightEntity> returnByResultIndex = {};
-    if (legLists.length > 1) {
-      for (final f in legLists[1]) {
+    // Build one lookup map per extra leg (Trips[1..N]).
+    // Each map resolves a Trips[0] outbound flight → its paired leg at that position.
+    final List<Map<int, FlightEntity>> returnByReturnIdList = [];
+    final List<Map<String, FlightEntity>> returnByResultIndexList = [];
+    for (int li = 1; li < legLists.length; li++) {
+      final Map<int, FlightEntity> byRetId = {};
+      final Map<String, FlightEntity> byResIdx = {};
+      for (final f in legLists[li]) {
         if (f.returnIdentifier != null && f.returnIdentifier! > 0) {
-          returnByReturnId[f.returnIdentifier!] = f;
+          byRetId[f.returnIdentifier!] = f;
         } else {
           final idx = f.resultIndex ?? '';
-          if (idx.isNotEmpty) returnByResultIndex[idx] = f;
+          if (idx.isNotEmpty) byResIdx[idx] = f;
         }
       }
+      returnByReturnIdList.add(byRetId);
+      returnByResultIndexList.add(byResIdx);
     }
 
     return Stack(
@@ -1738,21 +1837,25 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
                       itemCount: filtered.length,
                       itemBuilder: (ctx, idx) {
                         final flight = filtered[idx];
-                        FlightEntity? pairedReturn;
-                        if (flight.returnIdentifier != null && flight.returnIdentifier! > 0) {
-                          pairedReturn = returnByReturnId[flight.returnIdentifier!];
-                        } else {
-                          pairedReturn = returnByResultIndex[flight.resultIndex ?? ''];
+                        // Collect one paired leg per extra leg list (Trips[1..N]).
+                        final List<FlightEntity> allLegs = [flight];
+                        for (int li = 0; li < returnByReturnIdList.length; li++) {
+                          FlightEntity? paired;
+                          if (flight.returnIdentifier != null && flight.returnIdentifier! > 0) {
+                            paired = returnByReturnIdList[li][flight.returnIdentifier!];
+                          } else {
+                            paired = returnByResultIndexList[li][flight.resultIndex ?? ''];
+                          }
+                          if (paired != null) allLegs.add(paired);
                         }
                         final isSelectedCard =
                             selected?.resultIndex == (flight.resultIndex ?? '');
                         return Padding(
                           padding: EdgeInsets.only(bottom: context.h(12)),
                           child: _buildImPackageTwoLegCard(
-                            leg1: flight,
-                            leg2: pairedReturn,
+                            legs: allLegs,
                             isSelected: isSelectedCard,
-                            onTap: () => _selectImPackage(flight),
+                            onTap: () => _selectImPackage(allLegs),
                           ),
                         );
                       },
@@ -1772,236 +1875,288 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
     );
   }
 
-  /// IM package card — both legs in one card.
-  /// Leg 1 (outbound) is always present; leg 2 (return) is shown below a
-  /// thin divider when Akbar included it in the response.
+  /// IM package card — N legs in one card (matches the Figma/website design).
+  /// Header: airline logo + name (leg 1) + total price.
+  /// Each leg: DEPART / RETURN (or LEG N) label pill + route row with arc.
   Widget _buildImPackageTwoLegCard({
-    required FlightEntity leg1,
-    FlightEntity? leg2,
+    required List<FlightEntity> legs,
     required bool isSelected,
     required VoidCallback onTap,
   }) {
+    final leg1 = legs.first;
+    final target = CurrencyConverter.getPreferredCurrency();
+    final priceText =
+        '${CurrencyConverter.getSymbol(target)} ${_convertFlightPrice((leg1.totalFare ?? 0).toDouble(), leg1.currency)}';
+    final airlineCode = (leg1.airlineCode?.isNotEmpty ?? false)
+        ? leg1.airlineCode!.toUpperCase()
+        : 'FL';
+    final airlineName = leg1.airlineName ?? 'Airline';
+    final flightNo = _displayFlightNo(leg1, codeOverride: airlineCode);
+
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         curve: Curves.easeInOut,
+        width: double.infinity,
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(context.r(18)),
           border: Border.all(
-            color: isSelected ? AppColors.AppBlue : const Color(0xffE2E8F0),
-            width: isSelected ? 1.8 : 1.0,
+            color: isSelected ? AppColors.AppBlue : const Color(0xFFEDEEF1),
+            width: isSelected ? 1.5 : 0.5,
           ),
           boxShadow: [
             BoxShadow(
               color: isSelected
-                  ? AppColors.AppBlue.withValues(alpha: 0.13)
-                  : Colors.black.withValues(alpha: 0.05),
-              blurRadius: isSelected ? context.w(14) : context.w(6),
-              offset: Offset(0, context.h(isSelected ? 4 : 2)),
+                  ? AppColors.AppBlue.withValues(alpha: 0.12)
+                  : const Color(0xFF1E1E5A).withValues(alpha: 0.05),
+              blurRadius: context.w(18),
+              offset: Offset(0, context.h(6)),
             ),
           ],
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildImLegRow(leg1, showPrice: leg2 == null),
-            if (leg2 != null) ...[
-              _buildImLegDivider(),
-              _buildImLegRow(leg2, showPrice: false),
+        child: Padding(
+          padding: EdgeInsets.symmetric(
+              horizontal: context.w(18), vertical: context.h(18)),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // ── Header: logo + airline + price ──────────────────────────
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  _airlineLogo(leg1, context.w(38)),
+                  SizedBox(width: context.w(12)),
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            airlineName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: context.fs(14),
+                              fontWeight: FontWeight.w700,
+                              color: const Color(0xff07163B),
+                            ),
+                          ),
+                        ),
+                        SizedBox(width: context.w(4)),
+                        Flexible(
+                          child: Text(
+                            flightNo,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: context.fs(13),
+                              fontWeight: FontWeight.w500,
+                              color: const Color(0xff64748B),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  SizedBox(width: context.w(8)),
+                  Text.rich(
+                    TextSpan(
+                      text: priceText,
+                      style: TextStyle(
+                        fontSize: context.fs(16),
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.AppBlue,
+                      ),
+                      children: [
+                        TextSpan(
+                          text: ' /adult',
+                          style: TextStyle(
+                            fontSize: context.fs(8),
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xff64748B),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              // ── Legs ────────────────────────────────────────────────────
+              ...List.generate(legs.length, (i) {
+                final leg = legs[i];
+                final isLast = i == legs.length - 1;
+                final String label = 'TRIP ${i + 1}';
+                final Color labelBg = AppColors.AppBlue.withValues(alpha: 0.10);
+                final Color labelFg = AppColors.AppBlue;
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: EdgeInsets.only(
+                          top: context.h(12),
+                          bottom: context.h(isLast ? 0 : 0)),
+                      child: Container(
+                        height: 0.6,
+                        color: const Color(0xFFCCCCCC),
+                      ),
+                    ),
+                    SizedBox(height: context.h(10)),
+                    // Label pill
+                    Container(
+                      padding: EdgeInsets.symmetric(
+                          horizontal: context.w(10), vertical: context.h(3)),
+                      decoration: BoxDecoration(
+                        color: labelBg,
+                        borderRadius: BorderRadius.circular(context.r(20)),
+                      ),
+                      child: Text(
+                        label,
+                        style: TextStyle(
+                          fontSize: context.fs(10),
+                          fontWeight: FontWeight.w700,
+                          color: labelFg,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: context.h(10)),
+                    _buildImLegRouteRow(leg),
+                  ],
+                );
+              }),
             ],
-            if (leg2 != null) _buildImPackagePrice(leg1),
-          ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildImLegRow(FlightEntity flight, {required bool showPrice}) {
-    final target = CurrencyConverter.getPreferredCurrency();
-    final priceText = '${CurrencyConverter.getSymbol(target)} '
-        '${_convertFlightPrice((flight.totalFare ?? 0).toDouble(), flight.currency)}';
-    final airlineCode = (flight.airlineCode?.isNotEmpty ?? false)
-        ? flight.airlineCode!.toUpperCase()
-        : 'FL';
-    final airlineName = flight.airlineName ?? 'Airline';
+  /// Route row for one IM leg — matches the existing FlightCard style:
+  /// city+time+code LEFT | arc image + duration + stops CENTER | city+time+code RIGHT.
+  Widget _buildImLegRouteRow(FlightEntity flight) {
     final depCode = (flight.origin ?? '').trim().toUpperCase();
     final arrCode = (flight.destination ?? '').trim().toUpperCase();
+    final depCity = flight.originName ?? '';
+    final arrCity = flight.destinationName ?? '';
     final depTime = _formatTime(flight.departureTime);
     final arrTime = _formatTime(flight.arrivalTime);
     final durationStr = _formatDuration(
         flight.duration != null ? int.tryParse(flight.duration!) : null);
     final stops = _formatStops(flight.stops);
-    final stopsColor = stops.toLowerCase().contains('non') ||
-            stops.toLowerCase().contains('direct')
-        ? const Color(0xff16A34A)
-        : const Color(0xffDC2626);
 
-    return Padding(
-      padding: EdgeInsets.symmetric(
-          horizontal: context.w(14), vertical: context.h(12)),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          // Airline logo
-          _airlineLogo(flight, context.w(36)),
-          SizedBox(width: context.w(8)),
-          // Airline name + flight number — shrinks first
-          Expanded(
-            flex: 3,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // DEP endpoint
+        Expanded(
+          flex: 5,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (depCity.isNotEmpty)
                 Text(
-                  airlineName,
-                  style: TextStyle(
-                    fontSize: context.fs(12),
-                    fontWeight: FontWeight.w700,
-                    color: const Color(0xff07163B),
-                  ),
+                  depCity,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                ),
-                Text(
-                  _displayFlightNo(flight, codeOverride: airlineCode),
                   style: TextStyle(
-                    fontSize: context.fs(10),
+                    fontSize: context.fs(12),
                     color: const Color(0xff64748B),
                     fontWeight: FontWeight.w500,
                   ),
                 ),
-              ],
-            ),
-          ),
-          SizedBox(width: context.w(6)),
-          // DEP time + code
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(depTime,
-                  style: TextStyle(
-                      fontSize: context.fs(12),
-                      fontWeight: FontWeight.w700,
-                      color: const Color(0xff07163B))),
-              Text(depCode,
-                  style: TextStyle(
-                      fontSize: context.fs(10),
-                      color: const Color(0xff64748B))),
-            ],
-          ),
-          // Duration + stops — Flexible so inner Row gets bounded width
-          Flexible(
-            flex: 2,
-            child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: context.w(4)),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(durationStr,
-                      style: TextStyle(
-                          fontSize: context.fs(10),
-                          color: const Color(0xff64748B),
-                          fontWeight: FontWeight.w500)),
-                  Row(
-                    // Expanded(Divider) is safe here: the parent Flexible
-                    // gives this Row bounded width constraints.
-                    children: [
-                      Expanded(
-                        child: Container(
-                          height: 1,
-                          color: const Color(0xffCBD5E1),
-                        ),
-                      ),
-                      Padding(
-                        padding: EdgeInsets.symmetric(horizontal: context.w(2)),
-                        child: Icon(Icons.flight,
-                            size: context.w(13), color: AppColors.AppBlue),
-                      ),
-                      Expanded(
-                        child: Container(
-                          height: 1,
-                          color: const Color(0xffCBD5E1),
-                        ),
-                      ),
-                    ],
-                  ),
-                  Text(stops,
-                      style: TextStyle(
-                          fontSize: context.fs(10),
-                          color: stopsColor,
-                          fontWeight: FontWeight.w500)),
-                ],
-              ),
-            ),
-          ),
-          // ARR time + code
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(arrTime,
-                  style: TextStyle(
-                      fontSize: context.fs(12),
-                      fontWeight: FontWeight.w700,
-                      color: const Color(0xff07163B))),
-              Text(arrCode,
-                  style: TextStyle(
-                      fontSize: context.fs(10),
-                      color: const Color(0xff64748B))),
-            ],
-          ),
-          if (showPrice) ...[
-            SizedBox(width: context.w(6)),
-            Text(priceText,
+              SizedBox(height: context.h(4)),
+              Text(
+                depTime,
                 style: TextStyle(
-                    fontSize: context.fs(12),
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.AppBlue)),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildImLegDivider() {
-    return Container(
-      margin: EdgeInsets.symmetric(horizontal: context.w(14)),
-      height: 1,
-      color: const Color(0xffF1F5F9),
-    );
-  }
-
-  Widget _buildImPackagePrice(FlightEntity leg1) {
-    final target = CurrencyConverter.getPreferredCurrency();
-    final priceText = '${CurrencyConverter.getSymbol(target)} '
-        '${_convertFlightPrice((leg1.totalFare ?? 0).toDouble(), leg1.currency)}';
-    return Container(
-      padding: EdgeInsets.fromLTRB(
-          context.w(14), context.h(6), context.w(14), context.h(12)),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          Container(
-            padding: EdgeInsets.symmetric(
-                horizontal: context.w(10), vertical: context.h(3)),
-            decoration: BoxDecoration(
-              color: AppColors.AppBlue.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(context.r(20)),
-            ),
-            child: Text(
-              'Package • $priceText /adult',
-              style: TextStyle(
-                fontSize: context.fs(11),
-                fontWeight: FontWeight.w700,
-                color: AppColors.AppBlue,
+                  fontSize: context.fs(20),
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xff07163B),
+                ),
               ),
-            ),
+              Text(
+                depCode,
+                style: TextStyle(
+                  fontSize: context.fs(11),
+                  color: const Color(0xff64748B),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        ),
+        // Arc + duration + stops
+        Expanded(
+          flex: 6,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                height: context.h(46),
+                width: double.infinity,
+                child: Image.asset(
+                  'assets/NewIcons/flightCard.png',
+                  fit: BoxFit.contain,
+                ),
+              ),
+              Text(
+                durationStr,
+                style: TextStyle(
+                    fontSize: context.fs(10),
+                    color: const Color(0xff64748B)),
+              ),
+              SizedBox(height: context.h(1)),
+              Text(
+                stops,
+                style: TextStyle(
+                    fontSize: context.fs(10),
+                    color: const Color(0xff64748B)),
+              ),
+            ],
+          ),
+        ),
+        // ARR endpoint
+        Expanded(
+          flex: 5,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (arrCity.isNotEmpty)
+                Text(
+                  arrCity,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.end,
+                  style: TextStyle(
+                    fontSize: context.fs(12),
+                    color: const Color(0xff64748B),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              SizedBox(height: context.h(4)),
+              Text(
+                arrTime,
+                style: TextStyle(
+                  fontSize: context.fs(20),
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xff07163B),
+                ),
+              ),
+              Text(
+                arrCode,
+                style: TextStyle(
+                  fontSize: context.fs(11),
+                  color: const Color(0xff64748B),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -2049,25 +2204,19 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
     );
   }
 
-  /// For IM, selecting one outbound flight auto-pairs leg 2 with the SAME
-  /// resultIndex but Amount=0 (Akbar's IM SmartPricer convention).
-  void _selectImPackage(FlightEntity flight) {
+  /// For IM, selecting one outbound package pairs both legs.
+  /// Leg 2 uses the paired return flight's own resultIndex and amount
+  /// (as returned in Trips[1] of the IM GetExpSearch response).
+  void _selectImPackage(List<FlightEntity> allLegs) {
     setState(() {
-      _legSelections[0] = FlightLegSelection(
-        orderId: 1,
-        resultIndex: flight.resultIndex ?? '',
-        amount: (flight.totalFare ?? 0).toDouble(),
-        flight: flight,
-        tui: null, // IM uses one shared TUI (_currentTui)
-      );
-      // Auto-pair leg 2: same index, zero fare (bundled in leg 1).
-      if (_legSelections.length > 1) {
-        _legSelections[1] = FlightLegSelection(
-          orderId: 2,
-          resultIndex: flight.resultIndex ?? '', // same index as leg 1
-          amount: 0,
-          flight: flight,
-          tui: null,
+      for (int i = 0; i < allLegs.length && i < _legSelections.length; i++) {
+        final leg = allLegs[i];
+        _legSelections[i] = FlightLegSelection(
+          orderId: i + 1,
+          resultIndex: leg.resultIndex ?? '',
+          amount: (leg.totalFare ?? 0).toDouble(),
+          flight: leg,
+          tui: null, // IM uses one shared TUI (_currentTui)
         );
       }
     });
@@ -2152,18 +2301,39 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
         child: Row(
           children: List.generate(legCount, (i) {
             final isActive = i == _selectedMultiCityLeg;
+            final isDone = _legSelections.length > i && _legSelections[i] != null;
             String label;
             String? subLabel;
             if (legs != null && i < legs.length) {
               final leg = legs[i];
               label = 'Trip ${i + 1}';
-              final from = '${leg.from}(${leg.fromCode})';
-              final to = '${leg.to}(${leg.toCode})';
-              subLabel = '$from - $to';
-              subLabel += '\n${DateFormat('d MMM yyyy, EEE').format(leg.date)}';
+              subLabel = '${leg.fromCode} → ${leg.toCode}';
+              if (isDone) {
+                final sel = _legSelections[i]!;
+                final airline = sel.flight.airlineName ?? '';
+                final time = _formatTime(sel.flight.departureTime);
+                subLabel = '$airline  $time';
+              }
             } else {
               label = 'Trip ${i + 1}';
             }
+            // Color scheme: done=green, active=blue, pending=grey
+            final Color borderColor = isDone
+                ? const Color(0xff16A34A)
+                : isActive
+                    ? AppColors.AppBlue
+                    : const Color(0xffE0E4F0);
+            final Color labelColor = isDone
+                ? const Color(0xff16A34A)
+                : isActive
+                    ? AppColors.AppBlue
+                    : const Color(0xffA0A6C2);
+            final Color bgColor = isDone
+                ? const Color(0xff16A34A).withValues(alpha: 0.07)
+                : isActive
+                    ? AppColors.AppBlue.withValues(alpha: 0.06)
+                    : Colors.white;
+
             return Padding(
               padding: EdgeInsets.only(right: context.w(8)),
               child: GestureDetector(
@@ -2175,34 +2345,47 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
                     vertical: context.h(8),
                   ),
                   decoration: BoxDecoration(
+                    color: bgColor,
                     borderRadius: BorderRadius.circular(context.r(8)),
-                    border: Border.all(
-                      color: isActive ? AppColors.AppBlue : const Color(0xffE0E4F0),
-                      width: isActive ? 1.5 : 1,
-                    ),
+                    border: Border.all(color: borderColor, width: isActive ? 1.5 : 1),
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  child: Row(
                     mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      Text(
-                        label,
-                        style: TextStyle(
-                          fontSize: context.fs(10),
-                          fontWeight: FontWeight.w600,
-                          color: isActive ? AppColors.AppBlue : const Color(0xffA0A6C2),
-                        ),
-                      ),
-                      if (subLabel != null) ...[
-                        SizedBox(height: context.h(2)),
-                        Text(
-                          subLabel,
-                          style: TextStyle(
-                            fontSize: context.fs(10),
-                            fontWeight: FontWeight.w700,
-                            color: isActive ? AppColors.black : const Color(0xff6B7280),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            label,
+                            style: TextStyle(
+                              fontSize: context.fs(10),
+                              fontWeight: FontWeight.w600,
+                              color: labelColor,
+                            ),
                           ),
-                        ),
+                          if (subLabel != null) ...[
+                            SizedBox(height: context.h(2)),
+                            Text(
+                              subLabel,
+                              style: TextStyle(
+                                fontSize: context.fs(10),
+                                fontWeight: FontWeight.w700,
+                                color: isDone
+                                    ? const Color(0xff16A34A)
+                                    : isActive
+                                        ? AppColors.black
+                                        : const Color(0xff6B7280),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                      if (isDone) ...[
+                        SizedBox(width: context.w(6)),
+                        Icon(Icons.check_circle_rounded,
+                            size: context.fs(14), color: const Color(0xff16A34A)),
                       ],
                     ],
                   ),
@@ -2512,6 +2695,16 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
         tui: legTui,
       );
     });
+    // DM: auto-advance to the next unselected leg after a pick.
+    if (_fareTripType == FareTripType.domesticMulticity) {
+      final nextUnselected = List.generate(_legSelections.length, (i) => i)
+          .firstWhere((i) => _legSelections[i] == null, orElse: () => -1);
+      if (nextUnselected != -1) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) setState(() => _selectedMultiCityLeg = nextUnselected);
+        });
+      }
+    }
   }
 
   /// Pre-selects the first flight in every leg column that doesn't have a
@@ -4252,6 +4445,7 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
       fareFamilyOptions: first.flight.fareFamilyOptions,
       tripType: widget.fareType,
       additionalLegs: selections.sublist(1),
+      searchSessionId: widget.sessionId,
     );
   }
 

@@ -1,13 +1,14 @@
 import 'dart:ui';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
-import 'package:wander_nova/common_widgets/compact_date_picker_dialog.dart';
 import 'package:wander_nova/common_widgets/currency_chip.dart';
 import 'package:wander_nova/core/resources/app_colours.dart';
+import '../../../../core/constants/urls.dart';
 import '../../../../core/error/data_state.dart';
 import '../../../../core/utils/storage/shared_preference.dart';
 import '../../../../injection_container.dart';
@@ -406,56 +407,81 @@ class _SearchCardState extends State<SearchCard> {
     }
   }
 
-  /// DM requires N separate ExpressSearch calls (one per leg). Each call has
-  /// a single trip and returns its own TUI. We collect all TUIs, then
-  /// navigate with the first TUI as the primary search handle and the full
-  /// list so downstream (SmartPricer, CreateItinerary) can use per-leg TUIs.
+  /// DM: sends all legs in one POST to /api/akbar/MultiCity/Search/ which
+  /// does the per-leg Akbar fan-out server-side and returns a `tuis` list.
   Future<void> _performDomesticMulticitySearch(FareTripType fareType) async {
-    final useCase = sl<AkFlightSearchUseCase>();
+    final dio = sl<Dio>();
     final cabin = _cabinCode(travelClass);
-    final tuis = <String>[];
 
-    for (var i = 0; i < multiCityLegs.length; i++) {
-      final leg = multiCityLegs[i];
-      final legRequest = FlightSearchRequestEntity(
-        adults: adults,
-        children: children,
-        infants: infants,
-        cabin: cabin,
-        fareType: fareType.wireValue,
-        trips: [
-          TripEntity(
-            from: leg.from!.airportCode,
-            to: leg.to!.airportCode,
-            onwardDate: DateFormat('yyyy-MM-dd').format(leg.date!),
-            fromCity: leg.from!.cityName,
-            toCity: leg.to!.cityName,
-            fromArptName: leg.from!.airportName,
-            toArptName: leg.to!.airportName,
-          ),
-        ],
-      );
+    final trips = multiCityLegs
+        .map(
+          (leg) => {
+            'from': leg.from!.airportCode,
+            'to': leg.to!.airportCode,
+            'onward_date': DateFormat('yyyy-MM-dd').format(leg.date!),
+            'from_city': leg.from!.cityName,
+            'to_city': leg.to!.cityName,
+            'from_arpt_name': leg.from!.airportName,
+            'to_arpt_name': leg.to!.airportName,
+          },
+        )
+        .toList();
 
-      final result = await useCase.call(legRequest);
-      if (!mounted) return;
+    final body = {
+      'adults': adults,
+      'children': children,
+      'infants': infants,
+      'cabin': cabin,
+      'fare_type': fareType.wireValue,
+      'trips': trips,
+    };
 
-      if (result is DataSuccess<AkFlightSearchEntity> && result.data != null) {
-        tuis.add(result.data!.tui);
-      } else {
-        _showError(
-          result.error?.message ?? 'Failed to search flights for leg ${i + 1}',
-        );
+    late List<String> tuis;
+    late String primaryTui;
+    String? sessionId;
+
+    try {
+      print('CALLING MULTI-CITY SEARCH: ${Urls.multiCitySearch}');
+      print('Request Body: $body');
+      final response = await dio.post(Urls.multiCitySearch, data: body);
+      print('MultiCity Search Response: ${response.data}');
+
+      final data = response.data as Map<String, dynamic>;
+      if (data['success'] != true) {
+        if (!mounted) return;
+        _showError(data['error']?.toString() ?? 'Multi-city search failed');
         return;
       }
+
+      final rawTuis = data['tuis'];
+      tuis = rawTuis is List
+          ? rawTuis.map((e) => e.toString()).toList()
+          : <String>[];
+      primaryTui = data['tui']?.toString() ?? (tuis.isNotEmpty ? tuis.first : '');
+      sessionId = data['session_id']?.toString();
+
+      if (primaryTui.isEmpty) {
+        if (!mounted) return;
+        _showError('No search results returned');
+        return;
+      }
+    } on DioException catch (e) {
+      if (!mounted) return;
+      _showError(
+        e.response?.data?['error']?.toString() ??
+            e.message ??
+            'Failed to search multi-city flights',
+      );
+      return;
     }
 
-    if (!mounted || tuis.isEmpty) return;
+    if (!mounted) return;
 
     final firstLeg = multiCityLegs.first;
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => FlightSearchScreen(
-          tui: tuis.first,
+          tui: primaryTui,
           tuis: tuis,
           from: firstLeg.from!.cityName,
           to: firstLeg.to!.cityName,
@@ -471,6 +497,7 @@ class _SearchCardState extends State<SearchCard> {
           travelClass: travelClass,
           isRoundTrip: false,
           fareType: fareType.wireValue,
+          sessionId: sessionId,
           multiCityLegs: multiCityLegs
               .map(
                 (leg) => MultiCityLegSummary(
@@ -577,22 +604,28 @@ class _SearchCardState extends State<SearchCard> {
         ? leg.date!
         : minDate;
 
-    final picked = await showDialog<DateTime>(
-      context: context,
-      barrierDismissible: true,
-      builder: (dialogContext) => CompactDatePickerDialog(
-        initialDate: initial,
-        firstDate: minDate,
-        lastDate: DateTime(2030, 12, 31),
+    // Use the same full-screen calendar as one-way/round-trip for a
+    // consistent look. Single-date mode (isRoundTrip: false, no return date).
+    final result = await Navigator.of(context).push<Map<String, dynamic>>(
+      MaterialPageRoute(
+        builder: (_) => FlightCalendarScreen(
+          initialDeparture: initial,
+          initialReturn: null,
+          isRoundTrip: false,
+          startWithReturn: false,
+          firstDate: minDate,
+          lastDate: DateTime(2030, 12, 31),
+        ),
       ),
     );
 
-    if (picked == null || !mounted) return;
+    if (result == null || !mounted) return;
+    final picked = result['departure'] as DateTime?;
+    if (picked == null) return;
 
     setState(() {
       leg.date = picked;
-      // A later leg's date can't precede this one anymore — clear it so
-      // the user re-confirms it rather than silently booking it out of order.
+      // Clear later legs whose dates would now be out of order.
       for (var i = index + 1; i < multiCityLegs.length; i++) {
         final laterLeg = multiCityLegs[i];
         final previousDate = multiCityLegs[i - 1].date;
@@ -1166,7 +1199,15 @@ class _SearchCardState extends State<SearchCard> {
 
     return GestureDetector(
       onTap: canAdd
-          ? () => setState(() => multiCityLegs.add(_MultiCityLeg()))
+          ? () => setState(() {
+                final newLeg = _MultiCityLeg();
+                // Auto-fill new leg's "from" with the current last leg's "to"
+                // so the user doesn't have to re-enter the connecting city.
+                if (multiCityLegs.isNotEmpty) {
+                  newLeg.from = multiCityLegs.last.to;
+                }
+                multiCityLegs.add(newLeg);
+              })
           : null,
       behavior: HitTestBehavior.opaque,
       child: Container(
@@ -1677,7 +1718,7 @@ class _SearchCardState extends State<SearchCard> {
       padding: EdgeInsets.all(16),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Color(0xFFF1F59), width: 1),
+        border: Border.all(color: Color(0xFFF1F5F9), width: 1),
       ),
       child: Row(
         children: [

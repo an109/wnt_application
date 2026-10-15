@@ -66,29 +66,16 @@ class AkTripReviewScreen extends StatelessWidget {
   // Data helpers — everything here reads the real booking, never a literal
   // -------------------------------------------------------------------------
 
-  AkGetSPricerFlightEntity? _flight({required bool last}) {
-    final trips = route.akFareData?.trips;
+  AkGetSPricerFlightEntity? _flightOf(FlightRouteSegment r, {required bool last}) {
+    final trips = r.akFareData?.trips;
     if (trips == null || trips.isEmpty) return null;
-    final journeys = trips.first.journey;
+    final idx = r.legIndex.clamp(0, trips.length - 1);
+    final journeys = trips[idx].journey;
     if (journeys.isEmpty) return null;
     final segments = journeys.first.segments;
     if (segments.isEmpty) return null;
     return last ? segments.last.flight : segments.first.flight;
   }
-
-  /// `route.flightNo` arrives as "<IATA> • <number>" — this pulls the code
-  /// back out so the real carrier logo is shown.
-  String get _airlineCode {
-    final flightNo = route.flightNo;
-    final sep = flightNo.indexOf('•');
-    return (sep > 0 ? flightNo.substring(0, sep) : flightNo).trim();
-  }
-
-  String get _fromCity =>
-      (route.fromCity ?? '').trim().isNotEmpty ? route.fromCity!.trim() : route.from;
-
-  String get _toCity =>
-      (route.toCity ?? '').trim().isNotEmpty ? route.toCity!.trim() : route.to;
 
   DateTime? _parse(String raw) {
     if (raw.trim().isEmpty) return null;
@@ -97,31 +84,6 @@ class AkTripReviewScreen extends StatelessWidget {
     } catch (_) {
       return null;
     }
-  }
-
-  /// "Wed, 26 Aug" off the real departure timestamp, falling back to the
-  /// pre-formatted date the route already carries.
-  String get _departureDate {
-    final dt = _parse(_flight(last: false)?.departureTime ?? '');
-    if (dt != null) return DateFormat('EEE, dd MMM').format(dt);
-    return route.departureDate ?? '';
-  }
-
-  /// Whether the flight lands on a later calendar day, which the design flags
-  /// as "+1 DAY".
-  int get _dayOffset {
-    final dep = _parse(_flight(last: false)?.departureTime ?? '');
-    final arr = _parse(_flight(last: true)?.arrivalTime ?? '');
-    if (dep == null || arr == null) return 0;
-    final d = DateTime(dep.year, dep.month, dep.day);
-    final a = DateTime(arr.year, arr.month, arr.day);
-    return a.difference(d).inDays;
-  }
-
-  String get _stops {
-    final stops = route.stops;
-    if (stops == null || stops <= 0) return 'Non Stop';
-    return '$stops Stop${stops > 1 ? 's' : ''}';
   }
 
   /// "1 Adult" / "2 Adults, 1 Child" — built from the real traveller list so
@@ -202,7 +164,7 @@ class AkTripReviewScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _flightCard(context),
+                    _allLegsCard(context),
                     SizedBox(height: context.h(30)),
                     _sectionTitle(context, 'Traveller Details'),
                     SizedBox(height: context.h(12)),
@@ -274,9 +236,71 @@ class AkTripReviewScreen extends StatelessWidget {
     );
   }
 
-  // ==================== FLIGHT CARD ====================
-  Widget _flightCard(BuildContext context) {
-    final dayOffset = _dayOffset;
+  // ==================== FLIGHT CARD(S) ====================
+
+  /// Returns all legs — the main leg plus any additionalLegs.
+  List<FlightRouteSegment> get _allLegs => [route, ...additionalLegs];
+
+  /// Shows one card per leg for DM/IM, a single card for ON/RT.
+  Widget _allLegsCard(BuildContext context) {
+    if (additionalLegs.isEmpty) return _flightCard(context, route);
+    return Column(
+      children: [
+        for (int i = 0; i < _allLegs.length; i++) ...[
+          if (i > 0) SizedBox(height: context.h(10)),
+          _legLabel(context, i + 1),
+          SizedBox(height: context.h(6)),
+          _flightCard(context, _allLegs[i]),
+        ],
+      ],
+    );
+  }
+
+  Widget _legLabel(BuildContext context, int n) => Align(
+        alignment: Alignment.centerLeft,
+        child: Container(
+          padding: EdgeInsets.symmetric(horizontal: context.w(10), vertical: context.h(3)),
+          decoration: BoxDecoration(
+            color: _pri.withValues(alpha: 0.10),
+            borderRadius: BorderRadius.circular(context.r(6)),
+          ),
+          child: Text(
+            'TRIP $n',
+            style: TextStyle(
+              fontSize: context.fs(11),
+              fontWeight: FontWeight.w700,
+              color: _pri,
+              letterSpacing: 0.5,
+            ),
+          ),
+        ),
+      );
+
+  Widget _flightCard(BuildContext context, FlightRouteSegment leg) {
+    final first = _flightOf(leg, last: false);
+    final last = _flightOf(leg, last: true);
+    final dayOffset = (() {
+      final dep = _parse(first?.departureTime ?? '');
+      final arr = _parse(last?.arrivalTime ?? '');
+      if (dep == null || arr == null) return 0;
+      final d = DateTime(dep.year, dep.month, dep.day);
+      final a = DateTime(arr.year, arr.month, arr.day);
+      return a.difference(d).inDays;
+    })();
+    final date = (() {
+      final dt = _parse(first?.departureTime ?? '');
+      if (dt != null) return DateFormat('EEE, dd MMM').format(dt);
+      return leg.departureDate ?? '';
+    })();
+    final stops = leg.stops;
+    final stopsLabel = (stops == null || stops <= 0) ? 'Non Stop' : '$stops Stop${stops > 1 ? 's' : ''}';
+    final fromCity = (leg.fromCity ?? '').trim().isNotEmpty ? leg.fromCity!.trim() : leg.from;
+    final toCity = (leg.toCity ?? '').trim().isNotEmpty ? leg.toCity!.trim() : leg.to;
+    final legAirlineCode = (() {
+      final flightNo = leg.flightNo;
+      final sep = flightNo.indexOf('•');
+      return (sep > 0 ? flightNo.substring(0, sep) : flightNo).trim();
+    })();
     return Container(
       width: double.infinity,
       padding: EdgeInsets.all(context.w(14)),
@@ -296,8 +320,8 @@ class AkTripReviewScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               AirlineLogo(
-                code: _airlineCode,
-                name: route.airline,
+                code: legAirlineCode,
+                name: leg.airline,
                 size: context.w(46),
                 borderRadius: BorderRadius.circular(context.r(8)),
               ),
@@ -309,7 +333,7 @@ class AkTripReviewScreen extends StatelessWidget {
                   children: [
                     SizedBox(height: context.h(5)),
                     Text(
-                      '${route.from} - ${route.to}',
+                      '${leg.from} - ${leg.to}',
                       style: TextStyle(
                         fontSize: context.fs(18),
                         fontWeight: FontWeight.w800,
@@ -323,11 +347,11 @@ class AkTripReviewScreen extends StatelessWidget {
                       runSpacing: context.h(6),
                       crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
-                        if (_departureDate.isNotEmpty)
-                          _metaChip(context, 'assets/NewIcons/calender.png', _departureDate),
+                        if (date.isNotEmpty)
+                          _metaChip(context, 'assets/NewIcons/calender.png', date),
                         _metaChip(context, 'assets/NewIcons/clock.png',
-                            '${route.departureTime} - ${route.arrivalTime}'),
-                        _metaChip(context, 'assets/NewIcons/no_stops.png', _stops),
+                            '${leg.departureTime} - ${leg.arrivalTime}'),
+                        _metaChip(context, 'assets/NewIcons/no_stops.png', stopsLabel),
                       ],
                     ),
                   ],
@@ -348,7 +372,7 @@ class AkTripReviewScreen extends StatelessWidget {
             children: [
               Flexible(
                 child: Text(
-                  _fromCity,
+                  fromCity,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
@@ -366,7 +390,7 @@ class AkTripReviewScreen extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        route.duration,
+                        leg.duration,
                         style: TextStyle(fontSize: context.fs(10), color: _muted, fontWeight: FontWeight.w600),
                       ),
                       SizedBox(height: context.h(2)),
@@ -393,7 +417,7 @@ class AkTripReviewScreen extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      _toCity,
+                      toCity,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(

@@ -70,15 +70,27 @@ class FareFamilyIndexEntity extends Equatable {
   final String index;
   final double amount;
   final bool refundable;
+  /// Human-readable fare family name from the FareFamilyDetails API
+  /// (e.g. "SAVER", "FLEXI"). Null when not yet fetched or not returned by
+  /// the API — the UI falls back to rank-based labels in that case.
+  final String? label;
 
   const FareFamilyIndexEntity({
     required this.index,
     required this.amount,
     required this.refundable,
+    this.label,
   });
 
+  FareFamilyIndexEntity withLabel(String? label) => FareFamilyIndexEntity(
+        index: index,
+        amount: amount,
+        refundable: refundable,
+        label: label,
+      );
+
   @override
-  List<Object?> get props => [index, amount, refundable];
+  List<Object?> get props => [index, amount, refundable, label];
 }
 
 class FlightEntity extends Equatable {

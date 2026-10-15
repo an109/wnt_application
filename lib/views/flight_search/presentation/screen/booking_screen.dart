@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
@@ -9,6 +10,7 @@ import 'package:wander_nova/views/flight_search/presentation/screen/traveller_in
 
 import '../../../../common_widgets/airline_logo.dart';
 import '../../../../core/resources/app_colours.dart';
+import '../../../../core/constants/urls.dart';
 import '../../../../core/utils/storage/shared_preference.dart';
 import '../../../../injection_container.dart' as di;
 import '../../../MainApi/domain/entities/general_setting_entity.dart';
@@ -22,6 +24,7 @@ import '../../../AKTravelCheckList/domain/entity/AKTravelCheckList_entity.dart';
 import '../../../AKTravelCheckList/presentation/bloc/AKTravelCheckList_bloc.dart';
 import '../../../AKTravelCheckList/presentation/bloc/AKTravelCheckList_event.dart';
 import '../../../AKTravelCheckList/presentation/bloc/AKTravelCheckList_state.dart';
+import '../../../AKCreateItinerary/data/model/AKCreateItinerary_model.dart';
 import '../../../AKCreateItinerary/domain/entity/AKCreateItinerary_entity.dart';
 import '../../../AKCreateItinerary/presentation/bloc/AKCreateItinerary_bloc.dart';
 import '../../../AKCreateItinerary/presentation/bloc/AKCreateItinerary_event.dart';
@@ -66,6 +69,11 @@ class FlightRouteSegment {
   final double? amount; // the chosen result's fare amount (FareRule's trips[].amount)
   final AkGetSPricerEntity? akFareData; // GetSPricer's full response, for the fare breakdown
 
+  /// 0-based index into akFareData.trips — 0 for the first leg, 1 for the
+  /// second, etc. Used by _flightOf() so each multi-city card reads the
+  /// correct trip from the shared GetSPricer response.
+  final int legIndex;
+
   FlightRouteSegment({
     required this.from,
     required this.to,
@@ -93,6 +101,7 @@ class FlightRouteSegment {
     this.akFareData,
     this.fromCity,
     this.toCity,
+    this.legIndex = 0,
   });
 
   factory FlightRouteSegment.fromFareQuoteEntity({
@@ -146,14 +155,18 @@ class FlightRouteSegment {
     required FlightRouteSegment original,
     required AkGetSPricerEntity data,
   }) {
-    final segments = data.trips.isNotEmpty && data.trips.first.journey.isNotEmpty
-        ? data.trips.first.journey.first.segments
-        : const <AkGetSPricerSegmentEntity>[];
-    final baseFare = segments.fold<double>(0, (s, seg) => s + seg.fare.totalBaseFare);
-    final taxesAndFees = segments.fold<double>(
-      0,
-      (s, seg) => s + seg.fare.totalTax + seg.fare.totalServiceTax + seg.fare.totalTransactionFee,
-    );
+    // Sum base fare and taxes across ALL trips so that DM/IM multi-leg fares
+    // add up correctly (trips[0]=leg1, trips[1]=leg2, …).
+    double baseFare = 0;
+    double taxesAndFees = 0;
+    for (final trip in data.trips) {
+      for (final journey in trip.journey) {
+        for (final seg in journey.segments) {
+          baseFare += seg.fare.totalBaseFare;
+          taxesAndFees += seg.fare.totalTax + seg.fare.totalServiceTax + seg.fare.totalTransactionFee;
+        }
+      }
+    }
 
     return FlightRouteSegment(
       from: original.from,
@@ -185,6 +198,7 @@ class FlightRouteSegment {
       sessionId: original.sessionId,
       amount: original.amount,
       akFareData: data,
+      legIndex: original.legIndex,
     );
   }
 }
@@ -887,7 +901,8 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
   AkGetSPricerFlightEntity? _flightOf(FlightRouteSegment route, {required bool last}) {
     final trips = route.akFareData?.trips;
     if (trips == null || trips.isEmpty) return null;
-    final journeys = trips.first.journey;
+    final idx = route.legIndex.clamp(0, trips.length - 1);
+    final journeys = trips[idx].journey;
     if (journeys.isEmpty) return null;
     final segments = journeys.first.segments;
     if (segments.isEmpty) return null;
@@ -917,9 +932,18 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
 
 
   String _headerTitle(FlightRouteSegment route) {
-    // City names come from GetSPricer's airport names (see detail_popup's
-    // `_shortCityName`); the IATA code is only a fallback when the API didn't
-    // give one.
+    if (widget.routes.length > 1) {
+      // Multi-city: show all legs as "City1 · City2 · City3"
+      final cities = <String>[];
+      for (final r in widget.routes) {
+        final from = (r.fromCity ?? '').trim();
+        cities.add(from.isNotEmpty ? from : r.from);
+      }
+      final lastRoute = widget.routes.last;
+      final lastTo = (lastRoute.toCity ?? '').trim();
+      cities.add(lastTo.isNotEmpty ? lastTo : lastRoute.to);
+      return cities.join(' · ');
+    }
     final from = (route.fromCity ?? '').trim();
     final to = (route.toCity ?? '').trim();
     return '${from.isNotEmpty ? from : route.from} to ${to.isNotEmpty ? to : route.to}';
@@ -2564,52 +2588,44 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
     );
   }
 
-  /// DM CreateItinerary chaining: calls CreateItinerary once per route leg
-  /// in order, passing SequenceID (1-based) and the previous leg's
-  /// TransactionID as RefTransactionID.  Returns the first leg's result
-  /// (which sets the session; subsequent legs amend it server-side).
+  /// DM CreateItinerary: single call to MultiCity/CreateItinerary/ — the
+  /// backend handles per-leg SequenceID/RefTransactionID chaining internally.
   Future<AkCreateItineraryEntity?> _submitDomesticMulticityItinerary(
     AkContactInfoRequestEntity contactInfo,
     List<AkTravellerRequestEntity> travellers, {
     BuildContext? uiContext,
   }) async {
-    String? prevTransactionId;
-    AkCreateItineraryEntity? firstResult;
+    final dmSessionId = widget.routes.first.sessionId ?? '';
+    if (dmSessionId.isEmpty) {
+      _showSnack(uiContext, 'Session expired. Please search again.');
+      return null;
+    }
 
-    for (var i = 0; i < widget.routes.length; i++) {
-      final legRoute = widget.routes[i];
-      final legSessionId = legRoute.sessionId ?? widget.routes.first.sessionId ?? '';
-      if (legSessionId.isEmpty) {
-        _showSnack(uiContext, 'Could not confirm itinerary for leg ${i + 1}. Please try again.');
+    final requestModel = AkCreateItineraryRequestModel.fromEntity(
+      AkCreateItineraryRequestEntity(
+        sessionId: dmSessionId,
+        contactInfo: contactInfo,
+        travellers: travellers,
+      ),
+    );
+
+    try {
+      final dio = di.sl<Dio>();
+      final response = await dio.post(
+        Urls.multiCityCreateItinerary,
+        data: requestModel.toJson(),
+      );
+      final data = response.data as Map<String, dynamic>;
+      if (data['success'] != true) {
+        _showSnack(uiContext, data['error']?.toString() ?? 'Could not confirm your itinerary. Please try again.');
         return null;
       }
-
-      final result = await _submitSingleItinerary(
-        legSessionId,
-        contactInfo,
-        travellers,
-        sequenceId: i + 1,
-        refTransactionId: prevTransactionId,
-        uiContext: uiContext,
-      );
-      if (result == null) return null;
-
-      prevTransactionId = result.transactionId;
-      if (i == 0) firstResult = result;
+      return AkCreateItineraryModel.fromJson(data);
+    } on DioException catch (e) {
+      final msg = e.response?.data?['error']?.toString() ?? e.message ?? 'Could not confirm your itinerary. Please try again.';
+      _showSnack(uiContext, msg);
+      return null;
     }
-
-    // Combine netAmounts for the booking review screen to show the total.
-    if (firstResult != null && widget.routes.length > 1) {
-      // Return a synthetic entity summing all legs' NetAmounts; transactionId
-      // stays as leg 1 (StartPay references it). The backend knows the rest.
-      double totalNet = 0;
-      // We can't re-run the futures here; we already consumed them. The
-      // itinerary blocs only keep the most recent state so we use the
-      // last-seen netAmount from firstResult — which the review screen will
-      // use. The StartPay backend sums all legs server-side anyway.
-    }
-
-    return firstResult;
   }
 
   void _showSnack(BuildContext? ctx, String msg) {
