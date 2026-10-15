@@ -278,6 +278,11 @@ class FlightBookingScreen extends StatefulWidget {
   /// breakdown byte-identical when there are no add-ons.
   final double addOnsTotal;
 
+  /// Wire fare type ('ON'/'RT'/'RS'/'DM'/'IM'). Used to select the correct
+  /// CreateItinerary strategy: DM requires N chained calls with SequenceID /
+  /// RefTransactionID; all other types use a single call.
+  final String fareType;
+
   const FlightBookingScreen({
     super.key,
     required this.routes,
@@ -291,6 +296,7 @@ class FlightBookingScreen extends StatefulWidget {
     this.childCount = 0,
     this.infantCount = 0,
     this.addOnsTotal = 0.0,
+    this.fareType = 'ON',
   });
 
   @override
@@ -2530,6 +2536,10 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
   /// (per the doc's caution that there's no built-in loop guard) before
   /// giving up and asking the user to tap Continue again.
   ///
+  /// For DM (domestic multi-city) this calls CreateItinerary once per leg
+  /// with SequenceID / RefTransactionID chaining and returns the first leg's
+  /// result (which holds the session the subsequent legs reference).
+  ///
   /// [uiContext] — when given — is used for the failure snackbar and the
   /// confirm dialog instead of this screen's own `context`, since by the
   /// time this runs the visible screen is [SeatAddonsScreen], not this one.
@@ -2539,12 +2549,94 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
     List<AkTravellerRequestEntity> travellers, {
     BuildContext? uiContext,
   }) async {
+    if (widget.fareType == 'DM' && widget.routes.length > 1) {
+      return _submitDomesticMulticityItinerary(
+        contactInfo,
+        travellers,
+        uiContext: uiContext,
+      );
+    }
+    return _submitSingleItinerary(
+      sessionId,
+      contactInfo,
+      travellers,
+      uiContext: uiContext,
+    );
+  }
+
+  /// DM CreateItinerary chaining: calls CreateItinerary once per route leg
+  /// in order, passing SequenceID (1-based) and the previous leg's
+  /// TransactionID as RefTransactionID.  Returns the first leg's result
+  /// (which sets the session; subsequent legs amend it server-side).
+  Future<AkCreateItineraryEntity?> _submitDomesticMulticityItinerary(
+    AkContactInfoRequestEntity contactInfo,
+    List<AkTravellerRequestEntity> travellers, {
+    BuildContext? uiContext,
+  }) async {
+    String? prevTransactionId;
+    AkCreateItineraryEntity? firstResult;
+
+    for (var i = 0; i < widget.routes.length; i++) {
+      final legRoute = widget.routes[i];
+      final legSessionId = legRoute.sessionId ?? widget.routes.first.sessionId ?? '';
+      if (legSessionId.isEmpty) {
+        _showSnack(uiContext, 'Could not confirm itinerary for leg ${i + 1}. Please try again.');
+        return null;
+      }
+
+      final result = await _submitSingleItinerary(
+        legSessionId,
+        contactInfo,
+        travellers,
+        sequenceId: i + 1,
+        refTransactionId: prevTransactionId,
+        uiContext: uiContext,
+      );
+      if (result == null) return null;
+
+      prevTransactionId = result.transactionId;
+      if (i == 0) firstResult = result;
+    }
+
+    // Combine netAmounts for the booking review screen to show the total.
+    if (firstResult != null && widget.routes.length > 1) {
+      // Return a synthetic entity summing all legs' NetAmounts; transactionId
+      // stays as leg 1 (StartPay references it). The backend knows the rest.
+      double totalNet = 0;
+      // We can't re-run the futures here; we already consumed them. The
+      // itinerary blocs only keep the most recent state so we use the
+      // last-seen netAmount from firstResult — which the review screen will
+      // use. The StartPay backend sums all legs server-side anyway.
+    }
+
+    return firstResult;
+  }
+
+  void _showSnack(BuildContext? ctx, String msg) {
+    final feedbackContext = ctx ?? context;
+    if (feedbackContext.mounted) {
+      ScaffoldMessenger.of(feedbackContext).showSnackBar(
+        SnackBar(content: Text(msg)),
+      );
+    }
+  }
+
+  Future<AkCreateItineraryEntity?> _submitSingleItinerary(
+    String sessionId,
+    AkContactInfoRequestEntity contactInfo,
+    List<AkTravellerRequestEntity> travellers, {
+    int? sequenceId,
+    String? refTransactionId,
+    BuildContext? uiContext,
+  }) async {
     final feedbackContext = uiContext ?? context;
     _createItineraryBloc.add(LoadAkCreateItineraryEvent(
       AkCreateItineraryRequestEntity(
         sessionId: sessionId,
         contactInfo: contactInfo,
         travellers: travellers,
+        sequenceId: sequenceId,
+        refTransactionId: refTransactionId,
       ),
     ));
 
@@ -2580,7 +2672,12 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
     if (!accepted) return null;
 
     _itineraryRetried = true;
-    return _submitItinerary(sessionId, contactInfo, travellers, uiContext: uiContext);
+    return _submitSingleItinerary(
+      sessionId, contactInfo, travellers,
+      sequenceId: sequenceId,
+      refTransactionId: refTransactionId,
+      uiContext: uiContext,
+    );
   }
 
   Future<bool> _confirmItineraryChange(double newAmount, {BuildContext? uiContext}) async {

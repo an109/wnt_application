@@ -26,6 +26,7 @@ class AkSmartPricerRequestModel extends AkSmartPricerRequestEntity {
     required super.tripType,
     required super.trips,
     super.preview,
+    super.tuis,
   });
 
   factory AkSmartPricerRequestModel.fromEntity(AkSmartPricerRequestEntity entity) {
@@ -40,6 +41,7 @@ class AkSmartPricerRequestModel extends AkSmartPricerRequestEntity {
               ))
           .toList(),
       preview: entity.preview,
+      tuis: entity.tuis,
     );
   }
 
@@ -51,6 +53,7 @@ class AkSmartPricerRequestModel extends AkSmartPricerRequestEntity {
           .map((t) => (t as AkSmartPricerTripRequestModel).toJson())
           .toList(),
       'preview': preview,
+      if (tuis.isNotEmpty) 'tuis': tuis,
     };
   }
 }

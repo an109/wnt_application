@@ -36,6 +36,8 @@ import 'package:wander_nova/views/flight_search/presentation/screen/booking_scre
 import 'package:wander_nova/common_widgets/currency_scope.dart';
 import 'package:wander_nova/core/resources/app_colours.dart';
 
+import '../../../../core/constants/urls.dart';
+
 class FlightDetailsPopup extends StatefulWidget {
   final String tui;
   final String resultIndex;
@@ -167,6 +169,20 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup> with SingleTick
   bool _switchingFare = false;
   bool _committing = false;
 
+  // Akbar's SmartPricer(preview=false) generates a one-use TUI that is
+  // consumed by GetSPricer. Calling it again on the same search TUI (e.g.
+  // when the user goes back from traveller details and taps "Book Now" again)
+  // returns a "TUI already used" error. Once _commitPricing() succeeds we
+  // cache the result here and skip the re-call on subsequent Book Now taps;
+  // it is cleared whenever the user switches fare.
+  bool _commitDone = false;
+
+  // RT only: set to true once AkFlightInfoLoaded fires. Book Now for RT is
+  // gated on this instead of SmartPricer/GetSPricer (which are not called on
+  // RT init — the single allowed SmartPricer(preview=false) call is reserved
+  // for _commitPricing() when the user taps Book Now).
+  bool _flightInfoLoaded = false;
+
   // "View flight details" expand/collapse under the route card.
   bool _flightDetailsExpanded = false;
 
@@ -216,9 +232,20 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup> with SingleTick
   }
 
   void _loadFareRule() {
+    // For DM: collect per-leg TUIs — leg 1 = widget.tui, others from additionalLegs.
+    final isDm = widget.tripType == 'DM';
+    final legTuis = isDm
+        ? [
+            widget.tui,
+            for (final leg in widget.additionalLegs)
+              if (leg.tui != null) leg.tui!,
+          ]
+        : <String>[];
+
     _fareRuleBloc.add(LoadAkFareRuleEvent(
       AkFareRuleRequestEntity(
         tui: widget.tui,
+        tuis: legTuis,
         trips: [
           AkFareRuleTripRequestEntity(index: _selectedIndex, amount: _selectedAmount, orderId: 1),
           for (final leg in widget.additionalLegs)
@@ -229,10 +256,22 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup> with SingleTick
   }
 
   void _load() {
+    // For DM: each leg has its own search TUI — pass all so the backend
+    // can look up each leg's index under the correct TUI.
+    final isDm = widget.tripType == 'DM';
+    final legTuis = isDm
+        ? [
+            widget.tui,
+            for (final leg in widget.additionalLegs)
+              if (leg.tui != null) leg.tui!,
+          ]
+        : <String>[];
+
     _bloc.add(LoadAkFlightInfoEvent(
       AkFlightInfoRequestEntity(
         tui: widget.tui,
         tripType: widget.tripType,
+        tuis: legTuis,
         trips: [
           AkFlightInfoTripRequestEntity(
             index: _selectedIndex,
@@ -248,6 +287,18 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup> with SingleTick
 
   void _loadSmartPricer(String searchTui, {bool preview = true}) {
     _smartPricerRequested = true;
+
+    // For DM: collect per-leg TUIs stored in FlightLegSelection.tui.
+    // For IM/RT the tuis list is empty and searchTui covers all legs.
+    final isDm = widget.tripType == 'DM';
+    final legTuis = isDm
+        ? [
+            searchTui, // first leg's TUI (= widget.tui)
+            for (final leg in widget.additionalLegs)
+              if (leg.tui != null) leg.tui!,
+          ]
+        : <String>[];
+
     _smartPricerBloc.add(LoadAkSmartPricerEvent(
       AkSmartPricerRequestEntity(
         searchTui: searchTui,
@@ -262,6 +313,7 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup> with SingleTick
             AkSmartPricerTripRequestEntity(index: leg.resultIndex, amount: leg.amount, orderId: leg.orderId),
         ],
         preview: preview,
+        tuis: legTuis,
       ),
     ));
   }
@@ -284,6 +336,10 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup> with SingleTick
       _sessionId = null;
       _pricingTui = null;
       _pricerData = null;
+      _commitDone = false;
+      _fareChangeAccepted = false;
+      // RT: disable Book Now until FlightInfo reloads for the new fare.
+      if (widget.tripType == 'RT') _flightInfoLoaded = false;
     });
     _load();
     _loadFareRule();
@@ -313,7 +369,26 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup> with SingleTick
           BlocListener<AkFlightInfoBloc, AkFlightInfoState>(
             listener: (context, state) {
               if (state is AkFlightInfoLoaded && !_smartPricerRequested) {
-                _loadSmartPricer(widget.tui);
+                // RT: do NOT call SmartPricer at all on init. Akbar allows only
+                // ONE SmartPricer call per RT search TUI; calling it here (even
+                // preview=true) consumes the TUI and makes FlightInfo/FareRule
+                // fail for every subsequent popup on the same search. The single
+                // allowed call is SmartPricer(preview=false) in _commitPricing()
+                // when the user confirms the booking.
+                if (widget.tripType == 'RT') {
+                  setState(() => _flightInfoLoaded = true);
+                } else {
+                  _loadSmartPricer(widget.tui);
+                }
+              } else if (state is AkFlightInfoFailed && !_smartPricerRequested) {
+                // DM/IM: backend FlightInfo doesn't fan-out per-leg TUIs yet.
+                // Try SmartPricer anyway — if it succeeds, GetSPricer fills the
+                // detail card. If it fails (e.g. error 300), the widget-data
+                // placeholder is shown with Book Now enabled.
+                final ft = widget.tripType;
+                if (ft == 'DM' || ft == 'IM') {
+                  _loadSmartPricer(widget.tui);
+                }
               }
             },
           ),
@@ -324,8 +399,14 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup> with SingleTick
                 if (!_pricerRequested) {
                   _loadPricer(state.data.tui);
                 }
-              } else if (state is AkSmartPricerFailed && _switchingFare) {
-                _switchingFare = false;
+              } else if (state is AkSmartPricerFailed) {
+                if (_switchingFare) _switchingFare = false;
+                // 1601 = Akbar session expired — show a specific message so the
+                // user knows they need to re-search rather than retry.
+                final body = state.error.response?.data?.toString() ?? state.error.message ?? '';
+                if (body.contains('1601') || body.toLowerCase().contains('no record found')) {
+                  _showSessionExpiredDialog(context);
+                }
               }
             },
           ),
@@ -413,45 +494,104 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup> with SingleTick
     );
   }
 
-  // ==================== LEG TABS (Figma: ONWARD / RETURN) ====================
+  // ==================== LEG TABS (Figma: ONWARD / RETURN / Trip N) ====================
   // Round trip / multi-city only — one-way never calls this (see `build()`'s
   // `widget.additionalLegs.isNotEmpty` guard), so it never affects one-way.
   Widget _legTabBar(BuildContext context, int totalLegs) {
+    final isDm = widget.tripType == 'DM';
     return Container(
       decoration: const BoxDecoration(
         border: Border(bottom: BorderSide(color: Color(0xFFE5E7EB))),
       ),
-      child: Row(
-        children: [
-          for (var i = 0; i < totalLegs; i++)
-            Expanded(
-              child: GestureDetector(
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            for (var i = 0; i < totalLegs; i++) ...[
+              GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onTap: () => setState(() => _selectedLegTab = i),
                 child: Container(
-                  padding: EdgeInsets.symmetric(vertical: context.h(12.5)),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: context.w(isDm ? 12 : 0),
+                    vertical: context.h(10),
+                  ),
+                  constraints: isDm
+                      ? null
+                      : BoxConstraints(
+                          minWidth: MediaQuery.of(context).size.width / totalLegs),
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
                     border: Border(
                       bottom: BorderSide(
-                        color: _selectedLegTab == i ? AppColors.AppBlue : Colors.transparent,
+                        color: _selectedLegTab == i
+                            ? AppColors.AppBlue
+                            : Colors.transparent,
                         width: 2,
                       ),
                     ),
                   ),
-                  child: Text(
-                    _legTabLabel(i, totalLegs),
-                    style: TextStyle(
-                      color: _selectedLegTab == i ? AppColors.AppBlue : AppColors.subhead,
-                      fontSize: context.fs(14),
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
+                  child: isDm
+                      ? _dmTabLabel(context, i)
+                      : Text(
+                          _legTabLabel(i, totalLegs),
+                          style: TextStyle(
+                            color: _selectedLegTab == i
+                                ? AppColors.AppBlue
+                                : AppColors.subhead,
+                            fontSize: context.fs(14),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                 ),
               ),
-            ),
-        ],
+              if (isDm && i < totalLegs - 1)
+                Container(
+                  width: 1,
+                  height: context.h(36),
+                  color: const Color(0xFFE5E7EB),
+                ),
+            ],
+          ],
+        ),
       ),
+    );
+  }
+
+  /// Two-line tab for DM legs: "Trip N" header + "FROM → TO" route sub-label.
+  Widget _dmTabLabel(BuildContext context, int index) {
+    final isActive = _selectedLegTab == index;
+    // Leg 0 uses widget.fromCode/toCode; subsequent legs use additionalLegs.
+    final String from;
+    final String to;
+    if (index == 0) {
+      from = widget.fromCode;
+      to = widget.toCode;
+    } else {
+      final leg = widget.additionalLegs[index - 1];
+      from = leg.flight.origin ?? '';
+      to = leg.flight.destination ?? '';
+    }
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          'Trip ${index + 1}',
+          style: TextStyle(
+            color: isActive ? AppColors.AppBlue : AppColors.subhead,
+            fontSize: context.fs(12),
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        Text(
+          '$from → $to',
+          style: TextStyle(
+            color: isActive ? AppColors.AppBlue : AppColors.subhead,
+            fontSize: context.fs(10),
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
     );
   }
 
@@ -1344,28 +1484,237 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup> with SingleTick
   Widget _mainContent(BuildContext context) {
     return BlocBuilder<AkFlightInfoBloc, AkFlightInfoState>(
       builder: (context, flightInfoState) {
-        if (flightInfoState is AkFlightInfoFailed) {
+        final ft = widget.tripType;
+        // DM/IM: FlightInfo backend doesn't support per-leg TUI fan-out yet.
+        // Treat a FlightInfo failure for these types as "skip FlightInfo" and
+        // fall through to the GetSPricer-based content below instead of
+        // showing an error. All real detail data comes from _mergeWithPricer.
+        final flightInfoFailed = flightInfoState is AkFlightInfoFailed;
+        final skipFlightInfo = flightInfoFailed && (ft == 'DM' || ft == 'IM');
+
+        if (flightInfoFailed && !skipFlightInfo) {
           return _errorState(context, flightInfoState.error.message ?? 'Failed to load flight details');
         }
-        if (flightInfoState is AkFlightInfoLoaded) {
+        if (flightInfoState is AkFlightInfoLoaded || skipFlightInfo) {
           return BlocBuilder<AkGetSPricerBloc, AkGetSPricerState>(
             builder: (context, pricerState) {
               if (pricerState is AkGetSPricerLoaded) {
-                final merged = _mergeWithPricer(flightInfoState.data, pricerState.data);
-                return _loadedContent(context, merged, pricerState.data);
+                if (flightInfoState is AkFlightInfoLoaded) {
+                  final merged = _mergeWithPricer(flightInfoState.data, pricerState.data);
+                  return _loadedContent(context, merged, pricerState.data);
+                }
+                // DM/IM: FlightInfo failed — build a minimal AkFlightInfoEntity
+                // from GetSPricer data alone so _loadedContent can render.
+                final pricerOnly = _mergeWithPricer(_emptyFlightInfo(), pricerState.data);
+                return _loadedContent(context, pricerOnly, pricerState.data);
               }
-              return _loadedContent(context, flightInfoState.data);
+              if (flightInfoState is AkFlightInfoLoaded) {
+                return _loadedContent(context, flightInfoState.data);
+              }
+              // DM/IM: FlightInfo failed + SmartPricer/GetSPricer still pending
+              // or failed — show widget-data placeholder with Book Now so the
+              // user can still proceed. _commitPricing() handles SmartPricer
+              // (preview=false) at booking time.
+              final ft = widget.tripType;
+              if ((ft == 'DM' || ft == 'IM') &&
+                  (pricerState is AkGetSPricerFailed || pricerState is AkGetSPricerInitial)) {
+                return _dmImWidgetContent(context);
+              }
+              // Waiting for SmartPricer / GetSPricer — show placeholder.
+              return _placeholderContent(context);
             },
           );
         }
-        // FlightInfo hasn't resolved yet — but the tapped search result
-        // already told us the route/times/price (that's what widget.fromCode/
-        // toCode/departureTime/arrivalTime/duration/price are for, per the
-        // FlightDetailsPopup doc comment: "Shown immediately while FlightInfo
-        // loads"). Show that now instead of a blank full-page spinner with
-        // nothing on it.
+        // FlightInfo hasn't resolved yet — show placeholder from widget data.
         return _placeholderContent(context);
       },
+    );
+  }
+
+  /// Fallback content for DM/IM when FlightInfo failed and GetSPricer has
+  /// not yet loaded (or also failed). Uses widget-data fields so the route
+  /// card and Book Now button render immediately while the backend catches up.
+  Widget _dmImWidgetContent(BuildContext context) {
+    // Determine which leg to display based on the active tab.
+    final tabIndex = _selectedLegTab;
+    final bool isAdditionalLeg =
+        tabIndex > 0 && tabIndex - 1 < widget.additionalLegs.length;
+    final FlightLegSelection? activeLeg =
+        isAdditionalLeg ? widget.additionalLegs[tabIndex - 1] : null;
+
+    final String legFrom = activeLeg?.flight.origin ?? widget.fromCode;
+    final String legTo = activeLeg?.flight.destination ?? widget.toCode;
+    final String legAirline =
+        activeLeg?.flight.airlineName ?? widget.airlineName;
+    final String legAirlineCode =
+        activeLeg?.flight.airlineCode ?? widget.airlineCode;
+    final String legFlightNo =
+        activeLeg?.flight.flightNumber ?? widget.flightNumber;
+    final String legDep =
+        activeLeg?.flight.departureTime ?? widget.departureTime;
+    final String legArr = activeLeg?.flight.arrivalTime ?? widget.arrivalTime;
+    final String legDuration = activeLeg?.flight.duration ?? widget.duration;
+    final double legAmount = activeLeg?.amount ?? widget.amount;
+
+    return Column(
+      children: [
+        _dmLegRouteCard(context,
+            fromCode: legFrom,
+            toCode: legTo,
+            airlineCode: legAirlineCode,
+            airlineName: legAirline,
+            flightNo: legFlightNo,
+            departureTime: legDep,
+            arrivalTime: legArr,
+            duration: legDuration),
+        SizedBox(height: context.h(20)),
+        _fareFamilyDetailCard(context, null, false),
+        SizedBox(height: context.h(20)),
+        _priceDropProtectionToggle(context),
+        SizedBox(height: context.h(30)),
+        // Build a minimal entity + journey from the active leg's data so
+        // _bookButton / _handleBookNow can construct a FlightRouteSegment.
+        Builder(builder: (ctx) {
+          final minJourney = AkFlightInfoJourneyEntity(
+            provider: '',
+            stops: 0,
+            orderId: 1,
+            grossFare: legAmount,
+            netFare: legAmount,
+            duration: legDuration,
+            promo: '',
+            fareType: widget.tripType,
+            segments: [
+              AkFlightInfoSegmentEntity(
+                flight: AkFlightInfoFlightEntity(
+                  fuid: 0,
+                  vac: '',
+                  mac: '',
+                  oac: '',
+                  fbc: '',
+                  airline: legAirline,
+                  flightNo: legFlightNo,
+                  departureTime: legDep,
+                  arrivalTime: legArr,
+                  fareClass: '',
+                  departureCode: legFrom,
+                  arrivalCode: legTo,
+                  departureTerminal: '',
+                  arrivalTerminal: '',
+                  depAirportName: legFrom,
+                  arrAirportName: legTo,
+                  equipmentType: '',
+                  aircraft: '',
+                  rbd: '',
+                  cabin: '',
+                  refundable: 'N',
+                  seats: 0,
+                  duration: legDuration,
+                ),
+                fare: const AkFlightInfoFareEntity(
+                  grossFare: 0, netFare: 0, totalBaseFare: 0, totalTax: 0,
+                  totalServiceTax: 0, totalTransactionFee: 0, totalCommission: 0,
+                ),
+              ),
+            ],
+          );
+          final minEntity = AkFlightInfoEntity(
+            success: true,
+            sessionId: _sessionId ?? '',
+            tui: widget.tui,
+            from: legFrom,
+            to: legTo,
+            fromName: legFrom,
+            toName: legTo,
+            onwardDate: '',
+            adultCount: widget.adultCount,
+            childCount: widget.childCount,
+            infantCount: widget.infantCount,
+            netAmount: legAmount,
+            grossAmount: legAmount,
+            fareType: widget.tripType,
+            hold: false,
+            trips: [AkFlightInfoTripEntity(journey: [minJourney])],
+          );
+          return _bookButton(ctx, minEntity, minJourney, false, false);
+        }),
+      ],
+    );
+  }
+
+  /// Route card for a single DM leg using explicit field values (not widget.*).
+  Widget _dmLegRouteCard(
+    BuildContext context, {
+    required String fromCode,
+    required String toCode,
+    required String airlineCode,
+    required String airlineName,
+    required String flightNo,
+    required String departureTime,
+    required String arrivalTime,
+    required String duration,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(context.r(20)),
+        border: Border.all(color: _stroke, width: 0.5),
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 2,
+              offset: const Offset(0, 1)),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        children: [
+          _routeGradientHeader(context,
+              fromCode: fromCode,
+              fromName: '',
+              toCode: toCode,
+              toName: ''),
+          _routeAirlineRow(context,
+              airlineCode: airlineCode,
+              airlineName: airlineName,
+              flightNo: flightNo,
+              aircraft: '',
+              cabin: ''),
+          Padding(
+            padding: EdgeInsets.all(context.w(16)),
+            child: Row(
+              children: [
+                _infoChip(context, Icons.schedule, duration,
+                    size: context.w(12)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// A completely empty AkFlightInfoEntity used as a placeholder when
+  /// FlightInfo is skipped (DM/IM without backend fan-out support).
+  /// _mergeWithPricer overwrites every meaningful field from GetSPricer.
+  AkFlightInfoEntity _emptyFlightInfo() {
+    return const AkFlightInfoEntity(
+      success: false,
+      sessionId: '',
+      tui: '',
+      from: '',
+      to: '',
+      fromName: '',
+      toName: '',
+      onwardDate: '',
+      adultCount: 0,
+      childCount: 0,
+      infantCount: 0,
+      netAmount: 0,
+      grossAmount: 0,
+      fareType: '',
+      hold: false,
+      trips: [],
     );
   }
 
@@ -1842,7 +2191,17 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup> with SingleTick
 
   // ==================== BOOK BUTTON (Figma: flat orange "BOOK NOW") ====================
   Widget _bookButton(BuildContext context, AkFlightInfoEntity data, AkFlightInfoJourneyEntity journey, bool isFullyRefundable, bool fareChanged) {
-    final bookingReady = _sessionId != null && _pricingTui != null && !_switchingFare && !_committing;
+    final ft = widget.tripType;
+    // RT: ready once FlightInfo has loaded (no preview SmartPricer needed).
+    //   The single allowed SmartPricer(preview=false) runs in _commitPricing().
+    // DM/IM: FlightInfo always fails for multi-city; enable immediately so the
+    //   user can reach _commitPricing() which handles SmartPricer at booking time.
+    // ON: standard path — requires both preview SmartPricer and GetSPricer.
+    final bookingReady = switch (ft) {
+      'RT' => _flightInfoLoaded && !_switchingFare && !_committing,
+      'DM' || 'IM' => !_switchingFare && !_committing,
+      _ => _sessionId != null && _pricingTui != null && !_switchingFare && !_committing,
+    };
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.end,
@@ -2224,7 +2583,25 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup> with SingleTick
   }
 
   Future<bool> _commitPricing() async {
+    // If we already ran a successful preview=false SmartPricer+GetSPricer for
+    // this fare (e.g. user went back from traveller details and tapped Book Now
+    // again), reuse the cached TUI and sessionId — calling SmartPricer a second
+    // time on the same search TUI returns "TUI already used / committed".
+    if (_commitDone && _pricingTui != null && _sessionId != null) {
+      return true;
+    }
+
     setState(() => _committing = true);
+
+    // DM: include per-leg TUIs for the backend's fan-out.
+    final isDm = widget.tripType == 'DM';
+    final legTuis = isDm
+        ? [
+            widget.tui,
+            for (final leg in widget.additionalLegs)
+              if (leg.tui != null) leg.tui!,
+          ]
+        : <String>[];
 
     _smartPricerBloc.add(LoadAkSmartPricerEvent(
       AkSmartPricerRequestEntity(
@@ -2236,6 +2613,7 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup> with SingleTick
             AkSmartPricerTripRequestEntity(index: leg.resultIndex, amount: leg.amount, orderId: leg.orderId),
         ],
         preview: false,
+        tuis: legTuis,
       ),
     ));
 
@@ -2245,9 +2623,17 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup> with SingleTick
     if (smartPricerState is! AkSmartPricerLoaded) {
       if (mounted) {
         setState(() => _committing = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not confirm this fare. Please try again.')),
-        );
+        final dioErr = (smartPricerState as AkSmartPricerFailed).error;
+        final body = dioErr.response?.data?.toString() ?? dioErr.message ?? '';
+        final isExpired = body.contains('1601') ||
+            body.toLowerCase().contains('no record found');
+        if (isExpired) {
+          _showSessionExpiredDialog(context);
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Could not confirm this fare. Please try again.')),
+          );
+        }
       }
       return false;
     }
@@ -2271,9 +2657,40 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup> with SingleTick
     }
     _pricingTui = pricerState.data.tui;
     _pricerData = pricerState.data;
+    _commitDone = true;
 
     if (mounted) setState(() => _committing = false);
     return true;
+  }
+
+  void _showSessionExpiredDialog(BuildContext context) {
+    if (!mounted) return;
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Search Expired'),
+        content: const Text(
+          'This flight search has expired. Please go back and search again to get the latest prices.',
+        ),
+        actions: [
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(dialogContext);
+              // Pop past detail popup back to the search results screen.
+              // popUntil handles the case where the user is anywhere in the
+              // booking stack (detail popup is always a direct push from results).
+              Navigator.of(context).popUntil((route) => route.isFirst || route.settings.name == '/');
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xff3B82F6),
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Search Again'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<bool> _confirmFareChange(BuildContext context, double newAmount) async {
@@ -2302,12 +2719,27 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup> with SingleTick
         ],
       ),
     );
-    if (wantsToContinue != true || _sessionId == null) return false;
+    if (wantsToContinue != true) return false;
+
+    // _sessionId may be null when GetSPricer returned Code 1500 with no
+    // session_id. In that case there is no fare-change session to accept on
+    // Akbar's side, but the user has already seen and agreed to the new price
+    // in the dialog above — proceed as accepted.
+    if (_sessionId == null) return true;
 
     final result = await sl<AkAcceptFareChangeUseCase>().call(
       AkAcceptFareChangeRequestEntity(sessionId: _sessionId!),
     );
     if (result is DataSuccess<AkAcceptFareChangeEntity> && result.data?.success == true) {
+      return true;
+    }
+    // "No fare change is pending on this session" means Akbar's session has
+    // already moved past the fare-change state (e.g. accepted in a prior call
+    // or the session expired). The user has confirmed the new price, so treat
+    // this as a benign no-op and continue.
+    final dioErr = (result is DataFailed) ? result.error : null;
+    final errMsg = (dioErr?.response?.data?.toString() ?? dioErr?.message ?? '').toLowerCase();
+    if (errMsg.contains('no fare change is pending') || errMsg.contains('no fare change')) {
       return true;
     }
     if (context.mounted) {
@@ -2415,6 +2847,7 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup> with SingleTick
           infantCount:
               widget.infantCount > 0 ? widget.infantCount : data.infantCount,
           isLoggedIn: false,
+          fareType: widget.tripType,
         ),
       ),
     );

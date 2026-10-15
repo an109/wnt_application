@@ -20,6 +20,7 @@ class Urls {
   static const String flightSearch = '$basesUrl/akbar/ExpressSearch/';
   static const String getExpSearch = '$basesUrl/akbar/GetExpSearch/';
   static const String flightInfo = '$basesUrl/akbar/FlightInfo/';
+  static const String fareFamilyDetails = '$basesUrl/akbar/FareFamilyDetails/';
   static const String smartPricer = '$basesUrl/akbar/SmartPricer/';
   static const String getSPricer = '$basesUrl/akbar/GetSPricer/';
   static const String akFareRule = '$basesUrl/akbar/FareRule/';

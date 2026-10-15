@@ -254,15 +254,24 @@ class _SearchCardState extends State<SearchCard> {
 
   List<TripEntity> _buildTrips() {
     if (isMultiCityMode) {
-      return multiCityLegs
-          .map(
-            (leg) => TripEntity(
-              from: leg.from!.airportCode,
-              to: leg.to!.airportCode,
-              onwardDate: DateFormat('yyyy-MM-dd').format(leg.date!),
-            ),
-          )
-          .toList();
+      // DM/IM requires city/airport name fields per leg (see API doc).
+      // IM additionally needs OrderId and OnwardCabin.
+      final trips = <TripEntity>[];
+      for (var i = 0; i < multiCityLegs.length; i++) {
+        final leg = multiCityLegs[i];
+        trips.add(TripEntity(
+          from: leg.from!.airportCode,
+          to: leg.to!.airportCode,
+          onwardDate: DateFormat('yyyy-MM-dd').format(leg.date!),
+          fromCity: leg.from!.cityName,
+          toCity: leg.to!.cityName,
+          fromArptName: leg.from!.airportName,
+          toArptName: leg.to!.airportName,
+          orderId: i + 1,
+          onwardCabin: _cabinCode(travelClass),
+        ));
+      }
+      return trips;
     }
     return [
       TripEntity(
@@ -306,19 +315,6 @@ class _SearchCardState extends State<SearchCard> {
   }
 
   void _performSearch() async {
-    /// REMOVE THIS WHEN MULTI-CITY WILL WORK
-    // if (isMultiCityMode) {
-    //   ScaffoldMessenger.of(context).showSnackBar(
-    //     const SnackBar(
-    //       content: Text('Multi-city search coming soon!'),
-    //       backgroundColor: Colors.orange,
-    //       behavior: SnackBarBehavior.floating,
-    //       duration: Duration(seconds: 2),
-    //     ),
-    //   );
-    //   return;
-    // }
-
     if (!_validateBeforeSearch()) return;
 
     setState(() => _isSearching = true);
@@ -327,6 +323,15 @@ class _SearchCardState extends State<SearchCard> {
       await _saveSearchToPreferences();
 
       final fareType = _resolveFareType();
+
+      // Akbar requires ONE ExpressSearch call per leg for DM (domestic
+      // multi-city). Sending all trips in a single call returns
+      // "Trips Count Mismatch(DM)". IM (international multi-city) and all
+      // other fare types use a single call with all trips.
+      if (fareType == FareTripType.domesticMulticity) {
+        await _performDomesticMulticitySearch(fareType);
+        return;
+      }
 
       final tuiRequest = FlightSearchRequestEntity(
         adults: adults,
@@ -399,6 +404,87 @@ class _SearchCardState extends State<SearchCard> {
     } finally {
       if (mounted) setState(() => _isSearching = false);
     }
+  }
+
+  /// DM requires N separate ExpressSearch calls (one per leg). Each call has
+  /// a single trip and returns its own TUI. We collect all TUIs, then
+  /// navigate with the first TUI as the primary search handle and the full
+  /// list so downstream (SmartPricer, CreateItinerary) can use per-leg TUIs.
+  Future<void> _performDomesticMulticitySearch(FareTripType fareType) async {
+    final useCase = sl<AkFlightSearchUseCase>();
+    final cabin = _cabinCode(travelClass);
+    final tuis = <String>[];
+
+    for (var i = 0; i < multiCityLegs.length; i++) {
+      final leg = multiCityLegs[i];
+      final legRequest = FlightSearchRequestEntity(
+        adults: adults,
+        children: children,
+        infants: infants,
+        cabin: cabin,
+        fareType: fareType.wireValue,
+        trips: [
+          TripEntity(
+            from: leg.from!.airportCode,
+            to: leg.to!.airportCode,
+            onwardDate: DateFormat('yyyy-MM-dd').format(leg.date!),
+            fromCity: leg.from!.cityName,
+            toCity: leg.to!.cityName,
+            fromArptName: leg.from!.airportName,
+            toArptName: leg.to!.airportName,
+          ),
+        ],
+      );
+
+      final result = await useCase.call(legRequest);
+      if (!mounted) return;
+
+      if (result is DataSuccess<AkFlightSearchEntity> && result.data != null) {
+        tuis.add(result.data!.tui);
+      } else {
+        _showError(
+          result.error?.message ?? 'Failed to search flights for leg ${i + 1}',
+        );
+        return;
+      }
+    }
+
+    if (!mounted || tuis.isEmpty) return;
+
+    final firstLeg = multiCityLegs.first;
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => FlightSearchScreen(
+          tui: tuis.first,
+          tuis: tuis,
+          from: firstLeg.from!.cityName,
+          to: firstLeg.to!.cityName,
+          fromCode: firstLeg.from!.airportCode,
+          toCode: firstLeg.to!.airportCode,
+          fromAirport: firstLeg.from!.airportName,
+          toAirport: firstLeg.to!.airportName,
+          date: firstLeg.date,
+          travellers: adults + children + infants,
+          adults: adults,
+          children: children,
+          infants: infants,
+          travelClass: travelClass,
+          isRoundTrip: false,
+          fareType: fareType.wireValue,
+          multiCityLegs: multiCityLegs
+              .map(
+                (leg) => MultiCityLegSummary(
+                  from: leg.from!.cityName,
+                  to: leg.to!.cityName,
+                  fromCode: leg.from!.airportCode,
+                  toCode: leg.to!.airportCode,
+                  date: leg.date!,
+                ),
+              )
+              .toList(),
+        ),
+      ),
+    );
   }
 
   String _cabinCode(String travelClass) {

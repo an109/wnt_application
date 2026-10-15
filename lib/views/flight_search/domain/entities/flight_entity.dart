@@ -127,6 +127,9 @@ class FlightEntity extends Equatable {
   // via the search-results grouping step.
   final List<FareFamilyIndexEntity>? fareFamilyOptions;
 
+  // Non-zero for IM legs; links outbound and return rows into one package.
+  final int? returnIdentifier;
+
   const FlightEntity({
     this.resultIndex,
     this.airlineCode,
@@ -158,6 +161,7 @@ class FlightEntity extends Equatable {
     this.returnDestinationName,
     this.returnStops,
     this.fareFamilyOptions,
+    this.returnIdentifier,
   });
 
   FlightEntity copyWith({List<FareFamilyIndexEntity>? fareFamilyOptions}) {
@@ -192,6 +196,7 @@ class FlightEntity extends Equatable {
       returnDestinationName: returnDestinationName,
       returnStops: returnStops,
       fareFamilyOptions: fareFamilyOptions ?? this.fareFamilyOptions,
+      returnIdentifier: returnIdentifier,
     );
   }
 
@@ -203,6 +208,6 @@ class FlightEntity extends Equatable {
     isRoundTrip,
     returnDepartureTime, returnArrivalTime, returnDuration, returnOrigin,
     returnOriginName, returnDestination, returnDestinationName, returnStops,
-    fareFamilyOptions,
+    fareFamilyOptions, returnIdentifier,
   ];
 }

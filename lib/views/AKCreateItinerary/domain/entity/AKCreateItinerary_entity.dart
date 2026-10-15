@@ -90,14 +90,23 @@ class AkCreateItineraryRequestEntity extends Equatable {
   final AkContactInfoRequestEntity contactInfo;
   final List<AkTravellerRequestEntity> travellers;
 
+  // DM chaining fields. SequenceID starts at 1 for the first leg and
+  // increments for each subsequent leg. RefTransactionID holds the
+  // TransactionID returned by the previous leg's CreateItinerary call
+  // (absent for the first leg).
+  final int? sequenceId;
+  final String? refTransactionId;
+
   const AkCreateItineraryRequestEntity({
     required this.sessionId,
     required this.contactInfo,
     required this.travellers,
+    this.sequenceId,
+    this.refTransactionId,
   });
 
   @override
-  List<Object?> get props => [sessionId, contactInfo, travellers];
+  List<Object?> get props => [sessionId, contactInfo, travellers, sequenceId, refTransactionId];
 }
 
 // ---------------------------------------------------------------------------

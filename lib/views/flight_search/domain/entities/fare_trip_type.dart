@@ -87,11 +87,14 @@ class FlightLegSelection {
   final String resultIndex;
   final double amount;
   final FlightEntity flight;
+  // For DM: each leg's own ExpressSearch TUI. Null for IM/RT (one shared TUI).
+  final String? tui;
 
   const FlightLegSelection({
     required this.orderId,
     required this.resultIndex,
     required this.amount,
     required this.flight,
+    this.tui,
   });
 }

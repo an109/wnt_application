@@ -26,6 +26,7 @@ import '../../domain/entities/fare_trip_type.dart';
 import 'package:wander_nova/views/AKFlight_tui/domain/entity/akflight_search_entity.dart';
 import 'package:wander_nova/views/AKFlight_tui/domain/usecase/akflight_search_usecase.dart';
 import 'package:wander_nova/views/AKFlights/domain/entity/AKFlights_entity.dart' as ak;
+import 'package:wander_nova/views/AKFlights/domain/usecase/AKFlights_usecase.dart';
 import 'package:wander_nova/views/AKFlights/presentation/bloc/AKFlights_bloc.dart';
 import 'package:wander_nova/views/AKFlights/presentation/bloc/AKFlights_event.dart';
 import 'package:wander_nova/views/AKFlights/presentation/bloc/AKFlights_state.dart';
@@ -89,6 +90,10 @@ class FlightSearchScreen extends StatefulWidget {
   /// in order. Null/empty for ON/RT/RS, which use from/to/date above.
   final List<MultiCityLegSummary>? multiCityLegs;
 
+  /// For DM only: one TUI per leg from the backend's ExpressSearch fan-out.
+  /// Empty/null for ON/RT/RS/IM — those use [tui] (a single shared TUI).
+  final List<String>? tuis;
+
   const FlightSearchScreen({
     super.key,
     required this.from,
@@ -108,6 +113,7 @@ class FlightSearchScreen extends StatefulWidget {
     this.returnDate,
     this.fareType = 'ON',
     this.multiCityLegs,
+    this.tuis,
   });
 
   @override
@@ -195,6 +201,12 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
   late final FareTripType _fareTripType;
   late List<FlightLegSelection?> _legSelections;
 
+  // DM-only: per-leg flight lists built by polling each leg's TUI in parallel.
+  // null = not yet loaded; non-null = ready (may be empty if no flights yet).
+  List<List<FlightEntity>>? _dmLegLists;
+  bool _dmSearchCompleted = false;
+  bool _dmSearchLoading = false;
+
   // Round trip / special return only (`hasReturnLeg`) — the Wego-style
   // two-step selector: 0 = pick the departing flight, 1 = pick the
   // returning flight. Multi-city keeps the side-by-side column layout and
@@ -202,17 +214,18 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
   // "Change" on step 1 sets it back to 0.
   int _rtStep = 0;
 
+  // Multi-city tab index — which leg's flights are currently displayed.
+  int _selectedMultiCityLeg = 0;
+
   int get _legCount {
     if (_fareTripType.hasReturnLeg) return 2;
     if (_fareTripType.isMulticity) return widget.multiCityLegs?.length ?? 1;
     return 1;
   }
 
-  /// One-way and round trip / special return share the Figma chrome: the
-  /// route-summary header, the floating Sort / Non Stop / Filter bar, and no
-  /// bottom nav. Multi-city keeps the original logo AppBar + bottom nav.
-  bool get _usesOneWayChrome =>
-      _fareTripType == FareTripType.oneWay || _fareTripType.hasReturnLeg;
+  /// All fare types share the Figma chrome: the route-summary header, the
+  /// floating Sort / Non Stop / Filter bar, and no bottom nav.
+  bool get _usesOneWayChrome => true;
 
   @override
   void initState() {
@@ -238,7 +251,70 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
   void _triggerFlightSearch() {
     if (_isApiCalled) return;
     _isApiCalled = true;
-    _akflightsBloc.add(LoadAkflightsEvent(tui: _currentTui));
+    if (_fareTripType == FareTripType.domesticMulticity &&
+        widget.tuis != null &&
+        widget.tuis!.length > 1) {
+      _triggerDmFlightSearch();
+    } else {
+      _akflightsBloc.add(LoadAkflightsEvent(tui: _currentTui));
+    }
+  }
+
+  /// Polls GetExpSearch for each DM leg's TUI in parallel, then merges the
+  /// per-leg `trips[0]` results into `_dmLegLists` so the multi-column UI
+  /// gets one list per leg.
+  Future<void> _triggerDmFlightSearch() async {
+    if (!mounted) return;
+    setState(() {
+      _dmSearchLoading = true;
+      _dmLegLists = null;
+    });
+
+    final tuis = widget.tuis!;
+    final useCase = sl<GetAkflightsUseCase>();
+    const maxPolls = 20;
+    const pollInterval = Duration(seconds: 2);
+
+    // Per-leg accumulators
+    final legFlights = List<List<FlightEntity>>.generate(
+      tuis.length,
+      (_) => [],
+    );
+    final legCompleted = List<bool>.filled(tuis.length, false);
+
+    for (var poll = 0; poll < maxPolls; poll++) {
+      if (!mounted) return;
+
+      final futures = <Future<void>>[];
+      for (var i = 0; i < tuis.length; i++) {
+        if (legCompleted[i]) continue;
+        futures.add(() async {
+          final result = await useCase.call(tui: tuis[i]);
+          if (result is DataSuccess<ak.AkflightsSearchEntity> &&
+              result.data != null) {
+            final data = result.data!;
+            if (data.trips.isNotEmpty) {
+              final raw = _rawFlightsForTrip(data.trips.first);
+              legFlights[i] =
+                  _cheapestPerFlight(raw.flights, raw.siblings);
+            }
+            if (data.completed) legCompleted[i] = true;
+          }
+        }());
+      }
+      await Future.wait(futures);
+
+      if (!mounted) return;
+      setState(() {
+        _dmLegLists = List<List<FlightEntity>>.from(legFlights);
+        _dmSearchCompleted = legCompleted.every((c) => c);
+      });
+
+      if (_dmSearchCompleted) break;
+      if (poll < maxPolls - 1) await Future.delayed(pollInterval);
+    }
+
+    if (mounted) setState(() => _dmSearchLoading = false);
   }
 
   /// Re-run the search for a newly picked date from the date strip.
@@ -306,6 +382,68 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
     final target = (idx * extent) - context.w(12);
     _dateScrollController.jumpTo(
       target.clamp(0.0, _dateScrollController.position.maxScrollExtent),
+    );
+  }
+
+  Widget _buildBody() {
+    final loadingScreen = ProfessionalLoadingScreen(
+      searchParams: {
+        'fromAirport': widget.fromAirport,
+        'toAirport': widget.toAirport,
+        'departureDate': _selectedDate,
+        'returnDate': _returnDate,
+        'adults': widget.adults,
+        'children': widget.children,
+        'infants': widget.infants,
+        'class': widget.travelClass,
+        'isRoundTrip': widget.isRoundTrip,
+      },
+      onLoadingComplete: () {},
+    );
+
+    // DM uses its own polling path — skip BlocBuilder.
+    if (_fareTripType == FareTripType.domesticMulticity &&
+        widget.tuis != null &&
+        widget.tuis!.length > 1) {
+      final legLists = _dmLegLists;
+      if (_dmSearchLoading && (legLists == null || legLists.every((l) => l.isEmpty))) {
+        return loadingScreen;
+      }
+      if (legLists == null) return loadingScreen;
+      final anyFlights = legLists.any((l) => l.isNotEmpty);
+      if (!anyFlights && !_dmSearchCompleted) return loadingScreen;
+      _updateMaxPrice(legLists.expand((l) => l).toList());
+      _autoSelectFirstFlights(legLists);
+      return _buildMultiLegContent(legLists, isCompleted: _dmSearchCompleted);
+    }
+
+    return BlocBuilder<AkflightsBloc, AkflightsState>(
+      builder: (context, state) {
+        if (_isRefetchingTui || state is AkflightsLoading) {
+          return loadingScreen;
+        }
+        if (state is AkflightsFailed) {
+          return _buildErrorState(
+              state.error.message ?? 'Failed to load flights');
+        }
+        if (state is AkflightsSuccess) {
+          if (_fareTripType.isMultiLeg) {
+            final legLists = _mapAkflightsToLegLists(state.akflightsData);
+            final anyFlights = legLists.any((l) => l.isNotEmpty);
+            if (!anyFlights && !state.isCompleted) return loadingScreen;
+            _updateMaxPrice(legLists.expand((l) => l).toList());
+            _autoSelectFirstFlights(legLists);
+            return _buildMultiLegContent(legLists, isCompleted: state.isCompleted);
+          }
+          final flights = _mapAkflightsToFlightEntities(state.akflightsData);
+          if (flights.isEmpty && !state.isCompleted) {
+            return loadingScreen;
+          }
+          _updateMaxPrice(flights);
+          return _buildMainContent(flights, isCompleted: state.isCompleted);
+        }
+        return _buildEmptyState();
+      },
     );
   }
 
@@ -393,6 +531,7 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
         duration: _durationToMinutes(flight.duration),
         cabinClass: flight.cabin,
         refundable: flight.refundable.toUpperCase() == 'Y',
+        returnIdentifier: flight.returnIdentifier > 0 ? flight.returnIdentifier : null,
       ));
 
       final key = '${realAirlineCode}_${flight.flightNo}_${flight.departureTime}';
@@ -968,52 +1107,7 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
                 ],
               ),
         backgroundColor: AppColors.white,
-        body: BlocBuilder<AkflightsBloc, AkflightsState>(
-          builder: (context, state) {
-            final loadingScreen = ProfessionalLoadingScreen(
-              searchParams: {
-                'fromAirport': widget.fromAirport,
-                'toAirport': widget.toAirport,
-                'departureDate': _selectedDate,
-                'returnDate': _returnDate,
-                'adults': widget.adults,
-                'children': widget.children,
-                'infants': widget.infants,
-                'class': widget.travelClass,
-                'isRoundTrip': widget.isRoundTrip,
-              },
-              onLoadingComplete: () {},
-            );
-
-            if (_isRefetchingTui || state is AkflightsLoading) {
-              return loadingScreen;
-            }
-            if (state is AkflightsFailed) {
-              return _buildErrorState(
-                  state.error.message ?? 'Failed to load flights');
-            }
-            if (state is AkflightsSuccess) {
-              // Render as soon as a poll has any flights, even mid-search —
-              // don't wait for isCompleted. Only fall back to the loading
-              // screen if this poll genuinely has nothing yet.
-              if (_fareTripType.isMultiLeg) {
-                final legLists = _mapAkflightsToLegLists(state.akflightsData);
-                final anyFlights = legLists.any((l) => l.isNotEmpty);
-                if (!anyFlights && !state.isCompleted) return loadingScreen;
-                _updateMaxPrice(legLists.expand((l) => l).toList());
-                _autoSelectFirstFlights(legLists);
-                return _buildMultiLegContent(legLists, isCompleted: state.isCompleted);
-              }
-              final flights = _mapAkflightsToFlightEntities(state.akflightsData);
-              if (flights.isEmpty && !state.isCompleted) {
-                return loadingScreen;
-              }
-              _updateMaxPrice(flights);
-              return _buildMainContent(flights, isCompleted: state.isCompleted);
-            }
-            return _buildEmptyState();
-          },
-        ),
+        body: _buildBody(),
         // One-way and round trip use the Figma floating Sort / Non Stop /
         // Filter bar instead of the app bottom nav; multi-city keeps it.
         bottomNavigationBar: _usesOneWayChrome
@@ -1132,6 +1226,14 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
     final meta = '$dateLabel  |  $travellers '
         'Traveller${travellers == 1 ? '' : 's'}  |  ${widget.travelClass}';
 
+    // Multi-city: show each leg as "City1 → City2 → City3"
+    final routeLabel = _fareTripType.isMulticity && widget.multiCityLegs != null
+        ? widget.multiCityLegs!
+            .map((l) => l.fromCode)
+            .followedBy([widget.multiCityLegs!.last.toCode])
+            .join(' → ')
+        : '${widget.from} to ${widget.to}';
+
     return PreferredSize(
       preferredSize: Size.fromHeight(context.h(78)),
       child: SafeArea(
@@ -1168,7 +1270,7 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        '${widget.from} to ${widget.to}',
+                        routeLabel,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
@@ -1566,33 +1668,606 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
   }
 
   Widget _buildMultiLegContent(List<List<FlightEntity>> legLists, {required bool isCompleted}) {
-    // Round trip / special return use the Wego-style stepped selector.
-    // Multi-city keeps the original side-by-side columns below, untouched.
     if (_fareTripType.hasReturnLeg) {
       return _buildRoundTripStepped(legLists, isCompleted: isCompleted);
     }
-    return Column(
+    // IM: show outbound packages only (leg 2 is auto-paired, zero-fare).
+    if (_fareTripType == FareTripType.internationalMulticity) {
+      return _buildImPackageContent(legLists, isCompleted: isCompleted);
+    }
+    // DM: tab-based layout (one leg at a time with tab strip).
+    return _buildMultiCityTabContent(legLists, isCompleted: isCompleted);
+  }
+
+  // ---------------------------------------------------------------------------
+  // IM: package-selection layout
+  // For IM, Trips[0] holds all outbound packages; Trips[1..N] are the paired
+  // legs (zero-fare). Rows pair across trips by ReturnIdentifier (API field).
+  // ---------------------------------------------------------------------------
+  Widget _buildImPackageContent(
+    List<List<FlightEntity>> legLists, {
+    required bool isCompleted,
+  }) {
+    final outboundFlights = legLists.isNotEmpty ? legLists[0] : const <FlightEntity>[];
+    final filtered = _applyFilters(outboundFlights);
+    final selected = _legSelections.isNotEmpty ? _legSelections[0] : null;
+
+    // Build a lookup: returnIdentifier → paired return flight from Trips[1].
+    // Fall back to resultIndex lookup when returnIdentifier is absent (0/null).
+    final Map<int, FlightEntity> returnByReturnId = {};
+    final Map<String, FlightEntity> returnByResultIndex = {};
+    if (legLists.length > 1) {
+      for (final f in legLists[1]) {
+        if (f.returnIdentifier != null && f.returnIdentifier! > 0) {
+          returnByReturnId[f.returnIdentifier!] = f;
+        } else {
+          final idx = f.resultIndex ?? '';
+          if (idx.isNotEmpty) returnByResultIndex[idx] = f;
+        }
+      }
+    }
+
+    return Stack(
       children: [
-        _buildSortBar(),
-        Expanded(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              for (var i = 0; i < legLists.length; i++) ...[
-                if (i > 0) Container(width: 1, color: const Color(0xffE6ECFF)),
-                Expanded(
-                  child: _buildLegColumn(
-                    i,
-                    i < legLists.length ? legLists[i] : const [],
-                    isCompleted: isCompleted,
+        Column(
+          children: [
+            if (widget.multiCityLegs != null && widget.multiCityLegs!.isNotEmpty)
+              _buildImRouteHeader(),
+            Expanded(
+              child: filtered.isEmpty
+                  ? Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(context.w(16)),
+                        child: Text(
+                          isCompleted ? 'No flights found' : 'Searching…',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: context.fs(13),
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                      ),
+                    )
+                  : ListView.builder(
+                      padding: EdgeInsets.fromLTRB(
+                        context.w(16),
+                        context.h(12),
+                        context.w(16),
+                        context.h(80),
+                      ),
+                      itemCount: filtered.length,
+                      itemBuilder: (ctx, idx) {
+                        final flight = filtered[idx];
+                        FlightEntity? pairedReturn;
+                        if (flight.returnIdentifier != null && flight.returnIdentifier! > 0) {
+                          pairedReturn = returnByReturnId[flight.returnIdentifier!];
+                        } else {
+                          pairedReturn = returnByResultIndex[flight.resultIndex ?? ''];
+                        }
+                        final isSelectedCard =
+                            selected?.resultIndex == (flight.resultIndex ?? '');
+                        return Padding(
+                          padding: EdgeInsets.only(bottom: context.h(12)),
+                          child: _buildImPackageTwoLegCard(
+                            leg1: flight,
+                            leg2: pairedReturn,
+                            isSelected: isSelectedCard,
+                            onTap: () => _selectImPackage(flight),
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          child: _legSelections.every((s) => s != null)
+              ? _buildContinueBar()
+              : _buildOneWayActionBar(),
+        ),
+      ],
+    );
+  }
+
+  /// IM package card — both legs in one card.
+  /// Leg 1 (outbound) is always present; leg 2 (return) is shown below a
+  /// thin divider when Akbar included it in the response.
+  Widget _buildImPackageTwoLegCard({
+    required FlightEntity leg1,
+    FlightEntity? leg2,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeInOut,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(context.r(18)),
+          border: Border.all(
+            color: isSelected ? AppColors.AppBlue : const Color(0xffE2E8F0),
+            width: isSelected ? 1.8 : 1.0,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: isSelected
+                  ? AppColors.AppBlue.withValues(alpha: 0.13)
+                  : Colors.black.withValues(alpha: 0.05),
+              blurRadius: isSelected ? context.w(14) : context.w(6),
+              offset: Offset(0, context.h(isSelected ? 4 : 2)),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildImLegRow(leg1, showPrice: leg2 == null),
+            if (leg2 != null) ...[
+              _buildImLegDivider(),
+              _buildImLegRow(leg2, showPrice: false),
+            ],
+            if (leg2 != null) _buildImPackagePrice(leg1),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildImLegRow(FlightEntity flight, {required bool showPrice}) {
+    final target = CurrencyConverter.getPreferredCurrency();
+    final priceText = '${CurrencyConverter.getSymbol(target)} '
+        '${_convertFlightPrice((flight.totalFare ?? 0).toDouble(), flight.currency)}';
+    final airlineCode = (flight.airlineCode?.isNotEmpty ?? false)
+        ? flight.airlineCode!.toUpperCase()
+        : 'FL';
+    final airlineName = flight.airlineName ?? 'Airline';
+    final depCode = (flight.origin ?? '').trim().toUpperCase();
+    final arrCode = (flight.destination ?? '').trim().toUpperCase();
+    final depTime = _formatTime(flight.departureTime);
+    final arrTime = _formatTime(flight.arrivalTime);
+    final durationStr = _formatDuration(
+        flight.duration != null ? int.tryParse(flight.duration!) : null);
+    final stops = _formatStops(flight.stops);
+    final stopsColor = stops.toLowerCase().contains('non') ||
+            stops.toLowerCase().contains('direct')
+        ? const Color(0xff16A34A)
+        : const Color(0xffDC2626);
+
+    return Padding(
+      padding: EdgeInsets.symmetric(
+          horizontal: context.w(14), vertical: context.h(12)),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          // Airline logo
+          _airlineLogo(flight, context.w(36)),
+          SizedBox(width: context.w(8)),
+          // Airline name + flight number — shrinks first
+          Expanded(
+            flex: 3,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  airlineName,
+                  style: TextStyle(
+                    fontSize: context.fs(12),
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xff07163B),
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Text(
+                  _displayFlightNo(flight, codeOverride: airlineCode),
+                  style: TextStyle(
+                    fontSize: context.fs(10),
+                    color: const Color(0xff64748B),
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
               ],
+            ),
+          ),
+          SizedBox(width: context.w(6)),
+          // DEP time + code
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(depTime,
+                  style: TextStyle(
+                      fontSize: context.fs(12),
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xff07163B))),
+              Text(depCode,
+                  style: TextStyle(
+                      fontSize: context.fs(10),
+                      color: const Color(0xff64748B))),
             ],
           ),
+          // Duration + stops — Flexible so inner Row gets bounded width
+          Flexible(
+            flex: 2,
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: context.w(4)),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(durationStr,
+                      style: TextStyle(
+                          fontSize: context.fs(10),
+                          color: const Color(0xff64748B),
+                          fontWeight: FontWeight.w500)),
+                  Row(
+                    // Expanded(Divider) is safe here: the parent Flexible
+                    // gives this Row bounded width constraints.
+                    children: [
+                      Expanded(
+                        child: Container(
+                          height: 1,
+                          color: const Color(0xffCBD5E1),
+                        ),
+                      ),
+                      Padding(
+                        padding: EdgeInsets.symmetric(horizontal: context.w(2)),
+                        child: Icon(Icons.flight,
+                            size: context.w(13), color: AppColors.AppBlue),
+                      ),
+                      Expanded(
+                        child: Container(
+                          height: 1,
+                          color: const Color(0xffCBD5E1),
+                        ),
+                      ),
+                    ],
+                  ),
+                  Text(stops,
+                      style: TextStyle(
+                          fontSize: context.fs(10),
+                          color: stopsColor,
+                          fontWeight: FontWeight.w500)),
+                ],
+              ),
+            ),
+          ),
+          // ARR time + code
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(arrTime,
+                  style: TextStyle(
+                      fontSize: context.fs(12),
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xff07163B))),
+              Text(arrCode,
+                  style: TextStyle(
+                      fontSize: context.fs(10),
+                      color: const Color(0xff64748B))),
+            ],
+          ),
+          if (showPrice) ...[
+            SizedBox(width: context.w(6)),
+            Text(priceText,
+                style: TextStyle(
+                    fontSize: context.fs(12),
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.AppBlue)),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildImLegDivider() {
+    return Container(
+      margin: EdgeInsets.symmetric(horizontal: context.w(14)),
+      height: 1,
+      color: const Color(0xffF1F5F9),
+    );
+  }
+
+  Widget _buildImPackagePrice(FlightEntity leg1) {
+    final target = CurrencyConverter.getPreferredCurrency();
+    final priceText = '${CurrencyConverter.getSymbol(target)} '
+        '${_convertFlightPrice((leg1.totalFare ?? 0).toDouble(), leg1.currency)}';
+    return Container(
+      padding: EdgeInsets.fromLTRB(
+          context.w(14), context.h(6), context.w(14), context.h(12)),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          Container(
+            padding: EdgeInsets.symmetric(
+                horizontal: context.w(10), vertical: context.h(3)),
+            decoration: BoxDecoration(
+              color: AppColors.AppBlue.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(context.r(20)),
+            ),
+            child: Text(
+              'Package • $priceText /adult',
+              style: TextStyle(
+                fontSize: context.fs(11),
+                fontWeight: FontWeight.w700,
+                color: AppColors.AppBlue,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildImRouteHeader() {
+    final legs = widget.multiCityLegs!;
+    final routeText = legs
+        .map((l) => l.fromCode)
+        .followedBy([legs.last.toCode])
+        .join(' → ');
+    return Container(
+      color: Colors.white,
+      padding: EdgeInsets.symmetric(
+          vertical: context.h(8), horizontal: context.w(16)),
+      child: Row(
+        children: [
+          Icon(Icons.flight_takeoff, size: context.w(16), color: AppColors.AppBlue),
+          SizedBox(width: context.w(8)),
+          Text(
+            routeText,
+            style: TextStyle(
+              fontSize: context.fs(13),
+              fontWeight: FontWeight.w700,
+              color: const Color(0xff07163B),
+            ),
+          ),
+          SizedBox(width: context.w(8)),
+          Container(
+            padding: EdgeInsets.symmetric(
+                horizontal: context.w(8), vertical: context.h(2)),
+            decoration: BoxDecoration(
+              color: AppColors.AppBlue.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(context.r(20)),
+            ),
+            child: Text(
+              'Select package',
+              style: TextStyle(
+                fontSize: context.fs(10),
+                color: AppColors.AppBlue,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// For IM, selecting one outbound flight auto-pairs leg 2 with the SAME
+  /// resultIndex but Amount=0 (Akbar's IM SmartPricer convention).
+  void _selectImPackage(FlightEntity flight) {
+    setState(() {
+      _legSelections[0] = FlightLegSelection(
+        orderId: 1,
+        resultIndex: flight.resultIndex ?? '',
+        amount: (flight.totalFare ?? 0).toDouble(),
+        flight: flight,
+        tui: null, // IM uses one shared TUI (_currentTui)
+      );
+      // Auto-pair leg 2: same index, zero fare (bundled in leg 1).
+      if (_legSelections.length > 1) {
+        _legSelections[1] = FlightLegSelection(
+          orderId: 2,
+          resultIndex: flight.resultIndex ?? '', // same index as leg 1
+          amount: 0,
+          flight: flight,
+          tui: null,
+        );
+      }
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Multi-city tab layout (Figma "Search Flight MULTI CITY")
+  // ---------------------------------------------------------------------------
+  Widget _buildMultiCityTabContent(
+    List<List<FlightEntity>> legLists, {
+    required bool isCompleted,
+  }) {
+    final safeLeg = _selectedMultiCityLeg.clamp(0, legLists.length - 1);
+    final currentFlights = legLists[safeLeg];
+    final filtered = _applyFilters(currentFlights);
+
+    return Stack(
+      children: [
+        Column(
+          children: [
+            _buildMultiCityLegTabStrip(legLists.length),
+            Expanded(
+              child: filtered.isEmpty
+                  ? Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(context.w(16)),
+                        child: Text(
+                          isCompleted ? 'No flights found' : 'Searching…',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: context.fs(13),
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                      ),
+                    )
+                  : ListView.builder(
+                      padding: EdgeInsets.fromLTRB(
+                        context.w(16),
+                        context.h(12),
+                        context.w(16),
+                        context.h(80),
+                      ),
+                      itemCount: filtered.length,
+                      itemBuilder: (ctx, idx) {
+                        final flight = filtered[idx];
+                        final isSelected =
+                            _legSelections[safeLeg]?.resultIndex ==
+                                (flight.resultIndex ?? '');
+                        return Padding(
+                          padding: EdgeInsets.only(bottom: context.h(12)),
+                          child: _buildMultiCityFlightCard(
+                            flight,
+                            isSelected: isSelected,
+                            onTap: () => _selectLegColumnFlight(safeLeg, flight),
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ],
         ),
-        if (_legSelections.every((s) => s != null)) _buildContinueBar(),
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          child: _legSelections.every((s) => s != null)
+              ? _buildContinueBar()
+              : _buildOneWayActionBar(),
+        ),
       ],
+    );
+  }
+
+  Widget _buildMultiCityLegTabStrip(int legCount) {
+    final legs = widget.multiCityLegs;
+    return Container(
+      color: Colors.white,
+      padding: EdgeInsets.symmetric(vertical: context.h(10), horizontal: context.w(16)),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: List.generate(legCount, (i) {
+            final isActive = i == _selectedMultiCityLeg;
+            String label;
+            String? subLabel;
+            if (legs != null && i < legs.length) {
+              final leg = legs[i];
+              label = 'Trip ${i + 1}';
+              final from = '${leg.from}(${leg.fromCode})';
+              final to = '${leg.to}(${leg.toCode})';
+              subLabel = '$from - $to';
+              subLabel += '\n${DateFormat('d MMM yyyy, EEE').format(leg.date)}';
+            } else {
+              label = 'Trip ${i + 1}';
+            }
+            return Padding(
+              padding: EdgeInsets.only(right: context.w(8)),
+              child: GestureDetector(
+                onTap: () => setState(() => _selectedMultiCityLeg = i),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: context.w(12),
+                    vertical: context.h(8),
+                  ),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(context.r(8)),
+                    border: Border.all(
+                      color: isActive ? AppColors.AppBlue : const Color(0xffE0E4F0),
+                      width: isActive ? 1.5 : 1,
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        label,
+                        style: TextStyle(
+                          fontSize: context.fs(10),
+                          fontWeight: FontWeight.w600,
+                          color: isActive ? AppColors.AppBlue : const Color(0xffA0A6C2),
+                        ),
+                      ),
+                      if (subLabel != null) ...[
+                        SizedBox(height: context.h(2)),
+                        Text(
+                          subLabel,
+                          style: TextStyle(
+                            fontSize: context.fs(10),
+                            fontWeight: FontWeight.w700,
+                            color: isActive ? AppColors.black : const Color(0xff6B7280),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }),
+        ),
+      ),
+    );
+  }
+
+  /// Full-width Figma-style multi-city flight card — uses the same FlightCard
+  /// widget as the round-trip and one-way flows for a consistent look.
+  Widget _buildMultiCityFlightCard(
+    FlightEntity flight, {
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    final target = CurrencyConverter.getPreferredCurrency();
+    final priceText = '${CurrencyConverter.getSymbol(target)} '
+        '${_convertFlightPrice((flight.totalFare ?? 0).toDouble(), flight.currency)}';
+    final airlineCode = (flight.airlineCode?.isNotEmpty ?? false)
+        ? flight.airlineCode!.toUpperCase()
+        : (flight.airlineName?.isNotEmpty ?? false)
+            ? flight.airlineName!.substring(0, 1).toUpperCase()
+            : 'FL';
+
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(context.r(18)),
+          border: Border.all(
+            color: isSelected ? AppColors.AppBlue : Colors.transparent,
+            width: 1.6,
+          ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: AppColors.black.withValues(alpha: 0.12),
+                    blurRadius: context.w(12),
+                    spreadRadius: 0,
+                    offset: Offset(0, context.h(4)),
+                  ),
+                ]
+              : null,
+        ),
+        child: FlightCard(
+          airlineName: flight.airlineName ?? 'Airline',
+          flightNumber: _displayFlightNo(flight, codeOverride: airlineCode),
+          logo: _airlineLogo(flight, context.w(46)),
+          priceText: priceText,
+          departureCity: flight.originName ?? _locationName(flight.origin ?? ''),
+          departureCode: (flight.origin ?? '').trim().toUpperCase(),
+          departureTime: _formatTime(flight.departureTime),
+          arrivalCity: flight.destinationName ?? _locationName(flight.destination ?? ''),
+          arrivalCode: (flight.destination ?? '').trim().toUpperCase(),
+          arrivalTime: _formatTime(flight.arrivalTime),
+          duration: _formatDuration(
+              flight.duration != null ? int.tryParse(flight.duration!) : null),
+          stopsLabel: _formatStops(flight.stops),
+        ),
+      ),
     );
   }
 
@@ -1822,12 +2497,19 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
   }
 
   void _selectLegColumnFlight(int legIndex, FlightEntity flight) {
+    // For DM: each leg has its own TUI from the per-leg ExpressSearch fan-out.
+    // For IM/RT/RS: tuis is empty — all legs share _currentTui.
+    final legTuis = widget.tuis;
+    final legTui = (legTuis != null && legIndex < legTuis.length)
+        ? legTuis[legIndex]
+        : null;
     setState(() {
       _legSelections[legIndex] = FlightLegSelection(
         orderId: legIndex + 1,
         resultIndex: flight.resultIndex ?? '',
         amount: (flight.totalFare ?? 0).toDouble(),
         flight: flight,
+        tui: legTui,
       );
     });
   }
@@ -1841,6 +2523,10 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
     // selector (`_buildRoundTripStepped`) — the user explicitly taps each
     // leg, so don't pre-fill picks here.
     if (_fareTripType.hasReturnLeg) return;
+    // IM: user must explicitly tap a package — no auto-selection.
+    if (_fareTripType == FareTripType.internationalMulticity) return;
+    // DM: user must explicitly tap a flight for each leg — no auto-selection.
+    if (_fareTripType == FareTripType.domesticMulticity) return;
     final toSelect = <int, FlightEntity>{};
     for (var i = 0; i < legLists.length && i < _legSelections.length; i++) {
       if (_legSelections[i] == null && legLists[i].isNotEmpty) {
@@ -3541,9 +4227,12 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
     final selections = _legSelections.whereType<FlightLegSelection>().toList();
     if (selections.length != _legCount) return;
     final first = selections.first;
+    // For DM each leg has its own TUI stored in FlightLegSelection.tui;
+    // for IM/RT the popup's tui arg is the shared _currentTui.
+    final firstTui = first.tui ?? _currentTui;
     FlightDetailsPopup.show(
       context,
-      tui: _currentTui,
+      tui: firstTui,
       resultIndex: first.resultIndex,
       amount: first.amount,
       airlineName: first.flight.airlineName ?? "Unknown",

@@ -23,14 +23,17 @@ class AkFareRuleRequestEntity extends Equatable {
   // The original ExpressSearch/GetExpSearch tui — NOT the pricing tui.
   final String tui;
   final List<AkFareRuleTripRequestEntity> trips;
+  // For DM: one search TUI per leg. Empty for ON/RT/RS/IM.
+  final List<String> tuis;
 
   const AkFareRuleRequestEntity({
     required this.tui,
     required this.trips,
+    this.tuis = const [],
   });
 
   @override
-  List<Object?> get props => [tui, trips];
+  List<Object?> get props => [tui, trips, tuis];
 }
 
 // ---------------------------------------------------------------------------

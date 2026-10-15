@@ -23,15 +23,19 @@ class AkFlightInfoRequestEntity extends Equatable {
   final String tui;
   final String tripType;
   final List<AkFlightInfoTripRequestEntity> trips;
+  // For DM: one search TUI per leg from the per-leg ExpressSearch fan-out.
+  // Empty for ON/RT/RS/IM — those use [tui] (a single shared TUI).
+  final List<String> tuis;
 
   const AkFlightInfoRequestEntity({
     required this.tui,
     required this.tripType,
     required this.trips,
+    this.tuis = const [],
   });
 
   @override
-  List<Object?> get props => [tui, tripType, trips];
+  List<Object?> get props => [tui, tripType, trips, tuis];
 }
 
 // ---------------------------------------------------------------------------

@@ -87,12 +87,16 @@ class AkCreateItineraryRequestModel extends AkCreateItineraryRequestEntity {
     required super.sessionId,
     required super.contactInfo,
     required super.travellers,
+    super.sequenceId,
+    super.refTransactionId,
   });
 
   factory AkCreateItineraryRequestModel.fromEntity(AkCreateItineraryRequestEntity entity) {
     final contact = entity.contactInfo;
     return AkCreateItineraryRequestModel(
       sessionId: entity.sessionId,
+      sequenceId: entity.sequenceId,
+      refTransactionId: entity.refTransactionId,
       contactInfo: AkContactInfoRequestModel(
         title: contact.title,
         fName: contact.fName,
@@ -136,6 +140,9 @@ class AkCreateItineraryRequestModel extends AkCreateItineraryRequestEntity {
       'session_id': sessionId,
       'contact_info': (contactInfo as AkContactInfoRequestModel).toJson(),
       'travellers': travellers.map((t) => (t as AkTravellerRequestModel).toJson()).toList(),
+      if (sequenceId != null) 'SequenceID': sequenceId,
+      if (refTransactionId != null && refTransactionId!.isNotEmpty)
+        'RefTransactionID': refTransactionId,
     };
   }
 }

@@ -25,12 +25,14 @@ class AkFlightInfoRequestModel extends AkFlightInfoRequestEntity {
     required super.tui,
     required super.tripType,
     required super.trips,
+    super.tuis,
   });
 
   factory AkFlightInfoRequestModel.fromEntity(AkFlightInfoRequestEntity entity) {
     return AkFlightInfoRequestModel(
       tui: entity.tui,
       tripType: entity.tripType,
+      tuis: entity.tuis,
       trips: entity.trips
           .map((t) => AkFlightInfoTripRequestModel(
                 index: t.index,
@@ -48,6 +50,7 @@ class AkFlightInfoRequestModel extends AkFlightInfoRequestEntity {
       'trips': trips
           .map((t) => (t as AkFlightInfoTripRequestModel).toJson())
           .toList(),
+      if (tuis.isNotEmpty) 'tuis': tuis,
     };
   }
 }

@@ -6,13 +6,19 @@ class AkFlightSearchModel extends AkFlightSearchEntity {
     required super.success,
     required super.tui,
     required super.sessionId,
+    super.tuis,
   });
 
   factory AkFlightSearchModel.fromJson(Map<String, dynamic> json) {
+    final rawTuis = json['tuis'];
+    final List<String> tuiList = rawTuis is List
+        ? rawTuis.map((e) => e.toString()).toList()
+        : const [];
     return AkFlightSearchModel(
       success: json['success'] ?? false,
       tui: json['tui'] ?? '',
       sessionId: json['session_id'] ?? '',
+      tuis: tuiList,
     );
   }
 
@@ -21,6 +27,7 @@ class AkFlightSearchModel extends AkFlightSearchEntity {
       'success': success,
       'tui': tui,
       'session_id': sessionId,
+      if (tuis.isNotEmpty) 'tuis': tuis,
     };
   }
 }
@@ -31,6 +38,12 @@ class TripModel extends TripEntity {
     required super.to,
     required super.onwardDate,
     super.returnDate,
+    super.fromCity,
+    super.toCity,
+    super.fromArptName,
+    super.toArptName,
+    super.orderId,
+    super.onwardCabin,
   });
 
   factory TripModel.fromJson(Map<String, dynamic> json) {
@@ -39,6 +52,12 @@ class TripModel extends TripEntity {
       to: json['to'] ?? '',
       onwardDate: json['onward_date'] ?? '',
       returnDate: json['return_date'],
+      fromCity: json['from_city'],
+      toCity: json['to_city'],
+      fromArptName: json['from_arpt_name'],
+      toArptName: json['to_arpt_name'],
+      orderId: json['order_id'],
+      onwardCabin: json['onward_cabin'],
     );
   }
 
@@ -48,9 +67,13 @@ class TripModel extends TripEntity {
       'to': to,
       'onward_date': onwardDate,
     };
-    if (returnDate != null) {
-      data['return_date'] = returnDate;
-    }
+    if (returnDate != null) data['return_date'] = returnDate;
+    if (fromCity != null) data['from_city'] = fromCity;
+    if (toCity != null) data['to_city'] = toCity;
+    if (fromArptName != null) data['from_arpt_name'] = fromArptName;
+    if (toArptName != null) data['to_arpt_name'] = toArptName;
+    if (orderId != null) data['order_id'] = orderId;
+    if (onwardCabin != null) data['onward_cabin'] = onwardCabin;
     return data;
   }
 }

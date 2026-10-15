@@ -24,11 +24,13 @@ class AkFareRuleRequestModel extends AkFareRuleRequestEntity {
   const AkFareRuleRequestModel({
     required super.tui,
     required super.trips,
+    super.tuis,
   });
 
   factory AkFareRuleRequestModel.fromEntity(AkFareRuleRequestEntity entity) {
     return AkFareRuleRequestModel(
       tui: entity.tui,
+      tuis: entity.tuis,
       trips: entity.trips
           .map((t) => AkFareRuleTripRequestModel(
                 index: t.index,
@@ -43,6 +45,7 @@ class AkFareRuleRequestModel extends AkFareRuleRequestEntity {
     return {
       'tui': tui,
       'trips': trips.map((t) => (t as AkFareRuleTripRequestModel).toJson()).toList(),
+      if (tuis.isNotEmpty) 'tuis': tuis,
     };
   }
 }

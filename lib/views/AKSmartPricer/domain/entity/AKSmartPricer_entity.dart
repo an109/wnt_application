@@ -35,15 +35,22 @@ class AkSmartPricerRequestEntity extends Equatable {
   // Book Now, for whichever fare is actually selected at that moment.
   final bool preview;
 
+  // For DM only: per-leg TUIs in trip order. When non-empty the backend
+  // calls Akbar SmartPricer once per leg using each TUI; the combined
+  // session and pricing_tui are stored server-side.  When empty [searchTui]
+  // is used (IM/RT/RS/ON behaviour — unchanged).
+  final List<String> tuis;
+
   const AkSmartPricerRequestEntity({
     required this.searchTui,
     required this.tripType,
     required this.trips,
     this.preview = false,
+    this.tuis = const [],
   });
 
   @override
-  List<Object?> get props => [searchTui, tripType, trips, preview];
+  List<Object?> get props => [searchTui, tripType, trips, preview, tuis];
 }
 
 // ---------------------------------------------------------------------------

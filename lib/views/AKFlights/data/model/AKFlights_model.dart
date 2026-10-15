@@ -19,6 +19,7 @@ class AkflightsModel extends AkflightsEntity {
     required super.airlineName,
     required super.duration,
     required super.cabin,
+    super.returnIdentifier,
   });
 
   factory AkflightsModel.fromJson(Map<String, dynamic> json) {
@@ -39,6 +40,7 @@ class AkflightsModel extends AkflightsEntity {
       airlineName: json['AirlineName']?.toString() ?? '',
       duration: json['Duration']?.toString() ?? '',
       cabin: json['Cabin']?.toString() ?? '',
+      returnIdentifier: (json['ReturnIdentifier'] as num?)?.toInt() ?? 0,
     );
   }
 
@@ -60,6 +62,7 @@ class AkflightsModel extends AkflightsEntity {
       'AirlineName': airlineName,
       'Duration': duration,
       'Cabin': cabin,
+      'ReturnIdentifier': returnIdentifier,
     };
   }
 }

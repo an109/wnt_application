@@ -22,7 +22,21 @@
       "Bash(find \"D:\\\\clone\\\\backend\" -name \"*.py\" -type f | sort)",
       "Read(//d/clone/backend/flights/**)",
       "Bash(cat /tmp/ticket_full.txt)",
-      "Bash(grep -v \"^$\")"
+      "Bash(grep -v \"^$\")",
+      "Read(//Users/macbookair/Downloads/**)",
+      "Bash(python3 -I)",
+      "Bash(xcodebuild -workspace Runner.xcworkspace -scheme Runner -configuration Debug -sdk iphonesimulator -showBuildSettings)",
+      "Bash(flutter run *)",
+      "Bash(/usr/bin/arch -arm64e xcrun xcodebuild -clonedSourcePackagesDirPath /Users/macbookair/Desktop/wnt_application/build/ios/SourcePackages -skipPackagePluginValidation -skipPackageSignatureValidation -project Runner.xcodeproj -scheme Runner -configuration Debug -sdk iphonesimulator -destination id=969A317F-DFB4-460D-9BF8-03CB1B9051C7 -showBuildSettings BUILD_DIR=/Users/macbookair/Desktop/wnt_application/build/ios)",
+      "Bash(xcrun simctl *)",
+      "Bash(flutter --version)",
+      "Bash(xcodebuild -version)",
+      "Bash(xcode-select -p)",
+      "Read(//Applications/**)",
+      "Bash(GetFileInfo /Applications/Xcode.app)",
+      "Bash(flutter doctor *)",
+      "Bash(flutter channel *)",
+      "Bash(/usr/bin/arch -arm64e xcrun xcodebuild -project Runner.xcodeproj -scheme Runner -configuration Debug -sdk iphonesimulator -destination id=0AACE39E-25CC-413E-8927-5795E839FEC4 -showBuildSettings BUILD_DIR=/Users/macbookair/Desktop/wnt_application/build/ios)"
     ]
   }
 }

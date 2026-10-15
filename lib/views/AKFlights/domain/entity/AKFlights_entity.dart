@@ -22,6 +22,8 @@ class AkflightsEntity extends Equatable {
   final String airlineName;
   final String duration;
   final String cabin;
+  // Links rows across Trips[] into one IM package (0 for ON/RT/DM).
+  final int returnIdentifier;
 
   const AkflightsEntity({
     required this.index,
@@ -40,6 +42,7 @@ class AkflightsEntity extends Equatable {
     required this.airlineName,
     required this.duration,
     required this.cabin,
+    this.returnIdentifier = 0,
   });
 
   @override
@@ -60,6 +63,7 @@ class AkflightsEntity extends Equatable {
     airlineName,
     duration,
     cabin,
+    returnIdentifier,
   ];
 }
 
