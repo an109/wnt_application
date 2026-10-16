@@ -1,0 +1,5 @@
+// Override Flutter's exclusion of arm64 from simulator builds.
+// Generated.xcconfig sets EXCLUDED_ARCHS[sdk=iphonesimulator*]=i386 arm64
+// to work around older MLKit pods, but iOS 26+ simulators on Apple Silicon
+// require arm64. This file undoes that by re-including only i386.
+EXCLUDED_ARCHS[sdk=iphonesimulator*]=i386

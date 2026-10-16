@@ -265,13 +265,18 @@ class _AkTicketConfirmationScreenState extends State<AkTicketConfirmationScreen>
   }
 
   String _legDate(int legIndex) {
+    // departureDate is set per-leg and is always correct — use it first.
+    // _flightAt falls back to tripIdx=0 for any leg that has akFareData,
+    // which would return the onward date for the return leg.
+    final legDate = _legs[legIndex].departureDate?.trim() ?? '';
+    if (legDate.isNotEmpty) return legDate;
     final raw = _flightAt(legIndex, last: false)?.departureTime ?? '';
     if (raw.trim().isNotEmpty) {
       try {
         return DateFormat('EEE, dd MMM').format(DateTime.parse(raw.trim().replaceFirst(' ', 'T')));
       } catch (_) {}
     }
-    return _legs[legIndex].departureDate?.trim() ?? '';
+    return '';
   }
 
   String _stopsLabel(FlightRouteSegment leg) {

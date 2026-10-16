@@ -32,6 +32,11 @@ class HotelUiModel {
   final double reviewRating;
   final int reviewCount;
 
+  /// Geographic coordinates — present for Akbar Hotels results (from
+  /// AkHotelContentItemEntity), null for older TBO results.
+  final double? lat;
+  final double? long;
+
   HotelUiModel({
     required this.image,
     required this.hotelName,
@@ -54,6 +59,8 @@ class HotelUiModel {
     required this.countryName,
     this.reviewRating = 0,
     this.reviewCount = 0,
+    this.lat,
+    this.long,
   });
 
   // factory HotelUiModel.fromEntity(HotelEntity entity) {

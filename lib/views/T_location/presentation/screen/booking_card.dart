@@ -1347,7 +1347,11 @@ class _TransportBookingCardState extends State<TransportBookingCard> {
             isOneWay: widget.isOneWay,
             returnDate: _returnDate,
             returnTime: _returnTime,
-            isOutstation: _service == _TransferService.outstation,
+            // If either address resolved to an IATA airport code, Mozio always
+            // requires flight info regardless of which service tab the user picked.
+            isOutstation: _service == _TransferService.outstation &&
+                _selectedPickup!.iataCode.isEmpty &&
+                _selectedDropoff!.iataCode.isEmpty,
           ),
         );
         if (widget.editMode) {

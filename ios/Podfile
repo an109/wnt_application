@@ -42,6 +42,13 @@ end
 post_install do |installer|
   installer.pods_project.targets.each do |target|
     flutter_additional_ios_build_settings(target)
+    target.build_configurations.each do |config|
+      # Allow arm64 simulator builds (Apple Silicon Mac + iOS 26+ simulators).
+      # Flutter's Generated.xcconfig excludes arm64 for simulator to work around
+      # older MLKit pods; we undo that here so the app installs on arm64 sims.
+      xcconfig = config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] || ''
+      config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = xcconfig.split.reject { |a| a == 'arm64' }.join(' ')
+    end
   end
 
   # Vendored .xcframework pods (Razorpay) ship dSYMs inside each slice, but

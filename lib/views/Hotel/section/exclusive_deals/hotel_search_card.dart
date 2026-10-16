@@ -898,7 +898,10 @@ class _HotelSearchCardState extends State<HotelSearchCard> {
       button: true,
       selected: selected,
       child: GestureDetector(
-        onTap: () => setState(() => _searchMode = id),
+        onTap: () {
+          setState(() => _searchMode = id);
+          if (id == 'nearby') _useNearMe();
+        },
         behavior: HitTestBehavior.opaque,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),

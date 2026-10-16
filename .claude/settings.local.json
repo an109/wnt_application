@@ -44,7 +44,18 @@
       "Bash(mkdir -p /Users/macbookair/Desktop/wnt_application/lib/views/AKFareFamilyDetails/data/model)",
       "Bash(grep -v \"^$\\\\|newer versions\\\\|Try \\\\`flutter pub\\\\|url_launcher\\\\|uuid\\\\|vector\\\\|vm_service\\\\|webview\\\\|win32\\\\|xml\\\\|yaml\\\\|Got dep\\\\|126 pack\\\\|Analyzing\\\\|warning\")",
       "Bash(grep -n \"DEPART\\\\|RETURN\\\\|LEG \\\\${\" /Users/macbookair/Desktop/wnt_application/lib/views/flight_search/presentation/screen/flight_search_screen.dart)",
-      "Bash(lipo -info /Users/macbookair/Desktop/wnt_application/build/ios/iphonesimulator/Runner.app/Runner)"
+      "Bash(lipo -info /Users/macbookair/Desktop/wnt_application/build/ios/iphonesimulator/Runner.app/Runner)",
+      "Bash(xcodebuild -workspace Runner.xcworkspace -scheme Runner -configuration Debug -sdk iphonesimulator -destination \"id=969A317F-DFB4-460D-9BF8-03CB1B9051C7\" build)",
+      "Bash(xcodebuild -workspace Runner.xcworkspace -scheme Runner -configuration Debug -sdk iphonesimulator ARCHS=arm64 ONLY_ACTIVE_ARCH=NO -destination \"generic/platform=iOS Simulator\" build CONFIGURATION_BUILD_DIR=\"$\\(pwd\\)/../build/ios/arm64sim\")",
+      "Bash(pod install *)",
+      "Bash(flutter devices *)",
+      "Bash(adb -s adb-R5CY90THZ8Y-qtzZDN._adb-tls-connect._tcp install -r /Users/macbookair/Desktop/wnt_application/build/app/outputs/flutter-apk/app-debug.apk)",
+      "Bash(adb -s adb-R5CY90THZ8Y-qtzZDN._adb-tls-connect._tcp shell am start -n com.example.wander_nova/.MainActivity)",
+      "Bash(adb -s adb-R5CY90THZ8Y-qtzZDN._adb-tls-connect._tcp shell pm list packages)",
+      "Bash(adb -s adb-R5CY90THZ8Y-qtzZDN._adb-tls-connect._tcp shell monkey -p com.application.wandernova -c android.intent.category.LAUNCHER 1)",
+      "Bash(adb -s adb-R5CY90THZ8Y-qtzZDN._adb-tls-connect._tcp logcat -d)",
+      "Bash(adb -s adb-R5CY90THZ8Y-qtzZDN._adb-tls-connect._tcp logcat -T \"10-16 14:25:00.000\")",
+      "Bash(adb install *)"
     ]
   }
 }

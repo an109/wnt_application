@@ -1,8 +1,9 @@
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:wander_nova/UI_helper/currency_converter.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import 'package:wander_nova/injection_container.dart';
-import '../../../../common_widgets/custom_bottom_nav.dart';
 import '../../../../common_widgets/hotel_loading_indicator.dart';
 import '../../../../core/error/data_state.dart';
 import '../../../../core/resources/app_colours.dart';
@@ -93,21 +94,10 @@ class _AkHotelResultsScreenState extends State<AkHotelResultsScreen> {
   AkHotelSortOption? _sortOption;
 
   final Map<String, AkHotelContentItemEntity> _contentById = {};
-  // Content's lower-detail `curatedHotels` sibling list, kept in its own map
-  // so it can never perturb `_contentById.length` vs `_contentTotal` (the
-  // existing pagination-completion check below) — see
-  // AkHotelResultContentEntity.curatedHotels for why this list exists at
-  // all (the exact hotel a property-type search targets, e.g. "Velvet
-  // Revive Munnar", is frequently only found here, never in `hotels`).
+
   final Map<String, AkHotelContentItemEntity> _curatedById = {};
   final Map<String, AkHotelRateItemEntity> _rateById = {};
-  // curatedHotels rows never carry heroImage/images at all — Content's own
-  // sparse shape for that list, not a parsing gap (see
-  // AkHotelContentItemModel.fromCuratedJson) — so the pinned "hotel you
-  // actually searched for" card would otherwise show no photo, ever. Lazily
-  // backfilled from Hotel Content (the same call the detail screen already
-  // uses) the moment such a card is about to render; keyed by hotel id so
-  // each one is only ever fetched once.
+
   final Map<String, String> _backfilledImages = {};
   final Set<String> _imageBackfillAttempted = {};
   String _currency = 'INR';
@@ -119,21 +109,11 @@ class _AkHotelResultsScreenState extends State<AkHotelResultsScreen> {
   String? _error;
   int _ratePollCount = 0;
   bool _rateTimedOut = false;
-  // True only while _pollRate's loop is actually running. Distinct from
-  // _rateCompleted (which only means "the provider said done") — this also
-  // flips false when polling gives up for any other reason (hits
-  // _maxRatePolls, or a transient poll failure breaks the loop), so nothing
-  // that only checks "rate is done" is left waiting forever on a poll that
-  // has actually stopped. See the "Match Result" skeleton below, which used
-  // to gate on `!_rateCompleted` alone and would shimmer forever once
-  // polling gave up without ever reaching `completed`.
   bool _ratePollingActive = false;
 
   bool _isFilterApplied = false;
   Map<String, dynamic> _activeFilters = {};
-  // True only while _autoLoadContentForMatch is actively paging looking for
-  // a match — drives the "Match" section's skeleton placeholder so that
-  // section isn't just silently absent while it's still being looked for.
+
   bool _matchSearchInProgress = false;
 
   // Anchors the full Near by vertical list (always rendered below the
@@ -572,6 +552,8 @@ class _AkHotelResultsScreenState extends State<AkHotelResultsScreen> {
       facilities: c.facilities.map((f) => f.name).toList(),
       cityName: _locationName,
       countryName: c.countryCode,
+      lat: c.lat,
+      long: c.long,
     );
   }
 
@@ -599,6 +581,8 @@ class _AkHotelResultsScreenState extends State<AkHotelResultsScreen> {
       facilities: c.facilities.map((f) => f.name).toList(),
       cityName: _locationName,
       countryName: c.countryCode,
+      lat: c.lat,
+      long: c.long,
     );
   }
 
@@ -881,9 +865,7 @@ class _AkHotelResultsScreenState extends State<AkHotelResultsScreen> {
           child: AkHotelBottomBar(
             sortActive: _sortOption != null,
             filterActive: _isFilterApplied,
-            onMapTap: () => ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Map view coming soon'), duration: Duration(seconds: 2)),
-            ),
+            onMapTap: () => _enterMapView([...sortedMatched, ...sortedRecommended, ...sortedNearby]),
             onSortTap: () => showAkHotelSortSheet(
               context: context,
               current: _sortOption,
@@ -1079,6 +1061,349 @@ class _AkHotelResultsScreenState extends State<AkHotelResultsScreen> {
           children: widget.children,
           roomCount: widget.rooms.length,
         ),
+      ),
+    );
+  }
+
+  // ─────────────────────── MAP VIEW ────────────────────────────────────────
+
+  void _enterMapView(List<HotelUiModel> hotels) {
+    final withCoords = hotels.where((h) => h.lat != null && h.long != null).toList();
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => _HotelMapViewScreen(
+          hotels: withCoords,
+          location: widget.location,
+          onHotelTap: _navigateToDetail,
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Full-screen map route — pushed via Navigator.push so GoogleMap's
+// PlatformView gets its own Scaffold body and renders tiles correctly on
+// Android (rendering inside Expanded→Column in the parent Scaffold's body
+// prevents tiles from loading).
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _HotelMapViewScreen extends StatefulWidget {
+  final List<HotelUiModel> hotels;
+  final AkHotelLocationEntity location;
+  final void Function(HotelUiModel) onHotelTap;
+
+  const _HotelMapViewScreen({
+    required this.hotels,
+    required this.location,
+    required this.onHotelTap,
+  });
+
+  @override
+  State<_HotelMapViewScreen> createState() => _HotelMapViewScreenState();
+}
+
+class _HotelMapViewScreenState extends State<_HotelMapViewScreen> {
+  GoogleMapController? _mapController;
+  late final PageController _cardController;
+  Set<Marker> _markers = {};
+  int _selectedIndex = 0;
+  bool _markersBuilding = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _cardController = PageController(viewportFraction: 0.88);
+    if (widget.hotels.isNotEmpty) _rebuildMarkers(0);
+  }
+
+  @override
+  void dispose() {
+    _cardController.dispose();
+    _mapController?.dispose();
+    super.dispose();
+  }
+
+  Future<void> _rebuildMarkers(int selectedIndex) async {
+    if (_markersBuilding) return;
+    _markersBuilding = true;
+    final markers = <Marker>{};
+    for (int i = 0; i < widget.hotels.length; i++) {
+      final h = widget.hotels[i];
+      if (h.lat == null || h.long == null) continue;
+      final selected = i == selectedIndex;
+      final bitmap = await _makePriceMarker(h.price, selected: selected);
+      markers.add(Marker(
+        markerId: MarkerId(h.hotelCode),
+        position: LatLng(h.lat!, h.long!),
+        icon: bitmap,
+        zIndexInt: selected ? 1 : 0,
+        onTap: () {
+          final idx = widget.hotels.indexOf(h);
+          if (idx >= 0) _selectHotel(idx);
+        },
+      ));
+    }
+    _markersBuilding = false;
+    if (mounted) setState(() => _markers = markers);
+  }
+
+  void _selectHotel(int index) {
+    if (index == _selectedIndex) return;
+    setState(() => _selectedIndex = index);
+    if (_cardController.hasClients) {
+      _cardController.animateToPage(
+        index,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOutCubic,
+      );
+    }
+    final h = widget.hotels[index];
+    if (h.lat != null && h.long != null && _mapController != null) {
+      _mapController!.animateCamera(CameraUpdate.newLatLng(LatLng(h.lat!, h.long!)));
+    }
+    _rebuildMarkers(index);
+  }
+
+  Future<BitmapDescriptor> _makePriceMarker(String price, {required bool selected}) async {
+    final dpr = WidgetsBinding.instance.platformDispatcher.views.first.devicePixelRatio;
+    final fontSize = 11.0 * dpr;
+    final padH = 10.0 * dpr;
+    final padV = 6.0 * dpr;
+    final radius = 12.0 * dpr;
+    final tailH = 6.0 * dpr;
+    final tailW = 5.0 * dpr;
+
+    final tp = TextPainter(
+      text: TextSpan(
+        text: price,
+        style: TextStyle(
+          fontSize: fontSize,
+          fontWeight: FontWeight.w700,
+          color: selected ? Colors.white : const Color(0xFF1E293B),
+          height: 1.0,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    );
+    tp.layout();
+
+    final bw = tp.width + padH * 2;
+    final bh = tp.height + padV * 2;
+    final totalH = bh + tailH;
+
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+    final bgColor = selected ? AppColors.AppBlue : Colors.white;
+
+    final rrect = RRect.fromRectAndRadius(Rect.fromLTWH(0, 0, bw, bh), Radius.circular(radius));
+
+    canvas.drawRRect(
+      rrect.shift(Offset(0, 1.5 * dpr)),
+      Paint()
+        ..color = Colors.black.withValues(alpha: 0.18)
+        ..maskFilter = ui.MaskFilter.blur(ui.BlurStyle.normal, 3 * dpr),
+    );
+    canvas.drawRRect(rrect, Paint()..color = bgColor);
+    if (!selected) {
+      canvas.drawRRect(
+        rrect,
+        Paint()
+          ..color = const Color(0xFFCBD5E1)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.0 * dpr,
+      );
+    }
+    final tailPath = Path()
+      ..moveTo(bw / 2 - tailW, bh)
+      ..lineTo(bw / 2, totalH)
+      ..lineTo(bw / 2 + tailW, bh)
+      ..close();
+    canvas.drawPath(tailPath, Paint()..color = bgColor);
+    tp.paint(canvas, Offset(padH, padV));
+
+    final img = await recorder.endRecording().toImage(bw.ceil(), totalH.ceil());
+    final data = await img.toByteData(format: ui.ImageByteFormat.png);
+    if (data == null) return BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue);
+    return BitmapDescriptor.bytes(data.buffer.asUint8List(), imagePixelRatio: dpr);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final hotels = widget.hotels;
+    final initLat = widget.location.lat
+        ?? (hotels.isNotEmpty ? hotels.first.lat : null)
+        ?? 19.0760;
+    final initLng = widget.location.long
+        ?? (hotels.isNotEmpty ? hotels.first.long : null)
+        ?? 72.8777;
+    final bottomInset = MediaQuery.of(context).padding.bottom;
+
+    return Scaffold(
+      body: Stack(
+        children: [
+          // Full-screen map — direct child of Scaffold body, no Expanded/Column
+          GoogleMap(
+            initialCameraPosition: CameraPosition(
+              target: LatLng(initLat, initLng),
+              zoom: 13,
+            ),
+            markers: _markers,
+            myLocationButtonEnabled: false,
+            zoomControlsEnabled: false,
+            mapToolbarEnabled: false,
+            onMapCreated: (ctrl) => _mapController = ctrl,
+          ),
+
+          // Bottom overlay: "View list" pill + hotel cards
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: bottomInset + context.h(12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Padding(
+                  padding: EdgeInsets.only(right: context.w(16), bottom: context.h(10)),
+                  child: GestureDetector(
+                    onTap: () => Navigator.of(context).pop(),
+                    child: Container(
+                      padding: EdgeInsets.symmetric(horizontal: context.w(14), vertical: context.h(8)),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(context.r(20)),
+                        boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 8, offset: Offset(0, 3))],
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.format_list_bulleted_rounded, size: context.w(16), color: AppColors.AppBlue),
+                          SizedBox(width: context.w(6)),
+                          Text(
+                            'View list',
+                            style: TextStyle(fontSize: context.fs(13), fontWeight: FontWeight.w700, color: AppColors.AppBlue),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                SizedBox(
+                  height: context.h(130),
+                  child: PageView.builder(
+                    controller: _cardController,
+                    itemCount: hotels.length,
+                    onPageChanged: (idx) {
+                      if (idx == _selectedIndex) return;
+                      setState(() => _selectedIndex = idx);
+                      final h = hotels[idx];
+                      if (h.lat != null && h.long != null && _mapController != null) {
+                        _mapController!.animateCamera(CameraUpdate.newLatLng(LatLng(h.lat!, h.long!)));
+                      }
+                      _rebuildMarkers(idx);
+                    },
+                    itemBuilder: (context, idx) {
+                      final h = hotels[idx];
+                      final selected = idx == _selectedIndex;
+                      return GestureDetector(
+                        onTap: () => widget.onHotelTap(h),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          margin: EdgeInsets.only(
+                            left: context.w(idx == 0 ? 16 : 6),
+                            right: context.w(idx == hotels.length - 1 ? 16 : 6),
+                            bottom: context.h(12),
+                            top: selected ? 0 : context.h(6),
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(context.r(12)),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: selected ? 0.18 : 0.10),
+                                blurRadius: selected ? 12 : 6,
+                                offset: const Offset(0, 3),
+                              ),
+                            ],
+                            border: selected ? Border.all(color: AppColors.AppBlue, width: 1.5) : null,
+                          ),
+                          child: Row(
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.only(
+                                  topLeft: Radius.circular(context.r(12)),
+                                  bottomLeft: Radius.circular(context.r(12)),
+                                ),
+                                child: h.image.isNotEmpty
+                                    ? Image.network(
+                                        h.image,
+                                        width: context.w(110),
+                                        height: double.infinity,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (_, __, ___) => Container(
+                                          width: context.w(110),
+                                          color: const Color(0xFFEFF3FB),
+                                          child: Icon(Icons.hotel, color: Colors.grey.shade400, size: context.w(32)),
+                                        ),
+                                      )
+                                    : Container(
+                                        width: context.w(110),
+                                        color: const Color(0xFFEFF3FB),
+                                        child: Icon(Icons.hotel, color: Colors.grey.shade400, size: context.w(32)),
+                                      ),
+                              ),
+                              Expanded(
+                                child: Padding(
+                                  padding: EdgeInsets.all(context.w(10)),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                    children: [
+                                      Text(
+                                        h.hotelName,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(fontSize: context.fs(12), fontWeight: FontWeight.w700, color: const Color(0xFF1E293B)),
+                                      ),
+                                      Text(
+                                        h.address,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(fontSize: context.fs(10), color: const Color(0xFF64748B)),
+                                      ),
+                                      Row(
+                                        children: [
+                                          Icon(Icons.star_rounded, size: context.w(13), color: const Color(0xFFF59E0B)),
+                                          SizedBox(width: context.w(2)),
+                                          Text(
+                                            h.reviewRating > 0 ? h.reviewRating.toStringAsFixed(1) : '${h.rating}.0',
+                                            style: TextStyle(fontSize: context.fs(11), fontWeight: FontWeight.w600, color: const Color(0xFF1E293B)),
+                                          ),
+                                        ],
+                                      ),
+                                      Text(
+                                        h.price,
+                                        style: TextStyle(fontSize: context.fs(13), fontWeight: FontWeight.w800, color: AppColors.AppBlue),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          if (_markersBuilding) const Center(child: CircularProgressIndicator()),
+        ],
       ),
     );
   }
