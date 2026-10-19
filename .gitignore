@@ -43,3 +43,6 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Temporary overrides written by tools/run_sim.sh
+pubspec_overrides.yaml
