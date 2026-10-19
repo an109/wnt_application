@@ -70,6 +70,27 @@ class AkTravellerRequestEntity extends Equatable {
   final String email;
   final String pMobileNo;
 
+  // Passport / travel-document block. GetTravelCheckList decides per fare
+  // which of these the airline insists on (1 = mandatory); on an
+  // international fare CreateItinerary is rejected outright without them.
+  // Empty is the normal case on domestic fares, where the checklist asks for
+  // none of them, so each is optional here and omitted from the payload when
+  // blank rather than sent as "".
+  final String passportNo;
+  final String nationality;
+  final String visaType;
+
+  /// Passport date of expiry (PDOE), ISO yyyy-MM-dd.
+  final String pdoe;
+
+  /// Passport date of issue (PDOI), ISO yyyy-MM-dd.
+  final String pdoi;
+
+  /// Place of issue (PLI).
+  final String pli;
+
+  final String panNo;
+
   const AkTravellerRequestEntity({
     required this.title,
     required this.fName,
@@ -79,10 +100,20 @@ class AkTravellerRequestEntity extends Equatable {
     required this.dob,
     required this.email,
     required this.pMobileNo,
+    this.passportNo = '',
+    this.nationality = '',
+    this.visaType = '',
+    this.pdoe = '',
+    this.pdoi = '',
+    this.pli = '',
+    this.panNo = '',
   });
 
   @override
-  List<Object?> get props => [title, fName, lName, gender, ptc, dob, email, pMobileNo];
+  List<Object?> get props => [
+    title, fName, lName, gender, ptc, dob, email, pMobileNo,
+    passportNo, nationality, visaType, pdoe, pdoi, pli, panNo,
+  ];
 }
 
 class AkCreateItineraryRequestEntity extends Equatable {

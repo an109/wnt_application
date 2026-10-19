@@ -20,6 +20,7 @@ import 'package:wander_nova/views/AKRetrieveBooking/domain/entity/AKRetrieveBook
 import 'package:wander_nova/views/AKRetrieveBooking/domain/usecase/AKRetrieveBooking_usecase.dart';
 import 'package:wander_nova/views/AKStartPay/domain/entity/AKStartPay_entity.dart';
 import 'package:wander_nova/views/AKStartPay/domain/usecase/AKStartPay_usecase.dart';
+import 'package:wander_nova/core/services/push_notification_service.dart';
 import 'package:wander_nova/views/flight_payment/data/razorpay_custom_checkout_service.dart';
 import 'package:wander_nova/views/flight_search/presentation/screen/booking_screen.dart';
 import 'package:wander_nova/views/wallet/wallet/screen/checkout/card_form.dart';
@@ -29,6 +30,9 @@ import 'package:wander_nova/views/wallet/wallet/screen/checkout/upi_section.dart
 import 'package:wander_nova/views/flight_search/presentation/screen/seat_addons_screen.dart';
 import 'package:wander_nova/views/flight_ticket/presentation/screen/ak_ticket_confirmation_screen.dart';
 import 'package:wander_nova/views/wallet/data/data_source/wallet_api_service.dart';
+import 'package:wander_nova/views/benefits/data/data_source/benefit_api_service.dart';
+import 'package:wander_nova/views/benefits/domain/entity/benefit_entity.dart';
+import 'package:wander_nova/views/benefits/presentation/widget/benefit_apply_card.dart';
 import 'package:wander_nova/common_widgets/currency_scope.dart';
 import 'package:wander_nova/common_widgets/app_loader.dart';
 
@@ -66,6 +70,15 @@ class AkFlightPaymentScreen extends StatefulWidget {
   /// [AkTicketConfirmationScreen] for its per-passenger add-on chips.
   final AddOnsSummary addOns;
 
+  /// Promo code applied on the booking screen, shown on the fare breakdown.
+  final String promoCode;
+
+  /// [promoCode]'s discount in INR. CreateItinerary's [netAmount] knows
+  /// nothing about Wander Nova promos, so the discount is taken off here —
+  /// this is what keeps the fare the traveller was quoted at the offer step
+  /// from reappearing at full price on the payment screen.
+  final double promoDiscountInInr;
+
   /// Non-null only when the traveller picked a Trip Secure plan AND passed
   /// its KYC on the booking screen. When present, its premium is folded
   /// into the one Razorpay/wallet charge below, and the policy is issued
@@ -85,6 +98,8 @@ class AkFlightPaymentScreen extends StatefulWidget {
     this.travellerNames = const [],
     this.travellers = const [],
     this.addOns = const AddOnsSummary(),
+    this.promoCode = '',
+    this.promoDiscountInInr = 0,
     this.insuranceBookingContext,
   });
 
@@ -193,7 +208,65 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
   /// total here to include the insurance premium could make that check fail.
   /// This has not been (and per the API notes, cannot safely be) live-tested
   /// — confirm server-side before relying on it in production.
-  double get _totalChargeInInr => widget.netAmount + _insurancePremiumInInr;
+  double get _totalChargeInInr {
+    final total = widget.netAmount -
+        _promoDiscountInInr -
+        _benefitAppliedInInr +
+        _insurancePremiumInInr;
+    return total < _minChargeInInr ? _minChargeInInr : total;
+  }
+
+  // ── Benefit credit ───────────────────────────────────────────────────────
+  // What the server says this booking may absorb. Null until /benefits/quote/
+  // answers, which is also the "not signed in / programme off" state — in
+  // both cases the card renders nothing and checkout is unchanged.
+  BenefitQuote? _benefitQuote;
+
+  /// How much benefit credit the traveller chose to apply.
+  double _benefitApplied = 0;
+
+  /// Set once the credit is reserved server-side. Must be captured after a
+  /// successful payment or released after a failed one — a reference left
+  /// dangling ties up the traveller's credit until its TTL expires.
+  String? _benefitHoldRef;
+
+  /// Applied credit, but never more than the fare it is discounting. Trip
+  /// Secure is a separate product the insurer still has to be paid for, so
+  /// benefit credit cannot eat into the premium — same rule as the promo.
+  double get _benefitAppliedInInr {
+    if (_benefitApplied <= 0) return 0;
+    final roomLeft = widget.netAmount - _promoDiscountInInr;
+    if (roomLeft <= 0) return 0;
+    return _benefitApplied > roomLeft ? roomLeft : _benefitApplied;
+  }
+
+  /// The margin on this fare, when this screen knows it.
+  ///
+  /// Akbar reports both numbers — NetAmount is what we owe the airline,
+  /// GrossAmount is the published fare — and the difference is what the
+  /// booking actually earns. Sending it lets the server cap against reality
+  /// rather than its deliberately low fallback, which on a zero-margin fare
+  /// correctly yields no redemption at all.
+  ///
+  /// This screen is currently only handed `netAmount`, so it returns null and
+  /// the server applies `assumed_margin_percent` (1% for flights) instead.
+  /// Threading GrossAmount down from GetSPricer would make the offer more
+  /// generous on the fares that can afford it; until then the conservative
+  /// fallback is the safe behaviour, not a bug.
+  double? get _bookingMarginInInr => null;
+
+  /// The promo discount actually taken off, capped at the flight's net amount
+  /// so a generous promo discounts the fare but never the Trip Secure premium
+  /// (which is a separate product the insurer still has to be paid for).
+  double get _promoDiscountInInr {
+    final discount = widget.promoDiscountInInr;
+    if (discount <= 0) return 0;
+    return discount > widget.netAmount ? widget.netAmount : discount;
+  }
+
+  /// Razorpay rejects an order below ₹1, so a promo that wipes out the whole
+  /// fare still leaves a ₹1 charge rather than an order the gateway refuses.
+  static const double _minChargeInInr = 1;
 
   @override
   void initState() {
@@ -204,6 +277,8 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
     // _razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, _handleRazorpaySuccess);
     // _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _handleRazorpayError);
     // _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleRazorpayExternalWallet);
+
+    _loadBenefitQuote();
 
     _holdTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (!mounted) return;
@@ -229,10 +304,94 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
       setState(() => _errorMessage = 'Please select a payment method');
       return;
     }
+    // Reserve the benefit credit before any money moves. If the server has
+    // changed its mind about the cap, the total on screen is stale and the
+    // payment must not proceed at it.
+    if (!await _reserveBenefit()) return;
+
     if (_selectedPaymentMethod == 'wallet') {
       await _payWithWallet();
       return;
     }
+  }
+
+  // ── Benefit credit: quote → hold → capture/release ───────────────────────
+
+  /// Asks the server what this booking may absorb. Failure is silent on
+  /// purpose: a guest, a disabled programme and a network blip should all
+  /// just mean "no benefit row", never a blocked checkout.
+  Future<void> _loadBenefitQuote() async {
+    if (!sl<PreferencesManager>().isLoggedIn()) return;
+    try {
+      final q = await sl<BenefitApiService>().quote(
+        bookingType: 'flight',
+        amount: widget.netAmount - _promoDiscountInInr,
+        marginAmount: _bookingMarginInInr,
+      );
+      if (!mounted) return;
+      setState(() => _benefitQuote = q);
+    } catch (e) {
+      print('Benefit quote skipped: $e');
+    }
+  }
+
+  /// Reserves the chosen credit before the gateway opens.
+  ///
+  /// Returns false only when the traveller wanted credit and the server
+  /// refused it — in that case the amount they were shown is no longer true,
+  /// so the payment must not go ahead at the old total.
+  Future<bool> _reserveBenefit() async {
+    if (_benefitAppliedInInr <= 0) return true;
+    if (_benefitHoldRef != null) return true; // already held on an earlier try
+
+    final h = await sl<BenefitApiService>().hold(
+      bookingType: 'flight',
+      amount: widget.netAmount - _promoDiscountInInr,
+      redeemAmount: _benefitAppliedInInr,
+      marginAmount: _bookingMarginInInr,
+      bookingRef: _sessionId,
+    );
+
+    if (!mounted) return false;
+    if (!h.success) {
+      setState(() {
+        _benefitApplied = 0;
+        _errorMessage = h.error.isNotEmpty
+            ? h.error
+            : 'Your benefit credit could not be applied. Please review the total.';
+      });
+      await _loadBenefitQuote();
+      return false;
+    }
+
+    setState(() {
+      _benefitHoldRef = h.holdReference;
+      // The server is the authority on the amount — if it granted less than
+      // was asked for, the screen follows it rather than the other way round.
+      _benefitApplied = h.appliedAmount;
+    });
+    return true;
+  }
+
+  /// Spends the held credit once payment has actually succeeded.
+  ///
+  /// Never fails the booking: the traveller has already paid and the flight is
+  /// ticketed, so an unconvertible hold is a reconciliation job for the server
+  /// (and expires on its own), not a reason to show an error here.
+  Future<void> _captureBenefit() async {
+    final ref = _benefitHoldRef;
+    if (ref == null) return;
+    _benefitHoldRef = null;
+    await sl<BenefitApiService>().capture(ref, bookingRef: _sessionId);
+  }
+
+  /// Hands the credit back after a failed or abandoned payment.
+  Future<void> _releaseBenefit({String reason = 'Payment not completed'}) async {
+    final ref = _benefitHoldRef;
+    if (ref == null) return;
+    _benefitHoldRef = null;
+    await sl<BenefitApiService>().release(ref, reason: reason);
+    if (mounted) setState(() => _benefitApplied = 0);
   }
 
   /// Pays from the wallet: /wallet/pay-booking/ debits it against the
@@ -271,6 +430,16 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
       if (!mounted) return;
 
       if (balance >= _totalChargeInInr) {
+        // Last word before the money leaves the wallet. A wallet debit has
+        // no gateway sheet of its own to pause on, so without this the tap
+        // that opens "My Wallet" is also the tap that spends the balance.
+        setState(() => _processing = false);
+        final confirmed = await _confirmWalletPayment(balance);
+        if (!mounted || !confirmed) return;
+        setState(() {
+          _processing = true;
+          _errorMessage = null;
+        });
         if (await _debitWallet()) await _runStartPayWithRetry(gateway: 'wallet');
       } else {
         setState(() {
@@ -286,6 +455,158 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
       });
       print('Wallet balance error: $e');
     }
+  }
+
+  /// Confirmation sheet shown before the wallet is debited: what leaves, what
+  /// is there now, and what is left after. Returns false on dismiss, so a
+  /// stray tap or a back gesture never spends the balance.
+  Future<bool> _confirmWalletPayment(double balance) async {
+    final remaining = balance - _totalChargeInInr;
+
+    final result = await showModalBottomSheet<bool>(
+      context: context,
+      backgroundColor: Colors.white,
+      isScrollControlled: true,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(context.r(20))),
+      ),
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(
+            context.w(20),
+            context.h(10),
+            context.w(20),
+            context.h(16),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: context.w(40),
+                  height: context.h(4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE2E7F0),
+                    borderRadius: BorderRadius.circular(context.r(99)),
+                  ),
+                ),
+              ),
+              SizedBox(height: context.h(18)),
+              Text(
+                'Confirm wallet payment',
+                style: TextStyle(
+                  color: _ink,
+                  fontSize: context.fs(18),
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              SizedBox(height: context.h(4)),
+              Text(
+                _routeLabel,
+                style: TextStyle(
+                  color: AppColors.subhead,
+                  fontSize: context.fs(12),
+                ),
+              ),
+              SizedBox(height: context.h(18)),
+              _walletConfirmRow(context, 'Amount to pay',
+                  _displayAmount(_totalChargeInInr), emphasise: true),
+              SizedBox(height: context.h(10)),
+              _walletConfirmRow(
+                  context, 'Wallet balance', _displayAmount(balance)),
+              Padding(
+                padding: EdgeInsets.symmetric(vertical: context.h(10)),
+                child: const Divider(height: 1, color: Color(0xFFE6E8EC)),
+              ),
+              _walletConfirmRow(context, 'Balance after payment',
+                  _displayAmount(remaining < 0 ? 0 : remaining)),
+              SizedBox(height: context.h(20)),
+              Row(
+                children: [
+                  Expanded(
+                    child: SizedBox(
+                      height: context.h(46),
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.of(sheetContext).pop(false),
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: Color(0xFFE2E7F0)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(context.r(12)),
+                          ),
+                        ),
+                        child: Text(
+                          'CANCEL',
+                          style: TextStyle(
+                            color: _ink,
+                            fontSize: context.fs(13),
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  SizedBox(width: context.w(12)),
+                  Expanded(
+                    child: SizedBox(
+                      height: context.h(46),
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.of(sheetContext).pop(true),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.OrangeColor,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(context.r(12)),
+                          ),
+                        ),
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            'PAY ${_displayAmount(_totalChargeInInr)}',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: context.fs(13),
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    return result ?? false;
+  }
+
+  Widget _walletConfirmRow(BuildContext context, String label, String amount,
+      {bool emphasise = false}) {
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            label,
+            style: TextStyle(
+              color: emphasise ? _ink : AppColors.subhead,
+              fontSize: context.fs(13),
+              fontWeight: emphasise ? FontWeight.w600 : FontWeight.w500,
+            ),
+          ),
+        ),
+        Text(
+          amount,
+          style: TextStyle(
+            color: _ink,
+            fontSize: context.fs(emphasise ? 17 : 13),
+            fontWeight: emphasise ? FontWeight.w800 : FontWeight.w600,
+          ),
+        ),
+      ],
+    );
   }
 
   /// Charges the wallet for this booking (whole rupees, rounded up, as the
@@ -617,6 +938,8 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
       if (result is DataSuccess<AkStartPayEntity>) {
         final data = result.data!;
         if (data.isBooked) {
+          // Paid and ticketed — the held credit is now genuinely spent.
+          await _captureBenefit();
           await _retrieveBookingAndNavigate();
           return;
         }
@@ -638,13 +961,50 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
       }
     }
 
+    final stillPending = attempt >= _maxStartPayAttempts;
+
+    // Hard failure: the booking is not happening, so give the credit back now
+    // rather than making the traveller wait out the hold's TTL.
+    //
+    // A *pending* booking is deliberately left alone. It may still confirm,
+    // and releasing here would hand back credit for a trip that then gets
+    // ticketed. Leaving the hold means the TTL returns it if the booking
+    // never lands — the safer of the two wrong answers, since the alternative
+    // is charging someone for a booking that failed.
+    if (!stillPending) {
+      await _releaseBenefit(reason: 'Booking could not be completed');
+    }
+
+    final message = stillPending
+        ? 'Your booking is still being confirmed. Please check My Bookings shortly.'
+        : 'Payment succeeded but ticketing failed. Please contact support with your booking reference.';
+
+    await _notifyBookingOutcome(
+      title: stillPending ? 'Booking pending' : 'Booking failed',
+      body: stillPending
+          ? '$_routeLabel — we are still confirming it. We will have an answer shortly; your payment is safe.'
+          : '$_routeLabel — payment went through but ticketing did not. Contact support with your booking reference.',
+    );
+
     if (!mounted) return;
     setState(() {
       _processing = false;
-      _errorMessage = attempt >= _maxStartPayAttempts
-          ? 'Your booking is still being confirmed. Please check My Bookings shortly.'
-          : 'Payment succeeded but ticketing failed. Please contact support with your booking reference.';
+      _errorMessage = message;
     });
+  }
+
+  /// Raises the device-local booking notification. Keyed on the session so
+  /// a pending booking that later resolves replaces its own earlier notice
+  /// instead of stacking a second one.
+  Future<void> _notifyBookingOutcome({
+    required String title,
+    required String body,
+  }) {
+    return PushNotificationService.instance.showBookingUpdate(
+      title: title,
+      body: body,
+      reference: _sessionId,
+    );
   }
 
   Future<void> _retrieveBookingAndNavigate() async {
@@ -671,6 +1031,15 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
         if (!mounted) return;
       }
 
+      final pnr = result.data!.pnrs.isNotEmpty ? result.data!.pnrs.first : '';
+      await _notifyBookingOutcome(
+        title: 'Booking confirmed',
+        body: pnr.isEmpty
+            ? '$_routeLabel is booked. Your e-ticket is ready in My Trips.'
+            : '$_routeLabel is booked. PNR $pnr — your e-ticket is ready in My Trips.',
+      );
+      if (!mounted) return;
+
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
@@ -682,13 +1051,21 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
             travellers: widget.travellers,
             addOns: widget.addOns,
             transactionId: _transactionId,
-            netAmount: widget.netAmount,
+            // What was actually charged, not the pre-promo fare — the ticket
+            // screen labels this "Amount actually paid".
+            netAmount: _totalChargeInInr,
             travellerCount: widget.travellerCount,
             travellerNames: widget.travellerNames,
           ),
         ),
       );
     } else {
+      await _notifyBookingOutcome(
+        title: 'Booking confirmed',
+        body: '$_routeLabel is booked, but the ticket details did not load. '
+            'Open My Trips to see it.',
+      );
+      if (!mounted) return;
       setState(() {
         _processing = false;
         _errorMessage =
@@ -796,9 +1173,99 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
     return false;
   }
 
+  /// Asks before abandoning checkout.
+  ///
+  /// Leaving really is final: the fare is committed against this session and
+  /// the hold expires, so there is no "come back and finish" — the traveller
+  /// has to search and price the flight again. Returns true if they still
+  /// want to leave.
+  Future<bool> _confirmLeave() async {
+    if (_processing) return false;
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(context.r(16)),
+        ),
+        title: Text(
+          'Leave without paying?',
+          style: TextStyle(
+            fontSize: context.fs(18),
+            fontWeight: FontWeight.w800,
+            color: _ink,
+          ),
+        ),
+        content: Text(
+          'This booking is held at ${_displayAmount(_totalChargeInInr)} only '
+          'until the timer runs out. Going back ends the session — the seats '
+          'are released and you will have to search again, where the fare may '
+          'be different.',
+          style: TextStyle(
+            fontSize: context.fs(13),
+            height: 1.45,
+            color: _muted,
+          ),
+        ),
+        actionsPadding: EdgeInsets.fromLTRB(
+            context.w(12), 0, context.w(12), context.h(10)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(
+              'STAY & PAY',
+              style: TextStyle(
+                color: _ink,
+                fontSize: context.fs(13),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xffB42318),
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(context.r(10)),
+              ),
+            ),
+            child: Text(
+              'LEAVE',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: context.fs(13),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    return result ?? false;
+  }
+
+  /// Shared by the header arrow and the system back gesture, so both routes
+  /// out of checkout ask the same question.
+  Future<void> _handleBack() async {
+    if (!await _confirmLeave()) return;
+    // Leaving mid-checkout: return the reserved credit immediately so it is
+    // spendable again on the next attempt instead of looking "missing".
+    await _releaseBenefit(reason: 'Left the payment screen');
+    if (mounted) Navigator.of(context).pop();
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return PopScope(
+      // Never pops on its own: the gesture is intercepted so the warning can
+      // run first, and _handleBack pops once the traveller confirms.
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _handleBack();
+      },
+      child: Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
         child: Column(
@@ -806,7 +1273,25 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
             _header(context),
             Divider(height: 1, color: _stroke),
             Expanded(
-              child: SingleChildScrollView(
+              // While the booking is being confirmed the loader owns the
+              // page, so it sits centred in the space under Total Due
+              // instead of butted up beneath it with the rest blank. No
+              // scrolling in that state either — there is nothing to reach.
+              child: _processing
+                  ? Padding(
+                      padding: EdgeInsets.fromLTRB(context.w(16),
+                          context.h(18), context.w(16), context.h(32)),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _totalDue(context),
+                          Expanded(
+                            child: Center(child: _processingCard(context)),
+                          ),
+                        ],
+                      ),
+                    )
+                  : SingleChildScrollView(
                 physics: const BouncingScrollPhysics(
                     parent: AlwaysScrollableScrollPhysics()),
                 padding: EdgeInsets.fromLTRB(
@@ -816,9 +1301,6 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
                   children: [
                     _totalDue(context),
                     SizedBox(height: context.h(24)),
-                    if (_processing) ...[
-                      _processingCard(context),
-                    ] else ...[
                       if (_errorMessage != null) ...[
                         _errorBanner(context, _errorMessage!),
                         SizedBox(height: context.h(16)),
@@ -913,13 +1395,13 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
                           onPayLater: (p) => _payWithMethod({'method': 'paylater', 'provider': p}),
                         ) : const SizedBox.shrink(),
                       ),
-                    ],
                   ],
                 ),
               ),
             ),
           ],
         ),
+      ),
       ),
     );
   }
@@ -935,7 +1417,7 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
         children: [
           GestureDetector(
             behavior: HitTestBehavior.opaque,
-            onTap: _processing ? null : () => Navigator.of(context).maybePop(),
+            onTap: _processing ? null : _handleBack,
             child: Image.asset(
               'assets/NewIcons/arrowBack.png',
               width: context.w(15),
@@ -1184,6 +1666,39 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
                     ),
                     SizedBox(height: context.h(14)),
                     _fareLine(context, 'Fare', _displayAmount(widget.netAmount)),
+                    if (_promoDiscountInInr > 0) ...[
+                      SizedBox(height: context.h(14)),
+                      _fareLine(
+                        context,
+                        widget.promoCode.isEmpty
+                            ? 'Promo Discount'
+                            : 'Promo Discount (${widget.promoCode})',
+                        '- ${_displayAmount(_promoDiscountInInr)}',
+                      ),
+                    ],
+                    if (_benefitAppliedInInr > 0) ...[
+                      SizedBox(height: context.h(14)),
+                      _fareLine(
+                        context,
+                        'Benefit Credit',
+                        '- ${_displayAmount(_benefitAppliedInInr)}',
+                      ),
+                    ],
+                    if (_benefitQuote != null) ...[
+                      SizedBox(height: context.h(6)),
+                      BenefitApplyCard(
+                        quote: _benefitQuote!,
+                        appliedAmount: _benefitApplied,
+                        money: _displayAmount,
+                        enabled: !_processing,
+                        // Once reserved the figure belongs to the server for
+                        // the rest of the attempt, so the controls go
+                        // read-only rather than letting the traveller edit a
+                        // number that is already held.
+                        locked: _benefitHoldRef != null,
+                        onChanged: (v) => setState(() => _benefitApplied = v),
+                      ),
+                    ],
                     if (_insurancePremiumInInr > 0) ...[
                       SizedBox(height: context.h(14)),
                       _fareLine(context, 'Trip Secure',
@@ -1622,8 +2137,8 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
   // ==================== STATUS / PAY ====================
   Widget _processingCard(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.symmetric(vertical: context.h(48)),
-      child: AppLoadingView(message: _statusMessage),
+      padding: EdgeInsets.symmetric(vertical: context.h(36)),
+      child: BookingProgressLoader(message: _statusMessage),
     );
   }
 

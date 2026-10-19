@@ -1,16 +1,20 @@
 import 'dart:convert';
 import 'dart:developer' as developer;
-import 'dart:io' show Platform;
+import 'dart:io' show File, Platform;
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../injection_container.dart';
+import '../../views/MyBookings/Screen/MyBooking_Screen.dart';
 import '../../views/offers/offers_screen.dart';
+import '../../views/wallet/wallet/screen/wallet_screen.dart';
 import '../constants/urls.dart';
 import '../network/dio_client.dart';
 import '../utils/storage/shared_preference.dart';
@@ -44,6 +48,39 @@ class PushNotificationService {
     'Offers & updates',
     description: 'Deals, offers and travel updates from Wander Nova',
     importance: Importance.high,
+  );
+
+  /// Booking outcomes for the person using *this* device. These are raised
+  /// locally by the app at the moment it learns the result, never sent from
+  /// the server, so they can't reach anyone else's phone.
+  static const AndroidNotificationChannel _bookingChannel =
+      AndroidNotificationChannel(
+    'wandernova_bookings',
+    'Your bookings',
+    description:
+        'Confirmed, pending and failed updates for bookings made on this device',
+    importance: Importance.high,
+  );
+
+  /// Sign-ins and other account activity. High importance on purpose: this
+  /// is the notice that tells someone their account was opened on a device
+  /// they may not recognise.
+  static const AndroidNotificationChannel _accountChannel =
+      AndroidNotificationChannel(
+    'wandernova_account',
+    'Account activity',
+    description: 'Sign-ins and security notices for your Wander Nova account',
+    importance: Importance.high,
+  );
+
+  /// E-tickets and vouchers written to this device. Quieter than a booking
+  /// update — it's a file landing, not news.
+  static const AndroidNotificationChannel _downloadChannel =
+      AndroidNotificationChannel(
+    'wandernova_downloads',
+    'Downloads',
+    description: 'E-tickets and vouchers saved to this device',
+    importance: Importance.defaultImportance,
   );
 
   final FirebaseMessaging _messaging = FirebaseMessaging.instance;
@@ -82,11 +119,12 @@ class PushNotificationService {
         } catch (_) {}
       },
     );
-    await _local
-        .resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin
-        >()
-        ?.createNotificationChannel(_channel);
+    final android = _local.resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin>();
+    await android?.createNotificationChannel(_channel);
+    await android?.createNotificationChannel(_bookingChannel);
+    await android?.createNotificationChannel(_accountChannel);
+    await android?.createNotificationChannel(_downloadChannel);
 
     FirebaseMessaging.onMessage.listen(_showForeground);
     FirebaseMessaging.onMessageOpenedApp.listen((m) => openFromData(m.data));
@@ -101,6 +139,10 @@ class PushNotificationService {
         _unregister();
       }
     };
+
+    // Fires on a real sign-in only — a silent token refresh does not reach
+    // here (see PreferencesManager.saveToken).
+    PreferencesManager.onSignedIn = showSignInAlert;
 
     try {
       await _messaging.subscribeToTopic(allUsersTopic);
@@ -171,10 +213,153 @@ class PushNotificationService {
         if (uri != null && (uri.scheme == 'http' || uri.scheme == 'https')) {
           await launchUrl(uri, mode: LaunchMode.externalApplication);
         }
+      case 'trips':
+        navigator?.push(
+          MaterialPageRoute(builder: (_) => const MyBookingScreen(showBottomNav: false)),
+        );
+      case 'wallet':
+      case 'benefits':
+        // Benefit credit landed, was spent, or a tier moved — all of which
+        // the traveller checks in the same place. The server sends 'wallet';
+        // 'benefits' is accepted too so a later payload rename needs no app
+        // release to keep working.
+        navigator?.push(MaterialPageRoute(builder: (_) => const WalletScreen()));
+      case 'file':
+        // No file-opener package in the app, so hand the saved PDF to the
+        // system share sheet — that's how the ticket screen opens it too.
+        final file = File(value);
+        if (await file.exists()) {
+          await Share.shareXFiles([XFile(file.path)]);
+        }
       default:
         // 'none': opening the app was the whole point.
         break;
     }
+  }
+
+  /// Tells the person their booking landed, is still being confirmed, or
+  /// failed. Raised on the device that made the booking, from the result the
+  /// app already has in hand — nothing is sent to the server and no other
+  /// device ever sees it. Tapping it opens My Trips.
+  ///
+  /// Never throws: a notification is a courtesy on top of the on-screen
+  /// result, so a device that has them switched off must not break checkout.
+  Future<void> showBookingUpdate({
+    required String title,
+    required String body,
+    String? reference,
+  }) async {
+    try {
+      await _local.show(
+        // Keyed on the booking reference so a later update to the same
+        // booking replaces its earlier one instead of stacking.
+        id: (reference ?? title).hashCode & 0x7fffffff,
+        title: title,
+        body: body,
+        payload: jsonEncode({'type': 'trips'}),
+        notificationDetails: NotificationDetails(
+          android: AndroidNotificationDetails(
+            _bookingChannel.id,
+            _bookingChannel.name,
+            channelDescription: _bookingChannel.description,
+            importance: Importance.high,
+            priority: Priority.high,
+            styleInformation: BigTextStyleInformation(body),
+          ),
+          iOS: const DarwinNotificationDetails(),
+        ),
+      );
+    } catch (e) {
+      developer.log('Booking notification failed: $e', name: 'push');
+    }
+  }
+
+  /// Tells the person a file finished saving to this device, with the share
+  /// sheet a tap away. Local to this device for the same reason as
+  /// [showBookingUpdate]. Never throws.
+  Future<void> showFileSaved({
+    required String title,
+    required String body,
+    required String filePath,
+  }) async {
+    try {
+      await _local.show(
+        id: filePath.hashCode & 0x7fffffff,
+        title: title,
+        body: body,
+        payload: jsonEncode({'type': 'file', 'value': filePath}),
+        notificationDetails: NotificationDetails(
+          android: AndroidNotificationDetails(
+            _downloadChannel.id,
+            _downloadChannel.name,
+            channelDescription: _downloadChannel.description,
+            importance: Importance.defaultImportance,
+            priority: Priority.defaultPriority,
+          ),
+          iOS: const DarwinNotificationDetails(),
+        ),
+      );
+    } catch (e) {
+      developer.log('Download notification failed: $e', name: 'push');
+    }
+  }
+
+  /// Tells the person their account was just signed in to on this device,
+  /// and gives them somewhere to go if it wasn't them.
+  ///
+  /// Raised locally at the moment the session starts, so it never leaves the
+  /// device and cannot reach anyone else's phone. Never throws: a sign-in
+  /// must not fail because notifications are off.
+  Future<void> showSignInAlert() async {
+    try {
+      final account = _signedInAccount();
+      final when = DateFormat('h:mm a, d MMM').format(DateTime.now());
+      final body = account.isEmpty
+          ? 'Signed in on this device at $when. If this wasn\'t you, secure '
+              'your account from Profile.'
+          : 'Signed in as $account on this device at $when. If this wasn\'t '
+              'you, secure your account from Profile.';
+
+      await _local.show(
+        // One id for the channel, so a later sign-in replaces the last notice
+        // instead of stacking one per session.
+        id: _accountChannel.id.hashCode & 0x7fffffff,
+        title: 'New sign-in',
+        body: body,
+        payload: jsonEncode({'type': 'none'}),
+        notificationDetails: NotificationDetails(
+          android: AndroidNotificationDetails(
+            _accountChannel.id,
+            _accountChannel.name,
+            channelDescription: _accountChannel.description,
+            importance: Importance.high,
+            priority: Priority.high,
+            styleInformation: BigTextStyleInformation(body),
+          ),
+          iOS: const DarwinNotificationDetails(),
+        ),
+      );
+    } catch (e) {
+      developer.log('Sign-in notification failed: $e', name: 'push');
+    }
+  }
+
+  /// Email (or name) of the account that just signed in, when the profile has
+  /// already been cached. Several login paths save the token before the user
+  /// record, so this is often empty on the first notice — the message reads
+  /// correctly without it rather than showing a blank.
+  String _signedInAccount() {
+    try {
+      final data = sl<PreferencesManager>().getUserData();
+      if (data == null) return '';
+      for (final key in ['email', 'name', 'mobile', 'phone']) {
+        final value = (data[key] ?? '').toString().trim();
+        if (value.isNotEmpty) return value;
+      }
+    } catch (_) {
+      // Prefs unavailable — fall back to the account-less wording.
+    }
+    return '';
   }
 
   /// Android does not display pushes while the app is in the foreground, so

@@ -66,6 +66,13 @@ class AkTravellerRequestModel extends AkTravellerRequestEntity {
     required super.dob,
     required super.email,
     required super.pMobileNo,
+    super.passportNo,
+    super.nationality,
+    super.visaType,
+    super.pdoe,
+    super.pdoi,
+    super.pli,
+    super.panNo,
   });
 
   Map<String, dynamic> toJson() {
@@ -78,6 +85,16 @@ class AkTravellerRequestModel extends AkTravellerRequestEntity {
       'DOB': dob,
       'Email': email,
       'PMobileNo': pMobileNo,
+      // Only sent when the traveller actually has them. The backend treats a
+      // blank string as missing anyway, and airlines that don't ask for a
+      // passport should not see empty document keys in the payload.
+      if (passportNo.isNotEmpty) 'PassportNo': passportNo,
+      if (nationality.isNotEmpty) 'Nationality': nationality,
+      if (visaType.isNotEmpty) 'VisaType': visaType,
+      if (pdoe.isNotEmpty) 'PDOE': pdoe,
+      if (pdoi.isNotEmpty) 'PDOI': pdoi,
+      if (pli.isNotEmpty) 'PLI': pli,
+      if (panNo.isNotEmpty) 'PANNo': panNo,
     };
   }
 }
@@ -130,6 +147,13 @@ class AkCreateItineraryRequestModel extends AkCreateItineraryRequestEntity {
                 dob: t.dob,
                 email: t.email,
                 pMobileNo: t.pMobileNo,
+                passportNo: t.passportNo,
+                nationality: t.nationality,
+                visaType: t.visaType,
+                pdoe: t.pdoe,
+                pdoi: t.pdoi,
+                pli: t.pli,
+                panNo: t.panNo,
               ))
           .toList(),
     );

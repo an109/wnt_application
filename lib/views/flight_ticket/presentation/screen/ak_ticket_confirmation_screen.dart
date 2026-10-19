@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:lottie/lottie.dart';
@@ -10,6 +11,7 @@ import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import 'package:wander_nova/common_widgets/airline_logo.dart';
 import 'package:wander_nova/core/resources/app_colours.dart';
 import 'package:wander_nova/core/services/pdf_generator.dart';
+import 'package:wander_nova/core/services/push_notification_service.dart';
 import 'package:wander_nova/core/utils/storage/shared_preference.dart';
 import 'package:wander_nova/injection_container.dart';
 import 'package:wander_nova/views/AKGetSPricer/domain/entity/AKGetSPricer_entity.dart';
@@ -137,7 +139,16 @@ class _AkTicketConfirmationScreenState extends State<AkTicketConfirmationScreen>
     return '--';
   }
 
-  String get _pnr => widget.booking.pnrs.isNotEmpty ? widget.booking.pnrs.join(', ') : '--';
+  /// The PNR for leg [legIndex]. Akbar returns one PNR per airline booking,
+  /// in leg order, so a round trip across two carriers has two — the onward
+  /// card must show its own and the return card its own. A single-carrier
+  /// round trip comes back with one PNR covering both legs, so a missing
+  /// entry falls back to the first rather than leaving the card blank.
+  String _pnrFor(int legIndex) {
+    final pnrs = widget.booking.pnrs;
+    if (pnrs.isEmpty) return '--';
+    return legIndex < pnrs.length ? pnrs[legIndex] : pnrs.first;
+  }
 
   String get _statusLabel {
     if (widget.booking.success) return 'PAID';
@@ -236,11 +247,17 @@ class _AkTicketConfirmationScreenState extends State<AkTicketConfirmationScreen>
   // ---- per-leg flight detail off GetSPricer (terminals, airport names) ----
 
   AkGetSPricerFlightEntity? _flightAt(int legIndex, {required bool last}) {
-    final own = _legs[legIndex].akFareData?.trips;
-    final trips = (own != null && own.isNotEmpty) ? own : widget.route.akFareData?.trips;
+    final leg = _legs[legIndex];
+    final own = leg.akFareData?.trips;
+    final hasOwn = own != null && own.isNotEmpty;
+    final trips = hasOwn ? own : widget.route.akFareData?.trips;
     if (trips == null || trips.isEmpty) return null;
-    final tripIdx = (own != null && own.isNotEmpty) ? 0 : legIndex;
-    if (tripIdx < 0 || tripIdx >= trips.length) return null;
+    // A leg's own akFareData often carries the WHOLE itinerary's trips, not
+    // just that leg's, so reading trips[0] from it put the outbound flight's
+    // airports, times and terminals inside the return card. Index by the
+    // leg's own position and clamp, which also covers the case where the
+    // response really does hold a single trip.
+    final tripIdx = (hasOwn ? leg.legIndex : legIndex).clamp(0, trips.length - 1);
     final journeys = trips[tripIdx].journey;
     if (journeys.isEmpty) return null;
     final segments = journeys.first.segments;
@@ -339,11 +356,29 @@ class _AkTicketConfirmationScreenState extends State<AkTicketConfirmationScreen>
 
       final pnrLabel = widget.booking.pnrs.isNotEmpty ? widget.booking.pnrs.first : 'ticket';
       final file = await PDFService.savePDF(pdf, 'eticket_$pnrLabel.pdf');
+      final fileName = file.path.split(Platform.pathSeparator).last;
+
+      // The app sandbox copy above is what Share and the notification point
+      // at; this is the one the traveller keeps. The system Save dialog lets
+      // them drop it in Downloads (or Drive) without the app needing storage
+      // permission, which Android 11+ would not grant for /Download anyway.
+      final savedPath = await PDFService.saveToDevice(file, fileName: fileName);
+
+      // A tray notification as well as the snackbar: the snackbar is gone in
+      // seconds, while the saved ticket is something the traveller comes back
+      // to. Local to this device — nothing about it goes to the server.
+      await PushNotificationService.instance.showFileSaved(
+        title: 'E-ticket downloaded',
+        body: '$fileName — ${widget.route.from} to ${widget.route.to}',
+        filePath: file.path,
+      );
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('E-ticket saved: ${file.path.split(Platform.pathSeparator).last}'),
+          content: Text(savedPath == null
+              ? 'E-ticket ready: $fileName'
+              : 'E-ticket saved to your phone: $fileName'),
           action: SnackBarAction(label: 'Share', onPressed: () => PDFService.sharePDF(file)),
         ),
       );
@@ -399,24 +434,27 @@ class _AkTicketConfirmationScreenState extends State<AkTicketConfirmationScreen>
       children: [
         SizedBox(
           height: context.h(180),
-          // child: Lottie.asset(
-          //   'assets/animation/success.json',
-          //   repeat: false,
-          //   fit: BoxFit.contain,
-          child: Lottie.asset(
-            'assets/animation/celebrate.json',
-            repeat: true,
-            fit: BoxFit.contain,
-            errorBuilder: (_, __, ___) => Center(
-              child: Container(
-                width: context.w(74),
-                height: context.w(74),
-                decoration: const BoxDecoration(color: Color(0xFFEAFBF1), shape: BoxShape.circle),
-                child: Icon(Icons.check_circle_rounded, color: const Color(0xFF16A34A), size: context.w(44)),
-
-                // ),
+          // Confetti behind, the tick on top — the tick is drawn, not an
+          // asset, so it still lands if `celebrate.json` ever fails to load.
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Positioned.fill(
+                // child: Lottie.asset(
+                //   'assets/animation/success.json',
+                //   repeat: false,
+                //   fit: BoxFit.contain,
+                child: Lottie.asset(
+                  'assets/animation/celebrate.json',
+                  repeat: true,
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                ),
               ),
-            ),
+              // Success green, the same one the rest of this screen uses for
+              // "paid" — it reads against the blue "Payment Successful!" title.
+              _SuccessTick(size: context.w(96), color: const Color(0xFF16A34A)),
+            ],
           ),
         ),
         SizedBox(height: context.h(4)),
@@ -690,10 +728,8 @@ class _AkTicketConfirmationScreenState extends State<AkTicketConfirmationScreen>
                         ],
                       ),
                     ),
-                    if (legIndex == 0) ...[
-                      SizedBox(width: context.w(10)),
-                      _pnrTag(context),
-                    ],
+                    SizedBox(width: context.w(10)),
+                    _pnrTag(context, legIndex),
                   ],
                 ),
               ],
@@ -822,7 +858,7 @@ class _AkTicketConfirmationScreenState extends State<AkTicketConfirmationScreen>
     );
   }
 
-  Widget _pnrTag(BuildContext context) {
+  Widget _pnrTag(BuildContext context, int legIndex) {
     return Container(
       constraints: BoxConstraints(maxWidth: context.w(112)),
       padding: EdgeInsets.symmetric(horizontal: context.w(8), vertical: context.h(6)),
@@ -851,7 +887,7 @@ class _AkTicketConfirmationScreenState extends State<AkTicketConfirmationScreen>
           SizedBox(width: context.w(4)),
           Flexible(
             child: Text(
-              _pnr,
+              _pnrFor(legIndex),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
@@ -1251,4 +1287,139 @@ class _DashedRule extends StatelessWidget {
       },
     );
   }
+}
+
+/// The GPay-style confirmation tick: a disc that pops in, a check stroke that
+/// draws itself, and a ring that ripples outward once and fades. Painted
+/// rather than shipped as a Lottie file so it can't go missing, and so it
+/// scales with [context.w] like everything else on this screen.
+class _SuccessTick extends StatefulWidget {
+  const _SuccessTick({required this.size, required this.color});
+
+  final double size;
+  final Color color;
+
+  @override
+  State<_SuccessTick> createState() => _SuccessTickState();
+}
+
+class _SuccessTickState extends State<_SuccessTick>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  /// The disc settling is the moment that gets the buzz — once per screen.
+  bool _tapped = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1100),
+    )..addListener(_onTick);
+    _controller.forward();
+  }
+
+  void _onTick() {
+    if (_tapped || _controller.value < 0.42) return;
+    _tapped = true;
+    HapticFeedback.mediumImpact();
+  }
+
+  @override
+  void dispose() {
+    _controller.removeListener(_onTick);
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return RepaintBoundary(
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (context, _) {
+          return CustomPaint(
+            size: Size.square(widget.size),
+            painter: _SuccessTickPainter(
+              progress: _controller.value,
+              color: widget.color,
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _SuccessTickPainter extends CustomPainter {
+  _SuccessTickPainter({required this.progress, required this.color});
+
+  /// 0 -> 1 across the whole animation. The three beats overlap deliberately:
+  /// the check starts drawing while the disc is still settling, which is what
+  /// makes it read as one gesture instead of three separate steps.
+  final double progress;
+  final Color color;
+
+  static double _phase(double t, double begin, double end) =>
+      ((t - begin) / (end - begin)).clamp(0.0, 1.0);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.width / 2;
+
+    // --- ring ripple: expands past the disc and fades out ---
+    final ripple = _phase(progress, 0.40, 1.0);
+    if (ripple > 0 && ripple < 1) {
+      final eased = Curves.easeOutCubic.transform(ripple);
+      canvas.drawCircle(
+        center,
+        radius * (1 + (0.35 * eased)),
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = size.width * 0.03
+          ..color = color.withValues(alpha: 0.35 * (1 - eased)),
+      );
+    }
+
+    // --- disc: scales up with a slight overshoot ---
+    final pop = _phase(progress, 0.0, 0.45);
+    if (pop <= 0) return;
+    final scale = Curves.easeOutBack.transform(pop);
+    canvas.drawCircle(
+      center,
+      radius * scale,
+      Paint()..color = color.withValues(alpha: Curves.easeOut.transform(pop)),
+    );
+
+    // --- check: stroked on, short arm first ---
+    final draw = _phase(progress, 0.32, 0.78);
+    if (draw <= 0) return;
+    final eased = Curves.easeOutCubic.transform(draw);
+
+    // Proportions of the box, so the tick keeps its shape at any size.
+    final path = Path()
+      ..moveTo(size.width * 0.29, size.height * 0.52)
+      ..lineTo(size.width * 0.44, size.height * 0.66)
+      ..lineTo(size.width * 0.72, size.height * 0.37);
+
+    final stroke = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = size.width * 0.085
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..color = Colors.white;
+
+    for (final metric in path.computeMetrics()) {
+      canvas.drawPath(
+        metric.extractPath(0, metric.length * eased),
+        stroke,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_SuccessTickPainter old) =>
+      old.progress != progress || old.color != color;
 }

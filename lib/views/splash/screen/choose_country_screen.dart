@@ -14,6 +14,7 @@ class SplashCountry {
     required this.name,
     required this.flag,
     required this.currency,
+    this.comingSoon = false,
   });
 
   final String isoCode;
@@ -21,37 +22,25 @@ class SplashCountry {
   final String flag;
   final String currency;
 
+  /// Listed in the dropdown, but not selectable yet.
+  final bool comingSoon;
+
   static const india = SplashCountry(
     isoCode: 'IN',
     name: 'INDIA',
-    flag: '🇮🇳',
+    flag: '\u{1F1EE}\u{1F1F3}',
     currency: 'INR',
   );
 
   static const all = <SplashCountry>[
     india,
-    SplashCountry(isoCode: 'US', name: 'USA', flag: '🇺🇸', currency: 'USD'),
-    SplashCountry(isoCode: 'AE', name: 'UAE', flag: '🇦🇪', currency: 'AED'),
-    SplashCountry(isoCode: 'GB', name: 'UK', flag: '🇬🇧', currency: 'GBP'),
     SplashCountry(
-      isoCode: 'SG',
-      name: 'SINGAPORE',
-      flag: '🇸🇬',
-      currency: 'SGD',
+      isoCode: 'AE',
+      name: 'UAE',
+      flag: '\u{1F1E6}\u{1F1EA}',
+      currency: 'AED',
+      comingSoon: true,
     ),
-    SplashCountry(
-      isoCode: 'AU',
-      name: 'AUSTRALIA',
-      flag: '🇦🇺',
-      currency: 'AUD',
-    ),
-    SplashCountry(
-      isoCode: 'SA',
-      name: 'SAUDI ARABIA',
-      flag: '🇸🇦',
-      currency: 'SAR',
-    ),
-    SplashCountry(isoCode: 'QA', name: 'QATAR', flag: '🇶🇦', currency: 'QAR'),
   ];
 }
 
@@ -126,13 +115,14 @@ class _ChooseCountryScreenState extends State<ChooseCountryScreen>
         for (final country in SplashCountry.all)
           PopupMenuItem<SplashCountry>(
             value: country,
+            enabled: !country.comingSoon,
             height: context.w(42),
             padding: EdgeInsets.symmetric(horizontal: context.w(14)),
             child: _buildMenuRow(country),
           ),
       ],
     );
-    if (picked == null || !mounted) return;
+    if (picked == null || picked.comingSoon || !mounted) return;
 
     setState(() => _country = picked);
     // Let the row repaint with the new country before moving on.
@@ -143,10 +133,14 @@ class _ChooseCountryScreenState extends State<ChooseCountryScreen>
 
   Widget _buildMenuRow(SplashCountry country) {
     final isSelected = country.isoCode == _country.isoCode;
+    final isComingSoon = country.comingSoon;
 
     return Row(
       children: [
-        Text(country.flag, style: TextStyle(fontSize: context.fs(14))),
+        Opacity(
+          opacity: isComingSoon ? 0.5 : 1,
+          child: Text(country.flag, style: TextStyle(fontSize: context.fs(14))),
+        ),
         SizedBox(width: context.w(10)),
         Expanded(
           child: Text(
@@ -157,11 +151,35 @@ class _ChooseCountryScreenState extends State<ChooseCountryScreen>
               fontSize: context.fs(12.5),
               fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
               letterSpacing: 0.3,
-              color: isSelected ? AppColors.AppBlue : AppColors.authInk,
+              color: isComingSoon
+                  ? AppColors.authInk.withValues(alpha: 0.45)
+                  : isSelected
+                  ? AppColors.AppBlue
+                  : AppColors.authInk,
             ),
           ),
         ),
-        if (isSelected)
+        if (isComingSoon)
+          Container(
+            padding: EdgeInsets.symmetric(
+              horizontal: context.w(8),
+              vertical: context.w(3),
+            ),
+            decoration: BoxDecoration(
+              color: AppColors.OrangeColor.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(context.w(20)),
+            ),
+            child: Text(
+              'COMING SOON',
+              style: TextStyle(
+                fontSize: context.fs(8.5),
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.3,
+                color: AppColors.OrangeColor,
+              ),
+            ),
+          )
+        else if (isSelected)
           Icon(
             Icons.check_rounded,
             size: context.w(15),

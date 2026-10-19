@@ -15,16 +15,13 @@ class AuthDial {
 
   static const india = AuthDial('🇮🇳', '+91', 'India');
 
-  static const all = <AuthDial>[
-    india,
-    AuthDial('🇦🇪', '+971', 'UAE'),
-    AuthDial('🇺🇸', '+1', 'United States'),
-    AuthDial('🇬🇧', '+44', 'United Kingdom'),
-    AuthDial('🇸🇬', '+65', 'Singapore'),
-    AuthDial('🇦🇺', '+61', 'Australia'),
-    AuthDial('🇸🇦', '+966', 'Saudi Arabia'),
-    AuthDial('🇶🇦', '+974', 'Qatar'),
-  ];
+  /// India only for now: the rest of the app is still India-first, so the
+  /// phone field never offers a dial code we cannot serve.
+  static const all = <AuthDial>[india];
+
+  /// With a single dial code there is nothing to pick, so the field shows a
+  /// fixed +91 chip instead of a dropdown.
+  static bool get isPickable => all.length > 1;
 }
 
 /// The white page every auth screen sits on: optional back arrow, scrolling
@@ -371,7 +368,7 @@ class AuthPhoneRow extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         GestureDetector(
-          onTap: onDialTap,
+          onTap: AuthDial.isPickable ? onDialTap : null,
           child: Container(
             height: context.w(48),
             padding: EdgeInsets.symmetric(horizontal: context.w(8)),
@@ -393,11 +390,12 @@ class AuthPhoneRow extends StatelessWidget {
                     color: AppColors.authInk,
                   ),
                 ),
-                Icon(
-                  Icons.keyboard_arrow_down_rounded,
-                  size: context.w(20),
-                  color: AppColors.authFieldIcon,
-                ),
+                if (AuthDial.isPickable)
+                  Icon(
+                    Icons.keyboard_arrow_down_rounded,
+                    size: context.w(20),
+                    color: AppColors.authFieldIcon,
+                  ),
               ],
             ),
           ),

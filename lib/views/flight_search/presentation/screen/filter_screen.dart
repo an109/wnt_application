@@ -1326,6 +1326,13 @@ class FlightFilterScreen extends StatefulWidget {
   /// Cheapest fare per stop bucket (0 / 1 / 2+), in [apiCurrency].
   final Map<int, double> stopMinPrices;
 
+  /// Travellers the fares were quoted for. Every price reaching this screen
+  /// covers the whole party, while the result cards behind it are per
+  /// traveller — so the labels here divide by this to match. Filtering still
+  /// runs on the whole-party values, which keeps the `onApply` contract and
+  /// the slider's own range untouched.
+  final int paxCount;
+
   /// Highest stop count present in the results, so "1" / "2+" can be greyed
   /// out when nothing matches.
   final int maxStopsAvailable;
@@ -1372,6 +1379,7 @@ class FlightFilterScreen extends StatefulWidget {
     this.originCityName = '',
     this.destinationCityName = '',
     this.stopMinPrices = const {},
+    this.paxCount = 1,
     this.maxStopsAvailable = 0,
     this.currentSelectedStops = const {},
     this.minDuration = 0,
@@ -2130,10 +2138,14 @@ class _FlightFilterScreenState extends State<FlightFilterScreen> {
     );
   }
 
+  /// Whole-party fare -> one traveller's share, matching the result cards.
+  double _perTraveller(double apiAmount) =>
+      apiAmount / (widget.paxCount < 1 ? 1 : widget.paxCount);
+
   String _money(double apiAmount) {
     final preferred = CurrencyConverter.getPreferredCurrency();
     final converted = CurrencyConverter.convert(
-      amount: apiAmount,
+      amount: _perTraveller(apiAmount),
       fromCurrency: widget.apiCurrency,
       toCurrency: preferred,
     );
@@ -2153,7 +2165,7 @@ class _FlightFilterScreenState extends State<FlightFilterScreen> {
     final symbol = CurrencyConverter.getSymbol(preferred);
     String label(double apiAmount) {
       final c = CurrencyConverter.convert(
-        amount: apiAmount,
+        amount: _perTraveller(apiAmount),
         fromCurrency: widget.apiCurrency,
         toCurrency: preferred,
       );

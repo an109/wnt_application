@@ -75,7 +75,9 @@ class DioClient {
                 return handler.next(e);
               }
 
-              await prefs.saveToken(newAccessToken);
+              // A rotated access token is the same session continuing, so it
+              // must not trigger the "new sign-in" notification.
+              await prefs.saveToken(newAccessToken, isNewSession: false);
               _isRefreshing = false;
 
               // Retry the original request with the new token

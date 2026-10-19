@@ -47,6 +47,13 @@ class AkTripReviewScreen extends StatelessWidget {
   /// Seats / meals / other extras chosen on [SeatAddonsScreen].
   final AddOnsSummary addOns;
 
+  /// Promo applied on [FlightBookingScreen], forwarded to the payment screen
+  /// so the amount actually charged keeps the discount.
+  final String promoCode;
+
+  /// [promoCode]'s discount in INR, the currency this flow prices in.
+  final double promoDiscountInInr;
+
   final TripSecureBookingContext? insuranceBookingContext;
 
   const AkTripReviewScreen({
@@ -59,6 +66,8 @@ class AkTripReviewScreen extends StatelessWidget {
     this.travellerNames = const [],
     this.travellerCount = 1,
     this.addOns = const AddOnsSummary(),
+    this.promoCode = '',
+    this.promoDiscountInInr = 0,
     this.insuranceBookingContext,
   });
 
@@ -123,7 +132,72 @@ class AkTripReviewScreen extends StatelessWidget {
     return AddOnsSummary.display(extras);
   }
 
-  void _continue(BuildContext context) {
+  /// Last look before payment opens. The screen above this one is read-only,
+  /// so this is the final point where a wrong name or date can still be
+  /// corrected for free — after it, the fare is committed and the clock on
+  /// the payment session starts.
+  Future<void> _continue(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(context.r(16)),
+        ),
+        title: Text(
+          'Everything correct?',
+          style: TextStyle(
+            fontSize: context.fs(18),
+            fontWeight: FontWeight.w800,
+            color: _ink,
+          ),
+        ),
+        content: Text(
+          'Traveller names must match the photo ID used at the airport, and '
+          'this fare is non-refundable once booked. Continue to payment?',
+          style: TextStyle(
+            fontSize: context.fs(13),
+            height: 1.45,
+            color: _muted,
+          ),
+        ),
+        actionsPadding: EdgeInsets.fromLTRB(
+            context.w(12), 0, context.w(12), context.h(10)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(
+              'GO BACK',
+              style: TextStyle(
+                color: _ink,
+                fontSize: context.fs(13),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _sec,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(context.r(10)),
+              ),
+            ),
+            child: Text(
+              'YES, CONTINUE',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: context.fs(13),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -136,6 +210,8 @@ class AkTripReviewScreen extends StatelessWidget {
           travellerNames: travellerNames,
           travellers: travellers,
           addOns: addOns,
+          promoCode: promoCode,
+          promoDiscountInInr: promoDiscountInInr,
           insuranceBookingContext: insuranceBookingContext,
         ),
       ),

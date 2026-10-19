@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
+import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:image/image.dart' as img;
@@ -103,6 +104,26 @@ class PDFService {
     final file = File('${dir.path}/$filename');
     await file.writeAsBytes(bytes);
     return file;
+  }
+
+  /// Hands [file] to the system's Save dialog so it lands somewhere the
+  /// traveller can actually find it — Downloads, Drive, wherever they pick.
+  ///
+  /// [savePDF] only writes inside the app's sandbox, which no file manager
+  /// shows and which is wiped when the app is uninstalled. Android 11+ blocks
+  /// writing to /Download directly, so SAF (what this dialog is) is the one
+  /// route that needs no storage permission on a modern target SDK.
+  ///
+  /// Returns the chosen path, or null if the traveller dismissed the dialog.
+  static Future<String?> saveToDevice(File file, {String? fileName}) async {
+    final bytes = await file.readAsBytes();
+    return FilePicker.platform.saveFile(
+      dialogTitle: 'Save e-ticket',
+      fileName: fileName ?? file.uri.pathSegments.last,
+      bytes: bytes,
+      type: FileType.custom,
+      allowedExtensions: const ['pdf'],
+    );
   }
 
   static Future<void> sharePDF(File file) async {

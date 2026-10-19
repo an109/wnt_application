@@ -370,6 +370,7 @@ import 'package:wander_nova/views/trending_route/domain/repository/trending_rout
 import 'package:wander_nova/views/trending_route/domain/usecase/get_trending_routes_usecase.dart';
 import 'package:wander_nova/views/trending_route/presentation/bloc/trending_routes_bloc.dart';
 import 'package:wander_nova/views/wallet/data/data_source/wallet_api_service.dart';
+import 'package:wander_nova/views/benefits/data/data_source/benefit_api_service.dart';
 import 'package:wander_nova/views/wallet/data/repository/wallet_repository_impl.dart';
 import 'package:wander_nova/views/wallet/domain/repository/wallet_repository.dart';
 import 'package:wander_nova/views/wallet/domain/usecase/get_wallet_balance_usecase.dart';
@@ -460,6 +461,8 @@ Future<void> initializeDependencies() async {
   sl.registerFactory<SignupApiService>(() => SignupApiServiceImpl(sl<DioClient>().instance),);
   sl.registerFactory<LoginApiService>(() => LoginApiServiceImpl(sl<DioClient>().instance),);
   sl.registerFactory<WalletApiService>(() => WalletApiServiceImpl(sl<DioClient>().instance));
+  // Benefit programme (signup credit, milestones, capped redemption, tiers).
+  sl.registerFactory<BenefitApiService>(() => BenefitApiServiceImpl(sl<DioClient>().instance));
   sl.registerFactory<LogoutApiService>(() => LogoutApiServiceImpl(sl<DioClient>().instance),);
   sl.registerFactory<DeleteAccountApiService>(() => DeleteAccountApiServiceImpl(sl<DioClient>().instance),);
   sl.registerFactory<ProfileApiService>(() => ProfileApiServiceImpl(sl<DioClient>().instance));

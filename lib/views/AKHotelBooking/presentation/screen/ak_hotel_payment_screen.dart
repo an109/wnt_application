@@ -23,6 +23,7 @@ import '../../../wallet/wallet/screen/checkout/upi_section.dart';
 import 'ak_hotel_booking_confirmed_screen.dart';
 import 'package:wander_nova/common_widgets/currency_scope.dart';
 import 'package:wander_nova/common_widgets/app_loader.dart';
+import 'package:wander_nova/core/services/push_notification_service.dart';
 
 /// Payment step for the Akbar Hotels flow: this app's own gateway (Razorpay
 /// or wallet), NOT an Akbar call — exactly like the flight flow. The
@@ -206,6 +207,15 @@ class _AkHotelPaymentScreenState extends State<AkHotelPaymentScreen> {
       if (!mounted) return;
 
       if (balance >= widget.netAmount) {
+        // Same last word as the flight flow: a wallet debit has no gateway
+        // sheet to pause on, so it gets its own confirmation.
+        setState(() => _processing = false);
+        final confirmed = await _confirmWalletPayment(balance);
+        if (!mounted || !confirmed) return;
+        setState(() {
+          _processing = true;
+          _errorMessage = null;
+        });
         if (await _debitWallet()) {
           await _runStartPay(gateway: 'wallet', paymentReference: widget.transactionId);
         }
@@ -223,6 +233,160 @@ class _AkHotelPaymentScreenState extends State<AkHotelPaymentScreen> {
       });
       print('Hotel wallet balance error: $e');
     }
+  }
+
+  /// Confirmation sheet shown before the wallet is debited: what leaves, what
+  /// is there now, and what is left after. Returns false on dismiss, so a
+  /// stray tap or a back gesture never spends the balance.
+  Future<bool> _confirmWalletPayment(double balance) async {
+    final remaining = balance - widget.netAmount;
+    String money(double v) => '₹${v.toStringAsFixed(2)}';
+
+    final result = await showModalBottomSheet<bool>(
+      context: context,
+      backgroundColor: Colors.white,
+      isScrollControlled: true,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(context.r(20))),
+      ),
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(
+            context.w(20),
+            context.h(10),
+            context.w(20),
+            context.h(16),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: context.w(40),
+                  height: context.h(4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE2E7F0),
+                    borderRadius: BorderRadius.circular(context.r(99)),
+                  ),
+                ),
+              ),
+              SizedBox(height: context.h(18)),
+              Text(
+                'Confirm wallet payment',
+                style: TextStyle(
+                  color: _ink,
+                  fontSize: context.fs(18),
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              SizedBox(height: context.h(4)),
+              Text(
+                widget.hotelName,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: AppColors.subhead,
+                  fontSize: context.fs(12),
+                ),
+              ),
+              SizedBox(height: context.h(18)),
+              _walletConfirmRow(context, 'Amount to pay',
+                  money(widget.netAmount), emphasise: true),
+              SizedBox(height: context.h(10)),
+              _walletConfirmRow(context, 'Wallet balance', money(balance)),
+              Padding(
+                padding: EdgeInsets.symmetric(vertical: context.h(10)),
+                child: const Divider(height: 1, color: Color(0xFFE6E8EC)),
+              ),
+              _walletConfirmRow(context, 'Balance after payment',
+                  money(remaining < 0 ? 0 : remaining)),
+              SizedBox(height: context.h(20)),
+              Row(
+                children: [
+                  Expanded(
+                    child: SizedBox(
+                      height: context.h(46),
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.of(sheetContext).pop(false),
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: Color(0xFFE2E7F0)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(context.r(12)),
+                          ),
+                        ),
+                        child: Text(
+                          'CANCEL',
+                          style: TextStyle(
+                            color: _ink,
+                            fontSize: context.fs(13),
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  SizedBox(width: context.w(12)),
+                  Expanded(
+                    child: SizedBox(
+                      height: context.h(46),
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.of(sheetContext).pop(true),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.OrangeColor,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(context.r(12)),
+                          ),
+                        ),
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            'PAY ${money(widget.netAmount)}',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: context.fs(13),
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    return result ?? false;
+  }
+
+  Widget _walletConfirmRow(BuildContext context, String label, String amount,
+      {bool emphasise = false}) {
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            label,
+            style: TextStyle(
+              color: emphasise ? _ink : AppColors.subhead,
+              fontSize: context.fs(13),
+              fontWeight: emphasise ? FontWeight.w600 : FontWeight.w500,
+            ),
+          ),
+        ),
+        Text(
+          amount,
+          style: TextStyle(
+            color: _ink,
+            fontSize: context.fs(emphasise ? 17 : 13),
+            fontWeight: emphasise ? FontWeight.w800 : FontWeight.w600,
+          ),
+        ),
+      ],
+    );
   }
 
   /// Charges the wallet for this booking (whole rupees, rounded up, as the
@@ -462,6 +626,14 @@ class _AkHotelPaymentScreenState extends State<AkHotelPaymentScreen> {
     final reason = result is DataFailed<AkHotelStartPayEntity>
         ? (result.error?.message ?? 'booking confirmation failed')
         : 'booking confirmation failed';
+    await PushNotificationService.instance.showBookingUpdate(
+      title: 'Booking pending',
+      body: '${widget.hotelName} — payment received but the booking is not confirmed yet. '
+          'Contact support with Transaction ID ${widget.transactionId}; do not pay again.',
+      reference: widget.transactionId,
+    );
+    if (!mounted) return;
+
     setState(() {
       _processing = false;
       _errorMessage =
@@ -478,6 +650,15 @@ class _AkHotelPaymentScreenState extends State<AkHotelPaymentScreen> {
       AkHotelRetrieveBookingRequestEntity(referenceNumber: widget.transactionId),
     );
 
+    if (!mounted) return;
+
+    await PushNotificationService.instance.showBookingUpdate(
+      title: 'Booking confirmed',
+      body: startPay.crsPnr.isEmpty
+          ? '${widget.hotelName} is booked. The details are in My Trips.'
+          : '${widget.hotelName} is booked. Confirmation ${startPay.crsPnr} — details in My Trips.',
+      reference: widget.transactionId,
+    );
     if (!mounted) return;
 
     Navigator.pushReplacement(
@@ -536,9 +717,87 @@ class _AkHotelPaymentScreenState extends State<AkHotelPaymentScreen> {
     }
   }
 
+  /// Same warning the flight checkout gives: leaving releases the hold and
+  /// the room has to be priced again, so it asks before abandoning.
+  Future<bool> _confirmLeave() async {
+    if (_processing) return false;
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(context.r(16)),
+        ),
+        title: Text(
+          'Leave without paying?',
+          style: TextStyle(
+            fontSize: context.fs(18),
+            fontWeight: FontWeight.w800,
+            color: _ink,
+          ),
+        ),
+        content: Text(
+          'This room is held at ₹${widget.netAmount.toStringAsFixed(2)} '
+          'only until the timer runs out. Going back ends the session — you '
+          'will have to search again, where the rate may be different.',
+          style: TextStyle(
+            fontSize: context.fs(13),
+            height: 1.45,
+            color: AppColors.subhead,
+          ),
+        ),
+        actionsPadding: EdgeInsets.fromLTRB(
+            context.w(12), 0, context.w(12), context.h(10)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(
+              'STAY & PAY',
+              style: TextStyle(
+                color: _ink,
+                fontSize: context.fs(13),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xffB42318),
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(context.r(10)),
+              ),
+            ),
+            child: Text(
+              'LEAVE',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: context.fs(13),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    return result ?? false;
+  }
+
+  Future<void> _handleBack() async {
+    if (!await _confirmLeave()) return;
+    if (mounted) Navigator.of(context).pop();
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _handleBack();
+      },
+      child: Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
         child: Column(
@@ -546,7 +805,27 @@ class _AkHotelPaymentScreenState extends State<AkHotelPaymentScreen> {
             _header(context),
             Divider(height: 1, color: _stroke),
             Expanded(
-              child: SingleChildScrollView(
+              // While the booking is being confirmed the loader owns the
+              // page, so it sits centred in the space under the summary
+              // instead of butted up beneath it with the rest blank. No
+              // scrolling in that state either — there is nothing to reach.
+              child: _processing
+                  ? Padding(
+                      padding: EdgeInsets.fromLTRB(context.w(16),
+                          context.h(18), context.w(16), context.h(32)),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _totalDue(context),
+                          SizedBox(height: context.h(16)),
+                          _summaryCard(context),
+                          Expanded(
+                            child: Center(child: _processingCard(context)),
+                          ),
+                        ],
+                      ),
+                    )
+                  : SingleChildScrollView(
                 physics: context.scrollPhysics,
                 padding: EdgeInsets.fromLTRB(context.w(16), context.h(18), context.w(16), context.h(32)),
                 child: Column(
@@ -556,9 +835,6 @@ class _AkHotelPaymentScreenState extends State<AkHotelPaymentScreen> {
                     SizedBox(height: context.h(16)),
                     _summaryCard(context),
                     SizedBox(height: context.h(24)),
-                    if (_processing) ...[
-                      _processingCard(context),
-                    ] else ...[
                       if (_errorMessage != null) ...[
                         _errorBanner(context, _errorMessage!),
                         SizedBox(height: context.h(16)),
@@ -651,13 +927,13 @@ class _AkHotelPaymentScreenState extends State<AkHotelPaymentScreen> {
                           onPayLater: (p) => _payWithMethod({'method': 'paylater', 'provider': p}),
                         ) : const SizedBox.shrink(),
                       ),
-                    ],
                   ],
                 ),
               ),
             ),
           ],
         ),
+      ),
       ),
     );
   }
@@ -670,7 +946,7 @@ class _AkHotelPaymentScreenState extends State<AkHotelPaymentScreen> {
         children: [
           GestureDetector(
             behavior: HitTestBehavior.opaque,
-            onTap: _processing ? null : () => Navigator.of(context).maybePop(),
+            onTap: _processing ? null : _handleBack,
             child: Icon(Icons.arrow_back_rounded, size: context.w(22), color: Colors.black),
           ),
           SizedBox(width: context.w(15)),
@@ -980,8 +1256,8 @@ class _AkHotelPaymentScreenState extends State<AkHotelPaymentScreen> {
   // ==================== STATUS ====================
   Widget _processingCard(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.symmetric(vertical: context.h(48)),
-      child: AppLoadingView(message: _statusMessage),
+      padding: EdgeInsets.symmetric(vertical: context.h(36)),
+      child: BookingProgressLoader(message: _statusMessage),
     );
   }
 

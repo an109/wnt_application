@@ -1,9 +1,9 @@
 class Urls {
 
-  // static const String baseUrl = 'https://thewandernova.com/api/';
-  static const String baseUrl = 'http://167.71 .233.208:8032/api/';
-  // static const String basesUrl = 'https://thewandernova.com/api';
-  static const String basesUrl = 'http://167.71.233.208:8032/api';
+  static const String baseUrl = 'https://thewandernova.com/api/';
+  //static const String baseUrl = 'http://167.71.233.208:8032/api/';
+   static const String basesUrl = 'https://thewandernova.com/api';
+  //static const String basesUrl = 'http://167.71.233.208:8032/api';
 
   // Thrisha AI chat service: the live service.
   static const String trishaBaseUrl = trishaProductionUrl;
@@ -220,6 +220,21 @@ class Urls {
       '$basesUrl/visa-applications/$applicationId/complete-payment/';
   // Referral endpoint
   static const String userReferral = '$basesUrl/user/referral/';
+
+  // ── Benefit programme ────────────────────────────────────────────────────
+  // Signup credit, milestones, capped redemption and loyalty tiers. Every cap
+  // is decided server-side; the app only renders what /quote/ returns.
+  //
+  // quote → hold → capture/release is the split-payment sequence. The hold is
+  // what makes "₹500 benefit + ₹4,500 UPI" safe: the credit is reserved before
+  // the gateway opens, and either captured on success or released on failure.
+  static const String benefitSummary = '$basesUrl/benefits/summary/';
+  static const String benefitClaim = '$basesUrl/benefits/claim/';
+  static const String benefitQuote = '$basesUrl/benefits/quote/';
+  static const String benefitHold = '$basesUrl/benefits/hold/';
+  static const String benefitCapture = '$basesUrl/benefits/capture/';
+  static const String benefitRelease = '$basesUrl/benefits/release/';
+  static const String benefitLedger = '$basesUrl/benefits/ledger/';
   // New Loyalty Endpoint
   static const String userLoyalty = '$basesUrl/user/loyalty/';
   // Wallet Transactions endpoint

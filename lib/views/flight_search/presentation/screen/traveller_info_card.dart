@@ -10,6 +10,7 @@ import 'package:wander_nova/core/resources/app_colours.dart';
 import 'package:wander_nova/core/utils/storage/shared_preference.dart';
 import 'package:wander_nova/injection_container.dart' as di;
 import 'package:wander_nova/views/AKTravelCheckList/domain/entity/AKTravelCheckList_entity.dart';
+import 'package:wander_nova/views/Dashboard/Section/data/traveller_api_service.dart';
 
 // ---------------------------------------------------------------------------
 // Figma tokens (Traveller Details card — booking screen nodes 450:2393 /
@@ -208,24 +209,51 @@ class _Traveller {
   /// Maps a saved profile traveller (`Profile_screen` / `AddTravellerModal`
   /// shape) onto this model. Dates there are stored ISO, the UI wants
   /// 'dd MMM yyyy'.
+  /// Accepts both shapes this traveller can arrive in: the camelCase the app
+  /// caches in prefs, and the snake_case the saved-travellers API returns.
   factory _Traveller.fromSaved(Map<String, dynamic> m, String id) {
-    String s(String key) => (m[key] ?? '').toString().trim();
+    String s(List<String> keys) {
+      for (final k in keys) {
+        final v = m[k];
+        if (v != null && v.toString().trim().isNotEmpty) return v.toString().trim();
+      }
+      return '';
+    }
+
+    final ptc = _ptcOf(s(['paxType', 'pax_type', 'traveller_type']));
+    final title = s(['title']);
     return _Traveller(
       id: id,
-      ptc: s('paxType').toUpperCase().isEmpty ? 'ADT' : s('paxType').toUpperCase(),
-      title: s('title').isEmpty ? 'Mr' : s('title'),
-      firstName: s('firstName'),
-      lastName: s('lastName'),
-      dob: _displayDate(s('dob')),
-      nationality: s('nationality').isEmpty ? 'Indian' : s('nationality'),
-      passportNumber: s('passportNumber'),
-      passportExpiry: _displayDate(s('passportExpiry')),
-      placeOfIssue: s('placeOfIssue'),
-      visaType: s('visaType'),
-      phone: s('phone').isEmpty ? s('mobileNumber') : s('phone'),
-      email: s('email'),
-      gender: s('gender').isEmpty ? _inferredGender(s('title')) : s('gender'),
+      ptc: ptc,
+      title: title.isEmpty ? 'Mr' : title,
+      firstName: s(['firstName', 'first_name']),
+      lastName: s(['lastName', 'last_name']),
+      dob: _displayDate(s(['dob', 'date_of_birth'])),
+      nationality: s(['nationality']).isEmpty ? 'Indian' : s(['nationality']),
+      passportNumber: s(['passportNumber', 'passport_number']),
+      passportExpiry: _displayDate(s(['passportExpiry', 'passport_expiry'])),
+      // /api/travellers/ does not return an issue date today, so this is
+      // normally blank and the sheet asks for it. Read it anyway, under the
+      // spellings the profile would plausibly use, so a saved profile fills
+      // it in the moment the backend starts storing one.
+      passportIssueDate: _displayDate(
+        s(['passportIssueDate', 'passport_issue_date', 'pdoi']),
+      ),
+      placeOfIssue: s(['placeOfIssue', 'place_of_issue']),
+      visaType: s(['visaType', 'visa_type']),
+      phone: s(['phone', 'mobileNumber', 'mobile', 'contact']),
+      email: s(['email']),
+      gender: s(['gender']).isEmpty ? _inferredGender(title) : s(['gender']),
     );
+  }
+
+  /// The API can say "Adult"/"Child"/"Infant" where the booking wants the
+  /// IATA code, so both spellings land on the right block.
+  static String _ptcOf(String raw) {
+    final v = raw.trim().toUpperCase();
+    if (v.startsWith('CHD') || v.startsWith('CHILD')) return 'CHD';
+    if (v.startsWith('INF') || v.startsWith('INFANT')) return 'INF';
+    return 'ADT';
   }
 
   _Traveller copy() => _Traveller(
@@ -373,7 +401,54 @@ class TravellerFormState extends State<TravellerInformationSection> {
   void initState() {
     super.initState();
     _loadSignedInTravellers();
+    _loadSavedTravellersFromApi();
     _detectNationality();
+  }
+
+  /// Pulls the customer's saved travellers from their profile so a returning
+  /// customer can tick themselves instead of retyping.
+  ///
+  /// [_loadSignedInTravellers] only reads what happens to be cached in prefs,
+  /// which is empty on a fresh install or a new device — this is the list the
+  /// account actually holds, and it's the same endpoint the holidays flow
+  /// already reads. Merged in rather than replacing, and matched on
+  /// name + type so someone already offered locally isn't listed twice.
+  ///
+  /// Best-effort: signed-out, offline or a failing endpoint all leave the
+  /// block in its "Add New …" empty state rather than blocking the booking.
+  Future<void> _loadSavedTravellersFromApi() async {
+    try {
+      final prefs = di.sl<PreferencesManager>();
+      if (!prefs.isLoggedIn()) return;
+      final email = (prefs.getUserData()?['email'] ?? '').toString().trim();
+      if (email.isEmpty) return;
+
+      final response = await di.sl<TravellerApiService>().getTravellers(email);
+      final body = response.data;
+      final rows = body is List
+          ? body
+          : (body is Map && body['travellers'] is List
+              ? body['travellers'] as List
+              : const []);
+      if (rows.isEmpty || !mounted) return;
+
+      String keyOf(_Traveller t) =>
+          '${t.ptc}|${t.firstName.toLowerCase()} ${t.lastName.toLowerCase()}'.trim();
+      final seen = _people.map(keyOf).toSet();
+
+      final fetched = <_Traveller>[];
+      for (final raw in rows.whereType<Map>()) {
+        final person =
+            _Traveller.fromSaved(Map<String, dynamic>.from(raw), 't${_uid++}');
+        if (person.fullName.isEmpty) continue;
+        if (!seen.add(keyOf(person))) continue;
+        fetched.add(person);
+      }
+      if (fetched.isEmpty || !mounted) return;
+      setState(() => _people.addAll(fetched));
+    } catch (_) {
+      // Offline or endpoint unavailable — the block keeps its empty state.
+    }
   }
 
   /// Seeds the picker with the signed-in user and any travellers they've saved
@@ -500,6 +575,14 @@ class TravellerFormState extends State<TravellerInformationSection> {
     if (req.nationality && t.nationality.trim().isEmpty) return 'nationality is required';
     if (req.passportNo && t.passportNumber.trim().isEmpty) return 'passport number is required';
     if (req.passportExpiry && t.passportExpiry.trim().isEmpty) return 'passport expiry is required';
+    // Both of these are rendered by the sheet when the checklist asks for
+    // them, but used to go unchecked here — so a traveller could be accepted
+    // without them and the booking only failed later, at CreateItinerary,
+    // with a wall of Dio text instead of a field name.
+    if (req.passportIssueDate && t.passportIssueDate.trim().isEmpty) {
+      return 'passport issue date is required';
+    }
+    if (req.visaType && t.visaType.trim().isEmpty) return 'visa type is required';
     if (req.placeOfIssue && t.placeOfIssue.trim().isEmpty) return 'place of issue is required';
     if (req.panNo && t.panNumber.trim().isEmpty) return 'PAN number is required';
     return null;

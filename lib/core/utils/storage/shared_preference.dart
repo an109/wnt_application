@@ -36,9 +36,20 @@ class PreferencesManager {
   /// ends in [saveToken] and every logout in [clearToken] / [clearAuth].
   static void Function(bool loggedIn)? onAuthChanged;
 
-  Future<bool> saveToken(String token) async {
+  /// Fired only when someone actually signs in — not when a background token
+  /// refresh rotates the access token. Both go through [saveToken], so
+  /// without this split the app would announce a new sign-in every time the
+  /// session quietly renewed itself.
+  static void Function()? onSignedIn;
+
+  /// [isNewSession] is false for the silent refresh in `DioClient`, which
+  /// replaces the access token on an existing session rather than starting
+  /// one. Device registration still runs either way; only the sign-in
+  /// announcement is suppressed.
+  Future<bool> saveToken(String token, {bool isNewSession = true}) async {
     final saved = await _prefs.setString(_tokenKey, token);
     onAuthChanged?.call(true);
+    if (isNewSession) onSignedIn?.call();
     return saved;
   }
 

@@ -46,10 +46,17 @@ enum _Tab { upcoming, past, cancelled }
 
 class _Trip {
   final _Tab tab;
+
+  /// When the trip itself happens — departure, check-in, pickup.
   final DateTime? start;
+
+  /// When the booking was *made*. Drives the ordering, so a trip the user
+  /// just paid for sits at the top of the list however far off it is.
+  final DateTime? bookedOn;
+
   final TripCardData Function(BuildContext context) card;
 
-  const _Trip(this.tab, this.start, this.card);
+  const _Trip(this.tab, this.start, this.bookedOn, this.card);
 }
 
 class MyBookingScreen extends StatefulWidget {
@@ -209,11 +216,15 @@ class _MyBookingScreenState extends State<MyBookingScreen> {
       for (final v in _visas) _visaTrip(v),
     ].where((t) => t.tab == _tab).toList();
 
-    // Soonest first for upcoming; most recent first for the others.
-    final far = DateTime(9999);
+    // Newest booking first, in every tab: the booking the user just made is
+    // what they open this screen to check. Where the API gave us no booking
+    // timestamp at all, the travel date stands in so the trip still sorts
+    // somewhere sensible instead of sinking to the bottom.
+    final epoch = DateTime.fromMillisecondsSinceEpoch(0);
     all.sort((a, b) {
-      final cmp = (a.start ?? far).compareTo(b.start ?? far);
-      return _tab == _Tab.upcoming ? cmp : -cmp;
+      final aKey = a.bookedOn ?? a.start ?? epoch;
+      final bKey = b.bookedOn ?? b.start ?? epoch;
+      return bKey.compareTo(aKey);
     });
     return all;
   }
@@ -475,6 +486,29 @@ String _shortDate(DateTime? d) => d == null ? '—' : '${d.day} ${_months[d.mont
 String _time(DateTime? d) =>
     d == null ? '' : '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
 
+/// Parses the already-formatted "17 Oct 2026" shape a couple of the models
+/// hand us, since those never survive [DateTime.tryParse].
+DateTime? _parseDisplayDate(String? value) {
+  final parts = (value ?? '').trim().split(RegExp(r'\s+'));
+  if (parts.length != 3) return null;
+  final day = int.tryParse(parts[0]);
+  final month = _months.indexWhere((m) => m.toLowerCase() == parts[1].toLowerCase()) + 1;
+  final year = int.tryParse(parts[2]);
+  if (day == null || month == 0 || year == null) return null;
+  return DateTime(year, month, day);
+}
+
+/// When the booking was placed. Each API carries this on a differently named
+/// field (and the visa model pre-formats it), so callers pass the candidates
+/// in priority order and the first one that parses wins.
+DateTime? _bookedOn(List<String?> candidates) {
+  for (final candidate in candidates) {
+    final parsed = _parse(candidate) ?? _parseDisplayDate(candidate);
+    if (parsed != null) return parsed;
+  }
+  return null;
+}
+
 /// Before today (by calendar day) — the trip has ended.
 bool _isPast(DateTime? end) => end != null && _day(end).isBefore(_day(DateTime.now()));
 
@@ -502,6 +536,7 @@ _Trip _flightTrip(FlightBookEntity b, void Function(Widget) push) {
   return _Trip(
     tab,
     dep,
+    _bookedOn([b.created, b.bookingDate]),
     (context) => TripCardData(
       leading: AirlineLogo(
         code: info.airlineCode,
@@ -556,6 +591,7 @@ _Trip _hotelTrip(HotelBookingListEntity h, void Function(Widget) push) {
   return _Trip(
     tab,
     checkIn,
+    _bookedOn([h.created, h.bookingDate]),
     (context) => TripCardData(
       leading: ClipRRect(
         borderRadius: BorderRadius.circular(context.fx(6)),
@@ -596,6 +632,7 @@ _Trip _transferTrip(BookingEntity t, void Function(Widget) push) {
   return _Trip(
     tab,
     pickup,
+    _bookedOn([t.created, t.bookedDate, t.reservationTimestamp]),
     (context) => TripCardData(
       leading: const TripIconTile(icon: Icons.local_taxi_rounded),
       title: t.vehicleName.isNotEmpty ? t.vehicleName : 'Transfer',
@@ -640,6 +677,7 @@ _Trip _visaTrip(TripItem v) {
   return _Trip(
     tab,
     onward,
+    _bookedOn([v.bookedDate]),
     (context) => TripCardData(
       leading: const TripIconTile(icon: Icons.assignment_rounded),
       title: v.destination.isNotEmpty ? v.destination : 'Visa',

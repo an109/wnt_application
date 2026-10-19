@@ -1253,6 +1253,7 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
       originCityName: widget.from,
       destinationCityName: widget.to,
       stopMinPrices: _buildStopMinPrices(_allFlights),
+      paxCount: _quotedPaxCount,
       maxStopsAvailable: maxStops,
       currentSelectedStops: _selectedStops,
       minDuration: minDur,
@@ -1886,7 +1887,8 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
     final leg1 = legs.first;
     final target = CurrencyConverter.getPreferredCurrency();
     final priceText =
-        '${CurrencyConverter.getSymbol(target)} ${_convertFlightPrice((leg1.totalFare ?? 0).toDouble(), leg1.currency)}';
+        '${CurrencyConverter.getSymbol(target)} '
+        '${_convertFlightPrice(_perTravellerFare((leg1.totalFare ?? 0).toDouble()), leg1.currency)}';
     final airlineCode = (leg1.airlineCode?.isNotEmpty ?? false)
         ? leg1.airlineCode!.toUpperCase()
         : 'FL';
@@ -1970,9 +1972,8 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
                         color: AppColors.AppBlue,
                       ),
                       children: [
-                        if (widget.travellers == 1)
                         TextSpan(
-                          text: ' /adult',
+                          text: ' $_perTravellerLabel',
                           style: TextStyle(
                             fontSize: context.fs(8),
                             fontWeight: FontWeight.w700,
@@ -2408,7 +2409,7 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
   }) {
     final target = CurrencyConverter.getPreferredCurrency();
     final priceText = '${CurrencyConverter.getSymbol(target)} '
-        '${_convertFlightPrice((flight.totalFare ?? 0).toDouble(), flight.currency)}';
+        '${_convertFlightPrice(_perTravellerFare((flight.totalFare ?? 0).toDouble()), flight.currency)}';
     final airlineCode = (flight.airlineCode?.isNotEmpty ?? false)
         ? flight.airlineCode!.toUpperCase()
         : (flight.airlineName?.isNotEmpty ?? false)
@@ -2441,7 +2442,7 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
           flightNumber: _displayFlightNo(flight, codeOverride: airlineCode),
           logo: _airlineLogo(flight, context.w(46)),
           priceText: priceText,
-          perLabel: widget.travellers == 1 ? '/adult' : '',
+          perLabel: _perTravellerLabel,
           departureCity: flight.originName ?? _locationName(flight.origin ?? ''),
           departureCode: (flight.origin ?? '').trim().toUpperCase(),
           departureTime: _formatTime(flight.departureTime),
@@ -3215,7 +3216,7 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
   }) {
     final target = CurrencyConverter.getPreferredCurrency();
     final priceText = '${CurrencyConverter.getSymbol(target)} '
-        '${_convertFlightPrice((flight.totalFare ?? 0).toDouble(), flight.currency)}';
+        '${_convertFlightPrice(_perTravellerFare((flight.totalFare ?? 0).toDouble()), flight.currency)}';
     final airlineCode = (flight.airlineCode?.isNotEmpty ?? false)
         ? flight.airlineCode!.toUpperCase()
         : (flight.airlineName?.isNotEmpty ?? false)
@@ -3259,7 +3260,7 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
           flightNumber: _displayFlightNo(flight, codeOverride: airlineCode),
           logo: _airlineLogo(flight, context.w(46)),
           priceText: priceText,
-          perLabel: widget.travellers == 1 ? '/adult' : '',
+          perLabel: _perTravellerLabel,
           departureCity:
               flight.originName ?? _locationName(flight.origin ?? ''),
           departureCode: (flight.origin ?? '').trim().toUpperCase(),
@@ -3804,7 +3805,7 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
     final target = CurrencyConverter.getPreferredCurrency();
     final priceText =
         '${CurrencyConverter.getSymbol(target)} '
-        '${_convertFlightPrice((flight.totalFare ?? 0).toDouble(), flight.currency)}';
+        '${_convertFlightPrice(_perTravellerFare((flight.totalFare ?? 0).toDouble()), flight.currency)}';
 
     final airlineCode = (flight.airlineCode?.isNotEmpty ?? false)
         ? flight.airlineCode!.toUpperCase()
@@ -3869,7 +3870,7 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
         flightNumber: _displayFlightNo(flight, codeOverride: airlineCode),
         logo: _airlineLogo(flight, context.w(46)),
         priceText: priceText,
-        perLabel: widget.travellers == 1 ? '/adult' : '',
+        perLabel: _perTravellerLabel,
         departureCity: flight.originName ??
             _locationName(flight.origin ?? widget.fromCode),
         departureCode:
@@ -4098,7 +4099,7 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
     final target = CurrencyConverter.getPreferredCurrency();
     final priceText =
         '${CurrencyConverter.getSymbol(target)} '
-        '${_convertFlightPrice((flight.totalFare ?? 0).toDouble(), flight.currency)}';
+        '${_convertFlightPrice(_perTravellerFare((flight.totalFare ?? 0).toDouble()), flight.currency)}';
 
     final airlineCode = (flight.airlineCode?.isNotEmpty ?? false)
         ? flight.airlineCode!.toUpperCase()
@@ -4114,7 +4115,7 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
         flightNumber: _displayFlightNo(flight, codeOverride: airlineCode),
         logo: _airlineLogo(flight, context.w(46), isNavy: true), // Pass isNavy: true
         priceText: priceText,
-        perLabel: widget.travellers == 1 ? '/adult' : '',
+        perLabel: _perTravellerLabel,
         departureCity: flight.originName ??
             _locationName(flight.origin ?? widget.fromCode),
         departureCode:
@@ -4628,7 +4629,29 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
     return '${date.day} ${months[date.month - 1]} ${date.year}';
   }
 
-  /// A flight card's fare with a small "/adult" suffix, so the headline
+  /// How many travellers the search was priced for. Akbar quotes
+  /// `NetFare` for the whole party — the TUI the search runs against carries
+  /// the pax split — so every fare that comes back covers everyone on the
+  /// booking, not one seat.
+  int get _quotedPaxCount {
+    final count = widget.adults + widget.children + widget.infants;
+    return count < 1 ? 1 : count;
+  }
+
+  /// One traveller's share of a whole-party fare. Result cards show this so
+  /// the headline stays comparable as the traveller count changes; the
+  /// detail and booking screens go on showing the full amount that's
+  /// actually charged.
+  double _perTravellerFare(double wholePartyFare) =>
+      wholePartyFare / _quotedPaxCount;
+
+  /// Only an all-adult party can honestly call the per-head share an adult
+  /// fare — children and infants are cheaper, so a mixed party's share isn't
+  /// any one traveller's real price and the label says "traveller" instead.
+  String get _perTravellerLabel =>
+      (widget.children + widget.infants) == 0 ? '/adult' : '/traveller';
+
+  /// A flight card's fare with a small per-person suffix, so the headline
   /// number is unambiguous about who it covers. The amount, its formatting
   /// and [style] are exactly what the plain `Text` used before — the suffix
   /// is drawn smaller and lighter so it reads as a unit on the price rather
@@ -4641,12 +4664,11 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
     final baseSize = style.fontSize ?? context.fs(14);
     return Text.rich(
       TextSpan(
-        text: _convertFlightPrice(amount, apiCurrency),
+        text: _convertFlightPrice(_perTravellerFare(amount), apiCurrency),
         style: style,
         children: [
-          if (widget.travellers == 1)
           TextSpan(
-            text: ' /adult',
+            text: ' $_perTravellerLabel',
             style: style.copyWith(
               fontSize: baseSize * 0.6,
               color: Colors.black,

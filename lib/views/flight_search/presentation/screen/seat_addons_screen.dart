@@ -156,6 +156,14 @@ class SeatAddonsScreen extends StatefulWidget {
   /// Multi City. Empty for a plain one-way booking.
   final List<FlightRouteSegment> additionalLegs;
 
+  /// Promo applied back on [FlightBookingScreen]. Carried through so the
+  /// bottom bar keeps quoting the discounted fare instead of silently
+  /// reverting to the full price the moment the user lands here.
+  final String promoCode;
+
+  /// [promoCode]'s discount in INR — this screen's fares are raw INR too.
+  final double promoDiscountInInr;
+
   /// Invoked (with this screen's own [BuildContext]) once Skip or Continue
   /// is tapped, passing what was chosen. The caller runs CreateItinerary and
   /// pushes the review + payment screens directly from that context — this
@@ -175,6 +183,8 @@ class SeatAddonsScreen extends StatefulWidget {
     this.childCount = 0,
     this.infantCount = 0,
     this.additionalLegs = const [],
+    this.promoCode = '',
+    this.promoDiscountInInr = 0,
     required this.onProceed,
   });
 
@@ -217,12 +227,16 @@ class _SeatAddonsScreenState extends State<SeatAddonsScreen> {
   int _currentIndex = 0;
 
   int _activePaxId = 1;
-  int _activeLegIndex = 0;
-  // One GlobalKey per leg so the leg-pill taps can scroll the seat list there.
-  late final List<GlobalKey> _legKeys;
-  // Key on the SizedBox that wraps the seat ListView — used to get the
-  // viewport's screen-space position for the pill-scroll calculation.
-  final GlobalKey _seatListViewKey = GlobalKey();
+  // Page indices, so each tab can own its leg without reading the live
+  // PageView offset (which changes mid-swipe, before any rebuild).
+  static const _tabSeats = 0;
+  static const _tabMeals = 1;
+  static const _tabBaggage = 2;
+
+  /// Which leg each tab is showing, driven by that tab's pills. Per tab, and
+  /// each starts on the onward flight: picking a seat on the return leg
+  /// shouldn't silently decide which flight's meals you see next.
+  final List<int> _activeLegByTab = <int>[0, 0, 0];
   final Map<String, _SeatPick> _seatPicks = {};
   final List<_SsrPick> _ssrPicks = [];
   bool _submitting = false;
@@ -252,6 +266,20 @@ class _SeatAddonsScreenState extends State<SeatAddonsScreen> {
     return seatTotal + ssrTotal;
   }
 
+  /// The promo discount actually deductible here: a flat INR amount, capped
+  /// at the fare it's being taken off so add-ons picked after the promo was
+  /// applied can never push the payable total below zero.
+  double get _promoDiscount {
+    final discount = widget.promoDiscountInInr;
+    if (discount <= 0) return 0;
+    final gross = _baseFare + _addOnsTotal;
+    return discount > gross ? gross : discount;
+  }
+
+  /// What the bottom bar quotes and what the user pays: fare + add-ons, less
+  /// whatever the promo took off.
+  double get _payableTotal => _baseFare + _addOnsTotal - _promoDiscount;
+
   /// Akbar fare/seat/add-on amounts are always in INR — this converts to
   /// whatever currency the user has picked in Settings, instead of always
   /// showing a hardcoded ₹.
@@ -269,9 +297,6 @@ class _SeatAddonsScreenState extends State<SeatAddonsScreen> {
     super.initState();
     _pax = _buildPax();
     _activePaxId = _pax.isNotEmpty ? _pax.first.paxId : 1;
-
-    final legCount = 1 + widget.additionalLegs.length;
-    _legKeys = List.generate(legCount, (_) => GlobalKey());
 
     _seatLayoutBloc = sl<AkSeatLayoutBloc>();
     _ssrBloc = sl<AkSsrBloc>();
@@ -365,6 +390,31 @@ class _SeatAddonsScreenState extends State<SeatAddonsScreen> {
     setState(() => _submitting = true);
     await widget.onProceed(context, addOns);
     if (mounted) setState(() => _submitting = false);
+  }
+
+  /// "No meals for DEL - BOM." — naming the leg matters now that each tab
+  /// shows one flight: carriers differ on what they sell, so an empty tab is
+  /// about this flight, not the whole booking.
+  String _noAddOnsMessage(int tab, String what) {
+    if (widget.additionalLegs.isEmpty) {
+      return 'No $what available for this fare.';
+    }
+    return 'No $what on ${_legPillLabel(_legForTab(tab))} for this fare. '
+        'Try the other flight above.';
+  }
+
+  /// An empty tab still has to carry its leg pills.
+  ///
+  /// The empty states used to return on their own, which took the switcher
+  /// with them: a leg selling no meals became a dead end even when the other
+  /// leg had a full menu and no way to reach it.
+  Widget _emptyLegState(BuildContext context, int tab, IconData icon, String message) {
+    return Column(
+      children: [
+        _legSelectorBar(context, tab),
+        Expanded(child: _emptyState(context, icon, message)),
+      ],
+    );
   }
 
   /// Snapshot of the current picks for the review screen. Seat numbers come
@@ -573,11 +623,26 @@ class _SeatAddonsScreenState extends State<SeatAddonsScreen> {
   /// `route.flightNo` is built upstream as "`<IATA code>` • `<number>`"
   /// (see detail_popup.dart's `_bookNow`) — this pulls the code back out so
   /// the real airline logo can be shown instead of a generic route icon.
-  String _routeAirlineCode() {
-    final flightNo = widget.route.flightNo;
+  String _routeAirlineCode() => _legAirlineCode(0);
+
+  /// Carrier code for leg [i]. Each leg can be a different airline on a round
+  /// trip, so the pills must not all wear leg 1's logo.
+  String _legAirlineCode(int i) {
+    final route = i == 0 ? widget.route : widget.additionalLegs[i - 1];
+    final flightNo = route.flightNo;
     final sep = flightNo.indexOf('•');
     return (sep > 0 ? flightNo.substring(0, sep) : flightNo).trim();
   }
+
+  FlightRouteSegment _legRoute(int i) =>
+      i == 0 ? widget.route : widget.additionalLegs[i - 1];
+
+  /// Legs the traveller can switch between, always at least one.
+  int get _legCount => 1 + widget.additionalLegs.length;
+
+  /// The leg [tab] is showing, clamped — add-on data can arrive with fewer
+  /// trips than the itinerary has legs while a response is still filling in.
+  int _legForTab(int tab) => _activeLegByTab[tab].clamp(0, _legCount - 1);
 
   String _routeLabel() {
     if (widget.additionalLegs.isEmpty) {
@@ -614,44 +679,45 @@ class _SeatAddonsScreenState extends State<SeatAddonsScreen> {
     return '${leg.from} - ${leg.to}';
   }
 
-  void _scrollToLeg(int index) {
-    if (index < 0 || index >= _legKeys.length) return;
-    setState(() => _activeLegIndex = index);
-    // Always defer to post-frame so the setState rebuild completes first
-    // and the GlobalKey contexts are fresh.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!_seatScrollController.hasClients) return;
-      final anchorCtx = _legKeys[index].currentContext;
-      final viewCtx = _seatListViewKey.currentContext;
-      if (anchorCtx == null || viewCtx == null) return;
-      final anchorRo = anchorCtx.findRenderObject() as RenderBox?;
-      final viewRo = viewCtx.findRenderObject() as RenderBox?;
-      if (anchorRo == null || viewRo == null || !anchorRo.attached || !viewRo.attached) return;
-
-      // Compute anchor's Y position relative to the visible ListView area
-      // using screen-space coordinates, then convert to a scroll offset.
-      final anchorScreenY = anchorRo.localToGlobal(Offset.zero).dy;
-      final viewScreenY = viewRo.localToGlobal(Offset.zero).dy;
-      final relativeY = anchorScreenY - viewScreenY;
-
-      final position = _seatScrollController.position;
-      final target = (position.pixels + relativeY).clamp(
-        position.minScrollExtent,
-        position.maxScrollExtent,
-      );
-      _seatScrollController.animateTo(
-        target,
-        duration: const Duration(milliseconds: 350),
-        curve: Curves.easeOutCubic,
-      );
-    });
+  /// Switches which leg every add-on tab is showing.
+  ///
+  /// This used to scroll one long list containing every leg, which meant the
+  /// return flight's seats were somewhere below the fold and meals/baggage had
+  /// no way to reach them at all. Each tab now renders the chosen leg only, so
+  /// "BOM - DEL" shows the return aircraft, its meals and its baggage.
+  void _selectLeg(int tab, int index) {
+    if (index < 0 || index >= _legCount || index == _activeLegByTab[tab]) return;
+    setState(() => _activeLegByTab[tab] = index);
+    // The new leg's list starts at its own top rather than inheriting the
+    // previous leg's scroll offset.
+    if (_seatScrollController.hasClients) _seatScrollController.jumpTo(0);
+    _mealUiRevision.value++;
   }
 
-  Widget _legPill(BuildContext context, int index) {
-    final active = _activeLegIndex == index;
+  /// Onward / Return selector above the meals and baggage lists. The seats
+  /// tab carries the same pills inside its route card, so it doesn't repeat
+  /// them here. One-way bookings get nothing.
+  Widget _legSelectorBar(BuildContext context, int tab) {
+    if (widget.additionalLegs.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+          context.w(16), context.h(12), context.w(16), context.h(2)),
+      child: Row(
+        children: [
+          for (int i = 0; i < _legCount; i++) ...[
+            if (i > 0) SizedBox(width: context.w(8)),
+            _legPill(context, tab, i),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _legPill(BuildContext context, int tab, int index) {
+    final active = _legForTab(tab) == index;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: () => _scrollToLeg(index),
+      onTap: () => _selectLeg(tab, index),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         padding: EdgeInsets.symmetric(horizontal: context.w(10), vertical: context.h(6)),
@@ -667,8 +733,8 @@ class _SeatAddonsScreenState extends State<SeatAddonsScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             AirlineLogo(
-              code: _routeAirlineCode(),
-              name: widget.route.airline,
+              code: _legAirlineCode(index),
+              name: _legRoute(index).airline,
               size: context.w(18),
               borderRadius: BorderRadius.circular(context.r(4)),
             ),
@@ -744,7 +810,7 @@ class _SeatAddonsScreenState extends State<SeatAddonsScreen> {
                 children: [
                   for (int i = 0; i < 1 + widget.additionalLegs.length; i++) ...[
                     if (i > 0) SizedBox(width: context.w(8)),
-                    _legPill(context, i),
+                    _legPill(context, _tabSeats, i),
                   ],
                 ],
               ),
@@ -1004,14 +1070,22 @@ class _SeatAddonsScreenState extends State<SeatAddonsScreen> {
           }
         }
         final showLegLabels = legGroups.length > 1;
-        final sortedTrips = legGroups.keys.toList()..sort();
+        // Strictly the leg whose pill is selected — never another leg's
+        // aircraft, which would let the traveller pick a seat on the wrong
+        // flight.
+        if (!legGroups.containsKey(_legForTab(_tabSeats))) {
+          // The seats tab keeps its pills in the route card above, so this
+          // one only needs the message.
+          return _emptyState(context, Icons.airline_seat_recline_normal_outlined,
+              _noAddOnsMessage(_tabSeats, 'seat selection'));
+        }
+        final sortedTrips = [_legForTab(_tabSeats)];
 
         return Column(
           children: [
             _paxSelector(context),
             Expanded(
               child: SizedBox.expand(
-                key: _seatListViewKey,
                 child: ListView(
                 controller: _seatScrollController,
                 // Momentum-based physics so the seat map glides to a stop
@@ -1023,17 +1097,8 @@ class _SeatAddonsScreenState extends State<SeatAddonsScreen> {
                 children: [
                   for (final tripIndex in sortedTrips) ...[
                     if (showLegLabels) ...[
-                      // Key on the label itself (non-zero height) so that
-                      // Scrollable.ensureVisible can locate this section.
-                      SizedBox(
-                        key: tripIndex < _legKeys.length ? _legKeys[tripIndex] : null,
-                        child: _legLabel(context, tripIndex),
-                      ),
+                      _legLabel(context, tripIndex),
                       SizedBox(height: context.h(10)),
-                    ] else if (tripIndex < _legKeys.length) ...[
-                      // OW: no label, but keep a real-height anchor so
-                      // ensureVisible has something to target.
-                      SizedBox(key: _legKeys[tripIndex], height: 1),
                     ],
                     for (final segment in legGroups[tripIndex]!) ...[
                       _airplaneBody(context, segment, showCaption: showLegLabels, tripIndex: tripIndex),
@@ -1606,8 +1671,10 @@ class _SeatAddonsScreenState extends State<SeatAddonsScreen> {
   /// page. The filter/menu state is republished through [_mealUiRevision] so a
   /// chip tap rebuilds only this subtree, never the seat grid next door.
   Widget _mealsPage(BuildContext context) {
-    const emptyMessage = 'No meal options available for this fare.';
-    if (!_hasPricing) return _emptyState(context, Icons.restaurant_outlined, emptyMessage);
+    final emptyMessage = _noAddOnsMessage(_tabMeals, 'meals');
+    Widget empty([String? message]) => _emptyLegState(
+        context, _tabMeals, Icons.restaurant_outlined, message ?? emptyMessage);
+    if (!_hasPricing) return empty();
 
     return BlocBuilder<AkSsrBloc, AkSsrState>(
       bloc: _ssrBloc,
@@ -1615,14 +1682,10 @@ class _SeatAddonsScreenState extends State<SeatAddonsScreen> {
         if (state is AkSsrLoading || state is AkSsrInitial) {
           return _addonsSkeleton(context);
         }
-        if (state is AkSsrFailed) {
-          return _emptyState(context, Icons.restaurant_outlined, emptyMessage);
-        }
+        if (state is AkSsrFailed) return empty();
         final data = (state as AkSsrLoaded).data;
         final groups = data.hasOptions ? _mealGroups(data) : <String, List<_MealEntry>>{};
-        if (groups.isEmpty) {
-          return _emptyState(context, Icons.restaurant_outlined, emptyMessage);
-        }
+        if (groups.isEmpty) return empty();
 
         return ValueListenableBuilder<int>(
           valueListenable: _mealUiRevision,
@@ -1655,11 +1718,12 @@ class _SeatAddonsScreenState extends State<SeatAddonsScreen> {
               children: [
                 Column(
                   children: [
+                    _legSelectorBar(context, _tabMeals),
                     _mealFilterBar(context),
                     Expanded(
                       child: sections.isEmpty
-                          ? _emptyState(
-                              context, Icons.restaurant_outlined, 'No meals match this filter.')
+                          ? _emptyState(context, Icons.restaurant_outlined,
+                              'No meals match this filter.')
                           : ListView(
                               padding: EdgeInsets.fromLTRB(
                                   context.w(16), context.h(20), context.w(16), context.h(16)),
@@ -1678,38 +1742,32 @@ class _SeatAddonsScreenState extends State<SeatAddonsScreen> {
     );
   }
 
-  /// Groups the MEALS SSR items for display (Figma node 481:1297). No
-  /// category field exists on the API item, so a single "Meals" section is
-  /// used for one leg and per-leg sections for a round trip — always a real
-  /// signal, never an invented category.
+  /// Groups the open leg's MEALS SSR items for display (Figma node 481:1297).
+  /// Which leg that is comes from the pills above; inside, items are grouped
+  /// by [_mealCategoryLabel] — always a real signal off the item, never an
+  /// invented category.
   Map<String, List<_MealEntry>> _mealGroups(AkSsrEntity data) {
-    final legsWithMeals = <int>{};
-    for (int t = 0; t < data.trips.length; t++) {
-      for (final j in data.trips[t].journey) {
-        for (final s in j.segments) {
-          if (s.items.any((i) => _mealTabTypes.contains(_typeKey(i.typeName)))) {
-            legsWithMeals.add(t);
-          }
-        }
-      }
-    }
-    final multiLeg = legsWithMeals.length > 1;
+    // The leg pills decide which flight's meals are on screen, so the
+    // headings inside can go back to being meal categories — they used to be
+    // leg names, which left the return flight's meals buried below the
+    // onward ones with no way to filter.
+    //
+    // Strictly the open leg: carriers differ on what they sell, and a leg with
+    // no meals has to read as empty. Falling back to another leg here showed
+    // IndiGo's "6E Eats" menu under a SpiceJet pill — meals the traveller
+    // could not actually buy on that flight.
+    final activeTrip = _legForTab(_tabMeals);
 
     final out = <String, List<_MealEntry>>{};
     for (int t = 0; t < data.trips.length; t++) {
+      if (t != activeTrip) continue;
       for (final j in data.trips[t].journey) {
         for (final s in j.segments) {
           final meals =
               s.items.where((i) => _mealTabTypes.contains(_typeKey(i.typeName))).toList();
           if (meals.isEmpty) continue;
           for (final m in meals) {
-            final label = multiLeg
-                ? (t == 0
-                    ? 'Onward Flight'
-                    : t == 1
-                        ? 'Return Flight'
-                        : 'Flight ${t + 1}')
-                : _mealCategoryLabel(m);
+            final label = _mealCategoryLabel(m);
             out.putIfAbsent(label, () => []).add(_MealEntry(
                   item: m,
                   fuid: s.fuid,
@@ -2134,8 +2192,10 @@ class _SeatAddonsScreenState extends State<SeatAddonsScreen> {
   /// the AkSsr BLoC, the `_ssrPicks` selection model and `_addOnsTotal` are
   /// the same ones the Meals tab and `_continue()`'s AkSelectSsr call use.
   Widget _baggagePage(BuildContext context) {
-    const emptyMessage = 'No baggage options available for this fare.';
-    if (!_hasPricing) return _emptyState(context, Icons.luggage_outlined, emptyMessage);
+    final emptyMessage = _noAddOnsMessage(_tabBaggage, 'baggage');
+    Widget empty() => _emptyLegState(
+        context, _tabBaggage, Icons.luggage_outlined, emptyMessage);
+    if (!_hasPricing) return empty();
 
     return BlocBuilder<AkSsrBloc, AkSsrState>(
       bloc: _ssrBloc,
@@ -2143,17 +2203,14 @@ class _SeatAddonsScreenState extends State<SeatAddonsScreen> {
         if (state is AkSsrLoading || state is AkSsrInitial) {
           return _addonsSkeleton(context);
         }
-        if (state is AkSsrFailed) {
-          return _emptyState(context, Icons.luggage_outlined, emptyMessage);
-        }
+        if (state is AkSsrFailed) return empty();
         final data = (state as AkSsrLoaded).data;
         final sections = data.hasOptions ? _baggageSections(context, data) : <Widget>[];
-        if (sections.isEmpty) {
-          return _emptyState(context, Icons.luggage_outlined, emptyMessage);
-        }
+        if (sections.isEmpty) return empty();
 
         return Column(
           children: [
+            _legSelectorBar(context, _tabBaggage),
             _paxSelector(context),
             Expanded(
               child: ListView(
@@ -2172,10 +2229,20 @@ class _SeatAddonsScreenState extends State<SeatAddonsScreen> {
   List<Widget> _baggageSections(BuildContext context, AkSsrEntity data) {
     bool hasBaggage(AkSsrJourneyEntity j) => j.segments
         .any((s) => s.items.any((i) => _baggageTabTypes.contains(_typeKey(i.typeName))));
-    final showLegLabels = data.trips.where((t) => t.journey.any(hasBaggage)).length > 1;
+    final legsWithBaggage = <int>[
+      for (int t = 0; t < data.trips.length; t++)
+        if (data.trips[t].journey.any(hasBaggage)) t,
+    ];
+    // One leg at a time, chosen by the pills above — the return flight's
+    // allowances used to sit far below the onward ones in the same list.
+    // Strictly the open leg, for the same reason as meals: showing the other
+    // flight's allowances would quote baggage that cannot be bought here.
+    final activeTrip = _legForTab(_tabBaggage);
+    final showLegLabels = legsWithBaggage.length > 1;
 
     final sections = <Widget>[];
     for (int t = 0; t < data.trips.length; t++) {
+      if (t != activeTrip) continue;
       final trip = data.trips[t];
       for (final journey in trip.journey) {
         for (final segment in journey.segments) {
@@ -2522,18 +2589,25 @@ class _SeatAddonsScreenState extends State<SeatAddonsScreen> {
       if (extrasTotal > 0)
         FareBreakupLine(
             label: 'Baggage & Extras', amount: _displayAmount(extrasTotal)),
+      if (_promoDiscount > 0)
+        FareBreakupLine(
+          label: 'Promo Discount',
+          amount: '- ${_displayAmount(_promoDiscount)}',
+          subLabel: widget.promoCode.isEmpty ? null : widget.promoCode,
+          isDiscount: true,
+        ),
     ];
 
     FareBreakupSheet.show(
       context,
       lines: lines,
-      totalAmount: _displayAmount(_baseFare + _addOnsTotal),
+      totalAmount: _displayAmount(_payableTotal),
     );
   }
 
   // ==================== BOTTOM BAR (Figma: total + Continue) ====================
   Widget _bottomBar(BuildContext context) {
-    final total = _baseFare + _addOnsTotal;
+    final total = _payableTotal;
     return Container(
       padding: EdgeInsets.symmetric(horizontal: context.w(19), vertical: context.h(12)),
       decoration: BoxDecoration(
@@ -2577,9 +2651,11 @@ class _SeatAddonsScreenState extends State<SeatAddonsScreen> {
                     Icon(Icons.info, size: context.w(12), color: AppColors.subhead),
                   ],
                 ),
-                if (widget.travellerCount == 1)
+                // This total covers the whole party, so it says so for
+                // every party size — matching the booking screen's footer.
                 Text(
-                  'FOR 1 ADULT',
+                  'FOR ${widget.travellerCount} '
+                  '${widget.travellerCount > 1 ? 'TRAVELLERS' : 'ADULT'}',
                   style: TextStyle(
                       color: AppColors.subhead,
                       fontSize: context.fs(8),

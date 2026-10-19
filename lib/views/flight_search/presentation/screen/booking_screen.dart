@@ -331,6 +331,11 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
   bool _promoCodeApplied = false;
   String _appliedPromoCode = '';
   double _promoDiscountAmount = 0.0;
+
+  /// The same discount as [_promoDiscountAmount], but in INR instead of the
+  /// user's display currency. Every screen after this one (add-ons, review,
+  /// payment) prices in raw INR, so that's what gets handed down the flow.
+  double _promoDiscountInInr = 0.0;
   final TextEditingController _promoCodeController = TextEditingController();
 
   // Guards CreateItinerary's itinerary_changed retry to exactly one attempt.
@@ -441,6 +446,7 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
       _promoCodeApplied = false;
       _appliedPromoCode = '';
       _promoDiscountAmount = 0.0;
+      _promoDiscountInInr = 0.0;
       _promoCodeController.clear();
     });
   }
@@ -605,49 +611,50 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
           );
     double baseTotal = (fare?.total ?? double.tryParse(widget.totalPrice) ?? 0) + addOnsInFareCurrency;
 
-    if (matchedPromo.discountType == 'percent') {
-      double discountOriginal = (baseTotal * discountValue) / 100;
-      try {
-        final prefs = di.sl<PreferencesManager>();
-        final preferredCurrency = prefs.getPreferredCurrency() ?? 'INR';
-        if (originalCurrency.toUpperCase() != preferredCurrency.toUpperCase()) {
-          discount = CurrencyConverter.convert(
-            amount: discountOriginal,
-            fromCurrency: originalCurrency,
-            toCurrency: preferredCurrency,
-          );
-        } else {
-          discount = discountOriginal;
-        }
-      } catch (e) {
-        discount = discountOriginal;
-      }
-    } else {
-      try {
-        final prefs = di.sl<PreferencesManager>();
-        final preferredCurrency = prefs.getPreferredCurrency() ?? 'INR';
-        if (originalCurrency.toUpperCase() != preferredCurrency.toUpperCase()) {
-          discount = CurrencyConverter.convert(
-            amount: discountValue,
-            fromCurrency: originalCurrency,
-            toCurrency: preferredCurrency,
-          );
-        } else {
-          discount = discountValue;
-        }
-      } catch (e) {
-        discount = discountValue;
-      }
-    }
+    // In the fare's own currency first, then converted twice: once for this
+    // screen's display currency and once into INR for the rest of the flow.
+    final discountInFareCurrency = matchedPromo.discountType == 'percent'
+        ? (baseTotal * discountValue) / 100
+        : discountValue;
+
+    final preferredCurrency =
+        di.sl<PreferencesManager>().getPreferredCurrency() ?? 'INR';
+    discount = _convertAmount(
+      discountInFareCurrency,
+      from: originalCurrency,
+      to: preferredCurrency,
+    );
+    final discountInInr = _convertAmount(
+      discountInFareCurrency,
+      from: originalCurrency,
+      to: 'INR',
+    );
 
     setState(() {
       _promoCodeApplied = true;
       _appliedPromoCode = matchedPromo.code;
       _promoDiscountAmount = discount;
+      _promoDiscountInInr = discountInInr;
     });
 
     // Show celebration dialog instead of SnackBar
     _showCelebrationDialog(discount, matchedPromo.code);
+  }
+
+  /// Currency conversion that falls back to the untouched amount when the
+  /// rate table can't service the pair, rather than throwing mid-checkout.
+  double _convertAmount(double amount, {required String from, required String to}) {
+    if (amount <= 0) return 0;
+    if (from.toUpperCase() == to.toUpperCase()) return amount;
+    try {
+      return CurrencyConverter.convert(
+        amount: amount,
+        fromCurrency: from,
+        toCurrency: to,
+      );
+    } catch (_) {
+      return amount;
+    }
   }
 
   /// [widget.addOnsTotal] (seats/baggage/meals picked on the add-ons screen,
@@ -2451,6 +2458,10 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
           infantCount: _paxSplit.infants,
           additionalLegs:
               widget.routes.length > 1 ? widget.routes.sublist(1) : const [],
+          // The promo applied here has to survive the rest of the flow, or
+          // the add-ons screen would quote the undiscounted fare again.
+          promoCode: _appliedPromoCode,
+          promoDiscountInInr: _promoDiscountInInr,
           onProceed: (addOnsContext, addOns) => _completeBooking(
             addOnsContext,
             route: route,
@@ -2524,6 +2535,19 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
               dob: _toIsoDate((t['dateOfBirth'] ?? '').toString()),
               email: (t['email'] ?? '').toString(),
               pMobileNo: (t['mobileNumber'] ?? '').toString(),
+              // The traveller form always collects these on an international
+              // fare, and GetTravelCheckList marks them mandatory there, so
+              // leaving them out of the payload failed CreateItinerary with
+              // "Passenger details incomplete" before the booking even
+              // reached the airline. Blank on domestic fares, where the
+              // checklist asks for none of them.
+              passportNo: (t['passportNumber'] ?? '').toString().trim(),
+              nationality: (t['nationality'] ?? '').toString().trim(),
+              visaType: (t['visaType'] ?? '').toString().trim(),
+              pdoe: _toIsoDate((t['passportExpiry'] ?? '').toString().trim()),
+              pdoi: _toIsoDate((t['passportIssueDate'] ?? '').toString().trim()),
+              pli: (t['placeOfIssue'] ?? '').toString().trim(),
+              panNo: (t['panNumber'] ?? '').toString().trim(),
             ))
         .toList();
 
@@ -2550,6 +2574,8 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
           travellerCount: _totalPax,
           travellerNames: travellerNames,
           addOns: addOns,
+          promoCode: _appliedPromoCode,
+          promoDiscountInInr: _promoDiscountInInr,
         ),
       ),
     );

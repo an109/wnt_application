@@ -318,3 +318,191 @@ class AppLoadingCard extends StatelessWidget {
     );
   }
 }
+
+// ===========================================================================
+// Booking / payment progress
+// ===========================================================================
+
+/// The long wait: the brand wave circle with a gradient arc sweeping around
+/// it and the step name underneath.
+///
+/// Built for the moments where money is moving — wallet debit, StartPay,
+/// ticketing — which can run 30s or more and retry. A bare spinner reads as
+/// "stuck" over that long, so the ring orbits the wave to show the app is
+/// still working, and the message names the step so the wait is accounted
+/// for. Use [AppLoadingView] for ordinary data loads; this is deliberately
+/// heavier.
+class BookingProgressLoader extends StatefulWidget {
+  /// The step in progress, e.g. "Confirming your booking…".
+  final String message;
+
+  /// Smaller line beneath — by default the "don't close this screen"
+  /// warning, which is the one thing that can actually break a payment.
+  final String? hint;
+
+  /// Diameter of the wave circle. The ring is drawn outside it.
+  final double? size;
+
+  const BookingProgressLoader({
+    super.key,
+    required this.message,
+    this.hint = 'Please keep this screen open until it finishes.',
+    this.size,
+  });
+
+  @override
+  State<BookingProgressLoader> createState() => _BookingProgressLoaderState();
+}
+
+class _BookingProgressLoaderState extends State<BookingProgressLoader>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 2000),
+  );
+
+  /// Stilled rather than spinning when the OS asks for reduced motion, the
+  /// same bargain [WaveLoader] makes.
+  bool _reduceMotion = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _reduceMotion = MediaQuery.disableAnimationsOf(context);
+    if (_reduceMotion) {
+      _controller
+        ..stop()
+        ..value = 0;
+    } else if (!_controller.isAnimating) {
+      _controller.repeat();
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final wave = widget.size ?? context.fx(92);
+    // Enough room for the ring and its stroke to clear the circle.
+    final ring = wave + context.fx(26);
+
+    return Semantics(
+      liveRegion: true,
+      label: widget.message,
+      child: Padding(
+        padding: EdgeInsets.symmetric(
+          horizontal: context.fx(24),
+          vertical: context.fx(28),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            RepaintBoundary(
+              child: SizedBox.square(
+                dimension: ring,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    AnimatedBuilder(
+                      animation: _controller,
+                      builder: (_, __) => CustomPaint(
+                        size: Size.square(ring),
+                        painter: _ProgressRingPainter(
+                          turn: _controller.value,
+                          stroke: context.fx(3),
+                        ),
+                      ),
+                    ),
+                    WaveLoader(size: wave),
+                  ],
+                ),
+              ),
+            ),
+            SizedBox(height: context.fx(20)),
+            Text(
+              widget.message,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: const Color(0xFF111527),
+                fontSize: context.ffs(15),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            if (widget.hint != null && widget.hint!.isNotEmpty) ...[
+              SizedBox(height: context.fx(8)),
+              Text(
+                widget.hint!,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: _messageColor,
+                  fontSize: context.ffs(12),
+                  height: 1.4,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ProgressRingPainter extends CustomPainter {
+  /// 0 → 1 per revolution.
+  final double turn;
+  final double stroke;
+
+  _ProgressRingPainter({required this.turn, required this.stroke});
+
+  /// Roughly a third of the circle, so the head and tail stay far enough
+  /// apart for the fade to read as motion.
+  static const _sweep = math.pi * 0.7;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = (size.width - stroke) / 2;
+    final rect = Rect.fromCircle(center: center, radius: radius);
+
+    // Faint full track, so the arc reads as travelling along something.
+    canvas.drawCircle(
+      center,
+      radius,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = stroke
+        ..color = _waveBottom.withValues(alpha: 0.45),
+    );
+
+    final start = turn * 2 * math.pi;
+    // Blue into the brand orange at the head, transparent at the tail.
+    final shader = SweepGradient(
+      startAngle: start,
+      endAngle: start + _sweep,
+      colors: const [Color(0x004FB6F8), _waveTop, _waveAccent],
+      stops: const [0.0, 0.65, 1.0],
+      transform: GradientRotation(start),
+    ).createShader(rect);
+
+    canvas.drawArc(
+      rect,
+      start,
+      _sweep,
+      false,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = stroke
+        ..strokeCap = StrokeCap.round
+        ..shader = shader,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_ProgressRingPainter old) =>
+      old.turn != turn || old.stroke != stroke;
+}
+
