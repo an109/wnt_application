@@ -1,0 +1,4 @@
+name: google_mlkit_commons
+version: 0.13.0
+environment:
+  sdk: ^3.8.1
