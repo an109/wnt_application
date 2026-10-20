@@ -185,7 +185,7 @@ class FlightRouteSegment {
         currency: 'INR',
         baseFare: baseFare,
         tax: taxesAndFees,
-        offeredFare: data.netAmount,
+        offeredFare: data.grossAmount,
         publishedFare: data.grossAmount,
         serviceFee: 0.0,
       ),
@@ -2569,7 +2569,7 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
           route: route,
           leadPassenger: lead,
           travellers: travellers,
-          netAmount: result.netAmount,
+          netAmount: result.grossAmount,
           additionalLegs: widget.routes.length > 1 ? widget.routes.sublist(1) : const [],
           travellerCount: _totalPax,
           travellerNames: travellerNames,
@@ -2710,7 +2710,7 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
     }
 
     if (!feedbackContext.mounted) return null;
-    final accepted = await _confirmItineraryChange(data.netAmount, uiContext: feedbackContext);
+    final accepted = await _confirmItineraryChange(data.grossAmount, uiContext: feedbackContext);
     if (!accepted) return null;
 
     _itineraryRetried = true;

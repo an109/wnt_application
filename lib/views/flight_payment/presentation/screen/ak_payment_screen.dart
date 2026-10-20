@@ -45,6 +45,8 @@ import 'package:wander_nova/common_widgets/app_loader.dart';
 class AkFlightPaymentScreen extends StatefulWidget {
   final FlightRouteSegment route;
   final Map<String, dynamic> leadPassenger;
+  /// Retail/gross amount to charge the customer (CreateItinerary's GrossAmount).
+  /// Despite the field name, this is the published fare — what the user pays.
   final double netAmount;
 
   /// The return leg for RT/RS, or legs 2..N for Multi City. Empty for a

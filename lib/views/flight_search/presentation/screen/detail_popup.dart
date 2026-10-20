@@ -48,7 +48,10 @@ import '../../../../core/constants/urls.dart';
 class FlightDetailsPopup extends StatefulWidget {
   final String tui;
   final String resultIndex;
+  /// Gross/retail fare — shown to the user (GrossFare from search).
   final double amount;
+  /// Net/agent fare — sent to Akbar's SmartPricer API (NetFare from search).
+  final double netAmount;
   final String airlineName;
   final String airlineCode;
   final String flightNumber;
@@ -80,6 +83,7 @@ class FlightDetailsPopup extends StatefulWidget {
     required this.tui,
     required this.resultIndex,
     required this.amount,
+    required this.netAmount,
     required this.airlineName,
     required this.airlineCode,
     required this.flightNumber,
@@ -104,6 +108,7 @@ class FlightDetailsPopup extends StatefulWidget {
     required String tui,
     required String resultIndex,
     required double amount,
+    required double netAmount,
     required String airlineName,
     required String airlineCode,
     required String flightNumber,
@@ -134,6 +139,7 @@ class FlightDetailsPopup extends StatefulWidget {
           tui: tui,
           resultIndex: resultIndex,
           amount: amount,
+          netAmount: netAmount,
           airlineName: airlineName,
           airlineCode: airlineCode,
           flightNumber: flightNumber,
@@ -186,7 +192,10 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup> with SingleTick
   AkGetSPricerEntity? _pricerData;
   bool _fareChangeAccepted = false;
   late String _selectedIndex;
+  /// Gross/retail fare — shown to the user.
   late double _selectedAmount;
+  /// Net/agent fare — sent to Akbar's SmartPricer/FareFamilyDetails APIs.
+  late double _selectedNetAmount;
 
   /// Legs 2..N as currently chosen. Seeded from what the results screen
   /// picked, then rewritten when the traveller switches that leg's fare on
@@ -292,9 +301,9 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup> with SingleTick
   /// total still shows before either call resolves.
   double _tripNetAmount(AkFlightInfoEntity data) {
     final isDmIm = widget.tripType == 'DM' || widget.tripType == 'IM';
-    final pricerTotal = _pricerData?.netAmount ?? 0;
+    final pricerTotal = _pricerData?.grossAmount ?? 0;
     if (isDmIm && pricerTotal > 0) return pricerTotal;
-    if (data.netAmount > 0) return data.netAmount;
+    if (data.grossAmount > 0) return data.grossAmount;
     if (pricerTotal > 0) return pricerTotal;
     return _selectedAmount +
         _additionalLegs.fold<double>(0, (sum, leg) => sum + leg.amount);
@@ -305,6 +314,7 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup> with SingleTick
     super.initState();
     _selectedIndex = widget.resultIndex;
     _selectedAmount = widget.amount;
+    _selectedNetAmount = widget.netAmount;
     _additionalLegs = List<FlightLegSelection>.of(widget.additionalLegs);
 
     _bloc = sl<AkFlightInfoBloc>();
@@ -325,7 +335,21 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup> with SingleTick
 
     _load();
     _loadFareRule();
+    _initFareFamilyLabels();
     _loadFareFamilyDetails();
+  }
+
+  /// Seed fare labels immediately from the search data (FCType on each
+  /// FareFamilyIndexEntity). FareFamilyDetails only adds baggage; it never
+  /// returns labels, so we must not wait for it before showing names.
+  void _initFareFamilyLabels() {
+    final labels = <String, String>{};
+    for (final opt in _fareOptions) {
+      if (opt.label != null && opt.label!.isNotEmpty) {
+        labels[opt.index] = opt.label!;
+      }
+    }
+    if (labels.isNotEmpty) _fareFamilyLabels = labels;
   }
 
   void _loadFareFamilyDetails() {
@@ -354,12 +378,12 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup> with SingleTick
           trips: [
             AkFareFamilyDetailsTripRequestEntity(
               index: _selectedIndex,
-              amount: _selectedAmount,
+              amount: _selectedNetAmount,
               orderId: 1,
             ),
             AkFareFamilyDetailsTripRequestEntity(
               index: returnLeg.resultIndex,
-              amount: returnLeg.amount,
+              amount: returnLeg.netAmount,
               orderId: 2,
             ),
           ],
@@ -406,9 +430,9 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup> with SingleTick
         tui: widget.tui,
         tuis: legTuis,
         trips: [
-          AkFareRuleTripRequestEntity(index: _selectedIndex, amount: _selectedAmount, orderId: 1),
+          AkFareRuleTripRequestEntity(index: _selectedIndex, amount: _selectedNetAmount, orderId: 1),
           for (final leg in _additionalLegs)
-            AkFareRuleTripRequestEntity(index: leg.resultIndex, amount: leg.amount, orderId: leg.orderId),
+            AkFareRuleTripRequestEntity(index: leg.resultIndex, amount: leg.netAmount, orderId: leg.orderId),
         ],
       ),
     ));
@@ -434,11 +458,11 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup> with SingleTick
         trips: [
           AkFlightInfoTripRequestEntity(
             index: _selectedIndex,
-            amount: _selectedAmount,
+            amount: _selectedNetAmount,
             orderId: 1,
           ),
           for (final leg in _additionalLegs)
-            AkFlightInfoTripRequestEntity(index: leg.resultIndex, amount: leg.amount, orderId: leg.orderId),
+            AkFlightInfoTripRequestEntity(index: leg.resultIndex, amount: leg.netAmount, orderId: leg.orderId),
         ],
       ),
     ));
@@ -465,11 +489,11 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup> with SingleTick
         trips: [
           AkSmartPricerTripRequestEntity(
             index: _selectedIndex,
-            amount: _selectedAmount,
+            amount: _selectedNetAmount,
             orderId: 1,
           ),
           for (final leg in _additionalLegs)
-            AkSmartPricerTripRequestEntity(index: leg.resultIndex, amount: leg.amount, orderId: leg.orderId),
+            AkSmartPricerTripRequestEntity(index: leg.resultIndex, amount: leg.netAmount, orderId: leg.orderId),
         ],
         preview: preview,
         tuis: legTuis,
@@ -484,9 +508,9 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup> with SingleTick
 
     final dio = sl<Dio>();
     final legs = [
-      {'index': _selectedIndex, 'amount': _selectedAmount, 'order_id': 1},
+      {'index': _selectedIndex, 'amount': _selectedNetAmount, 'order_id': 1},
       for (final leg in _additionalLegs)
-        {'index': leg.resultIndex, 'amount': leg.amount, 'order_id': leg.orderId},
+        {'index': leg.resultIndex, 'amount': leg.netAmount, 'order_id': leg.orderId},
     ];
 
     try {
@@ -528,6 +552,7 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup> with SingleTick
       if (tab == 0) {
         _selectedIndex = option.index;
         _selectedAmount = option.amount;
+        _selectedNetAmount = option.netAmount;
       } else {
         // Same leg, different fare family: keep its orderId and TUI so the
         // pricing calls still address the right trip.
@@ -536,6 +561,7 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup> with SingleTick
           orderId: leg.orderId,
           resultIndex: option.index,
           amount: option.amount,
+          netAmount: option.netAmount,
           flight: leg.flight,
           tui: leg.tui,
         );
@@ -553,6 +579,7 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup> with SingleTick
     });
     _load();
     _loadFareRule();
+    _initFareFamilyLabels();
     _loadFareFamilyDetails();
   }
 
@@ -668,12 +695,11 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup> with SingleTick
             listener: (context, state) {
               if (state is AkFareFamilyDetailsLoaded &&
                   state.data.options.isNotEmpty) {
-                final labels = <String, String>{};
+                // FareFamilyDetails only provides baggage + fare_rule.
+                // Labels (FCType) come from the search data via
+                // _initFareFamilyLabels() and must not be overwritten here.
                 final baggage = <String, Map<String, String?>>{};
                 state.data.options.forEach((index, option) {
-                  if (option.label != null && option.label!.isNotEmpty) {
-                    labels[index] = option.label!;
-                  }
                   if (option.checkin != null || option.cabin != null) {
                     baggage[index] = {
                       'checkin': option.checkin,
@@ -681,10 +707,9 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup> with SingleTick
                     };
                   }
                 });
-                setState(() {
-                  if (labels.isNotEmpty) _fareFamilyLabels = labels;
-                  if (baggage.isNotEmpty) _fareFamilyBaggage = baggage;
-                });
+                if (baggage.isNotEmpty) {
+                  setState(() => _fareFamilyBaggage = baggage);
+                }
               }
             },
           ),
@@ -1584,14 +1609,36 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup> with SingleTick
           style: TextStyle(color: _title900, fontSize: context.fs(16), fontWeight: FontWeight.w600),
         ),
         SizedBox(height: context.h(16)),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            for (var i = 0; i < displayed.length; i++) ...[
-              if (i > 0) SizedBox(width: context.w(12)),
-              Expanded(child: _fareCard(context, displayed[i], i, displayed.length)),
-            ],
-          ],
+        // Horizontally scrollable row of equal-height, equal-width cards.
+        // LayoutBuilder gives us the available width so each card is a
+        // responsive fraction of the screen rather than a hardcoded pixel value.
+        LayoutBuilder(
+          builder: (context, constraints) {
+            // Each card is ~40 % of available width, min 130 px, max 180 px.
+            // This keeps 2–3 cards visible at once and still allows scrolling
+            // when there are more families.
+            final cardWidth = (constraints.maxWidth * 0.40).clamp(130.0, 180.0);
+            const gap = 12.0;
+            return SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              clipBehavior: Clip.none,
+              child: IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (var i = 0; i < displayed.length; i++) ...[
+                      if (i > 0) SizedBox(width: gap),
+                      SizedBox(
+                        width: cardWidth,
+                        child: _fareCard(context, displayed[i], i, displayed.length),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            );
+          },
         ),
       ],
     );
@@ -1623,9 +1670,11 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup> with SingleTick
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 250),
             curve: Curves.easeInOut,
-            width: context.w(184.5),
-            // Expand height when baggage info is available
-            height: hasBaggage ? context.h(94) : context.h(74),
+            // Width is set by the parent SizedBox in _fareSelector so all
+            // cards are the same responsive width.
+            // Height stretches to match the tallest sibling (IntrinsicHeight).
+            width: double.infinity,
+            height: double.infinity,
             padding: EdgeInsets.symmetric(
               horizontal: context.w(16),
               vertical: context.h(10),
@@ -3030,9 +3079,9 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup> with SingleTick
 
       final dio = sl<Dio>();
       final legs = [
-        {'index': _selectedIndex, 'amount': _selectedAmount, 'order_id': 1},
+        {'index': _selectedIndex, 'amount': _selectedNetAmount, 'order_id': 1},
         for (final leg in _additionalLegs)
-          {'index': leg.resultIndex, 'amount': leg.amount, 'order_id': leg.orderId},
+          {'index': leg.resultIndex, 'amount': leg.netAmount, 'order_id': leg.orderId},
       ];
 
       try {
@@ -3098,9 +3147,9 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup> with SingleTick
         searchTui: widget.tui,
         tripType: widget.tripType,
         trips: [
-          AkSmartPricerTripRequestEntity(index: _selectedIndex, amount: _selectedAmount, orderId: 1),
+          AkSmartPricerTripRequestEntity(index: _selectedIndex, amount: _selectedNetAmount, orderId: 1),
           for (final leg in _additionalLegs)
-            AkSmartPricerTripRequestEntity(index: leg.resultIndex, amount: leg.amount, orderId: leg.orderId),
+            AkSmartPricerTripRequestEntity(index: leg.resultIndex, amount: leg.netAmount, orderId: leg.orderId),
         ],
         preview: false,
       ),
@@ -3282,9 +3331,9 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup> with SingleTick
     // For DM/IM use _pricerData.netAmount (the real total) if available,
     // since minEntity.netAmount may only reflect the active leg's fare.
     final isDmIm = widget.tripType == 'DM' || widget.tripType == 'IM';
-    final netAmt = isDmIm && _pricerData != null && _pricerData!.netAmount > 0
-        ? _pricerData!.netAmount
-        : data.netAmount;
+    final netAmt = isDmIm && _pricerData != null && _pricerData!.grossAmount > 0
+        ? _pricerData!.grossAmount
+        : data.grossAmount;
     final totalPrice = '₹${netAmt.toStringAsFixed(0)}';
     Navigator.pop(context);
 

@@ -41,7 +41,8 @@ class AkTripReviewScreen extends StatelessWidget {
   final List<String> travellerNames;
   final int travellerCount;
 
-  /// CreateItinerary's netAmount — forwarded untouched to the payment screen.
+  /// Retail/gross amount to charge the customer (CreateItinerary's GrossAmount,
+  /// not NetAmount). Forwarded untouched to the payment screen.
   final double netAmount;
 
   /// Seats / meals / other extras chosen on [SeatAddonsScreen].

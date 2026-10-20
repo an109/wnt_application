@@ -85,7 +85,10 @@ class MultiCityLegSummary {
 class FlightLegSelection {
   final int orderId;
   final String resultIndex;
+  /// Gross/retail fare shown to the user.
   final double amount;
+  /// Net/agent fare sent to Akbar's SmartPricer API. Falls back to [amount].
+  final double netAmount;
   final FlightEntity flight;
   // For DM: each leg's own ExpressSearch TUI. Null for IM/RT (one shared TUI).
   final String? tui;
@@ -94,7 +97,8 @@ class FlightLegSelection {
     required this.orderId,
     required this.resultIndex,
     required this.amount,
+    double? netAmount,
     required this.flight,
     this.tui,
-  });
+  }) : netAmount = netAmount ?? amount;
 }

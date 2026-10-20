@@ -182,17 +182,20 @@ class AkCreateItineraryModel extends AkCreateItineraryEntity {
     required super.netAmount,
     required super.airlineNetFare,
     required super.ssrAmount,
+    super.grossAmount,
     required super.itineraryChanged,
   });
 
   factory AkCreateItineraryModel.fromJson(Map<String, dynamic> json) {
     double toD(dynamic v) => (v is num) ? v.toDouble() : 0.0;
+    final net = toD(json['NetAmount']);
     return AkCreateItineraryModel(
       success: json['success'] ?? false,
       transactionId: json['TransactionID']?.toString() ?? '',
-      netAmount: toD(json['NetAmount']),
+      netAmount: net,
       airlineNetFare: toD(json['AirlineNetFare']),
       ssrAmount: toD(json['SSRAmount']),
+      grossAmount: json['GrossAmount'] != null ? toD(json['GrossAmount']) : net,
       itineraryChanged: json['itinerary_changed'] ?? false,
     );
   }

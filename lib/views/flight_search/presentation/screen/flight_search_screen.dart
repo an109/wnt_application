@@ -608,7 +608,8 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
         destinationName: _lastSegment(flight.destinationName),
         departureTime: flight.departureTime,
         arrivalTime: flight.arrivalTime,
-        totalFare: flight.netFare,
+        totalFare: flight.grossFare,
+        netFare: flight.netFare,
         stops: flight.stops,
         duration: _durationToMinutes(flight.duration),
         cabinClass: flight.cabin,
@@ -619,8 +620,9 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
       final key = '${realAirlineCode}_${flight.flightNo}_${flight.departureTime}';
       siblingsByKey.putIfAbsent(key, () => {})[flight.index] = FareFamilyIndexEntity(
         index: flight.index,
-        amount: flight.netFare,
+        amount: flight.grossFare,
         refundable: flight.refundable.toUpperCase() == 'Y',
+        label: flight.fcType,
       );
     }
     return (flights: flights, siblings: siblingsByKey);
@@ -2217,6 +2219,7 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
           orderId: i + 1,
           resultIndex: leg.resultIndex ?? '',
           amount: (leg.totalFare ?? 0).toDouble(),
+          netAmount: (leg.netFare ?? leg.totalFare ?? 0).toDouble(),
           flight: leg,
           tui: null, // IM uses one shared TUI (_currentTui)
         );
@@ -2694,6 +2697,7 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
         orderId: legIndex + 1,
         resultIndex: flight.resultIndex ?? '',
         amount: (flight.totalFare ?? 0).toDouble(),
+        netAmount: (flight.netFare ?? flight.totalFare ?? 0).toDouble(),
         flight: flight,
         tui: legTui,
       );
@@ -4396,6 +4400,7 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
       tui: _currentTui,
       resultIndex: flight.resultIndex ?? '',
       amount: (flight.totalFare ?? 0).toDouble(),
+      netAmount: (flight.netFare ?? flight.totalFare ?? 0).toDouble(),
       airlineName: flight.airlineName ?? "Unknown",
       airlineCode: flight.airlineCode ?? "--",
       flightNumber: _displayFlightNo(flight),
@@ -4434,6 +4439,7 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
       tui: firstTui,
       resultIndex: first.resultIndex,
       amount: first.amount,
+      netAmount: first.netAmount,
       airlineName: first.flight.airlineName ?? "Unknown",
       airlineCode: first.flight.airlineCode ?? "--",
       flightNumber: _displayFlightNo(first.flight),

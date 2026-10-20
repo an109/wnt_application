@@ -68,29 +68,33 @@ import 'package:equatable/equatable.dart';
 /// instead of only ever showing the one fare the user happened to tap.
 class FareFamilyIndexEntity extends Equatable {
   final String index;
+  /// Gross/retail fare shown to the user (GrossFare from search).
   final double amount;
+  /// Net/agent fare sent to Akbar's SmartPricer API (NetFare from search).
+  /// Falls back to [amount] when not set (legacy call sites that don't pass it).
+  final double netAmount;
   final bool refundable;
-  /// Human-readable fare family name from the FareFamilyDetails API
-  /// (e.g. "SAVER", "FLEXI"). Null when not yet fetched or not returned by
-  /// the API — the UI falls back to rank-based labels in that case.
+  /// Human-readable fare family name (FCType from search, e.g. "ECONOMY LIGHT").
   final String? label;
 
   const FareFamilyIndexEntity({
     required this.index,
     required this.amount,
+    double? netAmount,
     required this.refundable,
     this.label,
-  });
+  }) : netAmount = netAmount ?? amount;
 
   FareFamilyIndexEntity withLabel(String? label) => FareFamilyIndexEntity(
         index: index,
         amount: amount,
+        netAmount: netAmount,
         refundable: refundable,
         label: label,
       );
 
   @override
-  List<Object?> get props => [index, amount, refundable, label];
+  List<Object?> get props => [index, amount, netAmount, refundable, label];
 }
 
 class FlightEntity extends Equatable {
@@ -109,6 +113,8 @@ class FlightEntity extends Equatable {
   final double? baseFare;
   final double? tax;
   final double? totalFare;
+  /// Net/agent fare (NetFare from search) — sent to Akbar APIs. [totalFare] holds grossFare for display.
+  final double? netFare;
   final String? currency;
   final int? seatsAvailable;
   final String? traceId;
@@ -158,6 +164,7 @@ class FlightEntity extends Equatable {
     this.baseFare,
     this.tax,
     this.totalFare,
+    this.netFare,
     this.currency,
     this.seatsAvailable,
     this.traceId,
@@ -193,6 +200,7 @@ class FlightEntity extends Equatable {
       baseFare: baseFare,
       tax: tax,
       totalFare: totalFare,
+      netFare: netFare,
       currency: currency,
       seatsAvailable: seatsAvailable,
       traceId: traceId,
@@ -216,7 +224,7 @@ class FlightEntity extends Equatable {
   List<Object?> get props => [
     resultIndex, airlineCode, airlineName, flightNumber, origin, originName,
     destination, destinationName, departureTime, arrivalTime, duration, cabinClass,
-    baseFare, tax, totalFare, currency, seatsAvailable, traceId, stops, refundable,
+    baseFare, tax, totalFare, netFare, currency, seatsAvailable, traceId, stops, refundable,
     isRoundTrip,
     returnDepartureTime, returnArrivalTime, returnDuration, returnOrigin,
     returnOriginName, returnDestination, returnDestinationName, returnStops,

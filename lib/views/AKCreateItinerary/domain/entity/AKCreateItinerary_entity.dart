@@ -147,9 +147,14 @@ class AkCreateItineraryRequestEntity extends Equatable {
 class AkCreateItineraryEntity extends Equatable {
   final bool success;
   final String transactionId;
+  /// B2B/agent net fare (what Akbar charges us). Used only for internal
+  /// accounting — do NOT charge the customer this amount.
   final double netAmount;
   final double airlineNetFare;
   final double ssrAmount;
+  /// Retail/published fare (what the customer pays). Falls back to [netAmount]
+  /// when Akbar doesn't return GrossAmount (older routes).
+  final double grossAmount;
   // True when the fare or flight time moved since GetSPricer — the doc
   // says to show the change, get consent, and call CreateItinerary again;
   // no TransactionID is issued until it settles false.
@@ -161,11 +166,12 @@ class AkCreateItineraryEntity extends Equatable {
     required this.netAmount,
     required this.airlineNetFare,
     required this.ssrAmount,
+    double? grossAmount,
     required this.itineraryChanged,
-  });
+  }) : grossAmount = grossAmount ?? netAmount;
 
   @override
   List<Object?> get props => [
-    success, transactionId, netAmount, airlineNetFare, ssrAmount, itineraryChanged,
+    success, transactionId, netAmount, grossAmount, airlineNetFare, ssrAmount, itineraryChanged,
   ];
 }

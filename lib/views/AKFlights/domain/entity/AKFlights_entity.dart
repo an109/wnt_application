@@ -4,6 +4,10 @@ import 'package:equatable/equatable.dart';
 class AkflightsEntity extends Equatable {
   final String index;
   final double netFare;
+  final double grossFare;
+  // Akbar's fare-class label, e.g. "ECONOMY LIGHT", "ECONOMY SMART", "FLEXI".
+  // Comes from the GetExpSearch `FCType` field on each Journey row.
+  final String? fcType;
   final String provider;
   // The real IATA carrier code (API's "MAC" field). `provider` is an
   // internal fare-source label (e.g. "SB", "S6E") that can differ from the
@@ -28,6 +32,8 @@ class AkflightsEntity extends Equatable {
   const AkflightsEntity({
     required this.index,
     required this.netFare,
+    required this.grossFare,
+    this.fcType,
     required this.provider,
     required this.marketingAirlineCode,
     required this.flightNo,
@@ -49,6 +55,8 @@ class AkflightsEntity extends Equatable {
   List<Object?> get props => [
     index,
     netFare,
+    grossFare,
+    fcType,
     provider,
     marketingAirlineCode,
     flightNo,

@@ -5,6 +5,8 @@ class AkflightsModel extends AkflightsEntity {
   const AkflightsModel({
     required super.index,
     required super.netFare,
+    required super.grossFare,
+    super.fcType,
     required super.provider,
     required super.marketingAirlineCode,
     required super.flightNo,
@@ -26,6 +28,8 @@ class AkflightsModel extends AkflightsEntity {
     return AkflightsModel(
       index: json['Index']?.toString() ?? '',
       netFare: (json['NetFare'] ?? 0).toDouble(),
+      grossFare: (json['GrossFare'] ?? json['NetFare'] ?? 0).toDouble(),
+      fcType: json['FCType']?.toString(),
       provider: json['Provider']?.toString() ?? '',
       marketingAirlineCode: json['MAC']?.toString() ?? '',
       flightNo: json['FlightNo']?.toString() ?? '',
@@ -48,6 +52,8 @@ class AkflightsModel extends AkflightsEntity {
     return {
       'Index': index,
       'NetFare': netFare,
+      'GrossFare': grossFare,
+      if (fcType != null) 'FCType': fcType,
       'Provider': provider,
       'MAC': marketingAirlineCode,
       'FlightNo': flightNo,
