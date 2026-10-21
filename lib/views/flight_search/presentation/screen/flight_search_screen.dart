@@ -20,6 +20,7 @@ import '../../../../common_widgets/loadingScreen.dart';
 import '../../../../common_widgets/logo.dart';
 import '../../../../core/error/data_state.dart';
 import '../../../../core/utils/storage/shared_preference.dart';
+import '../../../../newUIWidgets/bankOffers.dart';
 import '../../domain/entities/flight_entity.dart';
 import '../../domain/entities/fare_trip_type.dart';
 // Legacy TBO search — replaced by the Akbar ExpressSearch/GetExpSearch tui flow below.
@@ -36,6 +37,9 @@ import 'package:wander_nova/views/AKFlights/presentation/bloc/AKFlights_event.da
 import 'package:wander_nova/views/AKFlights/presentation/bloc/AKFlights_state.dart';
 import 'detail_popup.dart';
 import 'filter_screen.dart';
+import '../../../airport/presentation/screen/search_card.dart';
+import 'package:wander_nova/newUIWidgets/flight_offer_banner_carousel.dart';
+import 'package:wander_nova/newUIWidgets/bannerOffer.dart';
 
 // ---------------------------------------------------------------------------
 // Group model
@@ -182,6 +186,9 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
 
   bool _isApiCalled = false;
   int currentIndex = 0;
+
+  // top search drawer (edit icon)
+  bool _searchDrawerOpen = false;
 
   // Horizontally scrollable date strip (MMT style)
   DateTime? _selectedDate;
@@ -1184,33 +1191,109 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
   Widget build(BuildContext context) {
     return BlocProvider<AkflightsBloc>(
       create: (_) => _akflightsBloc,
-      child: Scaffold(
-        key: _scaffoldKey,
-        // One-way and round trip keep the Figma route-summary header;
-        // multi-city keeps the original Wander Nova logo bar, untouched.
-        appBar: _usesOneWayChrome
-            ? _buildOneWayHeader(context)
-            : AppBar(
-                title: const WanderNovaLogo(scaleFactor: 0.6),
-                backgroundColor: Colors.white,
-                elevation: 0,
-                actions: [
+      child: Stack(
+        children: [
+          Scaffold(
+            key: _scaffoldKey,
+            appBar: _usesOneWayChrome
+                ? _buildOneWayHeader(context)
+                : AppBar(
+                    title: const WanderNovaLogo(scaleFactor: 0.6),
+                    backgroundColor: Colors.white,
+                    elevation: 0,
+                    actions: [
+                      Padding(
+                        padding: EdgeInsets.all(context.w(8)),
+                        child: Image.asset(
+                          "assets/images/wander_logo.png",
+                          height: context.h(35),
+                        ),
+                      ),
+                    ],
+                  ),
+            backgroundColor: AppColors.white,
+            body: _buildBody(),
+            bottomNavigationBar: _usesOneWayChrome
+                ? null
+                : const CustomBottomNav(currentIndex: 0),
+          ),
+          // Top search drawer overlay
+          if (_searchDrawerOpen) _buildTopSearchDrawer(context),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTopSearchDrawer(BuildContext context) {
+    return AnimatedPositioned(
+      duration: const Duration(milliseconds: 320),
+      curve: Curves.easeInOutCubic,
+      top: 0,
+      left: 0,
+      right: 0,
+      child: Material(
+        color: Colors.transparent,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            // Dim the background
+            GestureDetector(
+              onTap: () => setState(() => _searchDrawerOpen = false),
+              child: Container(
+                width: MediaQuery.of(context).size.width,
+                height: MediaQuery.of(context).size.height,
+                color: Colors.black.withValues(alpha: 0.45),
+              ),
+            ),
+            // The search card sliding down
+            TweenAnimationBuilder<double>(
+              tween: Tween<double>(begin: -1, end: 0),
+              duration: const Duration(milliseconds: 320),
+              curve: Curves.easeOutCubic,
+              builder: (ctx, t, child) => Transform.translate(
+                offset: Offset(0, t * MediaQuery.of(context).size.height * 0.6),
+                child: child,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // The search card
+                  const SearchCard(),
+                  // Cross icon below card
                   Padding(
-                    padding: EdgeInsets.all(context.w(8)),
-                    child: Image.asset(
-                      "assets/images/wander_logo.png",
-                      height: context.h(35),
+                    padding: EdgeInsets.only(top: context.h(16), bottom: context.h(12)),
+                    child: Center(
+                      child: GestureDetector(
+                        onTap: () => setState(() => _searchDrawerOpen = false),
+                        child: Container(
+                          width: context.w(38),
+                          height: context.w(38),
+                          alignment: Alignment.center,
+                          decoration: const BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black26,
+                                blurRadius: 8,
+                                offset: Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Icon(
+                            Icons.close_rounded,
+                            size: context.w(20),
+                            color: Colors.black87,
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 ],
               ),
-        backgroundColor: AppColors.white,
-        body: _buildBody(),
-        // One-way and round trip use the Figma floating Sort / Non Stop /
-        // Filter bar instead of the app bottom nav; multi-city keeps it.
-        bottomNavigationBar: _usesOneWayChrome
-            ? null
-            : const CustomBottomNav(currentIndex: 0),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1394,7 +1477,7 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
                 ),
                 SizedBox(width: context.w(8)),
                 GestureDetector(
-                  onTap: () => Navigator.of(context).maybePop(),
+                  onTap: () => setState(() => _searchDrawerOpen = true),
                   behavior: HitTestBehavior.opaque,
                     child: Image.asset(
                       'assets/NewIcons/edit.png',
@@ -1838,9 +1921,15 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
                         context.w(16),
                         context.h(80),
                       ),
-                      itemCount: filtered.length,
+                      itemCount: filtered.length + 1,
                       itemBuilder: (ctx, idx) {
-                        final flight = filtered[idx];
+                        if (idx == 0) {
+                          return Padding(
+                            padding: EdgeInsets.only(bottom: context.h(12)),
+                            child: const BankOfferCarousel(),
+                          );
+                        }
+                        final flight = filtered[idx - 1];
                         // Collect one paired leg per extra leg list (Trips[1..N]).
                         final List<FlightEntity> allLegs = [flight];
                         for (int li = 0; li < returnByReturnIdList.length; li++) {
@@ -2266,9 +2355,15 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
                         context.w(16),
                         context.h(80),
                       ),
-                      itemCount: filtered.length,
+                      itemCount: filtered.length + 1,
                       itemBuilder: (ctx, idx) {
-                        final flight = filtered[idx];
+                        if (idx == 0) {
+                          return Padding(
+                            padding: EdgeInsets.only(bottom: context.h(12)),
+                            child: const BankOfferCarousel(),
+                          );
+                        }
+                        final flight = filtered[idx - 1];
                         final isSelected =
                             _legSelections[safeLeg]?.resultIndex ==
                                 (flight.resultIndex ?? '');
@@ -2456,6 +2551,10 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
           duration: _formatDuration(
               flight.duration != null ? int.tryParse(flight.duration!) : null),
           stopsLabel: _formatStops(flight.stops),
+          footer: Padding(
+            padding: EdgeInsets.only(top: context.h(10)),
+            child: _buildCardOffer(flight),
+          ),
         ),
       ),
     );
@@ -2853,9 +2952,20 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
                         0,
                         context.h(84),
                       ),
-                      itemCount: filtered.length,
+                      itemCount: filtered.length + 1,
                       itemBuilder: (context, i) {
-                        final flight = filtered[i];
+                        if (i == 0) {
+                          return Padding(
+                            padding: EdgeInsets.fromLTRB(
+                              context.w(14),
+                              context.h(6),
+                              context.w(14),
+                              context.h(8),
+                            ),
+                            child: const BankOfferCarousel(),
+                          );
+                        }
+                        final flight = filtered[i - 1];
                         final selected =
                             _legSelections[legIndex]?.resultIndex ==
                                 (flight.resultIndex ?? '');
@@ -3277,6 +3387,10 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
           duration: _formatDuration(
               flight.duration != null ? int.tryParse(flight.duration!) : null),
           stopsLabel: _formatStops(flight.stops),
+          footer: Padding(
+            padding: EdgeInsets.only(top: context.h(10)),
+            child: _buildCardOffer(flight),
+          ),
         ),
       ),
     );
@@ -3510,6 +3624,66 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
       return _buildNoResultsState();
     }
     final skeletonCount = isCompleted ? 0 : _loadingMoreSkeletonCount;
+    // Flat list layout (0-based index):
+    //   0         → BankOfferCarousel  (fixed top)
+    //   1         → group 0
+    //   2         → FlightOfferBannerCarousel  (after 1st card)
+    //   3–5       → groups 1–3
+    //   6         → BannerCarousel  (after 4 cards total: groups 0–3)
+    //   7–16      → groups 4–13
+    //   17        → BannerCarousel  (after 10 more cards)
+    //   18–27     → groups 14–23
+    //   28        → BannerCarousel  ...
+    //
+    // Non-group slots: BankOffer(0), FlightOfferBanner(2).
+    // First BannerCarousel at index 6 (1 + 1 + 3 cards + 1 banner slot = 6).
+    // Subsequent BannerCarousels every 11 slots (10 cards + 1 banner).
+
+    Widget _itemForIndex(int index) {
+      // ── Fixed top: BankOfferCarousel ──────────────────────────────
+      if (index == 0) {
+        return Padding(
+          padding: EdgeInsets.fromLTRB(context.w(0), context.h(8), context.w(0), context.h(4)),
+          child: const BankOfferCarousel(),
+        );
+      }
+      // ── After 1st card: FlightOfferBannerCarousel ─────────────────
+      if (index == 2) {
+        return Padding(
+          padding: EdgeInsets.only(bottom: context.h(12)),
+          child: const FlightOfferBannerCarousel(),
+        );
+      }
+      // ── BannerCarousel: first at index 6, then every 11 slots ─────
+      // index 6 = after 4 cards (groups 0-3 at indices 1,3,4,5)
+      // index 17 = 6 + 11, index 28 = 6 + 22, ...
+      if (index >= 6 && (index - 6) % 11 == 0) {
+        return Padding(
+          padding: EdgeInsets.only(bottom: context.h(12)),
+          child: const BannerCarousel(),
+        );
+      }
+
+      // ── Map flat index → group index ──────────────────────────────
+      // Count non-group slots at or before this index.
+      int nonGroupSlots = 1; // BankOffer at 0
+      if (index >= 2) nonGroupSlots += 1; // FlightOfferBanner at 2
+      if (index >= 6) {
+        nonGroupSlots += 1 + (index - 6) ~/ 11; // BannerCarousels at 6, 17, 28, ...
+      }
+      final groupIndex = index - nonGroupSlots;
+
+      if (groupIndex >= 0 && groupIndex < groups.length) {
+        return _buildGroupCard(groups[groupIndex]);
+      }
+      return _buildFlightCardSkeleton();
+    }
+
+    // BannerCarousels: first after 4 cards, then every 10 cards.
+    final bannerCount = groups.length >= 4 ? 1 + ((groups.length - 4) ~/ 10) : 0;
+    // Fixed slots: 1 BankOffer + 1 FlightOfferBanner = 2 extra slots.
+    final totalCount2 = 1 + groups.length + 1 + bannerCount + skeletonCount;
+
     return Container(
       color: AppColors.white,
       child: CustomScrollView(
@@ -3518,7 +3692,7 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
             child: Padding(
               padding: EdgeInsets.fromLTRB(
                 context.w(14),
-                context.h(10),
+                context.h(6),
                 context.w(14),
                 context.h(6),
               ),
@@ -3526,8 +3700,6 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
             ),
           ),
           SliverPadding(
-            // Extra bottom room so the last card clears the floating
-            // Sort / Non Stop / Filter bar.
             padding: EdgeInsets.fromLTRB(
               context.w(10),
               0,
@@ -3536,10 +3708,8 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
             ),
             sliver: SliverList(
               delegate: SliverChildBuilderDelegate(
-                (context, index) => index < groups.length
-                    ? _buildGroupCard(groups[index])
-                    : _buildFlightCardSkeleton(),
-                childCount: groups.length + skeletonCount,
+                (ctx, index) => _itemForIndex(index),
+                childCount: totalCount2,
               ),
             ),
           ),
@@ -3635,24 +3805,24 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
   // ---------------------------------------------------------------------------
   static const List<_FlightOffer> _offers = [
     _FlightOffer(
-      title: 'Free seat with Visa Signature cards',
-      code: 'VISASEAT',
-      icon: Icons.airline_seat_recline_extra_rounded,
-    ),
-    _FlightOffer(
-      title: 'Get 80% OFF with HDFC Credit Cards',
-      code: 'TESTING',
+      title: 'Flat 10% off using ICICI EMI | Flat 250 off with using this',
+      code: 'ICICIFLT',
       icon: Icons.local_offer_rounded,
     ),
     _FlightOffer(
-      title: 'Up to ₹2,000 OFF on your first booking',
-      code: 'TESTING-1',
-      icon: Icons.card_giftcard_rounded,
+      title: 'Save ₹1,500 with ICICI Debit EMI | Flat 250 off with using this',
+      code: 'ICICIEMI',
+      icon: Icons.credit_card_rounded,
     ),
     _FlightOffer(
-      title: '10% Cashback via Wander Wallet',
-      code: 'WNWALLET',
-      icon: Icons.account_balance_wallet_rounded,
+      title: '10% Instant discount via ICICI CC EMI | Flat 250 off with using this',
+      code: 'ICICI10',
+      icon: Icons.local_offer_rounded,
+    ),
+    _FlightOffer(
+      title: 'ICICI Bank EMI — Extra 12% off on flights | Flat 250 off with using this',
+      code: 'ICICIFLT12',
+      icon: Icons.card_giftcard_rounded,
     ),
   ];
 
@@ -3668,12 +3838,17 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
   /// MMT-style inline offer row shown at the bottom of a flight card.
   Widget _buildCardOffer(FlightEntity flight) {
     final offer = _offerFor(flight);
-    const Color offerColor = Color(0xff1A7F5A); // MMT-like green
-    return Container(
+    const Color offerColor = Color(0xFF16A34A);
+    return SizedBox(
       width: double.infinity,
       child: Row(
         children: [
-          Icon(offer.icon, size: context.w(14), color: offerColor),
+          Image.asset(
+            'assets/NewIcons/offerHD.png',
+            width: context.w(14),
+            height: context.w(14),
+            color: offerColor,
+          ),
           SizedBox(width: context.w(6)),
           Expanded(
             child: Text(
@@ -3685,27 +3860,6 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          SizedBox(width: context.w(6)),
-          Container(
-            padding: EdgeInsets.symmetric(
-              horizontal: context.w(6),
-              vertical: context.h(1),
-            ),
-            decoration: BoxDecoration(
-              border: Border.all(
-                color: offerColor.withValues(alpha: 0.5),
-              ),
-              borderRadius: BorderRadius.circular(context.r(4)),
-            ),
-            child: Text(
-              offer.code,
-              style: TextStyle(
-                color: offerColor,
-                fontSize: context.fs(9),
-                fontWeight: FontWeight.w800,
-              ),
             ),
           ),
         ],
@@ -3818,53 +3972,64 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
         ? flight.airlineName!.substring(0, 1).toUpperCase()
         : 'FL';
 
+    final offerRow = Padding(
+      padding: EdgeInsets.only(top: context.h(10)),
+      child: _buildCardOffer(flight),
+    );
+
     Widget? footer;
     if (extraCount > 0) {
-      footer = Padding(
-        padding: EdgeInsets.only(top: context.h(12)),
-        child: GestureDetector(
-          onTap: onMoreTap,
-          child: Container(
-            width: double.infinity,
-            padding: EdgeInsets.symmetric(
-              horizontal: context.w(12),
-              vertical: context.h(7),
-            ),
-            decoration: BoxDecoration(
-              color: AppColors.AppBlue.withValues(alpha: 0.06),
-              borderRadius: BorderRadius.circular(context.r(10)),
-              border: Border.all(
-                color: AppColors.AppBlue.withValues(alpha: 0.2),
-              ),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-
-
-                Text(
-                  isExpanded
-                      ? 'Hide extra flights'
-                      : '$extraCount more flight${extraCount > 1 ? 's' : ''} at the same price',
-                  style: TextStyle(
-                    fontSize: context.fs(12),
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.AppBlue,
+      footer = Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          offerRow,
+          Padding(
+            padding: EdgeInsets.only(top: context.h(10)),
+            child: GestureDetector(
+              onTap: onMoreTap,
+              child: Container(
+                width: double.infinity,
+                padding: EdgeInsets.symmetric(
+                  horizontal: context.w(12),
+                  vertical: context.h(7),
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.AppBlue.withValues(alpha: 0.06),
+                  borderRadius: BorderRadius.circular(context.r(10)),
+                  border: Border.all(
+                    color: AppColors.AppBlue.withValues(alpha: 0.2),
                   ),
                 ),
-                SizedBox(width: context.w(5)),
-                Icon(
-                  isExpanded
-                      ? Icons.keyboard_arrow_up_rounded
-                      : Icons.keyboard_arrow_down_rounded,
-                  size: context.w(16),
-                  color: AppColors.AppBlue,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      isExpanded
+                          ? 'Hide extra flights'
+                          : '$extraCount more flight${extraCount > 1 ? 's' : ''} at the same price',
+                      style: TextStyle(
+                        fontSize: context.fs(12),
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.AppBlue,
+                      ),
+                    ),
+                    SizedBox(width: context.w(5)),
+                    Icon(
+                      isExpanded
+                          ? Icons.keyboard_arrow_up_rounded
+                          : Icons.keyboard_arrow_down_rounded,
+                      size: context.w(16),
+                      color: AppColors.AppBlue,
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
-        ),
+        ],
       );
+    } else {
+      footer = offerRow;
     }
 
     return GestureDetector(

@@ -258,7 +258,7 @@ class FareQuoteData {
 /// (when known) the connecting airport(s), e.g. "1 Stop via BOM".
 String _stopsLabel(FlightRouteSegment route) {
   final stops = route.stops;
-  if (stops == null || stops <= 0) return 'Direct Flight';
+  if (stops == null || stops <= 0) return 'Non Stop';
   final via = route.viaAirports != null && route.viaAirports!.isNotEmpty
       ? ' via ${route.viaAirports!.join(', ')}'
       : '';
@@ -939,6 +939,29 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
 
 
 
+  String _cleanDuration(String duration, {String? depTime, String? arrTime}) {
+    final h = int.tryParse(RegExp(r'(\d+)h').firstMatch(duration)?.group(1) ?? '') ?? 0;
+    final m = int.tryParse(RegExp(r'(\d+)m').firstMatch(duration)?.group(1) ?? '') ?? 0;
+    if (h > 0 && m > 0) return '${h}h ${m}m';
+    if (h > 0) return '${h}h';
+    if (m > 0) return '${m}m';
+    if (depTime != null && arrTime != null) {
+      try {
+        final dep = DateTime.parse(depTime);
+        final arr = DateTime.parse(arrTime);
+        final diff = arr.difference(dep);
+        if (diff.inMinutes > 0) {
+          final dh = diff.inHours;
+          final dm = diff.inMinutes % 60;
+          if (dh > 0 && dm > 0) return '${dh}h ${dm}m';
+          if (dh > 0) return '${dh}h';
+          return '${dm}m';
+        }
+      } catch (_) {}
+    }
+    return duration.trim();
+  }
+
   String _headerTitle(FlightRouteSegment route) {
     if (widget.routes.length > 1) {
       // Multi-city: show all legs as "City1 · City2 · City3"
@@ -1163,7 +1186,11 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
                           SizedBox(width: context.w(4)),
                           Flexible(
                             child: Text(
-                              route.duration,
+                              _cleanDuration(
+                                route.duration,
+                                depTime: route.departureTime,
+                                arrTime: route.arrivalTime,
+                              ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
@@ -2438,6 +2465,38 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
         .where((n) => n.isNotEmpty)
         .toList();
 
+    // Validate infant ages: infants must be under 2 years on travel date.
+    // Prefer the raw ISO departureTime from the route; fall back to departureDate.
+    final rawDep = route.departureTime.isNotEmpty ? route.departureTime : (route.departureDate ?? '');
+    final travelDateStr = rawDep;
+    if (travelDateStr.isNotEmpty) {
+      DateTime? travelDate;
+      try { travelDate = DateTime.parse(travelDateStr.replaceFirst(' ', 'T')); } catch (_) {}
+      if (travelDate != null) {
+        for (final t in travellers) {
+          if ((t['paxType'] ?? '').toString().toUpperCase() != 'INF') continue;
+          final dobIso = _toIsoDate((t['dateOfBirth'] ?? '').toString());
+          DateTime? dob;
+          try { dob = DateTime.parse(dobIso); } catch (_) {}
+          if (dob == null) continue;
+          final age2 = DateTime(dob.year + 2, dob.month, dob.day);
+          if (!travelDate.isBefore(age2)) {
+            final name = '${t['firstName'] ?? ''} ${t['lastName'] ?? ''}'.trim();
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  'Infant${name.isNotEmpty ? ' $name' : ''} will be 2 or older on the travel date. '
+                  'Please book as a child (2–11 years).',
+                ),
+                duration: const Duration(seconds: 5),
+              ),
+            );
+            return;
+          }
+        }
+      }
+    }
+
     // Seats / meals / baggage come next in the flow. SelectSeats and
     // SelectSSR must run before CreateItinerary, because they're what put
     // the add-on cost onto the server-side session that CreateItinerary
@@ -2690,9 +2749,21 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
 
     if (state is AkCreateItineraryFailed) {
       if (feedbackContext.mounted) {
+        final body = state.error.response?.data;
+        String msg = 'Could not confirm your itinerary. Please try again.';
+        if (body is Map) {
+          final apiError = body['error']?.toString() ?? '';
+          final details = body['details'];
+          if (details is List && details.isNotEmpty) {
+            msg = details.map((d) => d.toString()).join('\n');
+          } else if (apiError.isNotEmpty) {
+            msg = apiError;
+          }
+        }
         ScaffoldMessenger.of(feedbackContext).showSnackBar(
           SnackBar(
-            content: Text(state.error.message ?? 'Could not confirm your itinerary. Please try again.'),
+            content: Text(msg),
+            duration: const Duration(seconds: 6),
           ),
         );
       }

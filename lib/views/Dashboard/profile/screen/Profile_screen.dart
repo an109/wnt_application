@@ -302,10 +302,34 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             bottom: context.fx(32),
                           ),
                           children: [
-                            AccountHeaderCard(
-                              name: _userData?['name'] ?? '',
-                              phone: _displayValue(_userData?['phone']),
-                              email: _displayValue(_userData?['email']),
+                            // AccountHeaderCard(
+                            //   name: _userData?['name'] ?? '',
+                            //   phone: _displayValue(_userData?['phone']),
+                            //   email: _displayValue(_userData?['email']),
+                            // ),
+                            Stack(
+                              clipBehavior: Clip.none,
+                              children: [
+                                AccountHeaderCard(
+                                  name: _userData?['name'] ?? '',
+                                  phone: _displayValue(_userData?['phone']),
+                                  email: _displayValue(_userData?['email']),
+                                ),
+                                // Rotated GIF positioned above the first letter
+                                Positioned(
+                                  // Adjust these based on your AccountHeaderCard's avatar/name layout
+                                  left: context.fx(75),
+                                  top: context.fx(13),
+                                  child: Transform.rotate(
+                                    angle: -0.785, // 45 degrees counter-clockwise
+                                    child: Image.asset(
+                                      'assets/Newgif/profile.gif',
+                                      width: context.fx(20),
+                                      height: context.fx(20),
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                             SizedBox(height: context.fx(28)),
                             _buildPersonalInfoCard(),

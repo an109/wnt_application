@@ -187,7 +187,7 @@ class AccountHeaderCard extends StatelessWidget {
             padding: EdgeInsets.symmetric(horizontal: context.fx(10)),
             child: Row(
               children: [
-                AccountAvatar(name: name, imageUrl: avatarUrl, size: context.fx(68), crown: true),
+                AccountAvatar(name: name, imageUrl: avatarUrl, size: context.fx(68), crown: false),
                 SizedBox(width: context.fx(10)),
                 Expanded(
                   child: Column(
