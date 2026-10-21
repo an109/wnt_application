@@ -181,7 +181,7 @@ class AkFareFamilyDetailsModel extends AkFareFamilyDetailsEntity {
       j['Name'],
     ]);
 
-    final amount = _toDouble(j['NetFare'] ?? j['GrossFare'] ?? j['Amount'] ?? 0);
+    final amount = _toDouble(j['GrossFare'] ?? j['Amount'] ?? 0);
     final refundable =
         (j['Refundable']?.toString().toUpperCase() ?? '') == 'Y';
 
@@ -207,7 +207,7 @@ class AkFareFamilyDetailsModel extends AkFareFamilyDetailsEntity {
       f['name'],
     ]);
 
-    final amount = _toDouble(f['NetFare'] ?? f['Amount'] ?? f['amount'] ?? 0);
+    final amount = _toDouble(f['GrossFare'] ?? f['Amount'] ?? f['amount'] ?? 0);
     final refundable =
         (f['Refundable']?.toString().toUpperCase() ?? '') == 'Y';
 

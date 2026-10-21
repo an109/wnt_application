@@ -78,6 +78,10 @@ class FlightDetailsPopup extends StatefulWidget {
   /// Session ID from MultiCity/Search/ — required for DM pricing and booking.
   final String? searchSessionId;
 
+  /// IM only: each package's legs 2..N keyed by ReturnIdentifier. Picking a
+  /// different leg-1 fare swaps [additionalLegs] for that fare's partners.
+  final Map<int, List<FlightLegSelection>> imPartnerLegs;
+
   const FlightDetailsPopup({
     super.key,
     required this.tui,
@@ -102,6 +106,7 @@ class FlightDetailsPopup extends StatefulWidget {
     this.tripType = 'ON',
     this.additionalLegs = const [],
     this.searchSessionId,
+    this.imPartnerLegs = const {},
   });
 
   static void show(BuildContext context, {
@@ -127,6 +132,7 @@ class FlightDetailsPopup extends StatefulWidget {
     String tripType = 'ON',
     List<FlightLegSelection> additionalLegs = const [],
     String? searchSessionId,
+    Map<int, List<FlightLegSelection>> imPartnerLegs = const {},
   }) {
     // Was a `showModalBottomSheet` — now a full screen (see class doc) so the
     // fare-options flow gets its own back-stack entry instead of a dismissible
@@ -158,6 +164,7 @@ class FlightDetailsPopup extends StatefulWidget {
           tripType: tripType,
           additionalLegs: additionalLegs,
           searchSessionId: searchSessionId,
+          imPartnerLegs: imPartnerLegs,
         ),
       ),
     );
@@ -192,10 +199,9 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup> with SingleTick
   AkGetSPricerEntity? _pricerData;
   bool _fareChangeAccepted = false;
   late String _selectedIndex;
-  /// Gross/retail fare — shown to the user.
+  /// Gross fare — shown to the user and sent as `amount` to the Akbar
+  /// pricing APIs (SmartPricer, FlightInfo, FareRule, FareFamilyDetails).
   late double _selectedAmount;
-  /// Net/agent fare — sent to Akbar's SmartPricer/FareFamilyDetails APIs.
-  late double _selectedNetAmount;
 
   /// Legs 2..N as currently chosen. Seeded from what the results screen
   /// picked, then rewritten when the traveller switches that leg's fare on
@@ -242,9 +248,16 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup> with SingleTick
   /// made the RETURN tab quote the outbound flight's fares.
   List<FareFamilyIndexEntity> get _fareOptions {
     final tab = _activeLegTab;
-    final options = tab == 0
+    var options = tab == 0
         ? widget.fareFamilyOptions
         : _additionalLegs[tab - 1].flight.fareFamilyOptions;
+    // IM: only offer leg-1 fares whose package partners are known — any
+    // other one can't be priced as a whole journey.
+    if (tab == 0 && options != null && widget.imPartnerLegs.isNotEmpty) {
+      options = options
+          .where((o) => widget.imPartnerLegs.containsKey(o.returnIdentifier))
+          .toList();
+    }
     if (options != null && options.isNotEmpty) return options;
     return [
       FareFamilyIndexEntity(
@@ -314,7 +327,6 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup> with SingleTick
     super.initState();
     _selectedIndex = widget.resultIndex;
     _selectedAmount = widget.amount;
-    _selectedNetAmount = widget.netAmount;
     _additionalLegs = List<FlightLegSelection>.of(widget.additionalLegs);
 
     _bloc = sl<AkFlightInfoBloc>();
@@ -378,12 +390,12 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup> with SingleTick
           trips: [
             AkFareFamilyDetailsTripRequestEntity(
               index: _selectedIndex,
-              amount: _selectedNetAmount,
+              amount: _selectedAmount,
               orderId: 1,
             ),
             AkFareFamilyDetailsTripRequestEntity(
               index: returnLeg.resultIndex,
-              amount: returnLeg.netAmount,
+              amount: returnLeg.amount,
               orderId: 2,
             ),
           ],
@@ -430,9 +442,13 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup> with SingleTick
         tui: widget.tui,
         tuis: legTuis,
         trips: [
-          AkFareRuleTripRequestEntity(index: _selectedIndex, amount: _selectedNetAmount, orderId: 1),
+          AkFareRuleTripRequestEntity(index: _selectedIndex, amount: _selectedAmount, orderId: 1),
           for (final leg in _additionalLegs)
-            AkFareRuleTripRequestEntity(index: leg.resultIndex, amount: leg.netAmount, orderId: leg.orderId),
+            AkFareRuleTripRequestEntity(
+              index: leg.resultIndex,
+              amount: leg.amount,
+              orderId: leg.orderId,
+            ),
         ],
       ),
     ));
@@ -458,11 +474,15 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup> with SingleTick
         trips: [
           AkFlightInfoTripRequestEntity(
             index: _selectedIndex,
-            amount: _selectedNetAmount,
+            amount: _selectedAmount,
             orderId: 1,
           ),
           for (final leg in _additionalLegs)
-            AkFlightInfoTripRequestEntity(index: leg.resultIndex, amount: leg.netAmount, orderId: leg.orderId),
+            AkFlightInfoTripRequestEntity(
+              index: leg.resultIndex,
+              amount: leg.amount,
+              orderId: leg.orderId,
+            ),
         ],
       ),
     ));
@@ -489,11 +509,19 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup> with SingleTick
         trips: [
           AkSmartPricerTripRequestEntity(
             index: _selectedIndex,
-            amount: _selectedNetAmount,
+            amount: _selectedAmount,
             orderId: 1,
           ),
           for (final leg in _additionalLegs)
-            AkSmartPricerTripRequestEntity(index: leg.resultIndex, amount: leg.netAmount, orderId: leg.orderId),
+            AkSmartPricerTripRequestEntity(
+              index: leg.resultIndex,
+              // IM Trips[1..N] are zero-fare partner legs: Trips[0] carries
+              // the whole package fare. Substituting the package total here
+              // declares the journey at N× its price and GetSPricer fails
+              // with 5071 "Pricing failed from provider".
+              amount: leg.amount,
+              orderId: leg.orderId,
+            ),
         ],
         preview: preview,
         tuis: legTuis,
@@ -504,13 +532,16 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup> with SingleTick
   Future<void> _loadDmPricingPreview() async {
     _smartPricerRequested = true;
     final dmSessionId = widget.searchSessionId;
-    if (dmSessionId == null || dmSessionId.isEmpty) return;
+    if (dmSessionId == null || dmSessionId.isEmpty) {
+      if (mounted) setState(() => _switchingFare = false);
+      return;
+    }
 
     final dio = sl<Dio>();
     final legs = [
-      {'index': _selectedIndex, 'amount': _selectedNetAmount, 'order_id': 1},
+      {'index': _selectedIndex, 'amount': _selectedAmount, 'order_id': 1},
       for (final leg in _additionalLegs)
-        {'index': leg.resultIndex, 'amount': leg.netAmount, 'order_id': leg.orderId},
+        {'index': leg.resultIndex, 'amount': leg.amount, 'order_id': leg.orderId},
     ];
 
     try {
@@ -532,9 +563,10 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup> with SingleTick
       _pricingTui = gspData['TUI']?.toString() ?? gspData['tui']?.toString() ?? '';
       _pricerData = AkGetSPricerModel.fromJson(gspData);
       _commitDone = true; // reuse this at Book Now time
-      if (mounted) setState(() {});
+      if (mounted) setState(() => _switchingFare = false);
     } catch (_) {
       // Silently ignore — _commitPricing() will retry at booking time.
+      if (mounted) setState(() => _switchingFare = false);
     }
   }
 
@@ -552,7 +584,12 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup> with SingleTick
       if (tab == 0) {
         _selectedIndex = option.index;
         _selectedAmount = option.amount;
-        _selectedNetAmount = option.netAmount;
+        // IM: the new fare is a different package — its later legs are its
+        // own partners, not the previous fare's.
+        final partners = widget.imPartnerLegs[option.returnIdentifier];
+        if (partners != null) {
+          _additionalLegs = List<FlightLegSelection>.of(partners);
+        }
       } else {
         // Same leg, different fare family: keep its orderId and TUI so the
         // pricing calls still address the right trip.
@@ -888,6 +925,8 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup> with SingleTick
   }
 
   String _legTabLabel(int index, int totalLegs) {
+    // IM is a multi-city package — always use "Leg N" labels.
+    if (widget.tripType == 'IM') return 'Leg ${index + 1}';
     if (totalLegs == 2) return index == 0 ? 'ONWARD' : 'RETURN';
     return 'FLIGHT ${index + 1}';
   }
@@ -2068,54 +2107,134 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup> with SingleTick
       return _legRouteCard(context, journey: legJourneys[tab]);
     }
 
-    // DM leg beyond what FlightInfo returned — use widget data.
+    // DM leg beyond what FlightInfo returned — synthesise a journey from
+    // search data so _legRouteCard renders it in the same rich card style.
     if (tab == 0) {
-      return _dmLegRouteCard(context,
-          fromCode: widget.fromCode,
-          toCode: widget.toCode,
-          airlineCode: widget.airlineCode,
-          airlineName: widget.airlineName,
-          flightNo: widget.flightNumber,
-          departureTime: widget.departureTime,
-          arrivalTime: widget.arrivalTime,
-          duration: widget.duration);
+      return _legRouteCard(context,
+          journey: _journeyFromWidgetData(
+            fromCode: widget.fromCode,
+            toCode: widget.toCode,
+            airlineCode: widget.airlineCode,
+            airlineName: widget.airlineName,
+            flightNo: widget.flightNumber,
+            departureTime: widget.departureTime,
+            arrivalTime: widget.arrivalTime,
+            duration: widget.duration,
+            stops: 0,
+            refundable: 'N',
+            cabin: '',
+          ));
     }
     final leg = _additionalLegs[tab - 1];
-    return _dmLegRouteCard(context,
-        fromCode: leg.flight.origin ?? '',
-        toCode: leg.flight.destination ?? '',
-        airlineCode: leg.flight.airlineCode ?? '',
-        airlineName: leg.flight.airlineName ?? '',
-        flightNo: leg.flight.flightNumber ?? '',
-        departureTime: leg.flight.departureTime ?? '',
-        arrivalTime: leg.flight.arrivalTime ?? '',
-        duration: leg.flight.duration ?? '');
+    final f = leg.flight;
+    return _legRouteCard(context,
+        journey: _journeyFromWidgetData(
+          fromCode: f.origin ?? '',
+          toCode: f.destination ?? '',
+          fromName: f.originName ?? '',
+          toName: f.destinationName ?? '',
+          airlineCode: f.airlineCode ?? '',
+          airlineName: f.airlineName ?? '',
+          flightNo: f.flightNumber ?? '',
+          departureTime: f.departureTime ?? '',
+          arrivalTime: f.arrivalTime ?? '',
+          duration: _durationToMinutesStr(f.duration ?? ''),
+          stops: f.stops ?? 0,
+          refundable: (f.refundable ?? false) ? 'Y' : 'N',
+          cabin: f.cabinClass ?? '',
+        ));
+  }
+
+  /// Builds a minimal [AkFlightInfoJourneyEntity] from raw field values so
+  /// [_legRouteCard] can render legs where FlightInfo data is unavailable.
+  AkFlightInfoJourneyEntity _journeyFromWidgetData({
+    required String fromCode,
+    required String toCode,
+    String fromName = '',
+    String toName = '',
+    required String airlineCode,
+    required String airlineName,
+    required String flightNo,
+    required String departureTime,
+    required String arrivalTime,
+    required String duration,
+    required int stops,
+    required String refundable,
+    required String cabin,
+  }) {
+    final flight = AkFlightInfoFlightEntity(
+      fuid: 0, vac: '', mac: airlineCode, oac: airlineCode, fbc: '',
+      airline: airlineName,
+      flightNo: flightNo,
+      departureTime: departureTime,
+      arrivalTime: arrivalTime,
+      fareClass: '',
+      departureCode: fromCode,
+      arrivalCode: toCode,
+      departureTerminal: '',
+      arrivalTerminal: '',
+      depAirportName: fromName.isNotEmpty ? fromName : fromCode,
+      arrAirportName: toName.isNotEmpty ? toName : toCode,
+      equipmentType: '', aircraft: '', rbd: '',
+      cabin: cabin,
+      refundable: refundable,
+      seats: 0,
+      duration: duration,
+    );
+    const fare = AkFlightInfoFareEntity(
+      grossFare: 0, netFare: 0, totalBaseFare: 0, totalTax: 0,
+      totalServiceTax: 0, totalTransactionFee: 0, totalCommission: 0,
+    );
+    return AkFlightInfoJourneyEntity(
+      provider: '', stops: stops, orderId: 1,
+      grossFare: 0, netFare: 0,
+      duration: duration, promo: '',
+      fareType: widget.tripType,
+      segments: [AkFlightInfoSegmentEntity(flight: flight, fare: fare)],
+    );
+  }
+
+  /// Converts a raw duration value to the "Xh Ym" format [_cleanDuration] expects.
+  /// Handles plain minutes ("95"), ISO-style ("PT1H35M"), and already-formatted strings.
+  String _durationToMinutesStr(String raw) {
+    if (raw.isEmpty) return '';
+    // Plain integer minutes → convert to "Xh Ym".
+    final mins = int.tryParse(raw.trim());
+    if (mins != null && mins > 0) {
+      final h = mins ~/ 60;
+      final m = mins % 60;
+      if (h > 0 && m > 0) return '${h}h ${m}m';
+      if (h > 0) return '${h}h';
+      return '${m}m';
+    }
+    return raw;
   }
 
   Widget _loadedContent(BuildContext context, AkFlightInfoEntity data, [AkGetSPricerEntity? pricerData]) {
-    final journey = data.trips.isNotEmpty && data.trips.first.journey.isNotEmpty
+    final firstJourney = data.trips.isNotEmpty && data.trips.first.journey.isNotEmpty
         ? data.trips.first.journey.first
         : null;
 
-    if (journey == null || journey.segments.isEmpty) {
+    if (firstJourney == null || firstJourney.segments.isEmpty) {
       return _errorState(context, 'No flight details available for this fare.');
     }
+
+    // One resolved journey per leg (Onward, Return, or each multi-city leg).
+    final legJourneys = <AkFlightInfoJourneyEntity>[
+      firstJourney,
+      for (final trip in data.trips.skip(1))
+        if (trip.journey.isNotEmpty && trip.journey.first.segments.isNotEmpty) trip.journey.first,
+    ];
+
+    // Use the active tab's journey for per-leg details (route card, baggage,
+    // book button). Falls back to leg 1 when FlightInfo didn't return that leg.
+    final totalLegs = 1 + _additionalLegs.length;
+    final activeTab = _selectedLegTab.clamp(0, totalLegs - 1);
+    final journey = activeTab < legJourneys.length ? legJourneys[activeTab] : firstJourney;
 
     final segments = journey.segments;
     final isFullyRefundable = segments.every((s) => s.flight.refundable.toUpperCase() == 'Y');
     final fareChanged = pricerData?.fareChanged ?? false;
-
-    // One resolved journey per leg (Onward, Return, or each multi-city leg) —
-    // matches what `_bookNow`'s additionalLegRoutes already reads from
-    // data.trips.skip(1). Falls back to just the primary journey when a
-    // later trip hasn't resolved yet (or genuinely is a plain one-way),
-    // so the round-trip/multi-city case only ever adds cards, never removes
-    // the one-way rendering below.
-    final legJourneys = <AkFlightInfoJourneyEntity>[
-      journey,
-      for (final trip in data.trips.skip(1))
-        if (trip.journey.isNotEmpty && trip.journey.first.segments.isNotEmpty) trip.journey.first,
-    ];
 
     return Column(
       children: [
@@ -2123,50 +2242,10 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup> with SingleTick
         if (fareChanged) SizedBox(height: context.h(10)),
         _activeRouteCard(context, legJourneys, data, pricerData),
         SizedBox(height: context.h(20)),
-        if (_fareOptions.length > 1)
-          BlocBuilder<AkFareFamilyDetailsBloc, AkFareFamilyDetailsState>(
-            builder: (context, ffState) {
-              // Only show the fare selector once the FareFamilyDetails API
-              // has responded with labels. Showing it while loading or after
-              // a failure would display made-up "Saver/Standard/Flexi"
-              // labels that don't reflect the airline's real fare names.
-              if (ffState is AkFareFamilyDetailsLoaded) {
-                return Column(
-                  children: [
-                    _fareSelector(context),
-                    SizedBox(height: context.h(30)),
-                  ],
-                );
-              }
-              if (ffState is AkFareFamilyDetailsLoading ||
-                  ffState is AkFareFamilyDetailsInitial) {
-                return Padding(
-                  padding: EdgeInsets.only(bottom: context.h(30)),
-                  child: Row(
-                    children: [
-                      SizedBox(
-                        width: context.w(14),
-                        height: context.w(14),
-                        child: const CircularProgressIndicator(
-                            strokeWidth: 2, color: Color(0xff3B82F6)),
-                      ),
-                      SizedBox(width: context.w(8)),
-                      Text(
-                        'Loading fare options…',
-                        style: TextStyle(
-                          color: const Color(0xff64748B),
-                          fontSize: context.fs(12),
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }
-              // Failed — omit the section entirely so no incorrect labels show.
-              return const SizedBox.shrink();
-            },
-          ),
+        if (_fareOptions.length > 1) ...[
+          _fareSelector(context),
+          SizedBox(height: context.h(30)),
+        ],
         _fareFamilyDetailCard(context, pricerData, isFullyRefundable),
         SizedBox(height: context.h(20)),
         _priceDropProtectionToggle(context),
@@ -3037,7 +3116,7 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup> with SingleTick
       bool fareChanged,
       ) async {
     if (fareChanged && !_fareChangeAccepted) {
-      final accepted = await _confirmFareChange(context, data.netAmount);
+      final accepted = await _confirmFareChange(context, _tripNetAmount(data));
       if (!accepted) return;
       _fareChangeAccepted = true;
     }
@@ -3079,9 +3158,9 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup> with SingleTick
 
       final dio = sl<Dio>();
       final legs = [
-        {'index': _selectedIndex, 'amount': _selectedNetAmount, 'order_id': 1},
+        {'index': _selectedIndex, 'amount': _selectedAmount, 'order_id': 1},
         for (final leg in _additionalLegs)
-          {'index': leg.resultIndex, 'amount': leg.netAmount, 'order_id': leg.orderId},
+          {'index': leg.resultIndex, 'amount': leg.amount, 'order_id': leg.orderId},
       ];
 
       try {
@@ -3147,9 +3226,13 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup> with SingleTick
         searchTui: widget.tui,
         tripType: widget.tripType,
         trips: [
-          AkSmartPricerTripRequestEntity(index: _selectedIndex, amount: _selectedNetAmount, orderId: 1),
+          AkSmartPricerTripRequestEntity(index: _selectedIndex, amount: _selectedAmount, orderId: 1),
           for (final leg in _additionalLegs)
-            AkSmartPricerTripRequestEntity(index: leg.resultIndex, amount: leg.netAmount, orderId: leg.orderId),
+            AkSmartPricerTripRequestEntity(
+              index: leg.resultIndex,
+              amount: leg.amount,
+              orderId: leg.orderId,
+            ),
         ],
         preview: false,
       ),
@@ -3365,14 +3448,14 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup> with SingleTick
           duration: _cleanDuration(legJourney.duration),
           airline: _marketingSegment(legFirstFlight.airline, fallback: legFirstFlight.airline),
           flightNo: "${_airlineCodeOf(legFirstFlight)} • ${legFirstFlight.flightNo}",
-          price: '₹${legJourney.netFare.toStringAsFixed(0)}',
+          price: '₹${legJourney.grossFare.toStringAsFixed(0)}',
           stops: legJourney.stops,
           viaAirports: _viaAirportsOf(legSegments),
           isRefundable: legSegments.every((s) => s.flight.refundable.toUpperCase() == 'Y'),
           searchTui: widget.tui,
           pricingTui: _pricingTui,
           sessionId: _sessionId,
-          amount: legJourney.netFare,
+          amount: legJourney.grossFare,
           akFareData: _pricerData,
           legIndex: tripIndex,
         );

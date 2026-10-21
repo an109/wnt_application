@@ -76,6 +76,10 @@ class FareFamilyIndexEntity extends Equatable {
   final bool refundable;
   /// Human-readable fare family name (FCType from search, e.g. "ECONOMY LIGHT").
   final String? label;
+  /// IM only: the package this fare belongs to. Each Trips[0] row pairs with
+  /// its own zero-fare partners in Trips[1..N] under this id, so switching
+  /// to this fare must switch the later legs to its partners too.
+  final int? returnIdentifier;
 
   const FareFamilyIndexEntity({
     required this.index,
@@ -83,6 +87,7 @@ class FareFamilyIndexEntity extends Equatable {
     double? netAmount,
     required this.refundable,
     this.label,
+    this.returnIdentifier,
   }) : netAmount = netAmount ?? amount;
 
   FareFamilyIndexEntity withLabel(String? label) => FareFamilyIndexEntity(
@@ -91,10 +96,11 @@ class FareFamilyIndexEntity extends Equatable {
         netAmount: netAmount,
         refundable: refundable,
         label: label,
+        returnIdentifier: returnIdentifier,
       );
 
   @override
-  List<Object?> get props => [index, amount, netAmount, refundable, label];
+  List<Object?> get props => [index, amount, netAmount, refundable, label, returnIdentifier];
 }
 
 class FlightEntity extends Equatable {

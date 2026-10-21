@@ -13,6 +13,7 @@ import '../../../../core/resources/app_colours.dart';
 import '../../../../core/constants/urls.dart';
 import '../../../../core/utils/storage/shared_preference.dart';
 import '../../../../injection_container.dart' as di;
+import '../../../AKInsurance/presentation/screens/ins_home_screen.dart';
 import '../../../MainApi/domain/entities/general_setting_entity.dart';
 import '../../../MainApi/presentation/bloc/general_setting_bloc.dart';
 import '../../../MainApi/presentation/bloc/general_settings_event.dart';
@@ -1765,7 +1766,8 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
               SizedBox(height: context.h(24)),
               GestureDetector(
                 behavior: HitTestBehavior.opaque,
-                onTap: () => _scrollToSection(_sections.length - 1),
+                // onTap: () => _scrollToSection(_sections.length - 1),
+                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => InsHomeScreen() )),
                 child: Container(
                   width: double.infinity,
                   height: context.h(44),

@@ -623,6 +623,7 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
         amount: flight.grossFare,
         refundable: flight.refundable.toUpperCase() == 'Y',
         label: flight.fcType,
+        returnIdentifier: flight.returnIdentifier > 0 ? flight.returnIdentifier : null,
       );
     }
     return (flights: flights, siblings: siblingsByKey);
@@ -4458,7 +4459,43 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
       tripType: widget.fareType,
       additionalLegs: selections.sublist(1),
       searchSessionId: widget.sessionId,
+      imPartnerLegs: _fareTripType == FareTripType.internationalMulticity
+          ? _imPartnerLegsByReturnId()
+          : const {},
     );
+  }
+
+  /// IM: every package's later legs (Trips[1..N]) keyed by ReturnIdentifier,
+  /// so the details screen can swap them in when the traveller picks another
+  /// leg-1 fare. Pricing leg 1's new Index with the old fare's partners asks
+  /// Akbar for a combination it never offered — SmartPricer answers 1601.
+  Map<int, List<FlightLegSelection>> _imPartnerLegsByReturnId() {
+    final legLists = _imLegLists;
+    if (legLists == null || legLists.length < 2) return const {};
+    final byLeg = [
+      for (final leg in legLists.skip(1))
+        {
+          for (final f in leg)
+            if (f.returnIdentifier != null) f.returnIdentifier!: f,
+        },
+    ];
+    final result = <int, List<FlightLegSelection>>{};
+    for (final returnId in byLeg.first.keys) {
+      final partners = <FlightLegSelection>[];
+      for (var i = 0; i < byLeg.length; i++) {
+        final f = byLeg[i][returnId];
+        if (f == null) break;
+        partners.add(FlightLegSelection(
+          orderId: i + 2,
+          resultIndex: f.resultIndex ?? '',
+          amount: (f.totalFare ?? 0).toDouble(),
+          netAmount: (f.netFare ?? f.totalFare ?? 0).toDouble(),
+          flight: f,
+        ));
+      }
+      if (partners.length == byLeg.length) result[returnId] = partners;
+    }
+    return result;
   }
 
   // ---------------------------------------------------------------------------
