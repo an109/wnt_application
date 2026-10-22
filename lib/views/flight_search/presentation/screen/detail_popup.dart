@@ -43,6 +43,8 @@ import 'package:wander_nova/views/AKGetSPricer/domain/usecase/AKGetSPricer_useca
 import 'package:wander_nova/views/flight_search/presentation/screen/booking_screen.dart';
 import 'package:wander_nova/common_widgets/currency_scope.dart';
 import 'package:wander_nova/core/resources/app_colours.dart';
+import 'package:wander_nova/newUIWidgets/detail_offers_strip.dart';
+import 'package:wander_nova/newUIWidgets/flight_offer_banner_carousel.dart';
 import 'package:wander_nova/newUIWidgets/fare_breakup_sheet.dart';
 
 import '../../../../core/constants/urls.dart';
@@ -2295,10 +2297,12 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup>
           duration: legDuration,
           stops: legStops,
         ),
+        SizedBox(height: context.h(12)),
+        const FlightOfferBannerCarousel(),
         SizedBox(height: context.h(20)),
         _fareFamilyDetailCard(context, null, false),
-        // SizedBox(height: context.h(20)),
-        // _priceDropProtectionToggle(context),
+        SizedBox(height: context.h(12)),
+        const DetailOffersStrip(),
         SizedBox(height: context.h(30)),
         // Build a minimal entity + journey from the active leg's data so
         // _bookButton / _handleBookNow can construct a FlightRouteSegment.
@@ -2668,6 +2672,8 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup>
         if (fareChanged) _fareChangedBanner(context),
         if (fareChanged) SizedBox(height: context.h(10)),
         _activeRouteCard(context, legJourneys, data, pricerData),
+        SizedBox(height: context.h(12)),
+        const FlightOfferBannerCarousel(),
         SizedBox(height: context.h(20)),
         if (_fareOptions.length > 1) ...[
           _fareSelector(context),
@@ -2691,6 +2697,8 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup>
                 ),
           SizedBox(height: context.h(16)),
         ],
+        const DetailOffersStrip(),
+        SizedBox(height: context.h(16)),
       ],
     );
   }

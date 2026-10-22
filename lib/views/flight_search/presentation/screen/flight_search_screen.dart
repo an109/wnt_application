@@ -1924,15 +1924,13 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
                         context.w(16),
                         context.h(80),
                       ),
-                      itemCount: filtered.length + 1,
+                      itemCount: _listItemCount(filtered.length),
                       itemBuilder: (ctx, idx) {
-                        if (idx == 0) {
-                          return Padding(
-                            padding: EdgeInsets.only(bottom: context.h(12)),
-                            child: const BankOfferCarousel(),
-                          );
-                        }
-                        final flight = filtered[idx - 1];
+                        final banner = _listBannerAt(idx);
+                        if (banner != null) return Padding(padding: EdgeInsets.only(bottom: context.h(12)), child: banner);
+                        final flightIdx = _listFlightIndex(idx);
+                        if (flightIdx < 0 || flightIdx >= filtered.length) return const SizedBox.shrink();
+                        final flight = filtered[flightIdx];
                         // Collect one paired leg per extra leg list (Trips[1..N]).
                         final List<FlightEntity> allLegs = [flight];
                         for (int li = 0; li < returnByReturnIdList.length; li++) {
@@ -2358,15 +2356,13 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
                         context.w(16),
                         context.h(80),
                       ),
-                      itemCount: filtered.length + 1,
+                      itemCount: _listItemCount(filtered.length),
                       itemBuilder: (ctx, idx) {
-                        if (idx == 0) {
-                          return Padding(
-                            padding: EdgeInsets.only(bottom: context.h(12)),
-                            child: const BankOfferCarousel(),
-                          );
-                        }
-                        final flight = filtered[idx - 1];
+                        final banner = _listBannerAt(idx);
+                        if (banner != null) return Padding(padding: EdgeInsets.only(bottom: context.h(12)), child: banner);
+                        final flightIdx = _listFlightIndex(idx);
+                        if (flightIdx < 0 || flightIdx >= filtered.length) return const SizedBox.shrink();
+                        final flight = filtered[flightIdx];
                         final isSelected =
                             _legSelections[safeLeg]?.resultIndex ==
                                 (flight.resultIndex ?? '');
@@ -2955,20 +2951,20 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
                         0,
                         context.h(84),
                       ),
-                      itemCount: filtered.length + 1,
+                      itemCount: _listItemCount(filtered.length),
                       itemBuilder: (context, i) {
-                        if (i == 0) {
+                        final banner = _listBannerAt(i);
+                        if (banner != null) {
                           return Padding(
                             padding: EdgeInsets.fromLTRB(
-                              context.w(14),
-                              context.h(6),
-                              context.w(14),
-                              context.h(8),
+                              context.w(14), context.h(6), context.w(14), context.h(8),
                             ),
-                            child: const BankOfferCarousel(),
+                            child: banner,
                           );
                         }
-                        final flight = filtered[i - 1];
+                        final flightIdx = _listFlightIndex(i);
+                        if (flightIdx < 0 || flightIdx >= filtered.length) return const SizedBox.shrink();
+                        final flight = filtered[flightIdx];
                         final selected =
                             _legSelections[legIndex]?.resultIndex ==
                                 (flight.resultIndex ?? '');
@@ -3616,6 +3612,32 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
   // Number of placeholder cards shown at the end of the list while
   // GetExpSearch is still polling for more results.
   static const int _loadingMoreSkeletonCount = 2;
+
+  // ---------------------------------------------------------------------------
+  // Shared banner-interleaving helpers used by all list builders.
+  // Layout: 0=BankOffer, 1=card, 2=FlightOfferBanner, 3-5=cards,
+  //         6=BannerCarousel, 7-16=cards, 17=BannerCarousel, ...
+  // ---------------------------------------------------------------------------
+  int _listItemCount(int cardCount) {
+    final bannerCount = cardCount >= 4 ? 1 + ((cardCount - 4) ~/ 10) : 0;
+    return 1 + cardCount + 1 + bannerCount; // BankOffer + cards + FlightOfferBanner + BannerCarousels
+  }
+
+  Widget? _listBannerAt(int index) {
+    if (index == 0) return const BankOfferCarousel();
+    if (index == 2) return const FlightOfferBannerCarousel();
+    if (index >= 6 && (index - 6) % 11 == 0) return const BannerCarousel();
+    return null;
+  }
+
+  int _listFlightIndex(int index) {
+    int nonGroupSlots = 1; // BankOffer at 0
+    if (index >= 2) nonGroupSlots += 1; // FlightOfferBanner at 2
+    if (index >= 6) {
+      nonGroupSlots += 1 + (index - 6) ~/ 11; // BannerCarousels at 6, 17, 28, ...
+    }
+    return index - nonGroupSlots;
+  }
 
   Widget _buildFlightList(
     List<_FlightGroup> groups,

@@ -56,7 +56,7 @@ class BannerCarousel extends StatelessWidget {
       itemCount: _bankOffers.length,
       itemBuilder: (ctx, i, _) => _BankOfferCard(offer: _bankOffers[i]),
       options: CarouselOptions(
-        height: context.h(90), // taller to fit headline + subline + wordmark + coupon
+        height: context.h(96),
         viewportFraction: 1,
         autoPlay: true,
         autoPlayInterval: const Duration(seconds: 4),
@@ -125,15 +125,20 @@ static const Color _novaOrange   = Color(0xFFF97316);
             ),
           ),
           // Text content
-          Padding(
-            padding: EdgeInsets.symmetric(
-              horizontal: context.w(18),
-              vertical: context.h(12),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
+          Positioned.fill(
+            child: Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: context.w(18),
+                vertical: context.h(6),
+              ),
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
                 // ── Headline ────────────────────────────────────────
                 Text(
                   offer.headline,
@@ -228,6 +233,8 @@ static const Color _novaOrange   = Color(0xFFF97316);
                 ),
               ],
             ),
+          ),
+        ),
           ),
         ],
       ),
