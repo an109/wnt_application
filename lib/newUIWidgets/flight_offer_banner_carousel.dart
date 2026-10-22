@@ -137,27 +137,28 @@ class _OfferCardState extends State<_OfferCard> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
                       widget.item.title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        fontSize: context.fs(13),
+                        fontSize: context.fs(12.5),
                         fontWeight: FontWeight.w700,
                         color: const Color(0xFF1A2340),
                       ),
                     ),
-                    SizedBox(height: context.h(4)),
+                    SizedBox(height: context.h(3)),
                     Text(
                       widget.item.statement,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        fontSize: context.fs(10),
+                        fontSize: context.fs(9.5),
                         fontWeight: FontWeight.w400,
                         color: const Color(0xFF64748B),
-                        height: 1.35,
+                        height: 1.3,
                       ),
                     ),
                   ],

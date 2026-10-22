@@ -243,7 +243,7 @@ class AkGetSPricerModel extends AkGetSPricerEntity {
       netAmount: toD(json['NetAmount']),
       grossAmount: toD(json['GrossAmount']),
       fareType: json['FareType']?.toString() ?? '',
-      fareChanged: json['fare_changed'] ?? false,
+      fareChanged: json['fare_changed'] == true || json['Code']?.toString() == '1500',
       includedBaggage: includedBaggage,
       trips: tripsList
           .map((t) => AkGetSPricerTripModel.fromJson(t as Map<String, dynamic>))

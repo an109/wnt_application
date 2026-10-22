@@ -72,6 +72,32 @@ class AkTripReviewScreen extends StatelessWidget {
     this.insuranceBookingContext,
   });
 
+  String _fmtDuration(String raw) {
+    final v = raw.trim();
+    if (v.isEmpty) return '';
+    // Already formatted ("1h 2m", "1hr 2min") — leave as-is.
+    if (RegExp(r'\d\s*(h|hr|hour)', caseSensitive: false).hasMatch(v)) return v;
+    // ISO-8601 duration: PT1H2M / PT45M
+    final iso = RegExp(r'P(?:T(?:(\d+)H)?(?:(\d+)M)?)').firstMatch(v.toUpperCase());
+    if (iso != null) {
+      final h = int.tryParse(iso.group(1) ?? '') ?? 0;
+      final m = int.tryParse(iso.group(2) ?? '') ?? 0;
+      if (h == 0 && m == 0) return v;
+      if (h == 0) return '${m}min';
+      if (m == 0) return '${h}hr';
+      return '${h}hr ${m}min';
+    }
+    // Plain minutes: "62"
+    final mins = int.tryParse(v);
+    if (mins != null && mins > 0) {
+      final h = mins ~/ 60, m = mins % 60;
+      if (h == 0) return '${m}min';
+      if (m == 0) return '${h}hr';
+      return '${h}hr ${m}min';
+    }
+    return v;
+  }
+
   // -------------------------------------------------------------------------
   // Data helpers — everything here reads the real booking, never a literal
   // -------------------------------------------------------------------------
@@ -467,7 +493,8 @@ class AkTripReviewScreen extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        leg.duration,
+                        _fmtDuration(leg.duration),
+                        // leg.duration,
                         style: TextStyle(fontSize: context.fs(10), color: _muted, fontWeight: FontWeight.w600),
                       ),
                       SizedBox(height: context.h(2)),
@@ -700,6 +727,8 @@ class AkTripReviewScreen extends StatelessWidget {
     );
   }
 }
+
+
 
 /// The thin dashed rule either side of the plane glyph on the flight card.
 class _DashedLine extends StatelessWidget {

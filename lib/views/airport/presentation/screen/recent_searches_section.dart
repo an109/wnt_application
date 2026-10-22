@@ -165,9 +165,13 @@ class _RecentSearchesSectionState extends State<RecentSearchesSection>
       final infants = entry['infants'] as int? ?? 0;
       final travelClass = entry['travelClass'] as String? ?? 'Economy';
 
-      final fareType = isRoundTrip
-          ? (isSpecialFare ? FareTripType.specialReturn : FareTripType.roundTrip)
-          : FareTripType.oneWay;
+      // Use explicitly saved fareType if available; fall back to isRoundTrip derivation.
+      final savedFareType = entry['fareType'] as String?;
+      final fareType = savedFareType != null && savedFareType.isNotEmpty
+          ? FareTripTypeWire.fromWireValue(savedFareType)
+          : isRoundTrip
+              ? (isSpecialFare ? FareTripType.specialReturn : FareTripType.roundTrip)
+              : FareTripType.oneWay;
 
       final tuiRequest = FlightSearchRequestEntity(
         adults: adults,

@@ -140,6 +140,7 @@ class _SearchCardState extends State<SearchCard> {
       'returnDate': returnDate?.toIso8601String(),
       'isRoundTrip': isRoundTrip,
       'isSpecialFare': isSpecialFare,
+      'fareType': _resolveFareType().wireValue,
       'adults': adults,
       'children': children,
       'infants': infants,
@@ -808,6 +809,10 @@ class _SearchCardState extends State<SearchCard> {
               onTap: () => setState(() {
                 isRoundTrip = true;
                 isMultiCityMode = false;
+                // Auto-fill return date to departure + 1 day if not already set
+                if (returnDate == null && departureDate != null) {
+                  returnDate = departureDate!.add(const Duration(days: 1));
+                }
               }),
             ),
           ),

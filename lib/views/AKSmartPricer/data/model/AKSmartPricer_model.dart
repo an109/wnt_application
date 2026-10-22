@@ -27,6 +27,9 @@ class AkSmartPricerRequestModel extends AkSmartPricerRequestEntity {
     required super.trips,
     super.preview,
     super.tuis,
+    super.adults,
+    super.children,
+    super.infants,
   });
 
   factory AkSmartPricerRequestModel.fromEntity(AkSmartPricerRequestEntity entity) {
@@ -42,6 +45,9 @@ class AkSmartPricerRequestModel extends AkSmartPricerRequestEntity {
           .toList(),
       preview: entity.preview,
       tuis: entity.tuis,
+      adults: entity.adults,
+      children: entity.children,
+      infants: entity.infants,
     );
   }
 
@@ -54,6 +60,9 @@ class AkSmartPricerRequestModel extends AkSmartPricerRequestEntity {
           .toList(),
       'preview': preview,
       if (tuis.isNotEmpty) 'tuis': tuis,
+      'adults': adults,
+      'children': children,
+      'infants': infants,
     };
   }
 }

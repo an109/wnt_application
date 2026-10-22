@@ -41,16 +41,25 @@ class AkSmartPricerRequestEntity extends Equatable {
   // is used (IM/RT/RS/ON behaviour — unchanged).
   final List<String> tuis;
 
+  // Passenger counts — must be sent so Akbar prices for the actual pax mix.
+  // Defaulting to 1 adult matches the single-adult search path.
+  final int adults;
+  final int children;
+  final int infants;
+
   const AkSmartPricerRequestEntity({
     required this.searchTui,
     required this.tripType,
     required this.trips,
     this.preview = false,
     this.tuis = const [],
+    this.adults = 1,
+    this.children = 0,
+    this.infants = 0,
   });
 
   @override
-  List<Object?> get props => [searchTui, tripType, trips, preview, tuis];
+  List<Object?> get props => [searchTui, tripType, trips, preview, tuis, adults, children, infants];
 }
 
 // ---------------------------------------------------------------------------

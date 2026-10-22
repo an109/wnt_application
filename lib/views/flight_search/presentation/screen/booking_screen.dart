@@ -155,18 +155,37 @@ class FlightRouteSegment {
   factory FlightRouteSegment.fromAkFareData({
     required FlightRouteSegment original,
     required AkGetSPricerEntity data,
+    String? fareType,
   }) {
-    // Sum base fare and taxes across ALL trips so that DM/IM multi-leg fares
-    // add up correctly (trips[0]=leg1, trips[1]=leg2, …).
+    // Sum segment-level fares across ALL trips for DM/IM multi-leg support.
+    // Use segment.fare.grossFare as the authoritative per-segment total so
+    // baseFare + tax always sums exactly to offeredFare (grossAmount).
     double baseFare = 0;
-    double taxesAndFees = 0;
+    double taxOnly = 0;
+    double serviceTax = 0;
+    double transactionFee = 0;
+    double commission = 0;
     for (final trip in data.trips) {
       for (final journey in trip.journey) {
         for (final seg in journey.segments) {
           baseFare += seg.fare.totalBaseFare;
-          taxesAndFees += seg.fare.totalTax + seg.fare.totalServiceTax + seg.fare.totalTransactionFee;
+          taxOnly += seg.fare.totalTax;
+          serviceTax += seg.fare.totalServiceTax;
+          transactionFee += seg.fare.totalTransactionFee;
+          commission += seg.fare.totalCommission;
         }
       }
+    }
+    final taxesAndFees = taxOnly + serviceTax + transactionFee + commission;
+
+    // offeredFare is the API's authoritative GrossAmount.
+    // For IM, GetSPricer re-prices only leg 1 — its grossAmount is NOT the
+    // whole journey total. Use the amount detail_popup computed instead.
+    final double offeredFare;
+    if (fareType == 'IM' && (original.amount ?? 0) > 0) {
+      offeredFare = original.amount!;
+    } else {
+      offeredFare = data.grossAmount > 0 ? data.grossAmount : baseFare + taxesAndFees;
     }
 
     return FlightRouteSegment(
@@ -186,8 +205,8 @@ class FlightRouteSegment {
         currency: 'INR',
         baseFare: baseFare,
         tax: taxesAndFees,
-        offeredFare: data.grossAmount,
-        publishedFare: data.grossAmount,
+        offeredFare: offeredFare,
+        publishedFare: offeredFare,
         serviceFee: 0.0,
       ),
       departureDate: original.departureDate,
@@ -212,6 +231,13 @@ class FareQuoteData {
   final double publishedFare;
   final double serviceFee;
 
+  // Granular tax components (Akbar path). All zero on the TBO path where only
+  // the combined `tax` is available from FareQuote.
+  final double taxOnly;
+  final double serviceTax;
+  final double transactionFee;
+  final double commission;
+
   /// True when the airline is an LCC (SpiceJet, IndiGo, …). LCC itineraries
   /// skip the Book step and ticket directly. Comes from the FareQuote result.
   final bool isLcc;
@@ -221,6 +247,9 @@ class FareQuoteData {
   final Map<String, dynamic> rawItinerary;
 
   double get total => offeredFare + serviceFee;
+
+  bool get hasDetailedBreakdown =>
+      taxOnly > 0 || serviceTax > 0 || transactionFee > 0 || commission > 0;
 
   /// True when the TBO FareQuote result flags passport as required for all pax.
   /// This can be true even on domestic routes (e.g. Air India domestic, some
@@ -249,6 +278,10 @@ class FareQuoteData {
     required this.offeredFare,
     required this.publishedFare,
     required this.serviceFee,
+    this.taxOnly = 0,
+    this.serviceTax = 0,
+    this.transactionFee = 0,
+    this.commission = 0,
     this.isLcc = false,
     this.rawItinerary = const {},
   });
@@ -412,6 +445,7 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
       _updatedRouteWithFareQuote = FlightRouteSegment.fromAkFareData(
         original: route!,
         data: route.akFareData!,
+        fareType: widget.fareType,
       );
     }
 
@@ -2047,15 +2081,15 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
                           ),
                         ),
                         SizedBox(width: context.w(4)),
-                        Icon(Icons.info, size: context.w(12), color: _muted),
+                        Icon(Icons.info, size: context.w(12), color: AppColors.subhead),
                       ],
                     ),
                     Text(
                       paxLabel,
                       style: TextStyle(
-                        fontSize: context.fs(8),
+                        fontSize: context.fs(9),
                         fontWeight: FontWeight.w700,
-                        color: _muted,
+                        color: AppColors.subhead,
                       ),
                     ),
                   ],
@@ -2111,8 +2145,11 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
     final prefCurrency = di.sl<PreferencesManager>().getPreferredCurrency() ?? 'INR';
 
     final paxNoun = (split.children > 0 || split.infants > 0) ? 'Traveller(s)' : 'Adult(s)';
+    // subLabel: "N Adult(s) × ₹X/pax", subAmount: per-pax amount for that category
     String unitLabel(double totalForAll, String currency) =>
-        '$paxNoun ($pax X ${_convertFareAmount(totalForAll / pax, currency)})';
+        '$pax $paxNoun × ${_convertFareAmount(totalForAll / pax, currency)}';
+    String perPaxAmount(double totalForAll, String currency) =>
+        _convertFareAmount(totalForAll / pax, currency);
 
     final lines = <FareBreakupLine>[];
 
@@ -2121,13 +2158,13 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
         label: 'Base Fare',
         amount: _convertFareAmount(fare.baseFare, fare.currency),
         subLabel: unitLabel(fare.baseFare, fare.currency),
-        subAmount: _convertFareAmount(fare.baseFare, fare.currency),
+        subAmount: perPaxAmount(fare.baseFare, fare.currency),
       ));
       lines.add(FareBreakupLine(
         label: 'Taxes & Surcharges',
         amount: _convertFareAmount(fare.tax, fare.currency),
         subLabel: unitLabel(fare.tax, fare.currency),
-        subAmount: _convertFareAmount(fare.tax, fare.currency),
+        subAmount: perPaxAmount(fare.tax, fare.currency),
       ));
       if (fare.serviceFee > 0) {
         lines.add(FareBreakupLine(
@@ -2584,9 +2621,11 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
       saveGST: false,
     );
 
+    String apiTitle(String title) => title == 'Master' ? 'Mstr' : title;
+
     final akTravellers = travellers
         .map((t) => AkTravellerRequestEntity(
-              title: (t['title'] ?? 'Mr').toString(),
+              title: apiTitle((t['title'] ?? 'Mr').toString()),
               fName: (t['firstName'] ?? '').toString(),
               lName: (t['lastName'] ?? '').toString(),
               gender: _mapGender((t['gender'] ?? '').toString()),

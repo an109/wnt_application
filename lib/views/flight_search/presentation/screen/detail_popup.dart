@@ -43,6 +43,7 @@ import 'package:wander_nova/views/AKGetSPricer/domain/usecase/AKGetSPricer_useca
 import 'package:wander_nova/views/flight_search/presentation/screen/booking_screen.dart';
 import 'package:wander_nova/common_widgets/currency_scope.dart';
 import 'package:wander_nova/core/resources/app_colours.dart';
+import 'package:wander_nova/newUIWidgets/fare_breakup_sheet.dart';
 
 import '../../../../core/constants/urls.dart';
 
@@ -205,9 +206,12 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup>
   bool _fareChangeAccepted = false;
   late String _selectedIndex;
 
-  /// Gross fare — shown to the user and sent as `amount` to the Akbar
-  /// pricing APIs (SmartPricer, FlightInfo, FareRule, FareFamilyDetails).
+  /// Gross fare — shown to the user.
   late double _selectedAmount;
+
+  /// Net/agent fare — sent to Akbar's pricing APIs (SmartPricer, FlightInfo,
+  /// FareRule, FareFamilyDetails). Falls back to [_selectedAmount].
+  late double _selectedNetAmount;
 
   /// Legs 2..N as currently chosen. Seeded from what the results screen
   /// picked, then rewritten when the traveller switches that leg's fare on
@@ -313,12 +317,26 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup>
     final legs = 1 + _additionalLegs.length;
     final pax = widget.travellerCount < 1 ? 1 : widget.travellerCount;
     final who = pax == 1 ? '1 traveller' : '$pax travellers';
-    if (legs <= 1) return 'Total · $who';
+    // if (legs <= 1) return 'Total · $who';
+    if (legs <= 1) return 'Total';
     final trip =
         legs == 2 && (widget.tripType == 'RT' || widget.tripType == 'RS')
         ? 'round trip'
         : '$legs legs';
+    return 'Total · $trip';
     return 'Total · $trip · $who';
+  }
+
+  String get _travellerLabel {
+    final legs = 1 + _additionalLegs.length;
+    final pax = widget.travellerCount < 1 ? 1 : widget.travellerCount;
+    final who = pax == 1 ? 'for 1 traveller' : 'for $pax travellers';
+    if (legs <= 1) return '$who';
+    final trip =
+        legs == 2 && (widget.tripType == 'RT' || widget.tripType == 'RS')
+        ? 'round trip'
+        : '$legs legs';
+    return '$who';
   }
 
   /// The whole itinerary's price — every leg, every traveller — which is what
@@ -328,9 +346,41 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup>
   /// total still shows before either call resolves.
   double _tripNetAmount(AkFlightInfoEntity data) {
     final isDmIm = widget.tripType == 'DM' || widget.tripType == 'IM';
-    final pricerTotal = _pricerData?.grossAmount ?? 0;
-    if (isDmIm && pricerTotal > 0) return pricerTotal;
+
+    // DM/IM: sum per-leg gross fares so the total matches the fare
+    // breakdown drawer and the fare family card's option.amount.
+    if (isDmIm) {
+      // For DM the pricer fans out per leg, so leg sums are accurate.
+      // For IM the pricer only re-prices leg 1 — its single-trip
+      // grossFare is NOT the whole-journey total, so skip it.
+      if (widget.tripType == 'DM') {
+        final pricerTrips = _pricerData?.trips ?? [];
+        final flightTrips = data.trips;
+        double legSum = 0;
+        if (pricerTrips.isNotEmpty) {
+          for (final trip in pricerTrips) {
+            if (trip.journey.isNotEmpty) {
+              legSum += trip.journey.first.grossFare;
+            }
+          }
+        }
+        if (legSum <= 0 && flightTrips.length > 1) {
+          for (final trip in flightTrips) {
+            if (trip.journey.isNotEmpty) {
+              legSum += trip.journey.first.grossFare;
+            }
+          }
+        }
+        if (legSum > 0) return legSum;
+      }
+      // Sum the picked legs — data.grossAmount may reflect only the
+      // active leg when FlightInfo/GetSPricer didn't fan out.
+      return _selectedAmount +
+          _additionalLegs.fold<double>(0, (sum, leg) => sum + leg.amount);
+    }
+
     if (data.grossAmount > 0) return data.grossAmount;
+    final pricerTotal = _pricerData?.grossAmount ?? 0;
     if (pricerTotal > 0) return pricerTotal;
     return _selectedAmount +
         _additionalLegs.fold<double>(0, (sum, leg) => sum + leg.amount);
@@ -341,6 +391,7 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup>
     super.initState();
     _selectedIndex = widget.resultIndex;
     _selectedAmount = widget.amount;
+    _selectedNetAmount = widget.netAmount;
     _additionalLegs = List<FlightLegSelection>.of(widget.additionalLegs);
 
     _bloc = sl<AkFlightInfoBloc>();
@@ -405,12 +456,12 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup>
             trips: [
               AkFareFamilyDetailsTripRequestEntity(
                 index: _selectedIndex,
-                amount: _selectedAmount,
+                amount: _selectedNetAmount,
                 orderId: 1,
               ),
               AkFareFamilyDetailsTripRequestEntity(
                 index: returnLeg.resultIndex,
-                amount: returnLeg.amount,
+                amount: returnLeg.netAmount,
                 orderId: 2,
               ),
             ],
@@ -435,7 +486,7 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup>
               .map(
                 (e) => AkFareFamilyDetailsTripRequestEntity(
                   index: e.value.index,
-                  amount: e.value.amount,
+                  amount: e.value.netAmount,
                   orderId: e.key + 1,
                 ),
               )
@@ -464,13 +515,13 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup>
           trips: [
             AkFareRuleTripRequestEntity(
               index: _selectedIndex,
-              amount: _selectedAmount,
+              amount: _selectedNetAmount,
               orderId: 1,
             ),
             for (final leg in _additionalLegs)
               AkFareRuleTripRequestEntity(
                 index: leg.resultIndex,
-                amount: leg.amount,
+                amount: leg.netAmount,
                 orderId: leg.orderId,
               ),
           ],
@@ -500,13 +551,13 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup>
           trips: [
             AkFlightInfoTripRequestEntity(
               index: _selectedIndex,
-              amount: _selectedAmount,
+              amount: _selectedNetAmount,
               orderId: 1,
             ),
             for (final leg in _additionalLegs)
               AkFlightInfoTripRequestEntity(
                 index: leg.resultIndex,
-                amount: leg.amount,
+                amount: leg.netAmount,
                 orderId: leg.orderId,
               ),
           ],
@@ -537,7 +588,7 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup>
           trips: [
             AkSmartPricerTripRequestEntity(
               index: _selectedIndex,
-              amount: _selectedAmount,
+              amount: _selectedNetAmount,
               orderId: 1,
             ),
             for (final leg in _additionalLegs)
@@ -547,12 +598,15 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup>
                 // the whole package fare. Substituting the package total here
                 // declares the journey at N× its price and GetSPricer fails
                 // with 5071 "Pricing failed from provider".
-                amount: leg.amount,
+                amount: leg.netAmount,
                 orderId: leg.orderId,
               ),
           ],
           preview: preview,
           tuis: legTuis,
+          adults: widget.adultCount > 0 ? widget.adultCount : 1,
+          children: widget.childCount,
+          infants: widget.infantCount,
         ),
       ),
     );
@@ -568,11 +622,11 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup>
 
     final dio = sl<Dio>();
     final legs = [
-      {'index': _selectedIndex, 'amount': _selectedAmount, 'order_id': 1},
+      {'index': _selectedIndex, 'amount': _selectedNetAmount, 'order_id': 1},
       for (final leg in _additionalLegs)
         {
           'index': leg.resultIndex,
-          'amount': leg.amount,
+          'amount': leg.netAmount,
           'order_id': leg.orderId,
         },
     ];
@@ -620,6 +674,7 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup>
       if (tab == 0) {
         _selectedIndex = option.index;
         _selectedAmount = option.amount;
+        _selectedNetAmount = option.netAmount;
         // IM: the new fare is a different package — its later legs are its
         // own partners, not the previous fare's.
         final partners = widget.imPartnerLegs[option.returnIdentifier];
@@ -823,6 +878,7 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup>
                       child: _mainContent(context),
                     ),
                   ),
+                  if (widget.tripType != 'ON') _fareBottomBar(context),
                 ],
               ),
             ),
@@ -1165,6 +1221,7 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup>
                           depTime: firstFlight.departureTime,
                           arrTime: lastFlight.arrivalTime,
                         ),
+                        journeyStops: journey.stops,
                       ),
                     ),
                     Expanded(
@@ -1509,9 +1566,9 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup>
         children: [
           for (var i = 0; i < segments.length; i++) ...[
             if (i > 0) ...[
-              SizedBox(height: context.h(16)),
-              _dashedLine(context, color: _stroke),
-              SizedBox(height: context.h(16)),
+              SizedBox(height: context.h(12)),
+              _layoverCard(context, segments[i - 1], segments[i]),
+              SizedBox(height: context.h(12)),
             ],
             _segmentDetailRow(context, segments[i]),
           ],
@@ -1519,6 +1576,82 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup>
       );
     }
     return const SizedBox.shrink();
+  }
+
+  /// Layover banner shown between two connecting segments in the expanded
+  /// flight details view (tap "view flight details").
+  Widget _layoverCard(
+    BuildContext context,
+    AkFlightInfoSegmentEntity prev,
+    AkFlightInfoSegmentEntity next,
+  ) {
+    final arrCode = prev.flight.arrivalCode;
+    final arrName = prev.flight.arrAirportName;
+    String layoverText = '';
+    try {
+      final arr = prev.flight.arrivalTime;
+      final dep = next.flight.departureTime;
+      if (arr.isNotEmpty && dep.isNotEmpty) {
+        final diff = DateTime.parse(dep).difference(DateTime.parse(arr));
+        if (diff.inMinutes > 0) {
+          final h = diff.inHours;
+          final m = diff.inMinutes % 60;
+          layoverText = h > 0
+              ? '${h}h ${m.toString().padLeft(2, '0')}m'
+              : '${m}m';
+        }
+      }
+    } catch (_) {}
+
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.symmetric(
+        horizontal: context.w(14),
+        vertical: context.h(8),
+      ),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF8EE),
+        borderRadius: BorderRadius.circular(context.r(10)),
+        border: Border.all(color: const Color(0xFFFFD580), width: 0.8),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.access_time_filled_rounded,
+            size: context.w(14),
+            color: const Color(0xffE07B00),
+          ),
+          SizedBox(width: context.w(8)),
+          Expanded(
+            child: RichText(
+              text: TextSpan(
+                style: TextStyle(
+                  fontSize: context.fs(10),
+                  color: const Color(0xff92400E),
+                  fontWeight: FontWeight.w500,
+                ),
+                children: [
+                  const TextSpan(text: 'Layover at '),
+                  TextSpan(
+                    text: arrCode,
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  if (arrName.isNotEmpty) TextSpan(text: ' · $arrName'),
+                  if (layoverText.isNotEmpty)
+                    TextSpan(
+                      text: '  $layoverText',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xffE07B00),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   /// One connecting segment's own airline row + times row (Figma: "aIR
@@ -1697,11 +1830,16 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup>
     BuildContext context,
     List<AkFlightInfoSegmentEntity> segments, {
     required String duration,
+    int? journeyStops,
   }) {
-    final isDirect = segments.length == 1;
+    final stopsFromSegments = segments.length - 1;
+    final stopCount = (journeyStops != null && journeyStops > stopsFromSegments)
+        ? journeyStops
+        : stopsFromSegments;
+    final isDirect = stopCount == 0;
     final stopLabel = isDirect
         ? 'NON STOP'
-        : '${segments.length - 1} STOP${segments.length > 2 ? 'S' : ''}';
+        : '$stopCount STOP${stopCount > 1 ? 'S' : ''}';
 
     Widget dot() => Container(
       width: context.w(8),
@@ -1765,7 +1903,7 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup>
                 ),
                 child: Center(
                   child: Text(
-                    '${segments.length - 1}',
+                    '$stopCount',
                     style: TextStyle(
                       color: const Color(0xff475569),
                       fontSize: context.fs(9),
@@ -1798,9 +1936,7 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup>
             letterSpacing: 1,
           ),
         ),
-        // Which airport(s) the stop is at — not just "how many". Shared by
-        // the one-way route card and every leg's tab, so it shows both ways.
-        if (!isDirect) ...[
+        if (!isDirect && _viaAirportsOf(segments).isNotEmpty) ...[
           SizedBox(height: context.h(2)),
           Text(
             'via ${_viaAirportsOf(segments).join(', ')}',
@@ -2143,6 +2279,7 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup>
     final String legArr = activeLeg?.flight.arrivalTime ?? widget.arrivalTime;
     final String legDuration = activeLeg?.flight.duration ?? widget.duration;
     final double legAmount = activeLeg?.amount ?? widget.amount;
+    final int legStops = activeLeg?.flight.stops ?? 0;
 
     return Column(
       children: [
@@ -2156,6 +2293,7 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup>
           departureTime: legDep,
           arrivalTime: legArr,
           duration: legDuration,
+          stops: legStops,
         ),
         SizedBox(height: context.h(20)),
         _fareFamilyDetailCard(context, null, false),
@@ -2252,6 +2390,7 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup>
     required String departureTime,
     required String arrivalTime,
     required String duration,
+    int stops = 0,
   }) {
     return Container(
       decoration: BoxDecoration(
@@ -2292,6 +2431,15 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup>
                   context,
                   Icons.schedule,
                   duration,
+                  size: context.w(12),
+                ),
+                SizedBox(width: context.w(8)),
+                _infoChip(
+                  context,
+                  Icons.circle_outlined,
+                  stops == 0
+                      ? 'Non Stop'
+                      : '$stops Stop${stops > 1 ? 's' : ''}',
                   size: context.w(12),
                 ),
               ],
@@ -2627,6 +2775,7 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup>
                           depTime: firstFlight.departureTime,
                           arrTime: lastFlight.arrivalTime,
                         ),
+                        journeyStops: journey.stops,
                       ),
                     ),
                     Expanded(
@@ -2930,8 +3079,15 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup>
 
   // ==================== FARE CARD SHIMMER (shown while switching fare) ====================
   Widget _fareFamilyCardShimmer(BuildContext context) {
-    Widget bar({double width = double.infinity, double height = 12, double radius = 6}) =>
-        _ShimmerBox(width: width, height: context.h(height), radius: context.r(radius));
+    Widget bar({
+      double width = double.infinity,
+      double height = 12,
+      double radius = 6,
+    }) => _ShimmerBox(
+      width: width,
+      height: context.h(height),
+      radius: context.r(radius),
+    );
 
     return Container(
       width: double.infinity,
@@ -2945,7 +3101,12 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup>
         children: [
           // Header row
           Padding(
-            padding: EdgeInsets.fromLTRB(context.w(20), context.h(20), context.w(20), context.h(16)),
+            padding: EdgeInsets.fromLTRB(
+              context.w(20),
+              context.h(20),
+              context.w(20),
+              context.h(16),
+            ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -2963,7 +3124,12 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup>
           ),
           // 2×2 grid
           Padding(
-            padding: EdgeInsets.fromLTRB(context.w(20), 0, context.w(20), context.h(16)),
+            padding: EdgeInsets.fromLTRB(
+              context.w(20),
+              0,
+              context.w(20),
+              context.h(16),
+            ),
             child: Column(
               children: [
                 Row(
@@ -2987,10 +3153,19 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup>
           Divider(height: 1, thickness: 0.8, color: _stroke),
           // Toggle row
           Padding(
-            padding: EdgeInsets.fromLTRB(context.w(16), context.h(14), context.w(16), context.h(14)),
+            padding: EdgeInsets.fromLTRB(
+              context.w(16),
+              context.h(14),
+              context.w(16),
+              context.h(14),
+            ),
             child: Row(
               children: [
-                _ShimmerBox(width: context.w(36), height: context.w(36), radius: context.r(18)),
+                _ShimmerBox(
+                  width: context.w(36),
+                  height: context.w(36),
+                  radius: context.r(18),
+                ),
                 SizedBox(width: context.w(10)),
                 Expanded(
                   child: Column(
@@ -3002,13 +3177,22 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup>
                     ],
                   ),
                 ),
-                _ShimmerBox(width: context.w(44), height: context.h(24), radius: context.r(12)),
+                _ShimmerBox(
+                  width: context.w(44),
+                  height: context.h(24),
+                  radius: context.r(12),
+                ),
               ],
             ),
           ),
           // Book button
           Padding(
-            padding: EdgeInsets.fromLTRB(context.w(16), 0, context.w(16), context.h(16)),
+            padding: EdgeInsets.fromLTRB(
+              context.w(16),
+              0,
+              context.w(16),
+              context.h(16),
+            ),
             child: bar(height: 44, radius: 12),
           ),
           // Promo strip
@@ -3022,7 +3206,10 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup>
                 bottomRight: Radius.circular(context.r(16)),
               ),
             ),
-            padding: EdgeInsets.symmetric(horizontal: context.w(16), vertical: context.h(10)),
+            padding: EdgeInsets.symmetric(
+              horizontal: context.w(16),
+              vertical: context.h(10),
+            ),
             child: bar(width: context.w(200), height: 10),
           ),
         ],
@@ -3110,7 +3297,9 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup>
                               style: TextStyle(
                                 color: AppColors.black,
                                 fontSize: context.fs(16),
-                                fontWeight: isSelected ? FontWeight.w800 : FontWeight.w700,
+                                fontWeight: isSelected
+                                    ? FontWeight.w800
+                                    : FontWeight.w700,
                               ),
                             ),
                             Text(
@@ -3125,30 +3314,57 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup>
                       ),
                       const SizedBox(width: 8),
                       Flexible(
-                        child: Row(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
                           mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.baseline,
-                          textBaseline: TextBaseline.alphabetic,
                           children: [
-                            Flexible(
-                              child: Text(
-                                context.money(option.amount),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.baseline,
+                              textBaseline: TextBaseline.alphabetic,
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    context.money(
+                                      option.amount /
+                                          (widget.travellerCount > 0
+                                              ? widget.travellerCount
+                                              : 1),
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      color: isSelected
+                                          ? AppColors.AppBlue
+                                          : _title900,
+                                      fontSize: context.fs(16),
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                                Text(
+                                  '/traveller',
+                                  style: TextStyle(
+                                    color: AppColors.subhead,
+                                    fontSize: context.fs(11),
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            if (widget.travellerCount > 1) ...[
+                              SizedBox(height: context.h(2)),
+                              Text(
+                                'Total: ${context.money(option.amount)} for ${widget.travellerCount} travellers',
+                                maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
+                                textAlign: TextAlign.end,
                                 style: TextStyle(
-                                  color: isSelected ? AppColors.AppBlue : _title900,
-                                  fontSize: context.fs(16),
-                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.subhead,
+                                  fontSize: context.fs(11),
+                                  fontWeight: FontWeight.w400,
                                 ),
                               ),
-                            ),
-                            Text(
-                              _fareCoverageLabel,
-                              style: TextStyle(
-                                color: AppColors.subhead,
-                                fontSize: context.fs(12),
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
+                            ],
                           ],
                         ),
                       ),
@@ -3247,7 +3463,7 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup>
                   ),
                 ),
                 // ── Divider ───────────────────────────────────────────────
-                Divider(height: 1, thickness: 0.8, color: _stroke),
+
                 // ── Price Drop Protection toggle ──────────────────────────
                 // Padding(
                 //   padding: EdgeInsets.fromLTRB(
@@ -3352,87 +3568,54 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup>
                 //     ],
                 //   ),
                 // ),
-                // ── Book button ───────────────────────────────────────────
-                Padding(
-                  padding: EdgeInsets.fromLTRB(
-                    context.w(16),
-                    context.h(0),
-                    context.w(16),
-                    context.h(0),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      if (tripTotal > 0) ...[
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          crossAxisAlignment: CrossAxisAlignment.baseline,
-                          textBaseline: TextBaseline.alphabetic,
-                          children: [
-                            Flexible(
-                              child: Text(
-                                _tripTotalLabel,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  color: AppColors.subhead,
-                                  fontSize: context.fs(11),
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ),
-                            SizedBox(width: context.w(6)),
-                            Text(
-                              context.money(tripTotal),
-                              style: TextStyle(
-                                color: _title900,
-                                fontSize: context.fs(18),
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ],
-                        ),
-                        SizedBox(height: context.h(10)),
-                      ],
-                      SizedBox(
-                        width: double.infinity,
-                        height: context.h(44),
-                        child: Material(
-                          color: (bookingReady && isSelected)
-                              ? AppColors.OrangeColor
-                              : _stroke,
+                // ── Book button (ONE WAY only) ─────────────────────────────
+                if (widget.tripType == 'ON')
+                  Divider(height: 1, thickness: 0.8, color: _stroke),
+                if (widget.tripType == 'ON')
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      context.w(16),
+                      context.h(10),
+                      context.w(16),
+                      context.h(0),
+                    ),
+                    child: SizedBox(
+                      width: double.infinity,
+                      height: context.h(44),
+                      child: Material(
+                        color: (bookingReady && isSelected)
+                            ? AppColors.OrangeColor
+                            : _stroke,
+                        borderRadius: BorderRadius.circular(context.r(12)),
+                        child: InkWell(
                           borderRadius: BorderRadius.circular(context.r(12)),
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(context.r(12)),
-                            onTap: (bookingReady && isSelected)
-                                ? () => _handleBookNow(
-                                    context,
-                                    data,
-                                    journey,
-                                    isFullyRefundable,
-                                    fareChanged,
-                                  )
-                                : (!isSelected && !_switchingFare)
-                                ? () => _selectFare(option)
-                                : null,
-                            child: Center(
-                              child: Text(
-                                isSelected
-                                    ? (bookingReady ? 'BOOK NOW' : 'LOADING…')
-                                    : 'BOOK NOW',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: context.fs(14),
-                                  fontWeight: FontWeight.w600,
-                                ),
+                          onTap: (bookingReady && isSelected)
+                              ? () => _handleBookNow(
+                                  context,
+                                  data,
+                                  journey,
+                                  isFullyRefundable,
+                                  fareChanged,
+                                )
+                              : (!isSelected && !_switchingFare)
+                              ? () => _selectFare(option)
+                              : null,
+                          child: Center(
+                            child: Text(
+                              isSelected
+                                  ? (bookingReady ? 'BOOK NOW' : 'LOADING…')
+                                  : 'BOOK NOW',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: context.fs(14),
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
                           ),
                         ),
                       ),
-                    ],
+                    ),
                   ),
-                ),
                 // ── Promo strip: "Get flat ₹356 using TRYWNT code" ────────
                 SizedBox(height: context.h(12)),
               ],
@@ -3620,6 +3803,326 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup>
   // }
 
   // ==================== BOOK BUTTON (Figma: flat orange "BOOK NOW") ====================
+  /// Fixed bottom bar shown for all non-ONE-WAY fare types.
+  /// Fixed bottom bar (non-ONE WAY fares): price + info icon on the left
+  /// (taps to fare breakup sheet), CONTINUE button on the right.
+  /// Matches booking_screen.dart's _buildBottomBar style exactly.
+  Widget _fareBottomBar(BuildContext context) {
+    return BlocBuilder<AkFlightInfoBloc, AkFlightInfoState>(
+      builder: (ctx, flightState) {
+        return BlocBuilder<AkGetSPricerBloc, AkGetSPricerState>(
+          builder: (ctx2, pricerState) {
+            AkFlightInfoEntity? data;
+            AkGetSPricerEntity? pricerData;
+
+            if (flightState is AkFlightInfoLoaded) {
+              data = flightState.data;
+            } else if (_cachedFlightInfo != null) {
+              data = _cachedFlightInfo;
+            }
+            if (pricerState is AkGetSPricerLoaded) {
+              pricerData = pricerState.data;
+            } else if (_cachedPricerData != null) {
+              pricerData = _cachedPricerData;
+            }
+
+            if (data == null) return const SizedBox.shrink();
+
+            final tripTotal = _tripNetAmount(data);
+            final ft = widget.tripType;
+            final bookingReady = switch (ft) {
+              'DM' || 'IM' => !_switchingFare && !_committing,
+              _ => _flightInfoLoaded && !_switchingFare && !_committing,
+            };
+
+            final journeys = data.trips.expand((t) => t.journey).toList();
+            final journey = journeys.isNotEmpty ? journeys.first : null;
+            final isFullyRefundable = data.trips
+                .expand((t) => t.journey)
+                .expand((j) => j.segments)
+                .every((s) => s.flight.refundable.toUpperCase() == 'Y');
+            final fareChanged = pricerData?.fareChanged ?? false;
+
+            final paxLabel = 'FOR ${widget.travellerCount} '
+                '${widget.travellerCount > 1 ? 'TRAVELLERS' : 'TRAVELLER'}';
+
+            return SafeArea(
+              top: false,
+              child: Container(
+                height: context.h(80),
+                padding: EdgeInsets.symmetric(
+                  horizontal: context.w(19),
+                  vertical: context.h(12),
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.12),
+                      blurRadius: 12,
+                      offset: const Offset(0, -4),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    // ── Left: price + info icon (tappable → fare breakup) ──
+                    Expanded(
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: tripTotal > 0
+                            ? () => _openFareBreakup(
+                                context,
+                                tripTotal,
+                                flightData: data,
+                                pricerData: pricerData,
+                              )
+                            : null,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (!bookingReady) ...[
+                              // Shimmer skeleton while loading
+                              _ShimmerBox(
+                                width: context.w(100),
+                                height: context.h(22),
+                                radius: context.r(4),
+                              ),
+                              SizedBox(height: context.h(4)),
+                              _ShimmerBox(
+                                width: context.w(70),
+                                height: context.h(10),
+                                radius: context.r(3),
+                              ),
+                            ] else ...[
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Flexible(
+                                    child: Text(
+                                      context.money(tripTotal),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: context.fs(24),
+                                        fontWeight: FontWeight.w800,
+                                        color: AppColors.black,
+                                        letterSpacing: -0.6,
+                                        height: 1.33,
+                                      ),
+                                    ),
+                                  ),
+                                  SizedBox(width: context.w(4)),
+                                  Icon(
+                                    Icons.info,
+                                    size: context.w(12),
+                                    color: AppColors.subhead,
+                                  ),
+                                ],
+                              ),
+                              Text(
+                                paxLabel,
+                                style: TextStyle(
+                                  fontSize: context.fs(9),
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.subhead,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                    SizedBox(width: context.w(12)),
+                    // ── Right: CONTINUE button ──────────────────────────
+                    SizedBox(
+                      height: context.h(44),
+                      width: context.w(149),
+                      child: ElevatedButton(
+                        onPressed: (bookingReady && journey != null)
+                            ? () => _handleBookNow(
+                                context,
+                                data!,
+                                journey,
+                                isFullyRefundable,
+                                fareChanged,
+                              )
+                            : null,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.OrangeColor,
+                          disabledBackgroundColor:
+                              AppColors.OrangeColor.withValues(alpha: 0.6),
+                          elevation: 0,
+                          padding: EdgeInsets.zero,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(context.r(12)),
+                          ),
+                        ),
+                        child: _committing
+                            ? SizedBox(
+                                width: context.w(18),
+                                height: context.w(18),
+                                child: const CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : Text(
+                                'CONTINUE',
+                                style: TextStyle(
+                                  fontSize: context.fs(14),
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white,
+                                ),
+                              ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+
+  void _openFareBreakup(
+    BuildContext context,
+    double tripTotal, {
+    AkFlightInfoEntity? flightData,
+    AkGetSPricerEntity? pricerData,
+  }) {
+    final adults = widget.adultCount > 0 ? widget.adultCount : 1;
+    final children = widget.childCount;
+    final infants = widget.infantCount;
+    final totalPax = adults + children + infants;
+
+    final lines = <FareBreakupLine>[];
+
+    // Per-leg breakdown for multi-city (DM/IM).
+    final isDmIm = widget.tripType == 'DM' || widget.tripType == 'IM';
+    final legCount = 1 + _additionalLegs.length;
+    double displayTotal = tripTotal;
+
+    if (isDmIm && legCount > 1) {
+      // For IM the pricer only re-prices leg 1 — its single-trip
+      // grossFare is NOT per-leg, so skip it to stay consistent with
+      // the fare family card's option.amount.
+      final pricerTrips = widget.tripType == 'DM'
+          ? (pricerData?.trips ?? [])
+          : <AkGetSPricerTripEntity>[];
+      final flightTrips = flightData?.trips ?? [];
+
+      final legFares = <double>[];
+      final routeLabels = <String>[];
+      for (var i = 0; i < legCount; i++) {
+        double legFare = 0;
+        String from = '';
+        String to = '';
+        if (i < pricerTrips.length &&
+            pricerTrips[i].journey.isNotEmpty) {
+          legFare = pricerTrips[i].journey.first.grossFare;
+          final segs = pricerTrips[i].journey.first.segments;
+          if (segs.isNotEmpty) {
+            from = segs.first.flight.departureCode;
+            to = segs.last.flight.arrivalCode;
+          }
+        } else if (i < flightTrips.length &&
+            flightTrips[i].journey.isNotEmpty) {
+          legFare = flightTrips[i].journey.first.grossFare;
+          final segs = flightTrips[i].journey.first.segments;
+          if (segs.isNotEmpty) {
+            from = segs.first.flight.departureCode;
+            to = segs.last.flight.arrivalCode;
+          }
+        }
+        if (from.isEmpty) {
+          if (i == 0) {
+            from = widget.fromCode;
+            to = widget.toCode;
+          } else if (i - 1 < _additionalLegs.length) {
+            from = _additionalLegs[i - 1].flight.origin ?? '';
+            to = _additionalLegs[i - 1].flight.destination ?? '';
+          }
+        }
+        if (legFare <= 0) {
+          if (i == 0) {
+            legFare = _selectedAmount;
+          } else if (i - 1 < _additionalLegs.length) {
+            legFare = _additionalLegs[i - 1].amount;
+          }
+        }
+        legFares.add(legFare);
+        routeLabels.add(
+          from.isNotEmpty && to.isNotEmpty
+              ? '$from → $to'
+              : 'Trip ${i + 1}',
+        );
+      }
+
+      // Use the sum of per-leg gross fares as the display total so
+      // the leg lines and the total are consistent.
+      displayTotal = legFares.fold<double>(0, (s, f) => s + f);
+
+      for (var i = 0; i < legCount; i++) {
+        lines.add(FareBreakupLine(
+          label: routeLabels[i],
+          amount: context.money(legFares[i]),
+        ));
+      }
+      lines.add(FareBreakupLine(
+        label: '',
+        amount: '',
+      ));
+    }
+
+    // Recalculate per-pax from the display total.
+    final perPaxDisplay = totalPax > 0 ? displayTotal / totalPax : displayTotal;
+
+    // Per-pax-type breakdown.
+    if (children > 0 || infants > 0) {
+      final adultTotal = perPaxDisplay * adults;
+      lines.add(FareBreakupLine(
+        label: 'Adult(s)',
+        amount: context.money(adultTotal),
+        subLabel: '$adults × ${context.money(perPaxDisplay)}',
+      ));
+      if (children > 0) {
+        final childTotal = perPaxDisplay * children;
+        lines.add(FareBreakupLine(
+          label: 'Child(ren)',
+          amount: context.money(childTotal),
+          subLabel: '$children × ${context.money(perPaxDisplay)}',
+        ));
+      }
+      if (infants > 0) {
+        final infantTotal = perPaxDisplay * infants;
+        lines.add(FareBreakupLine(
+          label: 'Infant(s)',
+          amount: context.money(infantTotal),
+          subLabel: '$infants × ${context.money(perPaxDisplay)}',
+        ));
+      }
+    } else {
+      lines.add(FareBreakupLine(
+        label: 'Adult(s)',
+        amount: context.money(displayTotal),
+        subLabel: '$adults × ${context.money(perPaxDisplay)}',
+      ));
+    }
+
+    FareBreakupSheet.show(
+      context,
+      lines: lines,
+      totalAmount: context.money(displayTotal),
+    );
+  }
+
   Widget _bookButton(
     BuildContext context,
     AkFlightInfoEntity data,
@@ -4099,7 +4602,8 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup>
     bool fareChanged,
   ) async {
     if (fareChanged && !_fareChangeAccepted) {
-      final accepted = await _confirmFareChange(context, _tripNetAmount(data));
+      final newAmount = _pricerData?.grossAmount ?? _tripNetAmount(data);
+      final accepted = await _confirmFareChange(context, newAmount);
       if (!accepted) return;
       _fareChangeAccepted = true;
     }
@@ -4143,11 +4647,11 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup>
 
       final dio = sl<Dio>();
       final legs = [
-        {'index': _selectedIndex, 'amount': _selectedAmount, 'order_id': 1},
+        {'index': _selectedIndex, 'amount': _selectedNetAmount, 'order_id': 1},
         for (final leg in _additionalLegs)
           {
             'index': leg.resultIndex,
-            'amount': leg.amount,
+            'amount': leg.netAmount,
             'order_id': leg.orderId,
           },
       ];
@@ -4235,17 +4739,20 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup>
           trips: [
             AkSmartPricerTripRequestEntity(
               index: _selectedIndex,
-              amount: _selectedAmount,
+              amount: _selectedNetAmount,
               orderId: 1,
             ),
             for (final leg in _additionalLegs)
               AkSmartPricerTripRequestEntity(
                 index: leg.resultIndex,
-                amount: leg.amount,
+                amount: leg.netAmount,
                 orderId: leg.orderId,
               ),
           ],
           preview: false,
+          adults: widget.adultCount > 0 ? widget.adultCount : 1,
+          children: widget.childCount,
+          infants: widget.infantCount,
         ),
       ),
     );
@@ -4445,11 +4952,30 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup>
   ) {
     // For DM/IM use _pricerData.netAmount (the real total) if available,
     // since minEntity.netAmount may only reflect the active leg's fare.
+    // final isDmIm = widget.tripType == 'DM' || widget.tripType == 'IM';
+    // final netAmt = isDmIm && _pricerData != null && _pricerData!.grossAmount > 0
+    //     ? _pricerData!.grossAmount
+    //     : data.grossAmount;
+    // final totalPrice = '₹${netAmt.toStringAsFixed(0)}';
     final isDmIm = widget.tripType == 'DM' || widget.tripType == 'IM';
-    final netAmt = isDmIm && _pricerData != null && _pricerData!.grossAmount > 0
-        ? _pricerData!.grossAmount
-        : data.grossAmount;
-    final totalPrice = '₹${netAmt.toStringAsFixed(0)}';
+    double grossAmt;
+    if (widget.tripType == 'IM') {
+      // IM: GetSPricer re-prices only leg 1 — its grossAmount is NOT the
+      // whole journey. Use the same selected-leg sum the UI displayed.
+      // Exception: when a fare change was accepted (Code 1500), GetSPricer
+      // returns the repriced total for the whole journey — use that.
+      if (_fareChangeAccepted && _pricerData != null && _pricerData!.grossAmount > 0) {
+        grossAmt = _pricerData!.grossAmount;
+      } else {
+        grossAmt = _selectedAmount +
+            _additionalLegs.fold<double>(0, (sum, leg) => sum + leg.amount);
+      }
+    } else if (isDmIm && _pricerData != null && _pricerData!.grossAmount > 0) {
+      grossAmt = _pricerData!.grossAmount;
+    } else {
+      grossAmt = data.grossAmount;
+    }
+    final totalPrice = '₹${grossAmt.toStringAsFixed(0)}';
     Navigator.pop(context);
 
     // Build additional-leg routes from FlightInfo trips when available.
@@ -4572,7 +5098,8 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup>
       searchTui: widget.tui,
       pricingTui: _pricingTui,
       sessionId: _sessionId,
-      amount: netAmt > 0 ? netAmt : widget.amount,
+      amount: grossAmt > 0 ? grossAmt : widget.amount,
+      // amount: netAmt > 0 ? netAmt : widget.amount,
       akFareData: _pricerData,
     );
 
@@ -4617,6 +5144,35 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup>
         .sublist(0, segments.length - 1)
         .map((s) => s.flight.arrivalCode)
         .toList();
+  }
+
+  /// Returns a compact layover string for all connection points, e.g.
+  /// "Layover: BOM 1h 20m · DEL 3h 05m"
+  String _layoverSummary(List<AkFlightInfoSegmentEntity> segments) {
+    if (segments.length <= 1) return '';
+    final parts = <String>[];
+    for (int i = 0; i < segments.length - 1; i++) {
+      final arr = segments[i].flight.arrivalTime;
+      final dep = segments[i + 1].flight.departureTime;
+      final code = segments[i].flight.arrivalCode;
+      String layover = '';
+      try {
+        if (arr.isNotEmpty && dep.isNotEmpty) {
+          final arrDt = DateTime.parse(arr);
+          final depDt = DateTime.parse(dep);
+          final diff = depDt.difference(arrDt);
+          if (diff.inMinutes > 0) {
+            final h = diff.inHours;
+            final m = diff.inMinutes % 60;
+            layover = h > 0
+                ? '${h}h ${m.toString().padLeft(2, '0')}m'
+                : '${m}m';
+          }
+        }
+      } catch (_) {}
+      parts.add(layover.isNotEmpty ? '$code $layover' : code);
+    }
+    return 'Layover: ${parts.join(' · ')}';
   }
 
   String _marketingSegment(String value, {required String fallback}) {
@@ -4674,24 +5230,32 @@ class _ShimmerBox extends StatefulWidget {
   final double height;
   final double radius;
 
-  const _ShimmerBox({required this.width, required this.height, required this.radius});
+  const _ShimmerBox({
+    required this.width,
+    required this.height,
+    required this.radius,
+  });
 
   @override
   State<_ShimmerBox> createState() => _ShimmerBoxState();
 }
 
-class _ShimmerBoxState extends State<_ShimmerBox> with SingleTickerProviderStateMixin {
+class _ShimmerBoxState extends State<_ShimmerBox>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _ctrl;
   late final Animation<double> _anim;
 
   @override
   void initState() {
     super.initState();
-    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 900))
-      ..repeat(reverse: true);
-    _anim = Tween<double>(begin: 0.3, end: 0.9).animate(
-      CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut),
-    );
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    )..repeat(reverse: true);
+    _anim = Tween<double>(
+      begin: 0.3,
+      end: 0.9,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut));
   }
 
   @override

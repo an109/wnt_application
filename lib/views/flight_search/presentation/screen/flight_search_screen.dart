@@ -1755,24 +1755,27 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
                         mainAxisSize: MainAxisSize.min,
                         children: _sortOptions.map((opt) {
                           final selected = pendingSort == opt;
-                          return ListTile(
-                            contentPadding: EdgeInsets.symmetric(
-                              horizontal: context.w(16),
-                              vertical: context.h(1),
-                            ),
-                            dense: true, // Makes the ListTile more compact
-                            visualDensity: VisualDensity.compact, // Reduces spacing even more
-                            title: Text(
-                              opt,
-                              style: TextStyle(
-                                fontSize: context.fs(15),
-                                fontWeight: FontWeight.w800,
-                                color: AppColors.black,
+                          return Material(
+                            color: Colors.transparent,
+                            child: ListTile(
+                              contentPadding: EdgeInsets.symmetric(
+                                horizontal: context.w(16),
+                                vertical: context.h(1),
                               ),
+                              dense: true,
+                              visualDensity: VisualDensity.compact,
+                              title: Text(
+                                opt,
+                                style: TextStyle(
+                                  fontSize: context.fs(15),
+                                  fontWeight: FontWeight.w800,
+                                  color: AppColors.black,
+                                ),
+                              ),
+                              trailing: _sortRadio(selected),
+                              onTap: () =>
+                                  setSheetState(() => pendingSort = opt),
                             ),
-                            trailing: _sortRadio(selected),
-                            onTap: () =>
-                                setSheetState(() => pendingSort = opt),
                           );
                         }).toList(),
                       ),

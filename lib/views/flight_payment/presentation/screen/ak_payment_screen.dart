@@ -959,6 +959,21 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
         // Hard failure — StartPay answered but not booked and not "in progress".
         break;
       } else {
+        // Extract message from error response body (e.g. 502 booking_failed)
+        if (result is DataFailed) {
+          final body = (result as DataFailed).error?.response?.data;
+          if (body is Map) {
+            final apiMsg = body['message']?.toString() ?? '';
+            if (apiMsg.isNotEmpty && mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(apiMsg),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            }
+          }
+        }
         break;
       }
     }
