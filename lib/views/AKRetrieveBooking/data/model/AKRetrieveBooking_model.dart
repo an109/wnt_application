@@ -80,6 +80,7 @@ class AkRetrieveBookingModel extends AkRetrieveBookingEntity {
     required super.pnrs,
     required super.status,
     required super.trips,
+    super.bookingId,
   });
 
   factory AkRetrieveBookingModel.fromJson(Map<String, dynamic> json) {
@@ -93,6 +94,7 @@ class AkRetrieveBookingModel extends AkRetrieveBookingEntity {
           .whereType<Map<String, dynamic>>()
           .map((e) => AkRetrieveTripModel.fromJson(e))
           .toList(),
+      bookingId: json['booking_id'] as int?,
     );
   }
 }

@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../UI_helper/responsive_layout.dart';
@@ -23,7 +21,7 @@ class TrishaStyle {
 
   // Exported from the Figma file (frame "AI 1"). Until a file is added, the
   // widgets below fall back to a plain placeholder rather than crashing.
-  static const orbAsset = 'assets/trisha/trisha_orb.png'; // "FULL ai"
+  static const orbAsset = 'assets/trisha/trisha_orb.gif'; // "FULL ai"
   static const cardFlightAsset = 'assets/NewIcons/aiflight.png';
   static const cardStayAsset = 'assets/NewIcons/aihotel.png';
   static const cardHolidayAsset = 'assets/NewIcons/aiholiday.png';
@@ -74,58 +72,71 @@ class TrishaStyle {
       ];
 }
 
-/// The Trisha orb. [glow] adds the soft blue halo used on the welcome screen
-/// and behind the bottom-nav button.
 class TrishaOrb extends StatelessWidget {
   final double size;
   final bool glow;
+  final bool animate;
 
-  const TrishaOrb({super.key, required this.size, this.glow = false});
+  const TrishaOrb({
+    super.key,
+    required this.size,
+    this.glow = false,
+    this.animate = true,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final orb = Container(
+    final orb = SizedBox(
       width: size,
       height: size,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: Colors.white,
-        boxShadow: [BoxShadow(color: const Color(0x334A9FE8), blurRadius: size * 0.25)],
-      ),
       child: ClipOval(
         child: Image.asset(
           TrishaStyle.orbAsset,
           width: size,
           height: size,
           fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => const _OrbPlaceholder(),
+          gaplessPlayback: true,
+          errorBuilder: (_, __, ___) => const _OrbFallback(),
         ),
       ),
     );
+
     if (!glow) return orb;
-    return Container(
-      width: size * 2.2,
-      height: size * 2.2,
-      alignment: Alignment.center,
-      decoration: const BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: RadialGradient(
-          colors: [Color(0x553D9BE9), Color(0x1A3D9BE9), Color(0x003D9BE9)],
-          stops: [0.3, 0.65, 1],
-        ),
+
+    return SizedBox(
+      width: size * 1.4,
+      height: size * 1.4,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Container(
+            width: size * 1.4,
+            height: size * 1.4,
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: RadialGradient(
+                colors: [
+                  Color(0x553D9BE9),
+                  Color(0x1A3D9BE9),
+                  Color(0x003D9BE9),
+                ],
+                stops: [0.3, 0.65, 1.0],
+              ),
+            ),
+          ),
+          orb,
+        ],
       ),
-      child: orb,
     );
   }
 }
 
-/// Shown only until trisha_orb.png is exported from Figma.
-class _OrbPlaceholder extends StatelessWidget {
-  const _OrbPlaceholder();
-
+class _OrbFallback extends StatelessWidget {
+  const _OrbFallback();
   @override
   Widget build(BuildContext context) => const DecoratedBox(
         decoration: BoxDecoration(
+          shape: BoxShape.circle,
           gradient: RadialGradient(
             colors: [Color(0xFFFFF3C4), Color(0xFFF97316), Color(0xFF2F6FE0), Colors.white],
             stops: [0.0, 0.25, 0.6, 1.0],

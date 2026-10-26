@@ -350,7 +350,7 @@ class AuthPhoneRow extends StatelessWidget {
     required this.dial,
     required this.controller,
     required this.onDialTap,
-    this.hintText = '9876543212',
+    this.hintText = '9999999999',
     this.hasError = false,
     this.onChanged,
   });

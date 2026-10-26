@@ -421,14 +421,19 @@ class BookingInvoiceWidget extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            title,
-            style: TextStyle(
-              fontWeight: FontWeight.w600,
-              fontSize: big ? context.fs(16) : context.fs(11),
-              color: big ? const Color(0xff293241) : Colors.grey[700],
+          Flexible(
+            child: Text(
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: big ? context.fs(16) : context.fs(11),
+                color: big ? const Color(0xff293241) : Colors.grey[700],
+              ),
             ),
           ),
+          SizedBox(width: context.w(8)),
           Text(
             value,
             style: TextStyle(

@@ -202,6 +202,38 @@ class _FlightTripDetailsScreenState extends State<FlightTripDetailsScreen> {
     ].join('\n'));
   }
 
+
+  /// Returns the intermediate airports for a run of segments
+  /// `segs[start..end]` (inclusive), e.g. DEL → BOM → GOI → DEL
+  /// gives stops [BOM, GOI] when start=0, end=2 and only the first
+  /// and last airports are the endpoints.
+  List<TripEndpoint> _stopsForLeg(List<Map<String, dynamic>> segs, int start, int end) {
+    final stops = <TripEndpoint>[];
+    for (var i = start; i < end; i++) {
+      final s = segs[i];
+      final code = _str(s, 'toCode');
+      final city = _str(s, 'toCity');
+      if (code.isEmpty) continue;
+      final at = parseTripDate(_str(s, 'arrivalTime'));
+      stops.add(TripEndpoint(
+        code: code,
+        place: city,
+        time: tripTime(at),
+        date: tripDate(at),
+      ));
+    }
+    return stops;
+  }
+
+  /// Human-readable stop summary, e.g. "Non Stop", "1 Stop · BOM",
+  /// "2 Stops · BOM, GOI".
+  String _stopSummary(List<TripEndpoint> stops) {
+    if (stops.isEmpty) return 'Non Stop';
+    final codes = stops.map((s) => s.code).where((c) => c.isNotEmpty).join(', ');
+    final word = stops.length == 1 ? 'Stop' : 'Stops';
+    return codes.isEmpty ? '${stops.length} $word' : '${stops.length} $word · $codes';
+  }
+
   // ---------------------------------------------------------------------------
 
   @override
@@ -236,17 +268,21 @@ class _FlightTripDetailsScreenState extends State<FlightTripDetailsScreen> {
                           _passengers(),
                           gap,
                           _fare(),
+                          // gap,
+                          // IntrinsicHeight(
+                          //   child: Row(
+                          //     crossAxisAlignment: CrossAxisAlignment.stretch,
+                          //     children: [
+                          //       Expanded(child: _baggageCard()),
+                          //       SizedBox(width: context.fx(12)),
+                          //       Expanded(child: _infoCard()),
+                          //     ],
+                          //   ),
+                          // ),
                           gap,
-                          IntrinsicHeight(
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                Expanded(child: _baggageCard()),
-                                SizedBox(width: context.fx(12)),
-                                Expanded(child: _infoCard()),
-                              ],
-                            ),
-                          ),
+                          _baggageCard(),
+                          gap,
+                          _infoCard(),
                         ],
                       ),
                     ),
@@ -315,6 +351,52 @@ class _FlightTripDetailsScreenState extends State<FlightTripDetailsScreen> {
     );
   }
 
+  List<Widget> _buildMultiCityRoutes() {
+    final segs = _info.booking.tboSegments;
+    final widgets = <Widget>[];
+    // Group consecutive segments by journey leg (split where toCode != next fromCode).
+    var legStart = 0;
+    for (var i = 0; i < segs.length; i++) {
+      final isLast = i == segs.length - 1;
+      final isBreak = !isLast && _str(segs[i], 'toCode') != _str(segs[i + 1], 'fromCode');
+      if (isLast || isBreak) {
+        if (widgets.isNotEmpty) {
+          widgets.add(Padding(
+            padding: EdgeInsets.symmetric(vertical: context.fx(10)),
+            child: Row(
+              children: [
+                const Expanded(child: Divider(height: 1, color: Color(0xFFE0E3EA))),
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: context.fx(10)),
+                  child: Text('FLIGHT ${widgets.where((w) => w is TripRouteRow).length + 1}', style: TextStyle(fontSize: context.ffs(10), fontWeight: FontWeight.w600, color: _kMuted, letterSpacing: 0.8)),
+                ),
+                const Expanded(child: Divider(height: 1, color: Color(0xFFE0E3EA))),
+              ],
+            ),
+          ));
+        }
+        final first = segs[legStart];
+        final last = segs[i];
+        final dep = parseTripDate(_str(first, 'departureTime'));
+        final arr = parseTripDate(_str(last, 'arrivalTime'));
+        // final stops = i - legStart;
+        // final summary = stops == 0 ? 'Non Stop' : plural(stops, 'Stop');
+        final stops = _stopsForLeg(segs, legStart, i);
+        final summary = _stopSummary(stops);
+        widgets.add(TripRouteRow(
+          from: TripEndpoint(code: _str(first, 'fromCode'), place: _str(first, 'fromCity'), time: tripTime(dep), date: tripDate(dep)),
+          to: TripEndpoint(code: _str(last, 'toCode'), place: _str(last, 'toCity'), time: tripTime(arr), date: tripDate(arr)),
+          middleTop: summary,
+          middleIcon: Icons.flight_rounded,
+        ));
+        legStart = i + 1;
+      }
+    }
+    return widgets;
+  }
+
+  static String _str(Map<String, dynamic> m, String key) => (m[key] ?? '').toString().trim();
+
   Widget _flightCard() {
     final dep = _info.departure, arr = _info.arrival;
     final corner = switch (_info.state) {
@@ -372,18 +454,59 @@ class _FlightTripDetailsScreenState extends State<FlightTripDetailsScreen> {
             ],
           ),
           SizedBox(height: context.fx(14)),
-          TripRouteRow(
-            from: TripEndpoint(
-              code: _info.fromCode,
-              place: _info.fromCity,
-              time: _info.hasSegments ? tripTime(dep) : '',
-              date: tripDate(dep),
+          if (!_info.isRoundTrip && _info.legs.length > 1 && !_info.hasReturnLegs)
+            ..._buildMultiCityRoutes()
+          else ...[
+            TripRouteRow(
+              from: TripEndpoint(
+                code: _info.fromCode,
+                place: _info.fromCity,
+                time: _info.hasSegments ? tripTime(dep) : '',
+                date: tripDate(dep),
+              ),
+              to: TripEndpoint(code: _info.toCode, place: _info.toCity, time: tripTime(arr), date: tripDate(arr)),
+              // middleTop: _info.routeSummary,
+              middleTop: _stopSummary(_stopsForLeg(
+                _info.booking.tboSegments.cast<Map<String, dynamic>>(), 0, _info.booking.tboSegments.length - 1,
+              )),
+              middleIcon: Icons.flight_rounded,
+              middleBottom: _info.checkInOpen ? 'Check-in Open' : null,
             ),
-            to: TripEndpoint(code: _info.toCode, place: _info.toCity, time: tripTime(arr), date: tripDate(arr)),
-            middleTop: _info.routeSummary,
-            middleIcon: Icons.flight_rounded,
-            middleBottom: _info.checkInOpen ? 'Check-in Open' : null,
-          ),
+            if (_info.hasReturnLegs) ...[
+              Padding(
+                padding: EdgeInsets.symmetric(vertical: context.fx(10)),
+                child: Row(
+                  children: [
+                    const Expanded(child: Divider(height: 1, color: Color(0xFFE0E3EA))),
+                    Padding(
+                      padding: EdgeInsets.symmetric(horizontal: context.fx(10)),
+                      child: Text('RETURN', style: TextStyle(fontSize: context.ffs(10), fontWeight: FontWeight.w600, color: _kMuted, letterSpacing: 0.8)),
+                    ),
+                    const Expanded(child: Divider(height: 1, color: Color(0xFFE0E3EA))),
+                  ],
+                ),
+              ),
+              TripRouteRow(
+                from: TripEndpoint(
+                  code: _info.returnFromCode,
+                  place: _info.returnFromCity,
+                  time: tripTime(_info.returnDeparture),
+                  date: tripDate(_info.returnDeparture),
+                ),
+                to: TripEndpoint(
+                  code: _info.returnToCode,
+                  place: _info.returnToCity,
+                  time: tripTime(_info.returnArrival),
+                  date: tripDate(_info.returnArrival),
+                ),
+                // middleTop: _info.returnRouteSummary,
+                middleTop: _stopSummary(_stopsForLeg(
+                  _info.booking.tboSegments.cast<Map<String, dynamic>>(), 0, _info.booking.tboSegments.length - 1,
+                )),
+                middleIcon: Icons.flight_rounded,
+              ),
+            ],
+          ],
           Padding(
             padding: EdgeInsets.symmetric(vertical: context.fx(12)),
             child: const Divider(height: 1, color: Color(0xFFF0F1F4)),

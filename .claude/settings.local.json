@@ -55,7 +55,14 @@
       "Bash(adb -s adb-R5CY90THZ8Y-qtzZDN._adb-tls-connect._tcp shell monkey -p com.application.wandernova -c android.intent.category.LAUNCHER 1)",
       "Bash(adb -s adb-R5CY90THZ8Y-qtzZDN._adb-tls-connect._tcp logcat -d)",
       "Bash(adb -s adb-R5CY90THZ8Y-qtzZDN._adb-tls-connect._tcp logcat -T \"10-16 14:25:00.000\")",
-      "Bash(adb install *)"
+      "Bash(adb install *)",
+      "mcp__fce89e21-b33f-4ae9-b5ac-a851e77297f7__get_design_context",
+      "mcp__claude-in-chrome__navigate",
+      "Bash(cp \"/Users/macbookair/Downloads/FULL ai.gif\" /Users/macbookair/Desktop/wnt_application/assets/trisha/trisha_orb.gif && ls -la /Users/macbookair/Desktop/wnt_application/assets/trisha/)",
+      "Bash(identify \"/Users/macbookair/Desktop/wnt_application/assets/trisha/trisha_orb.gif\")",
+      "Bash(sips -g all \"/Users/macbookair/Desktop/wnt_application/assets/trisha/trisha_orb.gif\")",
+      "Bash(python3 -c ' *)",
+      "Bash(ffprobe -v error -select_streams v:0 -show_entries stream=width,height,nb_frames -of csv=p=0 \"/Users/macbookair/Desktop/wnt_application/assets/trisha/trisha_orb.gif\")"
     ]
   }
 }

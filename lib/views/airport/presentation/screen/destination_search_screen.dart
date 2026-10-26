@@ -34,7 +34,7 @@ class _DestinationSearchScreenState extends State<DestinationSearchScreen> {
     'Mumbai',
     'New Delhi',
     'Bangkok',
-    'Bengaluru',
+    'Bangalore',
     'Pune',
     'Hyderabad',
     'Kolkata',

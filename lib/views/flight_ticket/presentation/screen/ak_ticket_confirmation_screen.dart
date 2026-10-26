@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:pdf/widgets.dart' as pw;
 import 'package:lottie/lottie.dart';
 import 'package:wander_nova/UI_helper/currency_converter.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
@@ -133,6 +134,7 @@ class _AkTicketConfirmationScreenState extends State<AkTicketConfirmationScreen>
   /// Gateway reference for a card/UPI payment; the PNR for a wallet payment
   /// (no gateway transaction there).
   String get _bookingId {
+    if (widget.booking.bookingId != null) return 'WNT-${widget.booking.bookingId}';
     final txn = (widget.transactionId ?? '').trim();
     if (txn.isNotEmpty) return txn;
     if (widget.booking.pnrs.isNotEmpty) return widget.booking.pnrs.first;
@@ -324,6 +326,10 @@ class _AkTicketConfirmationScreenState extends State<AkTicketConfirmationScreen>
   Future<void> _downloadTicket() async {
     setState(() => _downloading = true);
     try {
+      final logoData = await rootBundle.load('assets/appLogo/wanderlogo2.png');
+      final logoBytes = logoData.buffer.asUint8List();
+      final logoImage = pw.MemoryImage(logoBytes);
+
       final leadName =
           '${widget.leadPassenger['firstName'] ?? ''} ${widget.leadPassenger['lastName'] ?? ''}'.trim();
       final passengerName = widget.travellerNames.isNotEmpty ? widget.travellerNames.join(', ') : leadName;
@@ -339,6 +345,10 @@ class _AkTicketConfirmationScreenState extends State<AkTicketConfirmationScreen>
             arrivalTime: _legs[i].arrivalTime,
             departureDate: _legs[i].departureDate,
             duration: _legs[i].duration,
+            baggage: _legs[i].akFareData?.includedBaggage.values.firstOrNull?.values.firstOrNull?.checkin,
+            cabinBaggage: _legs[i].akFareData?.includedBaggage.values.firstOrNull?.values.firstOrNull?.cabin,
+            terminal: _flightAt(i, last: false)?.departureTerminal,
+            arrivalTerminal: _flightAt(i, last: true)?.arrivalTerminal,
           ),
       ];
       final ticketInfo = widget.booking.allTicketInfo;
@@ -352,6 +362,12 @@ class _AkTicketConfirmationScreenState extends State<AkTicketConfirmationScreen>
         displayAmount: _displayAmount,
         ticketNumber: ticketInfo.isNotEmpty ? ticketInfo.first.ticketNo : null,
         travellerCount: widget.travellerCount,
+        flightClass: 'Economy',
+        paidVia: widget.transactionId != null ? 'razorpay' : 'wallet',
+        passengers: _pax,
+        currency: 'INR',
+        bookingId: widget.booking.bookingId,
+        logo: logoImage,
       );
 
       final pnrLabel = widget.booking.pnrs.isNotEmpty ? widget.booking.pnrs.first : 'ticket';
@@ -376,6 +392,8 @@ class _AkTicketConfirmationScreenState extends State<AkTicketConfirmationScreen>
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
+          duration: const Duration(seconds: 3),
+          dismissDirection: DismissDirection.down,
           content: Text(savedPath == null
               ? 'E-ticket ready: $fileName'
               : 'E-ticket saved to your phone: $fileName'),

@@ -77,13 +77,20 @@ class FlightTripInfo {
   /// Onward legs (for a round trip: everything before the turnaround).
   final List<Map<String, dynamic>> legs;
 
-  FlightTripInfo._(this.booking, this.legs);
+  /// Return legs (non-empty only for round trips).
+  final List<Map<String, dynamic>> returnLegs;
 
-  factory FlightTripInfo(FlightBookEntity b) => FlightTripInfo._(b, _onwardLegs(b.tboSegments));
+  FlightTripInfo._(this.booking, this.legs, this.returnLegs);
 
-  static List<Map<String, dynamic>> _onwardLegs(List<Map<String, dynamic>> segs) {
-    if (segs.length < 2) return segs;
-    if (_str(segs.last, 'toCode') != _str(segs.first, 'fromCode')) return segs;
+  factory FlightTripInfo(FlightBookEntity b) {
+    final split = _splitLegs(b.tboSegments);
+    return FlightTripInfo._(b, split.$1, split.$2);
+  }
+
+  static (List<Map<String, dynamic>>, List<Map<String, dynamic>>) _splitLegs(
+      List<Map<String, dynamic>> segs) {
+    if (segs.length < 2) return (segs, const []);
+    if (_str(segs.last, 'toCode') != _str(segs.first, 'fromCode')) return (segs, const []);
     var split = segs.length - 1;
     var longest = Duration.zero;
     for (var i = 0; i < segs.length - 1; i++) {
@@ -96,7 +103,57 @@ class FlightTripInfo {
         split = i;
       }
     }
-    return segs.sublist(0, split + 1);
+    return (segs.sublist(0, split + 1), segs.sublist(split + 1));
+  }
+
+  bool get hasReturnLegs => returnLegs.isNotEmpty;
+
+  String get returnFromCode => hasReturnLegs ? _str(returnLegs.first, 'fromCode') : '';
+  String get returnFromCity => hasReturnLegs ? _str(returnLegs.first, 'fromCity') : '';
+  String get returnToCode => hasReturnLegs ? _str(returnLegs.last, 'toCode') : '';
+  String get returnToCity => hasReturnLegs ? _str(returnLegs.last, 'toCity') : '';
+  DateTime? get returnDeparture => hasReturnLegs ? parseTripDate(_str(returnLegs.first, 'departureTime')) : null;
+  DateTime? get returnArrival => hasReturnLegs ? parseTripDate(_str(returnLegs.last, 'arrivalTime')) : null;
+  String get returnAirline => hasReturnLegs ? _str(returnLegs.first, 'airline') : '';
+  String get returnAirlineCode {
+    if (!hasReturnLegs) return '';
+    final code = _str(returnLegs.first, 'airlineCode');
+    if (code.isNotEmpty) return code;
+    final fn = _str(returnLegs.first, 'flightNumber');
+    final m = RegExp(r'^([A-Z0-9]{2})\s').firstMatch(fn.toUpperCase());
+    return m?.group(1) ?? '';
+  }
+  String get returnFlightNumber {
+    if (!hasReturnLegs) return '';
+    final number = _str(returnLegs.first, 'flightNumber');
+    if (number.isEmpty) return '';
+    if (returnAirlineCode.isEmpty || number.toUpperCase().startsWith(returnAirlineCode.toUpperCase())) return number;
+    return '$returnAirlineCode $number';
+  }
+  int get returnStops => hasReturnLegs ? returnLegs.length - 1 : 0;
+  Duration? get returnDuration {
+    if (!hasReturnLegs) return null;
+    var total = Duration.zero;
+    for (var i = 0; i < returnLegs.length; i++) {
+      final d = _legDuration(_str(returnLegs[i], 'duration'));
+      if (d == null) return null;
+      total += d;
+      if (i < returnLegs.length - 1) {
+        final a = parseTripDate(_str(returnLegs[i], 'arrivalTime'));
+        final n = parseTripDate(_str(returnLegs[i + 1], 'departureTime'));
+        if (a != null && n != null) total += n.difference(a);
+      }
+    }
+    return total;
+  }
+  String? get returnDurationLabel => returnDuration == null ? null : _durationLabel(returnDuration!);
+  String get returnRouteSummary {
+    final parts = [
+      if (returnDurationLabel != null) returnDurationLabel!,
+      if (returnStops == 0) (returnDurationLabel != null ? '(Non Stop)' : 'Non Stop')
+      else (returnDurationLabel != null ? '(${plural(returnStops, 'Stop')})' : plural(returnStops, 'Stop')),
+    ];
+    return parts.join(' ');
   }
 
   Map<String, dynamic> get _first => legs.isNotEmpty ? legs.first : const {};
@@ -105,7 +162,13 @@ class FlightTripInfo {
   bool get hasSegments => legs.isNotEmpty;
 
   String get airline => _str(_first, 'airline').isNotEmpty ? _str(_first, 'airline') : 'Flight';
-  String get airlineCode => _str(_first, 'airlineCode');
+  String get airlineCode {
+    final code = _str(_first, 'airlineCode');
+    if (code.isNotEmpty) return code;
+    final fn = _str(_first, 'flightNumber').isNotEmpty ? _str(_first, 'flightNumber') : booking.flightNumber;
+    final m = RegExp(r'^([A-Z0-9]{2})\s').firstMatch(fn.toUpperCase());
+    return m?.group(1) ?? '';
+  }
 
   /// "6E 1461"
   String get flightNumber {

@@ -2173,15 +2173,18 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup>
   }
 
   String _getFareLabel(FareFamilyIndexEntity option, int rank, int total) {
-    // Prefer the name returned by the FareFamilyDetails API when available.
     final apiLabel = _fareFamilyLabels[option.index];
+    String label;
     if (apiLabel != null && apiLabel.isNotEmpty) {
-      return _toTitleCase(apiLabel);
+      label = _toTitleCase(apiLabel);
+    } else if (rank == 0) {
+      label = 'Saver';
+    } else if (rank == total - 1) {
+      label = 'Flexi';
+    } else {
+      label = 'Standard';
     }
-    // Fallback: rank-based labels until/if the API doesn't return names.
-    if (rank == 0) return 'Saver';
-    if (rank == total - 1) return 'Flexi';
-    return 'Standard';
+    return label.replaceAll(RegExp(r'AKB', caseSensitive: false), 'WNT');
   }
 
   String _toTitleCase(String s) {

@@ -4,6 +4,8 @@ import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import 'package:wander_nova/core/resources/app_colours.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 
+import '../../../TrishaAI/presentation/screen/trisha_chat_screen.dart';
+
 class SlidingSearchSection extends StatefulWidget {
   final bool isVisible;
   final VoidCallback? onHide;
@@ -93,6 +95,13 @@ class _SlidingSearchSectionState extends State<SlidingSearchSection>
       _searchFocusNode.unfocus();
       _controller.reverse();
     }
+  }
+
+  void _goToTrisha(String prompt) {
+    widget.onHide?.call();
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => TrishaChatScreen(initialPrompt: prompt)),
+    );
   }
 
   Future<void> _toggleListening() async {
@@ -256,11 +265,17 @@ class _SlidingSearchSectionState extends State<SlidingSearchSection>
                                 fontSize: context.fs(14),
                                 fontWeight: FontWeight.w400,
                               ),
+                              // onSubmitted: (value) {
+                              //   // Handle search submission
+                              //   widget.onHide?.call();
+                              // },
                               onSubmitted: (value) {
-                                // Handle search submission
-                                widget.onHide?.call();
+                                final text = value.trim();
+                                if (text.isEmpty) return;
+                                _goToTrisha(text);
                               },
                             ),
+
                           ),
                           GestureDetector(
                             behavior: HitTestBehavior.opaque,
@@ -326,7 +341,8 @@ class _SlidingSearchSectionState extends State<SlidingSearchSection>
                             category: 'FLIGHTS',
                             categoryColor: AppColors.AppBlue,
                             title: 'Cheapest flights to Goa',
-                            onTap: widget.onHide,
+                            onTap: () => _goToTrisha('Cheapest flights to Goa'),
+                            // onTap: widget.onHide,
                           ),
                           SizedBox(height: context.h(20)),
 
@@ -338,7 +354,8 @@ class _SlidingSearchSectionState extends State<SlidingSearchSection>
                             category: 'TRIP PLANNING',
                             categoryColor: AppColors.AppBlue,
                             title: 'Plan an itinerary covering Goa in 5 days',
-                            onTap: widget.onHide,
+                            onTap: () => _goToTrisha('Plan an itinerary covering Goa in 5 days'),
+                            // onTap: widget.onHide,
                           ),
                           SizedBox(height: context.h(20)),
 
@@ -351,7 +368,8 @@ class _SlidingSearchSectionState extends State<SlidingSearchSection>
                             categoryColor: AppColors.AppBlue,
                             title:
                                 'Recommend some iconic palace hotels to stay in Udaipur',
-                            onTap: widget.onHide,
+                            // onTap: widget.onHide,
+                            onTap: () => _goToTrisha('Recommend some iconic palace hotels to stay in Udaipur'),
                           ),
                         ],
                       ),

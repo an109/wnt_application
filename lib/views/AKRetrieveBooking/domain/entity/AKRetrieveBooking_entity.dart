@@ -58,12 +58,14 @@ class AkRetrieveBookingEntity extends Equatable {
   final List<String> pnrs;
   final String status;
   final List<AkRetrieveTripEntity> trips;
+  final int? bookingId;
 
   const AkRetrieveBookingEntity({
     required this.success,
     required this.pnrs,
     required this.status,
     required this.trips,
+    this.bookingId,
   });
 
   /// All ticket numbers across every segment, flattened for a simple
@@ -75,5 +77,5 @@ class AkRetrieveBookingEntity extends Equatable {
       .toList();
 
   @override
-  List<Object?> get props => [success, pnrs, status, trips];
+  List<Object?> get props => [success, pnrs, status, trips, bookingId];
 }

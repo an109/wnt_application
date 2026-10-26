@@ -24,6 +24,9 @@ class FlightCard extends StatelessWidget {
   /// Fully formatted price, currency symbol included — e.g. "₹ 35,442".
   final String priceText;
 
+  /// Inflated "was" price shown with strikethrough before [priceText].
+  final String? originalPriceText;
+
   /// Small grey suffix drawn inline after the price.
   final String perLabel;
 
@@ -60,6 +63,7 @@ class FlightCard extends StatelessWidget {
     required this.duration,
     this.stopsLabel = 'Non stop',
     this.perLabel = '/adult',
+    this.originalPriceText,
     this.footer,
     this.isSelected = false,
   });
@@ -153,27 +157,43 @@ class FlightCard extends StatelessWidget {
             ],
           ),
         ),
-        // Price remains the same
         SizedBox(width: context.w(8)),
-        Text.rich(
-          TextSpan(
-            text: priceText,
-            style: TextStyle(
-              fontSize: context.fs(16),
-              fontWeight: FontWeight.w700,
-              color: AppColors.AppBlue,
-            ),
-            children: [
-              TextSpan(
-                text: ' $perLabel',
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (originalPriceText != null)
+              Text(
+                originalPriceText!,
                 style: TextStyle(
-                  fontSize: context.fs(8),
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.subhead,
+                  fontSize: context.fs(11),
+                  fontWeight: FontWeight.w500,
+                  color: const Color(0xFF9CA3AF),
+                  decoration: TextDecoration.lineThrough,
+                  decorationColor: const Color(0xFF9CA3AF),
                 ),
               ),
-            ],
-          ),
+            Text.rich(
+              TextSpan(
+                text: priceText,
+                style: TextStyle(
+                  fontSize: context.fs(16),
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.AppBlue,
+                ),
+                children: [
+                  TextSpan(
+                    text: ' $perLabel',
+                    style: TextStyle(
+                      fontSize: context.fs(8),
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.subhead,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ],
     );

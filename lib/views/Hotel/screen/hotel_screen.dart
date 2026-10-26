@@ -11,8 +11,10 @@ import '../../../hotelUIwidget/hotel_collections_section.dart';
 import '../../../hotelUIwidget/hotel_luxe_packages_section.dart';
 import '../../../hotelUIwidget/hotel_recent_searches_section.dart';
 import '../../../hotelUIwidget/hotel_recently_viewed_section.dart';
+import '../../../newUIWidgets/AIbutton.dart';
 import '../../ExclusiveDeals/presentation/bloc/exclusive_deals_bloc.dart';
 
+import '../../TrishaAI/presentation/screen/trisha_chat_screen.dart';
 import '../../flight_popularDestination/presentation/screen/popular_destination.dart';
 import '../../home/presentation/screens/deals.dart';
 import '../section/exclusive_deals/hotel_search_card.dart';
@@ -109,60 +111,16 @@ class _HotelBookingScreenState extends State<HotelBookingScreen> {
               ),
             ],
           ),
-          Positioned(
-            bottom: context.h(56), // Adjust as needed
-            right: context.w(20), // Adjust as needed
-            child: GestureDetector(
-              onTap: () {
-                // Handle AI button tap
-                debugPrint("AI button tapped in FlightScreen");
-                // Add your AI functionality here
-              },
-              child: Container(
-                width: context.w(50),
-                height: context.h(50),
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black26,
-                      blurRadius: 10,
-                      offset: Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    // ==================================================
-                    // COLORFUL AI FRAME
-                    // ==================================================
-                    ClipOval(
-                      child: Image.asset(
-                        'assets/Newgif/ai_frame.png',
-                        width: context.w(63),
-                        height: context.h(63),
-                        fit: BoxFit.cover,
-                      ),
-                    ),
-                    // ==================================================
-                    // AI GIF
-                    // ==================================================
-                    ClipOval(
-                      child: Image.asset(
-                        'assets/Newgif/home_ai.gif',
-                        width: context.w(65),
-                        height: context.h(65),
-                        fit: BoxFit.contain,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
+          AIFloatingButton(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const TrishaChatScreen()),
+              );
+            },
+          )
       ]
+
       ),
 
       ),

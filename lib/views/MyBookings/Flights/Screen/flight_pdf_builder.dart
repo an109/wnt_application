@@ -15,6 +15,10 @@ class AkTicketLeg {
   final String arrivalTime;
   final String? departureDate;
   final String duration;
+  final String? baggage;
+  final String? cabinBaggage;
+  final String? terminal;
+  final String? arrivalTerminal;
 
   const AkTicketLeg({
     this.label,
@@ -26,6 +30,10 @@ class AkTicketLeg {
     required this.arrivalTime,
     this.departureDate,
     required this.duration,
+    this.baggage,
+    this.cabinBaggage,
+    this.terminal,
+    this.arrivalTerminal,
   });
 }
 
@@ -80,10 +88,22 @@ class FlightPdfBuilder {
         arrivalTime: _ascii(leg.arrivalTime),
         departureDate: leg.departureDate == null ? null : _ascii(leg.departureDate!),
         duration: _ascii(leg.duration),
+        baggage: leg.baggage == null ? null : _ascii(leg.baggage!),
+        cabinBaggage: leg.cabinBaggage == null ? null : _ascii(leg.cabinBaggage!),
+        terminal: leg.terminal == null ? null : _ascii(leg.terminal!),
       );
 
   // =========================================================================
-  // AKBAR FLOW
+  // Brand colours matching backend ticket_invoice_utils.py
+  // =========================================================================
+  static const _vNavy = Color(0xFF1A3A5C);
+  static const _vOrange = Color(0xFFE67E22);
+  static const _vGrey = Color(0xFF6B7280);
+  static const _vBlue = Color(0xFF2F6FC4);
+  static const _vDarkBlue = Color(0xFF1857A3);
+
+  // =========================================================================
+  // AKBAR FLOW — Full voucher matching backend generate_flight_ticket_voucher_pdf
   // =========================================================================
   static pw.Document buildAkTicket({
     required List<AkTicketLeg> legs,
@@ -96,26 +116,398 @@ class FlightPdfBuilder {
     String? ticketNumber,
     pw.ImageProvider? logo,
     int travellerCount = 1,
+    String flightClass = 'Economy',
+    String? paidVia,
+    List<Map<String, dynamic>>? passengers,
+    Map<String, dynamic>? ssrSelections,
+    String currency = 'INR',
+    int? bookingId,
   }) {
-    final pnr = pnrs.isNotEmpty ? pnrs.join(', ') : 'N/A';
+    final pnr = pnrs.isNotEmpty ? _ascii(pnrs.first) : 'N/A';
+    final sanitizedLegs = legs.map(_sanitizeLeg).toList();
+    final safePassengerName = _ascii(passengerName);
+    final safeAmount = _ascii(displayAmount);
+    final safeFlightClass = _ascii(flightClass);
+    final safeCurrency = _ascii(currency);
+    final wntNumber = bookingId != null ? '$bookingId' : pnr;
+    final safeTxnId = transactionId == null ? null : _ascii(transactionId);
+    final tn = ticketNumber ?? '176 ${safeTxnId ?? wntNumber}';
+    final issuedDate = DateFormat('dd MMM yyyy').format(DateTime.now());
+    final paxList = passengers ?? [];
+
     final pdf = pw.Document();
     pdf.addPage(pw.MultiPage(
       pageFormat: PdfPageFormat.a4,
-      margin: const pw.EdgeInsets.fromLTRB(28, 28, 28, 28),
-      header: (context) => _pageHeader(ticketNumber, logo),
-      footer: _footer,
-      build: (context) => _page1Content(
-        passengerName: _ascii(passengerName),
-        pnr: _ascii(pnr),
-        legs: legs.map(_sanitizeLeg).toList(),
-        displayAmount: _ascii(displayAmount),
-        transactionId: transactionId == null ? null : _ascii(transactionId),
-        email: _ascii(email),
-        phone: _ascii(phone),
-        travellerCount: travellerCount,
-      ),
+      margin: const pw.EdgeInsets.fromLTRB(45, 40, 45, 40),
+      header: (context) => _voucherHeader(logo, tn),
+      footer: _voucherFooter,
+      build: (context) {
+        final W = PdfPageFormat.a4.width - 90;
+        return [
+          // ======================== PAGE 1 — COVER ========================
+          pw.SizedBox(height: 14),
+          pw.Center(child: pw.Text('Ticket & Receipt',
+              style: pw.TextStyle(fontSize: 30, fontWeight: pw.FontWeight.bold, color: _c(_vBlue)))),
+          pw.SizedBox(height: 16),
+
+          // Passenger table — backend col widths: [0.30, 0.23, 0.27, 0.20]
+          _vPassengerTable(paxList, safePassengerName, wntNumber, issuedDate, W),
+          pw.SizedBox(height: 18),
+
+          // Booking reference banner
+          pw.Container(
+            width: double.infinity,
+            padding: const pw.EdgeInsets.fromLTRB(16, 12, 16, 12),
+            decoration: pw.BoxDecoration(color: _c(_vBlue), borderRadius: pw.BorderRadius.circular(8)),
+            child: pw.Text('Your booking reference:',
+                style: pw.TextStyle(fontSize: 17, fontWeight: pw.FontWeight.bold, color: PdfColors.white)),
+          ),
+          pw.SizedBox(height: 12),
+
+          // Two-column notice — backend: [W*0.48, W*0.48]
+          pw.Table(columnWidths: {0: pw.FixedColumnWidth(W * 0.48), 1: pw.FixedColumnWidth(W * 0.48)}, children: [
+            pw.TableRow(children: [
+              pw.Padding(padding: const pw.EdgeInsets.only(right: 16), child: _vBody(
+                  'Your ticket is stored in our booking system. This receipt is your record of your '
+                  'ticket and is part of your conditions of carriage. For more information you can read '
+                  'the notices and conditions of carriage.\n\n'
+                  'You might need to show this receipt to enter the airport or to prove your return or onwards travel to immigration.')),
+              pw.Padding(padding: const pw.EdgeInsets.only(left: 16), child: _vBody(
+                  'Check with your departure airport for restrictions on the carriage of liquids, aerosols '
+                  'and gels in hand baggage and check your visa requirements.\n\n'
+                  'Please check our Dangerous Goods information to find out what you can and can\'t bring on board. Some '
+                  'substances and certain items are restricted, like portable electronic devices, spare '
+                  'batteries or smart bags.')),
+            ]),
+          ]),
+          pw.SizedBox(height: 22),
+
+          // Check-in timeline chevron bar
+          _vCheckinTimeline(),
+          pw.SizedBox(height: 8),
+          pw.Table(columnWidths: {0: pw.FixedColumnWidth(W * 0.25), 1: pw.FixedColumnWidth(W * 0.25), 2: pw.FixedColumnWidth(W * 0.25), 3: pw.FixedColumnWidth(W * 0.25)}, children: [
+            pw.TableRow(children: [
+              pw.Padding(padding: const pw.EdgeInsets.all(6), child: _vSmall(
+                  'Check in at the airport. At most airports you need to arrive 3 hours before departure, '
+                  'but it can be up to 4 hours to complete all the travel requirements. Please check the '
+                  'best time to arrive for your journey below.')),
+              pw.Padding(padding: const pw.EdgeInsets.all(6), child: _vSmall(
+                  '90 minutes before take-off go through passport control.')),
+              pw.Padding(padding: const pw.EdgeInsets.all(6), child: _vSmall(
+                  '60 minutes before take-off be ready at the gate (Premium Economy, Economy Class).')),
+              pw.Padding(padding: const pw.EdgeInsets.all(6), child: _vSmall(
+                  '45 minutes before take-off be ready at the gate (First Class, Business Class).')),
+            ]),
+          ]),
+
+          // =============== PAGE 2 — TRAVEL INFORMATION ===============
+          pw.NewPage(),
+          // Grey header bar
+          pw.Table(columnWidths: {0: pw.FixedColumnWidth(W * 0.6), 1: pw.FixedColumnWidth(W * 0.4)}, children: [
+            pw.TableRow(decoration: pw.BoxDecoration(color: _c(const Color(0xFFD9D9D9))), children: [
+              pw.Padding(padding: const pw.EdgeInsets.fromLTRB(14, 10, 14, 10),
+                  child: pw.Text('Your travel information', style: pw.TextStyle(fontSize: 18))),
+              pw.Padding(padding: const pw.EdgeInsets.fromLTRB(14, 10, 14, 10),
+                  child: pw.Align(alignment: pw.Alignment.centerRight,
+                      child: pw.Text('All times shown are local for each city',
+                          style: pw.TextStyle(fontSize: 8.5, color: _c(_vGrey))))),
+            ]),
+          ]),
+          pw.SizedBox(height: 10),
+
+          // Per-leg travel info blocks
+          for (int i = 0; i < sanitizedLegs.length; i++) ...[
+            _vTravelInfoBlock(leg: sanitizedLegs[i], index: i + 1, total: sanitizedLegs.length, flightClass: safeFlightClass, pnr: pnr, W: W),
+            pw.SizedBox(height: 14),
+          ],
+
+          // ============= PAGE 3 — FARE INFORMATION + POLICIES =============
+          _vDottedLine(),
+          pw.Text('FARE INFORMATION', style: pw.TextStyle(font: pw.Font.timesBold(), fontSize: 16, color: _c(_vNavy))),
+          pw.SizedBox(height: 8),
+
+          // Fare table — backend col widths: [0.15, 0.15, 0.30, 0.20, 0.20]
+          pw.Table(
+            columnWidths: {0: pw.FixedColumnWidth(W * 0.15), 1: pw.FixedColumnWidth(W * 0.15), 2: pw.FixedColumnWidth(W * 0.30), 3: pw.FixedColumnWidth(W * 0.20), 4: pw.FixedColumnWidth(W * 0.20)},
+            children: [
+              pw.TableRow(decoration: pw.BoxDecoration(color: _c(const Color(0xFFE7EEF8))), children: [
+                pw.Padding(padding: const pw.EdgeInsets.fromLTRB(12, 12, 8, 2), child: pw.Text('Fare', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: _c(_vNavy)))),
+                pw.Padding(padding: const pw.EdgeInsets.fromLTRB(12, 12, 8, 2), child: pw.Text('Equivalent fare', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: _c(_vNavy)))),
+                pw.Padding(padding: const pw.EdgeInsets.fromLTRB(12, 12, 8, 2), child: pw.Text('Taxes / Fees / Charges (TFC)', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: _c(_vNavy)))),
+                pw.Padding(padding: const pw.EdgeInsets.fromLTRB(12, 12, 8, 2), child: pw.Text('Total fare (Incl. TFC)', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: _c(_vNavy)))),
+                pw.Padding(padding: const pw.EdgeInsets.fromLTRB(12, 12, 8, 2), child: pw.Text('Form of payment', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: _c(_vNavy)))),
+              ]),
+              pw.TableRow(decoration: pw.BoxDecoration(color: _c(const Color(0xFFE7EEF8))), children: [
+                pw.Padding(padding: const pw.EdgeInsets.fromLTRB(12, 4, 8, 14), child: pw.Text('$safeCurrency$safeAmount', style: const pw.TextStyle(fontSize: 8.5))),
+                pw.Padding(padding: const pw.EdgeInsets.fromLTRB(12, 4, 8, 14), child: pw.Text('-', style: const pw.TextStyle(fontSize: 8.5))),
+                pw.Padding(padding: const pw.EdgeInsets.fromLTRB(12, 4, 8, 14), child: pw.Text('Included in total', style: const pw.TextStyle(fontSize: 8.5))),
+                pw.Padding(padding: const pw.EdgeInsets.fromLTRB(12, 4, 8, 14), child: pw.Text('$safeCurrency$safeAmount', style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold))),
+                pw.Padding(padding: const pw.EdgeInsets.fromLTRB(12, 4, 8, 14), child: pw.Text(_paymentLabel(paidVia), style: const pw.TextStyle(fontSize: 8.5))),
+              ]),
+            ],
+          ),
+          pw.SizedBox(height: 20),
+
+          _vDottedLine(),
+          pw.SizedBox(height: 4),
+          pw.Text('HAZARDOUS MATERIALS AND SUBSTANCE CONTROL POLICY', style: pw.TextStyle(font: pw.Font.timesBold(), fontSize: 16, color: _c(_vNavy))),
+          pw.SizedBox(height: 4),
+          _vBody('The carriage of certain hazardous materials like aerosols, fireworks and inflammable liquids aboard the '
+              'aircraft is forbidden. Personal motorised vehicles such as hoverboards, mini-Segways and smart or '
+              'self-balancing wheels, are also forbidden on our flights as they contain large lithium batteries. For safety '
+              'reasons, we can\'t accept these as part of checked-in baggage or as hand luggage. If you do not understand '
+              'this restriction, further information may be obtained from your airline.'),
+          pw.SizedBox(height: 14),
+          pw.Text('WANDERNOVA CABIN BAGGAGE ALLOWANCES', style: pw.TextStyle(font: pw.Font.timesBold(), fontSize: 16, color: _c(_vNavy))),
+          pw.SizedBox(height: 4),
+          _vBody('Economy Class:\nOne piece of carry-on baggage is permitted with maximum dimensions: 55 x 38 x 22cm '
+              '(22 x 15 x 8 inches) and maximum weight: 7kg (15lb). Note: If you\'re boarding in India, your carry-on baggage '
+              'may not exceed 115cm or 45.3 inches (length + width + height). If your itinerary originates from Brazil, '
+              'you\'re allowed a carry-on weighing 10kg (22lb).'),
+          pw.SizedBox(height: 8),
+          _vBody('Premium Economy:\nOne piece of carry-on baggage is permitted with maximum dimensions: 55 x 38 x 22cm '
+              '(22 x 15 x 8 inches) and maximum weight: 10kg (22lb). Note: If you\'re boarding in India, your carry-on '
+              'baggage may not exceed 115cm or 45.3 inches (length + width + height).'),
+          pw.SizedBox(height: 8),
+          _vBody('First Class and Business Class:\nTwo pieces of carry-on baggage permitted: one briefcase plus either '
+              'one handbag or one garment bag. The briefcase may not exceed 45 x 35 x 20cm (18 x 14 x 8 inches); the handbag '
+              'may not exceed 55 x 38 x 22cm (22 x 15 x 8 inches); the garment bag can be no more than 20cm (8 inches) thick '
+              'when folded. The weight of each piece must not exceed 7kg (15lb). The total combined weight of both pieces may '
+              'not be more than 14kg (30lb).'),
+          pw.SizedBox(height: 8),
+          _vBody('Infants in all cabin classes are permitted one checked-in bag that may not exceed 55 x 38 x 22 cm '
+              '(22 x 15 x 8 inches) in size and 23kg (50lb) where the piece concept applies, or 10kg (22lb) where the weight '
+              'concept applies. In addition, customers travelling with infants (and without a child seat) are permitted to '
+              'bring one carry-cot or one fully collapsible stroller into the cabin if there is room. If there is no space '
+              'for these items in the cabin, they will have to be checked. However, if checked, they will not count against '
+              'your baggage allowance.'),
+          pw.SizedBox(height: 14),
+          pw.Text('WANDERNOVA CHECKED BAGGAGE NOTIFICATION', style: pw.TextStyle(font: pw.Font.timesBold(), fontSize: 16, color: _c(_vNavy))),
+          pw.SizedBox(height: 4),
+          _vBody('Checked baggage allowances vary by fare type and class of travel. Check your baggage allowance, however '
+              'please note that any individual item weighing more than 32kg cannot be accepted, for health and safety reasons.'),
+          pw.SizedBox(height: 20),
+
+          // =============== PAGE 4 — INFLIGHT ENTERTAINMENT ===============
+          _vDottedLine(),
+          pw.SizedBox(height: 8),
+          pw.Container(
+            width: double.infinity,
+            padding: const pw.EdgeInsets.all(16),
+            decoration: pw.BoxDecoration(color: _c(const Color(0xFFEEF2F8)), border: pw.Border.all(color: _c(const Color(0xFFC9C9C9)), width: 0.5)),
+            child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+              pw.Text('INFLIGHT ENTERTAINMENT', style: pw.TextStyle(font: pw.Font.timesBold(), fontSize: 16, color: _c(_vNavy))),
+              pw.SizedBox(height: 8),
+              _vBody('Fall in love with a classic romance or immerse yourself in the latest edge-of-the-seat blockbuster - let our '
+                  'inflight entertainment take you to places you won\'t find on a map. Choose from thousands of channels of '
+                  'movies, TV shows and music from around the world and in multiple languages. Or challenge other passengers to '
+                  'a range of gripping games.'),
+            ]),
+          ),
+        ];
+      },
     ));
     return pdf;
+  }
+
+  // =========================================================================
+  // Voucher helper widgets (exact match of backend brand theme)
+  // =========================================================================
+  static String _paymentLabel(String? paidVia) => switch ((paidVia ?? '').toLowerCase()) {
+        'ccavenue' => 'Card / UPI / Netbanking (CCAvenue)',
+        'razorpay' => 'Card / UPI / Netbanking (Razorpay)',
+        'wallet' => 'Wallet',
+        _ => (paidVia?.isNotEmpty == true) ? paidVia! : 'Online',
+      };
+
+  static pw.Widget _voucherHeader(pw.ImageProvider? logo, String ticketNumber) {
+    return pw.Container(
+      margin: const pw.EdgeInsets.only(bottom: 8),
+      child: pw.Row(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+        if (logo != null)
+          pw.Image(logo, width: 130, height: 48, fit: pw.BoxFit.contain)
+        else
+          pw.RichText(text: pw.TextSpan(children: [
+            pw.TextSpan(text: 'WANDER ', style: pw.TextStyle(color: _c(_vNavy), fontSize: 15, fontWeight: pw.FontWeight.bold)),
+            pw.TextSpan(text: 'NOVA', style: pw.TextStyle(color: _c(_vOrange), fontSize: 15, fontWeight: pw.FontWeight.bold)),
+          ])),
+        pw.Spacer(),
+        pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.end, children: [
+          if (ticketNumber.isNotEmpty && ticketNumber != 'N/A') ...[
+            pw.BarcodeWidget(barcode: pw.Barcode.code128(), data: ticketNumber.replaceAll(' ', ''), width: 170, height: 35, drawText: false),
+            pw.SizedBox(height: 3),
+            pw.Text('Ticket number: $ticketNumber', style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold)),
+            pw.Text('Scan the bar code or use the ticket number above\nat the self check-in points in the airport.', textAlign: pw.TextAlign.right, style: pw.TextStyle(fontSize: 6.3, color: _c(_vGrey))),
+          ],
+        ]),
+      ]),
+    );
+  }
+
+  static pw.Widget _voucherFooter(pw.Context context) {
+    return pw.Container(
+      width: double.infinity,
+      padding: const pw.EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+      decoration: pw.BoxDecoration(color: _c(_vNavy)),
+      child: pw.Row(children: [
+        pw.Expanded(child: pw.Text('WanderNova | Email: info@thewandernova.com', style: pw.TextStyle(fontSize: 7.5, color: PdfColors.white))),
+        pw.Text('Page ${context.pageNumber} of ${context.pagesCount}', style: pw.TextStyle(fontSize: 7.5, color: PdfColors.white)),
+      ]),
+    );
+  }
+
+  static pw.Widget _vDottedLine() {
+    return pw.Container(
+      margin: const pw.EdgeInsets.symmetric(vertical: 4),
+      child: pw.Divider(color: _c(const Color(0xFF9AA5B1)), thickness: 0.6, borderStyle: pw.BorderStyle.dotted),
+    );
+  }
+
+  static pw.Widget _vBody(String text) {
+    return pw.Text(text, style: pw.TextStyle(fontSize: 8.5, color: _c(const Color(0xFF374151)), lineSpacing: 1.5));
+  }
+
+  static pw.Widget _vSmall(String text) {
+    return pw.Text(text, style: pw.TextStyle(fontSize: 7.5, color: _c(const Color(0xFF374151)), lineSpacing: 1.2));
+  }
+
+  // Backend passenger table: header bg #2f6fc4, col widths [0.30, 0.23, 0.27, 0.20]
+  // Header fontSize=10 bold white centered, cell fontSize=9 centered, padding 8
+  static pw.Widget _vPassengerTable(List<Map<String, dynamic>> paxList, String fallbackName, String wntNumber, String issuedDate, double W) {
+    final hdrStyle = pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: PdfColors.white);
+    final cellStyle = pw.TextStyle(fontSize: 9);
+    pw.Widget hCell(String t) => pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Center(child: pw.Text(t, style: hdrStyle, textAlign: pw.TextAlign.center)));
+    pw.Widget dCell(String t) => pw.Padding(padding: const pw.EdgeInsets.all(8), child: pw.Center(child: pw.Text(t, style: cellStyle, textAlign: pw.TextAlign.center)));
+
+    final rows = <pw.TableRow>[
+      pw.TableRow(decoration: pw.BoxDecoration(color: _c(_vBlue)), children: [
+        hCell('Passenger name'), hCell('WNT number'), hCell('Issued by / Date'), hCell('Membership Tier'),
+      ]),
+      for (final p in (paxList.isNotEmpty ? paxList : [<String, dynamic>{'firstName': fallbackName}]))
+        pw.TableRow(children: [
+          dCell(_ascii('${p['title'] ?? ''} ${p['firstName'] ?? ''} ${p['lastName'] ?? ''}'.trim().toUpperCase())),
+          dCell('WNT-$wntNumber'),
+          dCell('WanderNova\n$issuedDate'),
+          dCell('-'),
+        ]),
+    ];
+    return pw.Table(
+      border: pw.TableBorder.all(color: _c(_vBlue), width: 0.8),
+      columnWidths: {0: pw.FixedColumnWidth(W * 0.30), 1: pw.FixedColumnWidth(W * 0.23), 2: pw.FixedColumnWidth(W * 0.27), 3: pw.FixedColumnWidth(W * 0.20)},
+      children: rows,
+    );
+  }
+
+  static pw.Widget _vCheckinTimeline() {
+    final items = ['Check in online, or', '90 minutes', '60 minutes', '45 minutes'];
+    return pw.Row(children: [
+      for (int i = 0; i < items.length; i++)
+        pw.Expanded(child: pw.Container(
+          padding: const pw.EdgeInsets.symmetric(vertical: 14, horizontal: 4),
+          decoration: pw.BoxDecoration(
+            color: i == 0 ? _c(_vDarkBlue) : _c(_vBlue),
+            border: i > 0 ? pw.Border(left: pw.BorderSide(color: PdfColors.white, width: 0.5)) : null,
+          ),
+          child: pw.Text(items[i], textAlign: pw.TextAlign.center, style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: PdfColors.white)),
+        )),
+    ]);
+  }
+
+  // Backend travel info block: blue departing banner (fontSize=14 white),
+  // lighter blue leg line (fontSize=8 white), 4-col info [0.16, 0.18, 0.18, 0.48],
+  // coupon/baggage line [0.62, 0.36]
+  static pw.Widget _vTravelInfoBlock({required AkTicketLeg leg, required int index, required int total, required String flightClass, required String pnr, required double W}) {
+    final fromCity = leg.from;
+    final toCity = leg.to;
+    final bagLabel = leg.baggage?.toUpperCase() ?? 'AS PER AIRLINE';
+    final depDate = leg.departureDate ?? '';
+
+    return pw.Container(
+      decoration: pw.BoxDecoration(border: pw.Border.all(color: _c(const Color(0xFFC9C9C9)), width: 0.6)),
+      child: pw.Column(children: [
+        // Blue "Departing >> From City" banner with PNR on right
+        pw.Container(
+          width: double.infinity,
+          padding: const pw.EdgeInsets.fromLTRB(14, 9, 14, 9),
+          decoration: pw.BoxDecoration(color: _c(_vBlue)),
+          child: pw.Row(children: [
+            pw.Expanded(child: pw.Text('->  Departing >> From $fromCity',
+                style: pw.TextStyle(fontSize: 14, color: PdfColors.white))),
+            pw.Text('PNR: $pnr', style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold, color: PdfColors.white)),
+          ]),
+        ),
+        // Leg sub-line with PNR info
+        pw.Container(
+          width: double.infinity,
+          padding: const pw.EdgeInsets.fromLTRB(14, 4, 14, 4),
+          decoration: pw.BoxDecoration(color: _c(const Color(0xFF4B83CF))),
+          child: pw.Text(
+            'Leg $index of $total | $fromCity to $toCity | Operated by ${leg.airline}',
+            style: pw.TextStyle(fontSize: 8, color: PdfColors.white),
+          ),
+        ),
+        // 4-column info — backend widths: [0.16, 0.18, 0.18, 0.48]
+        pw.Container(
+          padding: const pw.EdgeInsets.fromLTRB(12, 10, 6, 6),
+          child: pw.Table(columnWidths: {
+            0: pw.FixedColumnWidth(W * 0.16),
+            1: pw.FixedColumnWidth(W * 0.18),
+            2: pw.FixedColumnWidth(W * 0.18),
+            3: pw.FixedColumnWidth(W * 0.44),
+          }, children: [
+            pw.TableRow(children: [
+              // Col 1: Flight / class / seat
+              pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+                pw.Text('Flight', style: pw.TextStyle(fontSize: 7.5, color: _c(_vGrey))),
+                pw.Text(leg.flightNo, style: pw.TextStyle(fontSize: 10.5, fontWeight: pw.FontWeight.bold)),
+                pw.Text(flightClass, style: const pw.TextStyle(fontSize: 8)),
+                pw.SizedBox(height: 4),
+                pw.Text('Seat', style: pw.TextStyle(fontSize: 7.5, color: _c(_vGrey))),
+              ]),
+              // Col 2: Check-in / status
+              pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+                pw.Text('Check-in at\n$depDate', style: pw.TextStyle(fontSize: 7.5, color: _c(_vGrey))),
+                pw.Text(_checkInFor(leg).$2, style: pw.TextStyle(fontSize: 10.5, fontWeight: pw.FontWeight.bold)),
+                pw.SizedBox(height: 6),
+                pw.Text('Status', style: pw.TextStyle(fontSize: 7.5, color: _c(_vGrey))),
+                pw.Text('Confirmed', style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold, color: _c(_vNavy))),
+              ]),
+              // Col 3: Departure / arrival times
+              pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+                pw.Text('Departure\n$depDate', style: pw.TextStyle(fontSize: 7.5, color: _c(_vGrey))),
+                pw.Text(leg.departureTime, style: pw.TextStyle(fontSize: 10.5, fontWeight: pw.FontWeight.bold)),
+                pw.SizedBox(height: 6),
+                pw.Text('Arrival\n$depDate', style: pw.TextStyle(fontSize: 7.5, color: _c(_vGrey))),
+                pw.Text(leg.arrivalTime, style: pw.TextStyle(fontSize: 10.5, fontWeight: pw.FontWeight.bold)),
+              ]),
+              // Col 4: Cities big + airports
+              pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+                pw.Text(fromCity.toUpperCase(), style: pw.TextStyle(fontSize: 15, fontWeight: pw.FontWeight.bold, color: _c(_vNavy))),
+                pw.Text('Departing $fromCity${leg.terminal?.isNotEmpty == true ? ', Terminal ${leg.terminal}' : ''}',
+                    style: pw.TextStyle(fontSize: 7.5, color: _c(_vNavy))),
+                pw.SizedBox(height: 8),
+                pw.Text(toCity.toUpperCase(), style: pw.TextStyle(fontSize: 15, fontWeight: pw.FontWeight.bold, color: _c(_vNavy))),
+                pw.Text('Arriving $toCity${leg.arrivalTerminal?.isNotEmpty == true ? ', Terminal ${leg.arrivalTerminal}' : ''}',
+                    style: pw.TextStyle(fontSize: 7.5, color: _c(_vNavy))),
+              ]),
+            ]),
+          ]),
+        ),
+        // Coupon + baggage — backend widths: [0.62, 0.36]
+        pw.Container(
+          padding: const pw.EdgeInsets.fromLTRB(12, 6, 12, 10),
+          child: pw.Table(columnWidths: {0: pw.FixedColumnWidth(W * 0.62), 1: pw.FixedColumnWidth(W * 0.36)}, children: [
+            pw.TableRow(children: [
+              pw.Text('Coupon validity: not before $depDate / not after $depDate',
+                  style: pw.TextStyle(fontSize: 8, color: _c(_vNavy))),
+              pw.Align(alignment: pw.Alignment.centerRight,
+                  child: pw.Text('BAGGAGE $bagLabel',
+                      style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold, color: _c(_vNavy)))),
+            ]),
+          ]),
+        ),
+      ]),
+    );
   }
 
   // =========================================================================
@@ -613,7 +1005,7 @@ class FlightPdfBuilder {
         pw.Row(children: [
           pw.Text('Coupon validity: not before ${leg.departureDate ?? ''} / not after ${leg.departureDate ?? ''}', style: pw.TextStyle(fontSize: 8, color: _c(_textSecondary))),
           pw.Spacer(),
-          pw.Text('BAGGAGE 35KGS', style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: _c(_navy))),
+          pw.Text('BAGGAGE ${leg.baggage?.toUpperCase() ?? '35KGS'}', style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: _c(_navy))),
         ]),
       ]),
     );
@@ -690,7 +1082,7 @@ class FlightPdfBuilder {
         pw.Row(children: [
           pw.Text('Coupon validity: not before ${leg.departureDate ?? ''} / not after ${leg.departureDate ?? ''}', style: pw.TextStyle(fontSize: 8, color: _c(_textSecondary))),
           pw.Spacer(),
-          pw.Text('BAGGAGE 35KGS', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: _c(_navy))),
+          pw.Text('BAGGAGE ${leg.baggage?.toUpperCase() ?? '35KGS'}', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: _c(_navy))),
         ]),
       ]),
     );

@@ -6,6 +6,7 @@ import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import '../../../injection_container.dart';
 import '../../../newUIWidgets/AIbutton.dart';
 import '../../ExclusiveDeals/presentation/bloc/exclusive_deals_bloc.dart';
+import '../../TrishaAI/presentation/screen/trisha_chat_screen.dart';
 import '../../flight_popularDestination/presentation/screen/popular_destination.dart';
 import '../../airport/presentation/screen/search_card.dart';
 import '../../airport/presentation/screen/recent_searches_section.dart';
@@ -96,7 +97,12 @@ class FlightScreen extends StatelessWidget {
           // FLOATING AI BUTTON - Fixed at bottom right
           // ==================================================
           AIFloatingButton(
-            onTap: () {},
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const TrishaChatScreen()),
+              );
+            },
           )
         ],
       ),

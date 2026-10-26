@@ -242,6 +242,8 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
     return 1;
   }
 
+  double _displayMarkupPercent = 0;
+
   /// All fare types share the Figma chrome: the route-summary header, the
   /// floating Sort / Non Stop / Filter bar, and no bottom nav.
   bool get _usesOneWayChrome => true;
@@ -258,6 +260,22 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
         : DateUtils.dateOnly(DateTime.now());
     _returnDate = widget.returnDate;
     _triggerFlightSearch();
+    _fetchDisplayMarkup();
+  }
+
+  Future<void> _fetchDisplayMarkup() async {
+    try {
+      final res = await Dio().get('${Urls.taxMargin}?domain=localhost');
+      if (res.statusCode == 200 && res.data is Map) {
+        final margin = res.data['tax_margin'];
+        if (margin is Map) {
+          final pct = double.tryParse(margin['flights_display_markup_percent']?.toString() ?? '') ?? 0;
+          if (mounted && pct != _displayMarkupPercent) {
+            setState(() => _displayMarkupPercent = pct);
+          }
+        }
+      }
+    } catch (_) {}
   }
 
   @override
@@ -2056,25 +2074,42 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
                     ),
                   ),
                   SizedBox(width: context.w(8)),
-                  Text.rich(
-                    TextSpan(
-                      text: priceText,
-                      style: TextStyle(
-                        fontSize: context.fs(16),
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.AppBlue,
-                      ),
-                      children: [
-                        TextSpan(
-                          text: ' $_perTravellerLabel',
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (_inflatedPriceText(_perTravellerFare((leg1.totalFare ?? 0).toDouble()), leg1.currency) case final inflated?)
+                        Text(
+                          inflated,
                           style: TextStyle(
-                            fontSize: context.fs(8),
-                            fontWeight: FontWeight.w700,
-                            color: const Color(0xff64748B),
+                            fontSize: context.fs(11),
+                            fontWeight: FontWeight.w500,
+                            color: const Color(0xFF9CA3AF),
+                            decoration: TextDecoration.lineThrough,
+                            decorationColor: const Color(0xFF9CA3AF),
                           ),
                         ),
-                      ],
-                    ),
+                      Text.rich(
+                        TextSpan(
+                          text: priceText,
+                          style: TextStyle(
+                            fontSize: context.fs(16),
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.AppBlue,
+                          ),
+                          children: [
+                            TextSpan(
+                              text: ' $_perTravellerLabel',
+                              style: TextStyle(
+                                fontSize: context.fs(8),
+                                fontWeight: FontWeight.w700,
+                                color: const Color(0xff64748B),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -2540,6 +2575,7 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
           flightNumber: _displayFlightNo(flight, codeOverride: airlineCode),
           logo: _airlineLogo(flight, context.w(46)),
           priceText: priceText,
+          originalPriceText: _inflatedPriceText(_perTravellerFare((flight.totalFare ?? 0).toDouble()), flight.currency),
           perLabel: _perTravellerLabel,
           departureCity: flight.originName ?? _locationName(flight.origin ?? ''),
           departureCode: (flight.origin ?? '').trim().toUpperCase(),
@@ -3374,6 +3410,7 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
           flightNumber: _displayFlightNo(flight, codeOverride: airlineCode),
           logo: _airlineLogo(flight, context.w(46)),
           priceText: priceText,
+          originalPriceText: _inflatedPriceText(_perTravellerFare((flight.totalFare ?? 0).toDouble()), flight.currency),
           perLabel: _perTravellerLabel,
           departureCity:
               flight.originName ?? _locationName(flight.origin ?? ''),
@@ -4065,6 +4102,7 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
         flightNumber: _displayFlightNo(flight, codeOverride: airlineCode),
         logo: _airlineLogo(flight, context.w(46)),
         priceText: priceText,
+        originalPriceText: _inflatedPriceText(_perTravellerFare((flight.totalFare ?? 0).toDouble()), flight.currency),
         perLabel: _perTravellerLabel,
         departureCity: flight.originName ??
             _locationName(flight.origin ?? widget.fromCode),
@@ -4308,8 +4346,9 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
       child: FlightCard(
         airlineName: flight.airlineName ?? 'Airline',
         flightNumber: _displayFlightNo(flight, codeOverride: airlineCode),
-        logo: _airlineLogo(flight, context.w(46), isNavy: true), // Pass isNavy: true
+        logo: _airlineLogo(flight, context.w(46), isNavy: true),
         priceText: priceText,
+        originalPriceText: _inflatedPriceText(_perTravellerFare((flight.totalFare ?? 0).toDouble()), flight.currency),
         perLabel: _perTravellerLabel,
         departureCity: flight.originName ??
             _locationName(flight.origin ?? widget.fromCode),
@@ -4877,6 +4916,13 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
   /// actually charged.
   double _perTravellerFare(double wholePartyFare) =>
       wholePartyFare / _quotedPaxCount;
+
+  String? _inflatedPriceText(double perTravellerFare, String? currency) {
+    if (_displayMarkupPercent <= 0) return null;
+    final inflated = perTravellerFare * (1 + _displayMarkupPercent / 100);
+    final target = CurrencyConverter.getPreferredCurrency();
+    return '${CurrencyConverter.getSymbol(target)} ${_convertFlightPrice(inflated, currency)}';
+  }
 
   /// Only an all-adult party can honestly call the per-head share an adult
   /// fare — children and infants are cheaper, so a mixed party's share isn't

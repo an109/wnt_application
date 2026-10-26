@@ -22,13 +22,27 @@ import 'trisha_history_screen.dart';
 /// Trisha AI chat (Figma "AI 1", "AI 2", "AI 3"). Opened from the orb in the
 /// home bottom bar.
 class TrishaChatScreen extends StatelessWidget {
-  const TrishaChatScreen({super.key});
+  final String? initialPrompt;
+  const TrishaChatScreen({super.key, this.initialPrompt});
 
+  // @override
+  // Widget build(BuildContext context) => BlocProvider(
+  //       create: (_) => TrishaChatBloc(api: sl<TrishaApiService>())..add(const TrishaChatStarted()),
+  //       child: const _TrishaChatView(),
+  //     );
   @override
   Widget build(BuildContext context) => BlocProvider(
-        create: (_) => TrishaChatBloc(api: sl<TrishaApiService>())..add(const TrishaChatStarted()),
-        child: const _TrishaChatView(),
-      );
+    create: (_) {
+      final bloc = TrishaChatBloc(api: sl<TrishaApiService>())
+        ..add(const TrishaChatStarted());
+      final prompt = initialPrompt?.trim();
+      if (prompt != null && prompt.isNotEmpty) {
+        bloc.add(TrishaMessageSent(prompt));
+      }
+      return bloc;
+    },
+    child: const _TrishaChatView(),
+  );
 }
 
 class _TrishaChatView extends StatefulWidget {
@@ -148,7 +162,7 @@ class _TrishaChatViewState extends State<_TrishaChatView> {
         return Scaffold(
           backgroundColor: Colors.white,
           resizeToAvoidBottomInset: true,
-          body: Stack(                                  // ✅ new
+          body: Stack(
             children: [
               // ---- Content (top bar + chat/welcome) ----
               Column(
@@ -229,49 +243,6 @@ class _TrishaChatViewState extends State<_TrishaChatView> {
     );
   }
 
-  // @override
-  // Widget build(BuildContext context) {
-  //   return BlocConsumer<TrishaChatBloc, TrishaChatState>(
-  //     listenWhen: (a, b) => a.messages.length != b.messages.length || a.waiting != b.waiting || a.error != b.error,
-  //     listener: (context, state) => _scrollToEnd(),
-  //     builder: (context, state) {
-  //       return Scaffold(
-  //         backgroundColor: Colors.white,
-  //         resizeToAvoidBottomInset: true,
-  //         body: Column(
-  //           children: [
-  //             SafeArea(bottom: false, child: _topBar(state.isWelcome)),
-  //             Expanded(
-  //               child: state.isWelcome
-  //                   ? TrishaWelcome(
-  //                       name: _firstName,
-  //                       onSuggestion: (text) => _bloc.add(TrishaMessageSent(text)),
-  //                       notice: state.error == null
-  //                           ? null
-  //                           : TrishaErrorRow(
-  //                               message: state.error!,
-  //                               onRetry: () => _bloc.add(
-  //                                 state.messages.isEmpty ? const TrishaChatStarted() : const TrishaRetried(),
-  //                               ),
-  //                             ),
-  //                     )
-  //                   : _chat(state),
-  //             ),
-  //             TrishaInputBar(
-  //               // Typing is always allowed; sending waits for the current reply.
-  //               // If the chat hasn't opened yet, the first message opens it.
-  //               enabled: !state.waiting,
-  //               onSend: (text) => _bloc.add(TrishaMessageSent(text)),
-  //               onMic: () => ScaffoldMessenger.of(context).showSnackBar(
-  //                 const SnackBar(content: Text('Voice input is coming soon. Please type for now.')),
-  //               ),
-  //             ),
-  //           ],
-  //         ),
-  //       );
-  //     },
-  //   );
-  // }
 
   Widget _topBar(bool showTitle) => Padding(
         padding: EdgeInsets.fromLTRB(context.fx(16), context.fx(24), context.fx(16), 0),

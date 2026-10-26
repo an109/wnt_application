@@ -400,8 +400,9 @@ class _BookingProgressLoaderState extends State<BookingProgressLoader>
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            RepaintBoundary(
+            Flexible(child: RepaintBoundary(
               child: SizedBox.square(
                 dimension: ring,
                 child: Stack(
@@ -421,7 +422,7 @@ class _BookingProgressLoaderState extends State<BookingProgressLoader>
                   ],
                 ),
               ),
-            ),
+            )),
             SizedBox(height: context.fx(20)),
             Text(
               widget.message,
