@@ -110,7 +110,10 @@ class VisaDestinationCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Guaranteed Visa On',
+                  // 'Guaranteed Visa On',
+                  destination.shortName.toUpperCase(),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: visaText(12, weight: FontWeight.w600, height: 16.5 / 12),
                 ),
                 const SizedBox(height: 2),

@@ -6,6 +6,7 @@ import '../utils/storage/shared_preference.dart';
 class DioClient {
   final Dio _dio;
   bool _isRefreshing = false;
+  final List<({ErrorInterceptorHandler handler, DioException error})> _pendingRequests = [];
 
   DioClient(String baseUrl)
       : _dio = Dio(
@@ -40,8 +41,7 @@ class DioClient {
           return handler.next(options);
         },
         onError: (DioException e, handler) async {
-          if (e.response?.statusCode == 401 && !_isRefreshing) {
-            // Skip refresh for auth endpoints themselves
+          if (e.response?.statusCode == 401) {
             final path = e.requestOptions.path;
             if (path.contains('auth/token/refresh') ||
                 path.contains('auth/login') ||
@@ -51,6 +51,11 @@ class DioClient {
               return handler.next(e);
             }
 
+            if (_isRefreshing) {
+              _pendingRequests.add((handler: handler, error: e));
+              return;
+            }
+
             _isRefreshing = true;
             try {
               final prefs = sl<PreferencesManager>();
@@ -58,10 +63,10 @@ class DioClient {
 
               if (refreshToken == null || refreshToken.isEmpty) {
                 _isRefreshing = false;
+                _rejectPending();
                 return handler.next(e);
               }
 
-              // Call refresh endpoint directly (no interceptors to avoid loops)
               final refreshDio = Dio();
               final refreshResponse = await refreshDio.post(
                 Urls.tokenRefresh,
@@ -72,22 +77,22 @@ class DioClient {
               final newAccessToken = refreshResponse.data['access'] as String?;
               if (newAccessToken == null) {
                 _isRefreshing = false;
+                _rejectPending();
                 return handler.next(e);
               }
 
-              // A rotated access token is the same session continuing, so it
-              // must not trigger the "new sign-in" notification.
               await prefs.saveToken(newAccessToken, isNewSession: false);
               _isRefreshing = false;
 
-              // Retry the original request with the new token
+              _retryPending(newAccessToken);
+
               final retryOptions = e.requestOptions;
               retryOptions.headers['Authorization'] = 'Bearer $newAccessToken';
               final retryResponse = await _dio.fetch(retryOptions);
               return handler.resolve(retryResponse);
             } catch (_) {
               _isRefreshing = false;
-              // Refresh failed — clear auth so the app redirects to login
+              _rejectPending();
               final prefs = sl<PreferencesManager>();
               await prefs.clearToken();
               await prefs.clearUserData();
@@ -102,6 +107,27 @@ class DioClient {
         },
       ),
     );
+  }
+
+  void _retryPending(String newToken) {
+    final pending = List.of(_pendingRequests);
+    _pendingRequests.clear();
+    for (final p in pending) {
+      final opts = p.error.requestOptions;
+      opts.headers['Authorization'] = 'Bearer $newToken';
+      _dio.fetch(opts).then(
+        (r) => p.handler.resolve(r),
+        onError: (e) => p.handler.next(e is DioException ? e : p.error),
+      );
+    }
+  }
+
+  void _rejectPending() {
+    final pending = List.of(_pendingRequests);
+    _pendingRequests.clear();
+    for (final p in pending) {
+      p.handler.next(p.error);
+    }
   }
 
   Dio get instance => _dio;

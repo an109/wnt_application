@@ -1,6 +1,4 @@
 import 'dart:async';
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -24,12 +22,14 @@ class HomeInfoSlide {
   final String body;
   final String actionLabel;
   final VoidCallback? onAction;
+  final String? bannerAsset;
 
   const HomeInfoSlide({
     required this.title,
     required this.body,
     this.actionLabel = 'View Details',
     this.onAction,
+    this.bannerAsset,
   });
 }
 
@@ -147,133 +147,59 @@ class _PageDots extends StatelessWidget {
   }
 }
 
+// -- Original _InfoBanner (gradient + clouds + plane) commented out --
+// class _InfoBanner extends StatelessWidget { ... }
+
+/// Promotional banner slide from the Figma design: each slide is a
+/// full-bleed image with text baked in. Tapping it fires [slide.onAction].
 class _InfoBanner extends StatelessWidget {
   final HomeInfoSlide slide;
 
   const _InfoBanner({required this.slide});
 
+  /// Static promotional banners matching the Figma "MAIN HOME" design.
+  static const List<String> promoBanners = [
+    '$_assets/banner_first_flight.png',
+    '$_assets/banner_klm.png',
+    '$_assets/banner_lowest_price.png',
+    '$_assets/banner_indigo.png',
+    '$_assets/banner_holidays.png',
+    '$_assets/banner_visa.png',
+  ];
+
   @override
   Widget build(BuildContext context) {
-    const black = Colors.black;
-
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(context.fx(8)),
-      child: DecoratedBox(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            // Figma: linear-gradient(119.59deg, #80DAFF 28.06%, #FFF 99.13%),
-            // i.e. the CSS gradient line's end points on a 380×185 box.
-            begin: Alignment(-0.966, -1.124),
-            end: Alignment(0.966, 1.124),
-            colors: [Color(0xFF80DAFF), Colors.white],
-            stops: [0.28055, 0.99129],
-          ),
-        ),
+    return GestureDetector(
+      onTap: slide.onAction,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(context.fx(12)),
         child: Stack(
+          fit: StackFit.expand,
           children: [
-            _cloud(context, left: 226.68, top: 0),
-            _cloud(context, left: 104, top: 22.48),
+            Image.asset(
+              slide.bannerAsset ?? promoBanners[0],
+              fit: BoxFit.cover,
+            ),
+            // Subtle gradient overlay at bottom for readability if needed
             Positioned(
-              left: context.fx(163),
-              top: context.fx(30),
-              width: context.fx(311.918),
-              height: context.fx(230.213),
-              child: Center(
-                child: Transform(
-                  alignment: Alignment.center,
-                  // Figma: flipped vertically, then rotated 172°.
-                  transform: Matrix4.rotationZ(172 * math.pi / 180)
-                    ..multiply(Matrix4.diagonal3Values(1, -1, 1)),
-                  child: Image.asset(
-                    '$_assets/plane.png',
-                    width: context.fx(288),
-                    height: context.fx(192),
-                    fit: BoxFit.cover,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              height: context.fx(50),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.transparent,
+                      Colors.black.withValues(alpha: 0.15),
+                    ],
                   ),
                 ),
               ),
             ),
-            Positioned(
-              left: context.fx(20),
-              top: 0,
-              bottom: context.fx(10),
-              width: context.fx(220),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    slide.title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: context.ffs(16),
-                      fontWeight: FontWeight.w600,
-                      height: 1.5,
-                      color: black,
-                    ),
-                  ),
-                  SizedBox(height: context.fx(4)),
-                  Text(
-                    slide.body,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: context.ffs(12),
-                      fontWeight: FontWeight.w400,
-                      height: 1.55,
-                      color: black,
-                    ),
-                  ),
-                  SizedBox(height: context.fx(12)),
-                  GestureDetector(
-                    onTap: slide.onAction,
-                    child: Container(
-                      width: context.fx(100),
-                      padding: EdgeInsets.symmetric(vertical: context.fx(8)),
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF6F7F9),
-                        border: Border.all(color: const Color(0xFFF8FAFB)),
-                        borderRadius: BorderRadius.circular(context.fx(4)),
-                      ),
-                      child: Text(
-                        slide.actionLabel,
-                        style: TextStyle(
-                          fontSize: context.ffs(10),
-                          fontWeight: FontWeight.w600,
-                          height: 1.6,
-                          color: const Color(0xFF272835),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _cloud(BuildContext context, {required double left, required double top}) {
-    return Positioned(
-      left: context.fx(left),
-      top: context.fx(top),
-      width: context.fx(283.471),
-      height: context.fx(290.816),
-      child: Center(
-        child: Transform(
-          alignment: Alignment.center,
-          // Figma: rotate(-10.38deg) skewX(-1.1deg)
-          transform: Matrix4.rotationZ(-10.38 * math.pi / 180)
-            ..multiply(Matrix4.skewX(-1.1 * math.pi / 180)),
-          child: SvgPicture.asset(
-            '$_assets/cloud.svg',
-            width: context.fx(247.275),
-            height: context.fx(249.514),
-          ),
         ),
       ),
     );
@@ -379,10 +305,38 @@ class HomeOffersCarousel extends StatefulWidget {
 }
 
 class _HomeOffersCarouselState extends State<HomeOffersCarousel> {
-  static const _fallback = HomeInfoSlide(
-    title: 'Travelling Information',
-    body: 'Stay informed about your travelling. Access all the details here.',
-  );
+  static const _promoSlides = [
+    HomeInfoSlide(
+      title: 'New User Deal On First Flight',
+      body: 'Use code EMTFIRST for your first booking',
+      bannerAsset: '$_assets/banner_first_flight.png',
+    ),
+    HomeInfoSlide(
+      title: 'KLM Royal Dutch Airlines',
+      body: 'Exclusive discounts awaits!',
+      bannerAsset: '$_assets/banner_klm.png',
+    ),
+    HomeInfoSlide(
+      title: 'Lowest Price Guaranteed',
+      body: 'Book flights at the lowest price guaranteed',
+      bannerAsset: '$_assets/banner_lowest_price.png',
+    ),
+    HomeInfoSlide(
+      title: 'Fly with IndiGo',
+      body: 'Great fares, greater journeys',
+      bannerAsset: '$_assets/banner_indigo.png',
+    ),
+    HomeInfoSlide(
+      title: 'Explore Dream Holidays',
+      body: 'Amazing packages. Unforgettable experiences.',
+      bannerAsset: '$_assets/banner_holidays.png',
+    ),
+    HomeInfoSlide(
+      title: 'Get Your Visa Easier & Faster',
+      body: 'One step closer to your next destination',
+      bannerAsset: '$_assets/banner_visa.png',
+    ),
+  ];
 
   @override
   void initState() {
@@ -410,14 +364,16 @@ class _HomeOffersCarouselState extends State<HomeOffersCarousel> {
                 category.contains(f.toLowerCase()) ||
                 ownerTab.contains(f.toLowerCase()));
           }).toList();
+    final top = latestOffers(matching).take(3).toList();
     return [
-      for (final deal in latestOffers(matching).take(3))
+      for (var i = 0; i < top.length; i++)
         HomeInfoSlide(
-          title: deal.title.trim(),
-          body: offerSummary(deal),
+          title: top[i].title.trim(),
+          body: offerSummary(top[i]),
+          bannerAsset: _InfoBanner.promoBanners[i % _InfoBanner.promoBanners.length],
           onAction: () => Navigator.push(
             context,
-            MaterialPageRoute(builder: (_) => OffersScreen(focusDealId: deal.id)),
+            MaterialPageRoute(builder: (_) => OffersScreen(focusDealId: top[i].id)),
           ),
         ),
     ];
@@ -428,7 +384,7 @@ class _HomeOffersCarouselState extends State<HomeOffersCarousel> {
     return BlocBuilder<ExclusiveDealsBloc, ExclusiveDealsState>(
       builder: (context, state) {
         final slides = state is ExclusiveDealsLoaded ? _slides(state.deals) : const <HomeInfoSlide>[];
-        return HomeInfoCarousel(slides: slides.isEmpty ? const [_fallback] : slides);
+        return HomeInfoCarousel(slides: slides.isEmpty ? _promoSlides : slides);
       },
     );
   }

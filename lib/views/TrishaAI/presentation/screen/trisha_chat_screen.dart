@@ -229,11 +229,6 @@ class _TrishaChatViewState extends State<_TrishaChatView> {
                 child: TrishaInputBar(
                   enabled: !state.waiting,
                   onSend: (text) => _bloc.add(TrishaMessageSent(text)),
-                  onMic: () => ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Voice input is coming soon. Please type for now.'),
-                    ),
-                  ),
                 ),
               ),
             ],

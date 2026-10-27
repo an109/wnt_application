@@ -83,12 +83,15 @@ class _VisaSelfieStepState extends State<VisaSelfieStep> with WidgetsBindingObse
         return;
       }
       _camera = c;
+      debugPrint('[selfie] camera opened: ${c.description.lensDirection} ${c.description.sensorOrientation}');
       setState(() {
         _phase = _Phase.align;
         _hint = 'Place your face inside the circle';
       });
       await c.startImageStream(_onFrame);
+      debugPrint('[selfie] image stream started');
     } on CameraException catch (e) {
+      debugPrint('[selfie] CameraException: ${e.code} ${e.description}');
       if (!mounted) return;
       setState(() => _phase = _Phase.idle);
       final denied = e.code.contains('Denied') || e.code.contains('denied');
@@ -102,10 +105,21 @@ class _VisaSelfieStepState extends State<VisaSelfieStep> with WidgetsBindingObse
     final camera = _camera;
     if (_processing || camera == null || _phase == _Phase.capturing) return;
     final input = visaInputImage(image, camera.description);
-    if (input == null) return;
+    if (input == null) {
+      debugPrint('[selfie] visaInputImage returned null — planes=${image.planes.length} format=${image.format.group}');
+      return;
+    }
+    debugPrint(
+      '[selfie] size=${image.width}x${image.height}, '
+          'format=${image.format.group}, '
+          'raw=${image.format.raw}, '
+          'planes=${image.planes.length}, '
+          'bytes=${image.planes.map((p) => p.bytes.length).toList()}',
+    );
     _processing = true;
     try {
       final faces = await _detector.processImage(input);
+      debugPrint('[selfie] frame: faces=${faces.length} phase=$_phase');
       if (!mounted || _camera == null) return;
       final size = Size(image.width.toDouble(), image.height.toDouble());
       if (_phase == _Phase.align) {
@@ -185,10 +199,17 @@ class _VisaSelfieStepState extends State<VisaSelfieStep> with WidgetsBindingObse
   Future<String?> _checkFile(String path, {required bool accurate}) async {
     final detector = visaFaceDetector(accurate: accurate);
     try {
+      final file = File(path);
+      debugPrint('[selfie] checking file: $path exists=${await file.exists()} size=${await file.exists() ? await file.length() : 0}');
       final faces = await detector.processImage(InputImage.fromFilePath(path));
+      debugPrint('[selfie] faces found: ${faces.length}');
       final size = await _imageSize(path);
+      debugPrint('[selfie] image size: $size');
       if (size == null) return 'Could not read this photo. Try another one.';
       return visaSelfieProblem(faces, size);
+    } catch (e) {
+      debugPrint('[selfie] _checkFile error: $e');
+      return 'Could not read this photo. Try another one.';
     } finally {
       detector.close();
     }
@@ -219,7 +240,9 @@ class _VisaSelfieStepState extends State<VisaSelfieStep> with WidgetsBindingObse
       _phase = _Phase.capturing;
       _hint = 'Checking photo…';
     });
+    debugPrint('[selfie] picked path: $path');
     final problem = await _checkFile(path, accurate: true);
+    debugPrint('[selfie] problem: $problem');
     if (!mounted) return;
     if (problem != null) {
       setState(() => _phase = _Phase.idle);
@@ -351,17 +374,21 @@ class _VisaSelfieStepState extends State<VisaSelfieStep> with WidgetsBindingObse
 
   Widget _circleContent(bool live) {
     if (_path != null) return Image.file(File(_path!), fit: BoxFit.cover);
-    if (!live) return const SizedBox.expand();
-    final preview = _camera!.value.previewSize;
-    return FittedBox(
-      fit: BoxFit.cover,
-      child: SizedBox(
-        // previewSize is landscape; the preview is shown portrait.
-        width: preview?.height ?? 300,
-        height: preview?.width ?? 400,
-        child: CameraPreview(_camera!),
-      ),
-    );
+    final cam = _camera;
+    if (!live || cam == null) return const SizedBox.expand();
+    try {
+      final preview = cam.value.previewSize;
+      return FittedBox(
+        fit: BoxFit.cover,
+        child: SizedBox(
+          width: preview?.height ?? 300,
+          height: preview?.width ?? 400,
+          child: CameraPreview(cam),
+        ),
+      );
+    } catch (_) {
+      return const SizedBox.expand();
+    }
   }
 
   Widget _review() {

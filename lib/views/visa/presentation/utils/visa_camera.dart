@@ -1,6 +1,8 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:camera/camera.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 
@@ -21,30 +23,59 @@ Future<CameraController> openVisaCamera(CameraLensDirection direction, {Resoluti
   return controller;
 }
 
-/// Converts a camera stream frame for ML Kit; null for unsupported formats.
-/// The visa scanners are portrait-only, so the device rotation is 0.
 InputImage? visaInputImage(CameraImage image, CameraDescription camera) {
-  final rotation = InputImageRotationValue.fromRawValue(camera.sensorOrientation);
+  final rotation =
+      InputImageRotationValue.fromRawValue(camera.sensorOrientation);
   if (rotation == null) return null;
-  final format = InputImageFormatValue.fromRawValue(image.format.raw);
-  if (format == null ||
-      (Platform.isAndroid && format != InputImageFormat.nv21) ||
-      (Platform.isIOS && format != InputImageFormat.bgra8888)) {
-    return null;
+  if (image.planes.isEmpty) return null;
+
+  final size = Size(image.width.toDouble(), image.height.toDouble());
+
+  if (Platform.isIOS) {
+    final plane = image.planes.first;
+    return InputImage.fromBytes(
+      bytes: plane.bytes,
+      metadata: InputImageMetadata(
+        size: size,
+        rotation: rotation,
+        format: InputImageFormat.bgra8888,
+        bytesPerRow: plane.bytesPerRow,
+      ),
+    );
   }
-  if (image.planes.length != 1) return null;
-  final plane = image.planes.first;
+
+  // Android — handle both NV21 (1 plane) and YUV_420_888 (3 planes).
+  final rawFormat = image.format.raw;
+  final parsed = InputImageFormatValue.fromRawValue(rawFormat);
+
+  if (parsed == InputImageFormat.nv21 && image.planes.length == 1) {
+    final plane = image.planes.first;
+    return InputImage.fromBytes(
+      bytes: plane.bytes,
+      metadata: InputImageMetadata(
+        size: size,
+        rotation: rotation,
+        format: InputImageFormat.nv21,
+        bytesPerRow: plane.bytesPerRow,
+      ),
+    );
+  }
+
+  // YUV_420_888 or any multi-plane format: concatenate all planes.
+  final allBytes = WriteBuffer();
+  for (final plane in image.planes) {
+    allBytes.putUint8List(plane.bytes);
+  }
   return InputImage.fromBytes(
-    bytes: plane.bytes,
+    bytes: allBytes.done().buffer.asUint8List(),
     metadata: InputImageMetadata(
-      size: Size(image.width.toDouble(), image.height.toDouble()),
+      size: size,
       rotation: rotation,
-      format: format,
-      bytesPerRow: plane.bytesPerRow,
+      format: parsed ?? InputImageFormat.nv21,
+      bytesPerRow: image.planes.first.bytesPerRow,
     ),
   );
 }
-
 /// Why a selfie is not a usable visa photo, or null when it is.
 String? visaSelfieProblem(List<Face> faces, Size imageSize) {
   if (faces.isEmpty) return 'No face found. Use a clear photo of your face.';

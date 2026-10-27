@@ -3,6 +3,8 @@ import UIKit
 import GoogleMaps
 import Razorpay
 import WebKit
+import FirebaseCore
+import FirebaseMessaging
 
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
@@ -14,7 +16,30 @@ import WebKit
   ) -> Bool {
      GMSServices.provideAPIKey("AIzaSyDaxxK1mhgIzh5jhn-YRVRz84aO9h-Gxoc")
 
+    if FirebaseApp.app() == nil {
+      FirebaseApp.configure()
+    }
+
+    UNUserNotificationCenter.current().delegate = self
+    Messaging.messaging().delegate = self
+    application.registerForRemoteNotifications()
+
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+  }
+
+  override func application(
+    _ application: UIApplication,
+    didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
+  ) {
+    Messaging.messaging().apnsToken = deviceToken
+    super.application(application, didRegisterForRemoteNotificationsWithDeviceToken: deviceToken)
+  }
+
+  override func application(
+    _ application: UIApplication,
+    didFailToRegisterForRemoteNotificationsWithError error: Error
+  ) {
+    print("[APNs] Failed to register: \(error.localizedDescription)")
   }
 
   /// With the UIScene lifecycle (required from iOS 27) the Flutter engine is
@@ -25,6 +50,12 @@ import WebKit
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
     razorpayCustomBridge = RazorpayCustomBridge(
       messenger: engineBridge.applicationRegistrar.messenger())
+  }
+}
+
+extension AppDelegate: MessagingDelegate {
+  func messaging(_ messaging: Messaging, didReceiveRegistrationToken fcmToken: String?) {
+    print("[FCM] Token: \(fcmToken ?? "nil")")
   }
 }
 

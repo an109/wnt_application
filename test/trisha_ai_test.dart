@@ -348,8 +348,8 @@ void main() {
     await pumpPhone(
       tester,
       Column(children: [
-        Expanded(child: TrishaWelcome(name: 'Anjli', onSuggestion: sent.add)),
-        TrishaInputBar(enabled: true, onSend: sent.add, onMic: () {}),
+        Expanded(child: TrishaWelcome(name: '', onSuggestion: sent.add)),
+        TrishaInputBar(enabled: true, onSend: sent.add),
       ]),
     );
     expect(tester.takeException(), isNull);
