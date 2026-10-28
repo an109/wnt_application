@@ -15,8 +15,8 @@ import '../utils/visa_rules.dart';
 import '../utils/visa_theme.dart';
 import '../widgets/visa_checkout_sheets.dart';
 import '../widgets/visa_flag.dart';
-import 'visa_landing_screen.dart';
 import 'visa_payment_screen.dart';
+import 'visa_payment_success_screen.dart';
 
 /// Checkout (Figma "Submit appli…" 2068:11243 with the insurance and visa
 /// validity sheets).
@@ -162,6 +162,15 @@ class _VisaCheckoutScreenState extends State<VisaCheckoutScreen> {
 
     setState(() => _busy = true);
     try {
+      // Submit visa enquiry before creating the application.
+      await _service.submitEnquiry(
+        email: _email,
+        contactNo: widget.trip.phone.replaceAll(RegExp(r'[^0-9+]'), ''),
+        visaType: _type.title,
+        travellers: '${widget.travellers.length}',
+        destinationId: _d.id,
+        attractionName: _d.shortName,
+      );
       _created ??= await _create();
       if (_totalInr <= 0) {
         await _service.completePayment(
@@ -248,50 +257,21 @@ class _VisaCheckoutScreenState extends State<VisaCheckoutScreen> {
     await VisaDraftStore.clear(_d.id);
     if (!mounted) return;
     setState(() => _busy = false);
-    await showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.check_circle, size: 56, color: VisaColors.green),
-            const SizedBox(height: 12),
-            Text(
-              'Application submitted!',
-              style: visaText(15, weight: FontWeight.w700),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'Your ${_d.shortName} ${_type.title} application is with our team. '
-              'Updates will be sent to $_email.',
-              textAlign: TextAlign.center,
-              style: visaText(11, color: VisaColors.text, height: 1.4),
-            ),
-            if ((_created?.trackId ?? '').isNotEmpty) ...[
-              const SizedBox(height: 10),
-              Text(
-                'Reference: ${_created!.trackId}',
-                style: visaText(
-                  11,
-                  weight: FontWeight.w700,
-                  color: VisaColors.primary,
-                ),
-              ),
-            ],
-            const SizedBox(height: 16),
-            VisaPrimaryButton(
-              label: 'Done',
-              onPressed: () => Navigator.pop(ctx),
-            ),
-          ],
+    await Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => VisaPaymentSuccessScreen(
+          destination: _d,
+          visaType: _type,
+          travellers: widget.travellers,
+          trip: widget.trip,
+          totalInr: _totalInr,
+          visaFeeInr: _visaFeeInr,
+          insuranceInr: _insuranceInr,
+          insuranceDays: _insuranceDays,
+          bookingId: _created != null ? 'WNT-${_created!.id}' : '--',
+          trackId: _created?.trackId,
         ),
       ),
-    );
-    if (!mounted) return;
-    Navigator.of(context).popUntil(
-      (r) => r.settings.name == VisaLandingScreen.routeName || r.isFirst,
     );
   }
 

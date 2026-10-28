@@ -22,7 +22,7 @@ class VisaCreatedApplication {
 }
 
 /// Backend calls of the visa checkout:
-/// create → upload passport scans → (Razorpay) → complete-payment.
+/// enquiry → create → upload passport scans → (Razorpay) → complete-payment.
 class VisaSubmitService {
   final Dio _dio = di.sl<DioClient>().instance;
   static final _date = DateFormat('dd/MM/yyyy');
@@ -30,6 +30,33 @@ class VisaSubmitService {
 
   String _d(DateTime? d) => d == null ? '' : _date.format(d);
   String _i(DateTime? d) => d == null ? '' : _iso.format(d);
+
+  /// Submits a visa enquiry (POST /api/visa-enquiry/) before the full
+  /// application is created. Returns the enquiry ID on success.
+  Future<int?> submitEnquiry({
+    required String email,
+    required String contactNo,
+    String? visaType,
+    String? travellers,
+    int? destinationId,
+    String? attractionName,
+  }) async {
+    try {
+      final res = await _dio.post(Urls.visaEnquiry, data: {
+        'email': email.trim(),
+        'contact_no': contactNo.trim(),
+        if (visaType != null) 'visa_type': visaType,
+        if (travellers != null) 'travellers': travellers,
+        if (destinationId != null) 'destination_id': destinationId,
+        if (attractionName != null) 'attraction_name': attractionName,
+      });
+      final data = (res.data as Map?)?.cast<String, dynamic>() ?? {};
+      if (data['success'] == true) return data['id'] as int?;
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
 
   Future<VisaCreatedApplication> create({
     required String destination,

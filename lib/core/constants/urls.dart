@@ -168,6 +168,8 @@ class Urls {
   static const String visaDestinations =
       '${baseUrl}visa-destination-page-content/';
 
+  static const String visaEnquiry = '${baseUrl}visa-enquiry/';
+
   // ----- Main API -----
   static const String popularDestinations =
       '$basesUrl/flights-popular-destinations/';
