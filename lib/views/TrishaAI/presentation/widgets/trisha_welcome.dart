@@ -39,7 +39,7 @@ class TrishaWelcome extends StatelessWidget {
               TextSpan(
                 children: [
                   TextSpan(
-                    text: 'I’m Trisha',
+                    text: 'I’m Thrisha',
                     style: TrishaStyle.welcomeSub(context, weight: FontWeight.w600)
                         .copyWith(color: TrishaStyle.accent),       // orange
                   ),

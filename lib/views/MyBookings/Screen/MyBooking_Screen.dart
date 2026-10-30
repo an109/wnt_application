@@ -32,7 +32,7 @@ import '../Transport/Screen/Transport_detail_main_screen.dart';
 import '../Transport/bloc/MyBooking_bloc.dart';
 import '../Transport/bloc/MyBooking_event.dart';
 import '../Transport/bloc/MyBooking_state.dart';
-import '../visa/screen/visa_booking_summary_card.dart';
+import '../visa/screen/visa_booking_summary_card.dart' show VisaBookingSummaryScreen;
 import 'trip_card.dart';
 
 // Figma "Trip" frames (upcoming / past trip / cancelled). Every booking the
@@ -693,7 +693,7 @@ _Trip _visaTrip(TripItem v) {
       facts: [
         if (applicants > 0) (Icons.person_rounded, _plural(applicants, 'Applicant')),
       ],
-      onDetails: () => VisaBookingSummaryCard.showFromTrip(context, v),
+      onDetails: () => VisaBookingSummaryScreen.open(context, v),
     ),
   );
 }
