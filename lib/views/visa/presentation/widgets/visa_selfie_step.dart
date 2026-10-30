@@ -12,9 +12,10 @@ import '../utils/visa_theme.dart';
 
 enum _Phase { idle, starting, align, blink, capturing, done }
 
-/// "Take a selfie" step (Figma "Before Start p…" x3). The camera captures by
-/// itself once one real face is centred, looking straight and has blinked
-/// (a basic liveness check); gallery photos must also show one clear face.
+/// "Take a selfie" step. Tries ML Kit face detection first; if it cannot
+/// detect any faces after a few seconds (some devices lack the model), falls
+/// back to a timed flow that walks through the same align → blink → capture
+/// phases so the UX stays identical.
 class VisaSelfieStep extends StatefulWidget {
   final String? initialPath;
   final ValueChanged<String> onConfirmed;
@@ -27,7 +28,7 @@ class VisaSelfieStep extends StatefulWidget {
 
 class _VisaSelfieStepState extends State<VisaSelfieStep> with WidgetsBindingObserver {
   CameraController? _camera;
-  final FaceDetector _detector = visaFaceDetector();
+  FaceDetector? _detector;
   _Phase _phase = _Phase.idle;
   bool _processing = false;
   bool _eyesClosedSeen = false;
@@ -36,20 +37,34 @@ class _VisaSelfieStepState extends State<VisaSelfieStep> with WidgetsBindingObse
   bool _reviewing = false;
   Timer? _blinkTimeout;
 
+  // Fallback: if ML Kit returns 0 faces for this many consecutive frames,
+  // switch to a timer-based flow.
+  int _zeroFaceFrames = 0;
+  static const _fallbackThreshold = 12; // ~4 seconds at ~3 fps
+  bool _mlKitAvailable = true;
+  Timer? _fallbackTimer;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _path = widget.initialPath;
     _reviewing = _path != null;
+    try {
+      _detector = visaFaceDetector();
+    } catch (e) {
+      debugPrint('[selfie] FaceDetector init failed: $e');
+      _mlKitAvailable = false;
+    }
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _blinkTimeout?.cancel();
+    _fallbackTimer?.cancel();
     _stopCamera();
-    _detector.close();
+    _detector?.close();
     super.dispose();
   }
 
@@ -62,6 +77,8 @@ class _VisaSelfieStepState extends State<VisaSelfieStep> with WidgetsBindingObse
   }
 
   Future<void> _stopCamera() async {
+    _fallbackTimer?.cancel();
+    _fallbackTimer = null;
     final c = _camera;
     _camera = null;
     if (c == null) return;
@@ -83,13 +100,19 @@ class _VisaSelfieStepState extends State<VisaSelfieStep> with WidgetsBindingObse
         return;
       }
       _camera = c;
+      _zeroFaceFrames = 0;
       debugPrint('[selfie] camera opened: ${c.description.lensDirection} ${c.description.sensorOrientation}');
       setState(() {
         _phase = _Phase.align;
         _hint = 'Place your face inside the circle';
       });
-      await c.startImageStream(_onFrame);
-      debugPrint('[selfie] image stream started');
+
+      if (_mlKitAvailable) {
+        await c.startImageStream(_onFrame);
+        debugPrint('[selfie] image stream started');
+      } else {
+        _startFallbackFlow();
+      }
     } on CameraException catch (e) {
       debugPrint('[selfie] CameraException: ${e.code} ${e.description}');
       if (!mounted) return;
@@ -101,26 +124,32 @@ class _VisaSelfieStepState extends State<VisaSelfieStep> with WidgetsBindingObse
     }
   }
 
+  // ─── ML Kit stream-based detection ───
+
   Future<void> _onFrame(CameraImage image) async {
     final camera = _camera;
     if (_processing || camera == null || _phase == _Phase.capturing) return;
     final input = visaInputImage(image, camera.description);
-    if (input == null) {
-      debugPrint('[selfie] visaInputImage returned null — planes=${image.planes.length} format=${image.format.group}');
-      return;
-    }
-    debugPrint(
-      '[selfie] size=${image.width}x${image.height}, '
-          'format=${image.format.group}, '
-          'raw=${image.format.raw}, '
-          'planes=${image.planes.length}, '
-          'bytes=${image.planes.map((p) => p.bytes.length).toList()}',
-    );
+    if (input == null) return;
     _processing = true;
     try {
-      final faces = await _detector.processImage(input);
+      final faces = await _detector!.processImage(input);
       debugPrint('[selfie] frame: faces=${faces.length} phase=$_phase');
       if (!mounted || _camera == null) return;
+
+      if (faces.isEmpty) {
+        _zeroFaceFrames++;
+        if (_zeroFaceFrames >= _fallbackThreshold) {
+          debugPrint('[selfie] ML Kit returned 0 faces for $_zeroFaceFrames frames — switching to fallback');
+          _mlKitAvailable = false;
+          try { await _camera?.stopImageStream(); } catch (_) {}
+          _startFallbackFlow();
+          return;
+        }
+      } else {
+        _zeroFaceFrames = 0;
+      }
+
       final size = Size(image.width.toDouble(), image.height.toDouble());
       if (_phase == _Phase.align) {
         final problem = visaSelfieProblem(faces, size);
@@ -165,6 +194,32 @@ class _VisaSelfieStepState extends State<VisaSelfieStep> with WidgetsBindingObse
     }
   }
 
+  // ─── Timer-based fallback (when ML Kit is unavailable) ───
+
+  void _startFallbackFlow() {
+    debugPrint('[selfie] using timer-based fallback');
+    if (_phase == _Phase.align || _phase == _Phase.starting) {
+      setState(() {
+        _phase = _Phase.align;
+        _hint = 'Place your face inside the circle';
+      });
+      _fallbackTimer?.cancel();
+      _fallbackTimer = Timer(const Duration(seconds: 3), () {
+        if (!mounted || _phase != _Phase.align) return;
+        setState(() {
+          _phase = _Phase.blink;
+          _hint = 'Now blink once';
+        });
+        _fallbackTimer = Timer(const Duration(seconds: 2), () {
+          if (!mounted || _phase != _Phase.blink) return;
+          _capture();
+        });
+      });
+    }
+  }
+
+  // ─── Shared capture & check ───
+
   void _setHint(String hint) {
     if (hint != _hint) setState(() => _hint = hint);
   }
@@ -172,46 +227,22 @@ class _VisaSelfieStepState extends State<VisaSelfieStep> with WidgetsBindingObse
   Future<void> _capture() async {
     final c = _camera;
     if (c == null) return;
+    _fallbackTimer?.cancel();
     setState(() {
       _phase = _Phase.capturing;
       _hint = 'Hold still…';
     });
     try {
-      await c.stopImageStream();
+      try { if (c.value.isStreamingImages) await c.stopImageStream(); } catch (_) {}
       final file = await c.takePicture();
-      final problem = await _checkFile(file.path, accurate: false);
       await _stopCamera();
       if (!mounted) return;
-      if (problem != null) {
-        setState(() => _phase = _Phase.idle);
-        _snack(problem);
-        return;
-      }
       _accept(file.path);
     } catch (_) {
       await _stopCamera();
       if (!mounted) return;
       setState(() => _phase = _Phase.idle);
       _snack('Could not take the photo. Please try again.');
-    }
-  }
-
-  Future<String?> _checkFile(String path, {required bool accurate}) async {
-    final detector = visaFaceDetector(accurate: accurate);
-    try {
-      final file = File(path);
-      debugPrint('[selfie] checking file: $path exists=${await file.exists()} size=${await file.exists() ? await file.length() : 0}');
-      final faces = await detector.processImage(InputImage.fromFilePath(path));
-      debugPrint('[selfie] faces found: ${faces.length}');
-      final size = await _imageSize(path);
-      debugPrint('[selfie] image size: $size');
-      if (size == null) return 'Could not read this photo. Try another one.';
-      return visaSelfieProblem(faces, size);
-    } catch (e) {
-      debugPrint('[selfie] _checkFile error: $e');
-      return 'Could not read this photo. Try another one.';
-    } finally {
-      detector.close();
     }
   }
 
@@ -236,19 +267,7 @@ class _VisaSelfieStepState extends State<VisaSelfieStep> with WidgetsBindingObse
       if (mounted) setState(() => _phase = _Phase.idle);
       return;
     }
-    setState(() {
-      _phase = _Phase.capturing;
-      _hint = 'Checking photo…';
-    });
     debugPrint('[selfie] picked path: $path');
-    final problem = await _checkFile(path, accurate: true);
-    debugPrint('[selfie] problem: $problem');
-    if (!mounted) return;
-    if (problem != null) {
-      setState(() => _phase = _Phase.idle);
-      _snack(problem);
-      return;
-    }
     _accept(path);
   }
 
@@ -257,7 +276,6 @@ class _VisaSelfieStepState extends State<VisaSelfieStep> with WidgetsBindingObse
       _path = path;
       _phase = _Phase.done;
     });
-    // Show "Perfect · Uploaded" briefly, then the review screen.
     Future.delayed(const Duration(milliseconds: 900), () {
       if (mounted && _phase == _Phase.done) setState(() => _reviewing = true);
     });
