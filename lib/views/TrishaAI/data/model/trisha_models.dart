@@ -70,6 +70,68 @@ class TrishaMessage {
 }
 
 
+/// The active expert chat returned by `GET /v1/chat/active`.
+class TrishaExpertChat {
+  final bool active;
+  final String? ticketNumber;
+  final String? chatUrl;
+  final List<TrishaExpertMessage> messages;
+
+  const TrishaExpertChat({
+    required this.active,
+    this.ticketNumber,
+    this.chatUrl,
+    this.messages = const [],
+  });
+
+  factory TrishaExpertChat.fromJson(Map<String, dynamic> json) => TrishaExpertChat(
+        active: json['active'] == true,
+        ticketNumber: json['ticket_number']?.toString(),
+        chatUrl: json['chat_url']?.toString(),
+        messages: (json['messages'] as List? ?? const [])
+            .whereType<Map>()
+            .map((m) => TrishaExpertMessage.fromJson(m.cast<String, dynamic>()))
+            .toList(),
+      );
+}
+
+class TrishaExpertMessage {
+  final String role; // 'user', 'assistant', 'system'
+  final String? author;
+  final String text;
+  final List<TrishaCard> cards;
+
+  const TrishaExpertMessage({
+    required this.role,
+    this.author,
+    required this.text,
+    this.cards = const [],
+  });
+
+  factory TrishaExpertMessage.fromJson(Map<String, dynamic> json) => TrishaExpertMessage(
+        role: json['role']?.toString() ?? 'assistant',
+        author: json['author']?.toString(),
+        text: json['text']?.toString() ?? '',
+        cards: (json['cards'] as List? ?? const [])
+            .whereType<Map>()
+            .map((c) => TrishaCard.fromJson(c.cast<String, dynamic>()))
+            .toList(),
+      );
+}
+
+/// Ticket returned by `POST /v1/chat/handoff`.
+class TrishaExpertTicket {
+  final String ticketNumber;
+  final String chatUrl;
+
+  const TrishaExpertTicket({required this.ticketNumber, required this.chatUrl});
+
+  factory TrishaExpertTicket.fromJson(Map<String, dynamic> json) => TrishaExpertTicket(
+        ticketNumber: json['ticket_number']?.toString() ?? '',
+        chatUrl: json['chat_url']?.toString() ?? '',
+      );
+}
+
 /// One row of the chat history list (`GET /v1/chats`).
 class TrishaChatSummary {
   final String sessionId;

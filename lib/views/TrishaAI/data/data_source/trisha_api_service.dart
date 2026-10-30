@@ -106,6 +106,36 @@ class TrishaApiService {
   Future<TrishaChatHistory> getChat(String sessionId) async =>
       TrishaChatHistory.fromJson(await _get('/v1/chats/$sessionId', null));
 
+  // ---- expert handoff -----------------------------------------------------------
+
+  Future<TrishaExpertTicket> requestExpert(String sessionId) async {
+    try {
+      final res = await _dio.post('${await _base()}/v1/chat/handoff', data: {'session_id': sessionId});
+      return TrishaExpertTicket.fromJson((res.data as Map).cast<String, dynamic>());
+    } on DioException catch (e) {
+      throw _error(e);
+    }
+  }
+
+  Future<TrishaExpertChat> getActiveExpertChat() async {
+    try {
+      final res = await _dio.get('${await _base()}/v1/chat/active');
+      return TrishaExpertChat.fromJson((res.data as Map).cast<String, dynamic>());
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404) return const TrishaExpertChat(active: false);
+      throw _error(e);
+    }
+  }
+
+  Future<void> closeActiveExpertChat() async {
+    try {
+      await _dio.delete('${await _base()}/v1/chat/active');
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404) return;
+      throw _error(e);
+    }
+  }
+
   Future<void> deleteChat(String sessionId) async {
     try {
       await _dio.delete('${await _base()}/v1/chats/$sessionId');

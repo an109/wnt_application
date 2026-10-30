@@ -10,8 +10,9 @@ import 'trisha_style.dart';
 class TrishaInputBar extends StatefulWidget {
   final bool enabled;
   final ValueChanged<String> onSend;
+  final String? hintText;
 
-  const TrishaInputBar({super.key, required this.enabled, required this.onSend});
+  const TrishaInputBar({super.key, required this.enabled, required this.onSend, this.hintText});
 
   @override
   State<TrishaInputBar> createState() => _TrishaInputBarState();
@@ -149,7 +150,7 @@ class _TrishaInputBarState extends State<TrishaInputBar> {
                   onSubmitted: (_) => _send(),
                   style: TrishaStyle.body(context, 13),
                   decoration: InputDecoration(
-                    hintText: _isListening ? 'Listening…' : 'Ask me anything...',
+                    hintText: _isListening ? 'Listening…' : (widget.hintText ?? 'Ask me anything...'),
                     hintStyle: TrishaStyle.body(context, 12, color: _isListening ? TrishaStyle.accent : TrishaStyle.hint),
                     border: InputBorder.none,
                     counterText: '',
