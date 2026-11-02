@@ -20,19 +20,33 @@ class VisaPassportScan {
   const VisaPassportScan(this.path, {required this.mrz, required this.front});
 }
 
+/// What a scan of the passport's back page produced.
+class VisaPassportBackScan {
+  final String path;
+  final VisaPassportBack back;
+  const VisaPassportBackScan(this.path, this.back);
+}
+
 enum _Phase { camera, reading, review, failed }
 
 /// Passport step: the traveller photographs the passport's photo page with
 /// the shutter button (or picks a photo), the app reads it on the phone and
 /// shows the extracted details for confirmation before they fill the form.
 ///
-/// Only the photo page is needed: everything the application requires is
-/// in its machine-readable zone (MRZ) — the two `<<<` lines — and every
-/// value is accepted only if the MRZ check digits pass.
+/// Only the photo page is needed for the application itself: everything it
+/// requires is in its machine-readable zone (MRZ) — the two `<<<` lines — and
+/// every value is accepted only if the MRZ check digits pass.
+///
+/// With [back] set the same screen photographs the BACK page of an Indian
+/// passport instead and reads the parents' names and the old passport number
+/// from it ([onScannedBack]); the front scan cannot supply those.
 class VisaPassportStep extends StatefulWidget {
-  final ValueChanged<VisaPassportScan> onScanned;
+  final ValueChanged<VisaPassportScan>? onScanned;
+  final ValueChanged<VisaPassportBackScan>? onScannedBack;
+  final bool back;
 
-  const VisaPassportStep({super.key, required this.onScanned});
+  const VisaPassportStep({super.key, this.onScanned, this.onScannedBack, this.back = false})
+      : assert(back ? onScannedBack != null : onScanned != null);
 
   @override
   State<VisaPassportStep> createState() => _VisaPassportStepState();
@@ -50,6 +64,7 @@ class _VisaPassportStepState extends State<VisaPassportStep> with WidgetsBinding
   bool _busy = false;
   String? _photoPath;
   VisaPassportScan? _scan;
+  VisaPassportBackScan? _backScan;
   String _failure = '';
 
   @override
@@ -176,36 +191,55 @@ class _VisaPassportStepState extends State<VisaPassportStep> with WidgetsBinding
       _photoPath = path;
       _phase = _Phase.reading;
     });
+    if (widget.back) return _readBack(path);
     var variants = const <String>[];
     try {
       VisaMrz? best;
       var fullText = '';
       var sawMrz = false;
+      // Every pass of the OCR, kept to cross-check the names against the ones
+      // printed on the photo page.
+      final texts = <String>[];
 
       Future<void> attempt(String file) async {
         final text = (await _ocr.processImage(InputImage.fromFilePath(file))).text;
-        if (fullText.isEmpty) fullText = text;
+        texts.add(text);
+        // The whole-photo pass carries the printed fields; keep the fullest.
+        if (text.length > fullText.length) fullText = text;
         if (text.replaceAll(' ', '').contains('<<')) sawMrz = true;
         final mrz = readPassportMrz(text);
         if (mrz == null) return;
-        if (best == null || (mrz.fullyVerified && !best!.fullyVerified) ||
-            (best!.surname.isEmpty && mrz.surname.isNotEmpty && mrz.fullyVerified == best!.fullyVerified)) {
-          best = mrz;
-        }
+        // Verified digits first, then a readable name, then a name whose end
+        // is not in doubt.
+        int score(VisaMrz m) =>
+            (m.fullyVerified ? 4 : 0) + (m.surname.isNotEmpty ? 2 : 0) + (m.namesAmbiguous ? 0 : 1);
+        if (best == null || score(mrz) > score(best!)) best = mrz;
+      }
+
+      // Done when the digits pass and the name matches the printed one;
+      // otherwise another, sharper copy of the photo may settle it.
+      bool settled() {
+        final b = best;
+        return b != null &&
+            b.fullyVerified &&
+            b.surname.isNotEmpty &&
+            reconcilePassportNames(b, texts).namesConfirmed;
       }
 
       await attempt(path);
-      if (best?.fullyVerified != true) {
+      if (!settled()) {
         variants = await passportOcrVariants(path);
         for (final v in variants) {
           if (!mounted) return;
           await attempt(v);
-          if (best?.fullyVerified == true && best!.surname.isNotEmpty) break;
+          if (settled()) break;
         }
       }
       if (!mounted) return;
 
-      final mrz = best;
+      // The check digits do not cover the names: compare them with the
+      // printed ones and correct a letter lost or gained in the MRZ.
+      final mrz = best == null ? null : reconcilePassportNames(best!, texts);
       if (mrz == null) {
         _showFailure(
           path,
@@ -232,6 +266,64 @@ class _VisaPassportStepState extends State<VisaPassportStep> with WidgetsBinding
     }
   }
 
+  /// Reads the back page: the parents' names, the old passport number and the
+  /// file number. Tries the photo as taken, then upright/cropped/turned copies,
+  /// and keeps the read that found the most.
+  Future<void> _readBack(String path) async {
+    var variants = const <String>[];
+    try {
+      VisaPassportBack? best;
+      var bestScore = -1;
+
+      Future<void> attempt(String file) async {
+        final text = (await _ocr.processImage(InputImage.fromFilePath(file))).text;
+        final b = readPassportBack(text);
+        if (!b.looksValid) return;
+        final score = (b.fatherName.isNotEmpty ? 2 : 0) +
+            (b.motherName.isNotEmpty ? 2 : 0) +
+            (b.fileNumber.isNotEmpty ? 1 : 0) +
+            (b.oldPassportNumber.isNotEmpty ? 1 : 0);
+        if (score > bestScore) {
+          best = b;
+          bestScore = score;
+        }
+      }
+
+      await attempt(path);
+      // Both parents found: nothing more to gain from another pass.
+      if (bestScore < 4) {
+        variants = await passportOcrVariants(path);
+        // [0] upright, [1] window, [2] the MRZ band (front page only), then turned.
+        for (var i = 0; i < variants.length; i++) {
+          if (i == 2) continue;
+          if (!mounted) return;
+          await attempt(variants[i]);
+          if (bestScore >= 4) break;
+        }
+      }
+      if (!mounted) return;
+
+      final b = best;
+      if (b == null) {
+        _showFailure(
+          path,
+          'We could not read this page. Photograph the last page of the passport — '
+          'the one with the names of your father and mother and your address.',
+        );
+        return;
+      }
+      setState(() {
+        _backScan = VisaPassportBackScan(path, b);
+        _phase = _Phase.review;
+      });
+    } catch (e) {
+      debugPrint('[Passport] back read failed: $e');
+      if (mounted) _showFailure(path, 'This photo could not be read. Please try again.');
+    } finally {
+      deletePassportVariants(variants);
+    }
+  }
+
   void _showFailure(String? path, String message) {
     setState(() {
       _photoPath = path;
@@ -243,6 +335,7 @@ class _VisaPassportStepState extends State<VisaPassportStep> with WidgetsBinding
   void _retake() {
     setState(() {
       _scan = null;
+      _backScan = null;
       _photoPath = null;
       _phase = _Phase.camera;
     });
@@ -282,7 +375,10 @@ class _VisaPassportStepState extends State<VisaPassportStep> with WidgetsBinding
       key: const ValueKey('camera'),
       children: [
         const SizedBox(height: 18),
-        _heading('Scan your passport', 'Photograph the photo page — the one with your picture\nand the two lines of <<< at the bottom'),
+        widget.back
+            ? _heading('Scan the back of your passport',
+                'Photograph the last page — the one with your father\'s\nand mother\'s names and your address')
+            : _heading('Scan your passport', 'Photograph the photo page — the one with your picture\nand the two lines of <<< at the bottom'),
         const SizedBox(height: 16),
         Expanded(
           child: Padding(
@@ -326,13 +422,16 @@ class _VisaPassportStepState extends State<VisaPassportStep> with WidgetsBinding
                                 )
                               : const CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                         ),
-                      IgnorePointer(child: CustomPaint(painter: _FramePainter(aspect: _frameAspect))),
+                      IgnorePointer(
+                          child: CustomPaint(painter: _FramePainter(aspect: _frameAspect, mrzHint: !widget.back))),
                       if (live)
                         Positioned(
                           top: 14,
                           left: 0,
                           right: 0,
-                          child: Center(child: _pill(Icons.center_focus_strong, 'Fit the photo page inside the frame')),
+                          child: Center(
+                              child: _pill(Icons.center_focus_strong,
+                                  widget.back ? 'Fit the last page inside the frame' : 'Fit the photo page inside the frame')),
                         ),
                     ],
                   );
@@ -482,7 +581,99 @@ class _VisaPassportStepState extends State<VisaPassportStep> with WidgetsBinding
     );
   }
 
+  Widget _backReviewView() {
+    final scan = _backScan!;
+    final b = scan.back;
+    final rows = <(String, String)>[
+      if (b.fatherName.isNotEmpty) ("Father's name", b.fatherName),
+      if (b.motherName.isNotEmpty) ("Mother's name", b.motherName),
+      if (b.spouseName.isNotEmpty) ("Spouse's name", b.spouseName),
+      if (b.oldPassportNumber.isNotEmpty) ('Old passport number', b.oldPassportNumber),
+      if (b.fileNumber.isNotEmpty) ('File number', b.fileNumber),
+    ];
+    return Column(
+      key: const ValueKey('review-back'),
+      children: [
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(16, 18, 16, 16),
+            children: [
+              _photo(height: 150),
+              const SizedBox(height: 14),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF7ED),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFFDBA74)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.fact_check_outlined, size: 18, color: Color(0xFFC2410C)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Read from the back page — please check the names before continuing',
+                        style: visaText(10.5, weight: FontWeight.w600, color: const Color(0xFF9A3412)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFE5E7EB)),
+                ),
+                child: Column(
+                  children: [
+                    for (var i = 0; i < rows.length; i++)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                        decoration: BoxDecoration(
+                          border: i == rows.length - 1
+                              ? null
+                              : const Border(bottom: BorderSide(color: Color(0xFFF1F2F4))),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(flex: 4, child: Text(rows[i].$1, style: visaText(10.5, color: VisaColors.text))),
+                            Expanded(
+                              flex: 6,
+                              child: Text(
+                                rows[i].$2,
+                                textAlign: TextAlign.right,
+                                style: visaText(11.5, weight: FontWeight.w600, color: VisaColors.title),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'You can correct any of these on the next screen.',
+                style: visaText(9, color: VisaColors.text, height: 1.4),
+              ),
+            ],
+          ),
+        ),
+        _bottomActions(
+          primary: 'Use these details',
+          onPrimary: () => widget.onScannedBack!(scan),
+          secondary: 'Retake photo',
+          onSecondary: _retake,
+        ),
+      ],
+    );
+  }
+
   Widget _reviewView() {
+    if (widget.back) return _backReviewView();
     final scan = _scan!;
     final m = scan.mrz;
     final rows = <(String, String)>[
@@ -496,9 +687,16 @@ class _VisaPassportStepState extends State<VisaPassportStep> with WidgetsBinding
       if (scan.front.issueDate != null) ('Date of issue', visaDateFormat.format(scan.front.issueDate!)),
       if (scan.front.placeOfBirth.isNotEmpty) ('Place of birth', scan.front.placeOfBirth),
     ];
+    // A tick means the value is locked to the passport. The check digits
+    // cover the number and both dates; the names only count once they match
+    // the printed ones.
     final verified = m.fullyVerified
-        ? {'Surname', 'Given name', 'Passport number', 'Nationality', 'Date of birth', 'Gender', 'Date of expiry'}
+        ? {
+            'Passport number', 'Nationality', 'Date of birth', 'Gender', 'Date of expiry',
+            if (m.namesConfirmed) ...['Surname', 'Given name'],
+          }
         : {'Passport number', 'Date of birth', 'Date of expiry'};
+    final namesToCheck = !m.namesConfirmed;
 
     return Column(
       key: const ValueKey('review'),
@@ -509,33 +707,38 @@ class _VisaPassportStepState extends State<VisaPassportStep> with WidgetsBinding
             children: [
               _photo(height: 150),
               const SizedBox(height: 14),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                decoration: BoxDecoration(
-                  color: m.fullyVerified ? VisaColors.greenSoft : const Color(0xFFFFF7ED),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: m.fullyVerified ? VisaColors.green.withValues(alpha: 0.3) : const Color(0xFFFDBA74),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Icon(m.fullyVerified ? Icons.verified_user : Icons.fact_check_outlined,
-                        size: 18, color: m.fullyVerified ? VisaColors.green : const Color(0xFFC2410C)),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        m.fullyVerified
-                            ? 'Passport verified — details match the machine-readable zone'
-                            : 'Details read from your passport — please check the names before continuing',
-                        style: visaText(10.5,
-                            weight: FontWeight.w600,
-                            color: m.fullyVerified ? const Color(0xFF166534) : const Color(0xFF9A3412)),
-                      ),
+              Builder(builder: (context) {
+                final allGood = m.fullyVerified && !namesToCheck;
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: allGood ? VisaColors.greenSoft : const Color(0xFFFFF7ED),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: allGood ? VisaColors.green.withValues(alpha: 0.3) : const Color(0xFFFDBA74),
                     ),
-                  ],
-                ),
-              ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(allGood ? Icons.verified_user : Icons.fact_check_outlined,
+                          size: 18, color: allGood ? VisaColors.green : const Color(0xFFC2410C)),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          allGood
+                              ? 'Passport verified — details match the machine-readable zone and the printed names'
+                              : m.fullyVerified
+                                  ? 'Passport number and dates verified — please check your name before continuing'
+                                  : 'Details read from your passport — please check the names before continuing',
+                          style: visaText(10.5,
+                              weight: FontWeight.w600,
+                              color: allGood ? const Color(0xFF166534) : const Color(0xFF9A3412)),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }),
               const SizedBox(height: 14),
               Container(
                 decoration: BoxDecoration(
@@ -596,7 +799,7 @@ class _VisaPassportStepState extends State<VisaPassportStep> with WidgetsBinding
         ),
         _bottomActions(
           primary: 'Use these details',
-          onPrimary: () => widget.onScanned(scan),
+          onPrimary: () => widget.onScanned!(scan),
           secondary: 'Retake photo',
           onSecondary: _retake,
         ),
@@ -634,12 +837,19 @@ class _VisaPassportStepState extends State<VisaPassportStep> with WidgetsBinding
               const SizedBox(height: 18),
               Text('For a successful scan', style: visaText(12, weight: FontWeight.w700, color: VisaColors.title)),
               const SizedBox(height: 10),
-              for (final (icon, text) in const [
-                (Icons.menu_book_outlined, 'Open the passport to the page with your photo'),
-                (Icons.table_restaurant_outlined, 'Lay it flat on a plain, dark surface'),
-                (Icons.wb_sunny_outlined, 'Use even light — avoid glare on the plastic'),
-                (Icons.text_fields, 'Keep the two <<< lines at the bottom sharp and fully visible'),
-              ])
+              for (final (icon, text) in widget.back
+                  ? const [
+                      (Icons.menu_book_outlined, 'Open the passport to its last page, with the names and address'),
+                      (Icons.table_restaurant_outlined, 'Lay it flat on a plain, dark surface'),
+                      (Icons.wb_sunny_outlined, 'Use even light — avoid glare on the page'),
+                      (Icons.text_fields, 'Keep the whole page in the frame and the text sharp'),
+                    ]
+                  : const [
+                      (Icons.menu_book_outlined, 'Open the passport to the page with your photo'),
+                      (Icons.table_restaurant_outlined, 'Lay it flat on a plain, dark surface'),
+                      (Icons.wb_sunny_outlined, 'Use even light — avoid glare on the plastic'),
+                      (Icons.text_fields, 'Keep the two <<< lines at the bottom sharp and fully visible'),
+                    ])
                 Padding(
                   padding: const EdgeInsets.only(bottom: 10),
                   child: Row(
@@ -711,7 +921,10 @@ class _VisaPassportStepState extends State<VisaPassportStep> with WidgetsBinding
 /// band at its bottom.
 class _FramePainter extends CustomPainter {
   final double aspect;
-  _FramePainter({required this.aspect});
+
+  /// Marks the MRZ band at the bottom of the frame (photo page only).
+  final bool mrzHint;
+  _FramePainter({required this.aspect, this.mrzHint = true});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -726,21 +939,23 @@ class _FramePainter extends CustomPainter {
     );
 
     // MRZ band hint.
-    final mrz = Rect.fromLTRB(rect.left + 10, rect.bottom - h * 0.22, rect.right - 10, rect.bottom - 8);
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(mrz, const Radius.circular(6)),
-      Paint()
-        ..color = VisaColors.primaryLight.withValues(alpha: 0.18)
-        ..style = PaintingStyle.fill,
-    );
-    final tp = TextPainter(
-      text: TextSpan(
-        text: 'P<IND<<<<<<<<<<<<<<<<  ·  keep these lines sharp',
-        style: TextStyle(fontSize: 9, color: Colors.white.withValues(alpha: 0.75), letterSpacing: 0.5),
-      ),
-      textDirection: TextDirection.ltr,
-    )..layout(maxWidth: mrz.width - 12);
-    tp.paint(canvas, Offset(mrz.left + 6, mrz.center.dy - tp.height / 2));
+    if (mrzHint) {
+      final mrz = Rect.fromLTRB(rect.left + 10, rect.bottom - h * 0.22, rect.right - 10, rect.bottom - 8);
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(mrz, const Radius.circular(6)),
+        Paint()
+          ..color = VisaColors.primaryLight.withValues(alpha: 0.18)
+          ..style = PaintingStyle.fill,
+      );
+      final tp = TextPainter(
+        text: TextSpan(
+          text: 'P<IND<<<<<<<<<<<<<<<<  ·  keep these lines sharp',
+          style: TextStyle(fontSize: 9, color: Colors.white.withValues(alpha: 0.75), letterSpacing: 0.5),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout(maxWidth: mrz.width - 12);
+      tp.paint(canvas, Offset(mrz.left + 6, mrz.center.dy - tp.height / 2));
+    }
 
     // Corner brackets.
     final p = Paint()
@@ -767,7 +982,7 @@ class _FramePainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _FramePainter old) => old.aspect != aspect;
+  bool shouldRepaint(covariant _FramePainter old) => old.aspect != aspect || old.mrzHint != mrzHint;
 }
 
 /// Light bar sweeping over the photo while it is being read.

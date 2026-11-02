@@ -22,6 +22,16 @@ class VisaMrz {
   /// but stay editable, and the MRZ is not sent for the backend check.
   final bool fullyVerified;
 
+  /// The names match the ones printed on the photo page. The check digits do
+  /// not cover line 1, so a name read from the MRZ alone is only "read", never
+  /// "verified": OCR confuses the `<` filler with K and C, which can add or
+  /// remove letters.
+  final bool namesConfirmed;
+
+  /// The MRZ could not say where the name ended (a trailing K or C could be a
+  /// letter or a misread filler), so the name may be a letter short or long.
+  final bool namesAmbiguous;
+
   const VisaMrz({
     required this.line1,
     required this.line2,
@@ -34,12 +44,44 @@ class VisaMrz {
     required this.sex,
     required this.expiry,
     this.fullyVerified = true,
+    this.namesConfirmed = false,
+    this.namesAmbiguous = false,
   });
+
+  VisaMrz withNames({
+    required String surname,
+    required String givenNames,
+    required bool confirmed,
+    bool ambiguous = false,
+  }) {
+    final issuing = RegExp(r'^[A-Z]{3}$').hasMatch(issuingCountry) ? issuingCountry : nationality;
+    return VisaMrz(
+      line1: _buildLine1(issuing, surname, givenNames),
+      line2: line2,
+      issuingCountry: issuingCountry,
+      surname: surname,
+      givenNames: givenNames,
+      passportNumber: passportNumber,
+      nationality: nationality,
+      dob: dob,
+      sex: sex,
+      expiry: expiry,
+      // A passport is only "fully verified" with a name to go with it.
+      fullyVerified: fullyVerified && surname.isNotEmpty,
+      namesConfirmed: confirmed,
+      namesAmbiguous: ambiguous,
+    );
+  }
 
   /// "Male" / "Female" / "Others", as the form expects.
   String get gender => switch (sex) { 'M' => 'Male', 'F' => 'Female', _ => 'Others' };
 
   String get nationalityName => visaCountryForIso3(nationality);
+}
+
+String _buildLine1(String issuing, String surname, String given) {
+  final names = '${surname.replaceAll(' ', '<')}<<${given.replaceAll(' ', '<')}';
+  return 'P<$issuing$names'.padRight(44, '<').substring(0, 44);
 }
 
 const _weights = [7, 3, 1];
@@ -60,11 +102,12 @@ int mrzCheckDigit(String field) {
   return sum % 10;
 }
 
+/// OCR reads the `<` filler as one of several brackets; map them back so the
+/// line keeps its length instead of losing characters.
 String _clean(String line) => line
     .toUpperCase()
     .replaceAll(RegExp(r'\s'), '')
-    .replaceAll('«', '<')
-    .replaceAll('‹', '<')
+    .replaceAll(RegExp(r'[«‹〈⟨《＜(\[{]'), '<')
     .replaceAll(RegExp(r'[^A-Z0-9<]'), '');
 
 DateTime? _date(String yymmdd, {required bool future}) {
@@ -85,6 +128,9 @@ DateTime? _date(String yymmdd, {required bool future}) {
 const _toDigit = {'O': '0', 'Q': '0', 'D': '0', 'U': '0', 'I': '1', 'L': '1', 'T': '1', 'Z': '2', 'S': '5', 'B': '8', 'G': '6'};
 const _toLetter = {'0': 'O', '1': 'I', '2': 'Z', '5': 'S', '8': 'B', '6': 'G'};
 
+/// Letters OCR reads in place of the `<` filler.
+final _fillerLike = RegExp(r'[KCSLE]');
+
 String _fix(String s, int from, int to, Map<String, String> map) {
   final b = StringBuffer(s.substring(0, from));
   for (var i = from; i < to; i++) {
@@ -94,21 +140,31 @@ String _fix(String s, int from, int to, Map<String, String> map) {
   return b.toString();
 }
 
-/// Filler runs: OCR reads `<` as `K` (or `C`) when several stand together.
-String _fixFiller(String s) => s.replaceAllMapped(RegExp(r'[<KC]{3,}$'), (m) => '<' * m[0]!.length);
-
 /// The number as read, then single-character repairs of typical OCR
 /// mistakes: a letter read where a digit is printed (O→0, S→5 …), and at
 /// the first position — normally a letter — a digit read for a letter.
+///
+/// An 8-character number (every Indian passport) is followed by one `<`
+/// filler. OCR often reads that filler as K, C, S or L — and K and U cannot
+/// even be told apart from it by the check digit — so a letter in the ninth
+/// place of an otherwise numeric number is read as the filler first.
 Iterable<String> _numberVariants(String number) sync* {
   const letterToDigit = {'O': '0', 'D': '0', 'Q': '0', 'I': '1', 'L': '1', 'S': '5', 'B': '8', 'Z': '2', 'G': '6'};
   const digitToLetter = {'0': 'O', '1': 'I', '5': 'S', '8': 'B', '2': 'Z', '6': 'G'};
+  if (number.length == 9 && _ninthIsFiller(number)) {
+    yield '${number.substring(0, 8)}<';
+  }
   yield number;
   for (var i = 0; i < number.length; i++) {
     final c = number[i];
     final to = i == 0 ? digitToLetter[c] : letterToDigit[c];
     if (to != null) yield number.replaceRange(i, i + 1, to);
   }
+}
+
+bool _ninthIsFiller(String number) {
+  if (number.length != 9 || RegExp(r'[0-9<]').hasMatch(number[8])) return false;
+  return RegExp(r'\d').allMatches(number.substring(0, 8)).length >= 6;
 }
 
 class _Line2 {
@@ -122,6 +178,28 @@ class _Line2 {
   const _Line2(this.text, this.number, this.nationality, this.dob, this.expiry, this.sex, this.full);
 }
 
+/// The personal-number field (14 characters) as read, then with filler
+/// look-alikes put back. A real personal number (letters and digits, then
+/// fillers) is tried untouched first, so its own K/C/S/L/E are not lost.
+Iterable<String> _personalVariants(String p) sync* {
+  yield p;
+  final trailing = p.replaceFirstMapped(RegExp(r'[<KCSLE]+$'), (m) => '<' * m[0]!.length);
+  if (trailing != p) yield trailing;
+  final all = p.replaceAll(_fillerLike, '<');
+  if (all != p && all != trailing && ('<'.allMatches(all).length >= 3)) yield all;
+}
+
+/// The personal-number check digit as read, then as a filler (`<`).
+Iterable<String> _personalCheckVariants(String c) sync* {
+  if (c == '<' || RegExp(r'^\d$').hasMatch(c)) {
+    yield c;
+    return;
+  }
+  final digit = _toDigit[c];
+  if (digit != null) yield digit;
+  if (_fillerLike.hasMatch(c)) yield '<';
+}
+
 /// Parses a 44-character TD3 line 2, correcting OCR look-alikes by
 /// position. Null unless the passport number, birth date and expiry check
 /// digits pass.
@@ -133,11 +211,6 @@ _Line2? _parseLine2(String raw) {
   s = _fix(s, 13, 20, _toDigit);
   s = _fix(s, 21, 28, _toDigit);
   s = _fix(s, 43, 44, _toDigit);
-  final personal = s.substring(28, 42);
-  if ('<'.allMatches(personal).length >= 3 || RegExp(r'^[<KC]+$').hasMatch(personal)) {
-    s = s.substring(0, 28) + personal.replaceAll(RegExp(r'[KC]'), '<') + s.substring(42);
-  }
-  if (s[42] != '<') s = _fix(s, 42, 43, _toDigit);
   final sexChar = s[20] == 'H' || s[20] == 'N' ? 'M' : s[20];
   s = s.replaceRange(20, 21, sexChar);
 
@@ -146,6 +219,21 @@ _Line2? _parseLine2(String raw) {
     return null;
   }
 
+  _Line2? partial;
+  for (final personal in _personalVariants(s.substring(28, 42))) {
+    for (final check in _personalCheckVariants(s[42])) {
+      final r = _checkLine2(s.substring(0, 28) + personal + check + s[43]);
+      if (r == null) continue;
+      if (r.full) return r;
+      partial ??= r;
+    }
+  }
+  return partial;
+}
+
+/// Checks one repaired candidate. Null unless the number, birth-date and
+/// expiry digits pass.
+_Line2? _checkLine2(String s) {
   if ('${mrzCheckDigit(s.substring(13, 19))}' != s[19]) return null;
   if ('${mrzCheckDigit(s.substring(21, 27))}' != s[27]) return null;
   final dob = _date(s.substring(13, 19), future: false);
@@ -162,7 +250,10 @@ _Line2? _parseLine2(String raw) {
 
   // The number as read must match its check digit; a look-alike repair is
   // accepted only when the composite digit confirms it too, so a changed
-  // number can't be "repaired" into another valid-looking one.
+  // number can't be "repaired" into another valid-looking one. The one
+  // exception is the filler after an 8-character number: it is the filler
+  // whatever the OCR called it, and the check digit cannot tell K or U from
+  // it, so it is accepted on the number's own check digit.
   final read = s.substring(0, 9);
   String? number;
   var full = false;
@@ -170,7 +261,8 @@ _Line2? _parseLine2(String raw) {
     if ('${mrzCheckDigit(v)}' != s[9]) continue;
     final line = v + s.substring(9);
     final ok = fullFor(line);
-    if (v == read || ok) {
+    final fillerRepair = v != read && v.substring(0, 8) == read.substring(0, 8) && v[8] == '<';
+    if (v == read || ok || fillerRepair) {
       number = v;
       full = ok;
       break;
@@ -183,22 +275,83 @@ _Line2? _parseLine2(String raw) {
       s[20], full);
 }
 
+/// 44-character versions of an OCR line whose length is off: characters lost
+/// or gained, usually in the run of fillers.
+Iterable<String> _alignments(String c) sync* {
+  if (c.length == 44) {
+    yield c;
+    return;
+  }
+  if (c.length < 44) {
+    yield c.padRight(44, '<');
+    // A filler lost after an 8-character number: the check digit is then
+    // the ninth character.
+    if (c.length == 43 && RegExp(r'^\w{8}\d').hasMatch(c)) {
+      yield '${c.substring(0, 8)}<${c.substring(8)}';
+    }
+  } else {
+    for (var off = 0; off + 44 <= c.length; off++) {
+      yield c.substring(off, off + 44);
+    }
+  }
+  // Fillers lost or added in the personal-number field: keep the first 28
+  // characters and the last 2, and resize what lies between.
+  if (c.length >= 38 && c.length <= 52) {
+    final mid = c.substring(28, c.length - 2);
+    final fixed = mid.length >= 14 ? mid.substring(0, 14) : mid.padRight(14, '<');
+    yield c.substring(0, 28) + fixed + c.substring(c.length - 2);
+  }
+}
+
+class _Names {
+  final String surname;
+  final String given;
+  final bool ambiguous;
+  const _Names(this.surname, this.given, this.ambiguous);
+}
+
+/// Strips the run of fillers that ends a names field. OCR reads the `<`
+/// filler as K or C, but K and C also end real names (ASHOK, DEEPAK, ERIC), so
+/// the run is not simply thrown away:
+///  * a K/C directly before a correctly read `<` is a letter of the name
+///    (up to two of them, as in PATRICK);
+///  * more than two, or a run with no `<` left at all, cannot be told apart
+///    from misread fillers. Nothing is kept and the name is flagged.
+(String, bool) _trimFiller(String names) {
+  final m = RegExp(r'[<KC]+$').firstMatch(names);
+  if (m == null) return (names, false);
+  final run = m[0]!;
+  final head = names.substring(0, m.start);
+  final firstFiller = run.indexOf('<');
+  if (firstFiller == -1) {
+    // Nothing but K/C: one or two is simply how the name ends; a longer run
+    // is a whole line of misread fillers.
+    return run.length <= 2 ? (names, false) : (head, true);
+  }
+  final prefix = run.substring(0, firstFiller);
+  if (prefix.length <= 2) return (head + prefix, false);
+  return (head, true);
+}
+
 /// Surname and given names from MRZ line 1, or null when unreadable.
-(String, String)? _namesFromLine1(String line) {
+_Names? _namesFromLine1(String line) {
   if (line.length < 10 || !line.startsWith('P')) return null;
-  var names = _fixFiller(line.substring(5));
-  names = names.replaceAll(RegExp(r'<+$'), '');
+  var (names, ambiguous) = _trimFiller(line.substring(5));
   var parts = names.split('<<');
   if (parts.length == 1) {
-    // "<<" read as "K<", "<K" or "KK".
+    // "<<" read as "K<", "<K" or "KK". Only a guess: such a name is flagged
+    // so it is checked against the printed one.
     final m = RegExp(r'K<|<K|KK').firstMatch(names);
-    if (m != null) parts = [names.substring(0, m.start), names.substring(m.end)];
+    if (m != null) {
+      parts = [names.substring(0, m.start), names.substring(m.end)];
+      ambiguous = true;
+    }
   }
   String words(String s) => s.split('<').where((w) => w.isNotEmpty).join(' ');
   final surname = words(parts.first.replaceAll(RegExp(r'[0-9]'), ''));
   final given = parts.length > 1 ? words(parts.sublist(1).join('<').replaceAll(RegExp(r'[0-9]'), '')) : '';
   if (surname.isEmpty) return null;
-  return (surname, given);
+  return _Names(surname, given, ambiguous);
 }
 
 /// Names printed on the photo page under "Surname" / "Given Name(s)".
@@ -236,10 +389,9 @@ VisaMrz? readPassportMrz(String text) {
   _Line2? best;
   var bestIndex = -1;
   for (final (index, c) in candidates) {
-    if (c.length < 40 || c.length > 60) continue;
-    final padded = c.length < 44 ? c.padRight(44, '<') : c;
-    for (var off = 0; off + 44 <= padded.length; off++) {
-      final l2 = _parseLine2(padded.substring(off, off + 44));
+    if (c.length < 38 || c.length > 60) continue;
+    for (final aligned in _alignments(c)) {
+      final l2 = _parseLine2(aligned);
       if (l2 != null && (best == null || (l2.full && !best.full))) {
         best = l2;
         bestIndex = index;
@@ -254,32 +406,29 @@ VisaMrz? readPassportMrz(String text) {
   }
 
   // Line 1: the "P<…" line just above line 2.
-  String? line1;
-  (String, String)? names;
+  String? issuing;
+  _Names? names;
   for (var j = bestIndex - 1; j >= 0 && j >= bestIndex - 3; j--) {
     final l = lines[j];
     if (l.length >= 25 && l.startsWith('P')) {
       final fixed = l.length > 1 && l[1] != '<' ? 'P<${l.substring(2)}' : l;
       names = _namesFromLine1(fixed);
       if (names != null) {
-        line1 = _fixFiller(fixed).padRight(44, '<').substring(0, 44);
+        issuing = fixed.length >= 5 ? fixed.substring(2, 5).replaceAll('<', '') : null;
         break;
       }
     }
   }
-  names ??= _namesFromLabels(text);
-  final surname = names?.$1 ?? '';
-  final given = names?.$2 ?? '';
+  final printed = names == null ? _namesFromLabels(text) : null;
+  final surname = names?.surname ?? printed?.$1 ?? '';
+  final given = names?.given ?? printed?.$2 ?? '';
   final nat = best.nationality;
-  line1 ??= 'P<$nat${surname.replaceAll(' ', '<')}<<${given.replaceAll(' ', '<')}'
-      .padRight(44, '<')
-      .substring(0, 44);
-  debugPrint('[MRZ] read ${best.number} full=${best.full} names=${names != null}');
+  debugPrint('[MRZ] read ${best.number} full=${best.full} names=${names != null} ambiguous=${names?.ambiguous}');
 
   return VisaMrz(
-    line1: line1,
+    line1: _buildLine1(RegExp(r'^[A-Z]{3}$').hasMatch(issuing ?? '') ? issuing! : nat, surname, given),
     line2: best.text,
-    issuingCountry: line1.substring(2, 5).replaceAll('<', ''),
+    issuingCountry: (RegExp(r'^[A-Z]{3}$').hasMatch(issuing ?? '') ? issuing! : nat),
     surname: surname,
     givenNames: given,
     passportNumber: best.number,
@@ -288,7 +437,98 @@ VisaMrz? readPassportMrz(String text) {
     sex: best.sex,
     expiry: best.expiry,
     fullyVerified: best.full && surname.isNotEmpty,
+    namesAmbiguous: names?.ambiguous ?? false,
   );
+}
+
+/// Letters only, upper case — names compared without spacing or punctuation.
+String _squash(String s) => s.toUpperCase().replaceAll(RegExp(r'[^A-Z]'), '');
+
+int _distance(String a, String b) {
+  if (a == b) return 0;
+  var prev = List<int>.generate(b.length + 1, (i) => i);
+  for (var i = 1; i <= a.length; i++) {
+    final cur = List<int>.filled(b.length + 1, 0)..[0] = i;
+    for (var j = 1; j <= b.length; j++) {
+      final cost = a[i - 1] == b[j - 1] ? 0 : 1;
+      cur[j] = [prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + cost].reduce((x, y) => x < y ? x : y);
+    }
+    prev = cur;
+  }
+  return prev[b.length];
+}
+
+String _tidy(String s) => s.trim().replaceAll(RegExp(r'\s+'), ' ');
+
+/// Checks the names read from the MRZ against the ones printed on the photo
+/// page, which are in an ordinary typeface and are not hit by the `<` mix-ups.
+///
+///  * identical → the names are confirmed;
+///  * a small difference (a letter or two added or lost) → the printed names
+///    are used, and the traveller is asked to check them;
+///  * nothing printed could be read, or it is very different → the MRZ names
+///    are kept and not confirmed.
+///
+/// [ocrTexts] are the OCR results of every attempt made on the photo.
+VisaMrz reconcilePassportNames(VisaMrz mrz, Iterable<String> ocrTexts) {
+  final mrzS = _squash(mrz.surname), mrzG = _squash(mrz.givenNames);
+  (String, String)? bestPrinted;
+  var bestDistance = 1 << 30;
+  for (final t in ocrTexts) {
+    final p = _namesFromLabels(t);
+    if (p == null) continue;
+    final printedS = _squash(p.$1), printedG = _squash(p.$2);
+    // A name shorter than 2 letters is an OCR scrap, not a name.
+    if (printedS.length + printedG.length < 2) continue;
+    final d = _distance(printedS + printedG, mrzS + mrzG);
+    if (d < bestDistance) {
+      bestDistance = d;
+      bestPrinted = p;
+    }
+  }
+  final printed = bestPrinted;
+  if (printed == null) {
+    return mrz.withNames(surname: mrz.surname, givenNames: mrz.givenNames, confirmed: false, ambiguous: mrz.namesAmbiguous);
+  }
+  final printedS = _squash(printed.$1), printedG = _squash(printed.$2);
+  if (printedS == mrzS && printedG == mrzG) {
+    return mrz.withNames(surname: mrz.surname, givenNames: mrz.givenNames, confirmed: true);
+  }
+  final mrzAll = mrzS + mrzG, printedAll = printedS + printedG;
+  if (bestDistance == 0) {
+    // The same letters, only split differently (surname and given names
+    // swapped or merged): the printed split is the right one.
+    return mrz.withNames(surname: _tidy(printed.$1), givenNames: _tidy(printed.$2), confirmed: true);
+  }
+  // The printed spelling replaces the MRZ one only when the difference is the
+  // kind OCR makes in the MRZ — a K or C added or lost at the end of a name,
+  // or filler letters in the middle. Any other difference is as likely to be a
+  // mistake in the printed text, so the MRZ is kept and the traveller asked.
+  if (bestDistance <= 3 && (mrz.namesAmbiguous || _fillerDifference(printedAll, mrzAll))) {
+    return mrz.withNames(surname: _tidy(printed.$1), givenNames: _tidy(printed.$2), confirmed: false);
+  }
+  return mrz.withNames(surname: mrz.surname, givenNames: mrz.givenNames, confirmed: false, ambiguous: mrz.namesAmbiguous);
+}
+
+/// True when [mrz] and [printed] differ only by filler look-alike letters
+/// (K, C, S, L, E): up to two added at the end of [mrz], or up to three extra
+/// ones inside it.
+bool _fillerDifference(String printed, String mrz) {
+  if (printed.length > mrz.length && printed.startsWith(mrz)) {
+    final rest = printed.substring(mrz.length);
+    return rest.length <= 2 && RegExp(r'^[KC]+$').hasMatch(rest);
+  }
+  final extra = mrz.length - printed.length;
+  if (extra < 1 || extra > 3) return false;
+  var p = 0;
+  for (var m = 0; m < mrz.length; m++) {
+    if (p < printed.length && mrz[m] == printed[p]) {
+      p++;
+    } else if (!_fillerLike.hasMatch(mrz[m])) {
+      return false;
+    }
+  }
+  return p == printed.length;
 }
 
 /// Fields the photo page prints outside the MRZ (best effort).
@@ -311,11 +551,18 @@ VisaPassportFront readPassportFront(String text, VisaMrz mrz) {
   }
   final lines = text.split('\n').map((l) => l.trim()).toList();
   var place = '';
-  for (var i = 0; i < lines.length - 1; i++) {
-    if (lines[i].toLowerCase().contains('place of birth')) {
+  for (var i = 0; i < lines.length; i++) {
+    final lower = lines[i].toLowerCase();
+    if (!lower.contains('place of birth')) continue;
+    // "Place of Birth NEW DELHI" on one line.
+    final sameLine = lines[i].replaceFirst(RegExp(r'place of birth', caseSensitive: false), '');
+    final inline = sameLine.split('/').first.replaceAll(RegExp(r'[^A-Za-z .,\-]'), '').trim();
+    if (inline.length >= 3 && _isValueLine(inline)) {
+      place = inline;
+    } else {
       place = _value2(lines, i);
-      break;
     }
+    break;
   }
   return VisaPassportFront(issueDate: issue, placeOfBirth: _title(place));
 }
@@ -386,11 +633,21 @@ String _value2(List<String> lines, int i) {
   return '';
 }
 
+/// Printed labels of an Indian passport page that begin a line. Matched at the
+/// start of the line only, so a value that merely contains one of these words
+/// (ESSEX, a street called "Type Road") is not mistaken for a label.
+final _labelStart = RegExp(
+  r'^(place of|date of|surname|given name|nationality|sex\b|type\b|country code|code\b|authority|'
+  r'issuing|republic|holder|signature|photo)',
+  caseSensitive: false,
+);
+
 bool _isValueLine(String l) {
   final lower = l.toLowerCase();
   if (l.length < 2) return false;
   const labels = ['name of', 'father', 'mother', 'spouse', 'address', 'passport', 'file', '/'];
   if (labels.any(lower.contains)) return false;
+  if (_labelStart.hasMatch(l)) return false;
   // Hindi labels: Devanagari block.
   if (RegExp(r'[ऀ-ॿ]').hasMatch(l)) return false;
   return RegExp(r'[A-Za-z]').hasMatch(l);

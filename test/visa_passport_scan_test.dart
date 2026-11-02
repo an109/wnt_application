@@ -42,9 +42,17 @@ void main() {
       expect(readPassportMrz('hello world\nnothing here'), isNull);
     });
 
-    test('returns null for tampered check digit', () {
-      // Change last digit of line2 to break composite check
+    test('a wrong composite digit is only a partial read, never "verified"', () {
+      // The number, birth date and expiry still check out, so the details are
+      // filled in — but they are not locked or sent for the backend check.
       final tampered = '${line2.substring(0, 43)}9';
+      final mrz = readPassportMrz('$line1\n$tampered');
+      expect(mrz, isNotNull);
+      expect(mrz!.fullyVerified, isFalse);
+    });
+
+    test('returns null when the passport number check digit is wrong', () {
+      final tampered = '${line2.substring(0, 9)}7${line2.substring(10)}';
       expect(readPassportMrz('$line1\n$tampered'), isNull);
     });
 

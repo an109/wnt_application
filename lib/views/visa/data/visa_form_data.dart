@@ -25,6 +25,11 @@ class VisaTravellerForm {
   String mrzLine1;
   String mrzLine2;
 
+  /// The scanned names matched the ones printed on the passport. The MRZ check
+  /// digits do not cover names, so until this is true the name fields stay
+  /// editable even though the number and dates are locked.
+  bool namesConfirmed;
+
   bool get passportVerified => mrzLine1.isNotEmpty && mrzLine2.isNotEmpty;
 
   VisaTravellerForm({
@@ -47,6 +52,7 @@ class VisaTravellerForm {
     this.passportBackPath,
     this.mrzLine1 = '',
     this.mrzLine2 = '',
+    this.namesConfirmed = false,
   });
 
   String get initials {
@@ -79,6 +85,7 @@ class VisaTravellerForm {
         'passportBackPath': passportBackPath,
         'mrzLine1': mrzLine1,
         'mrzLine2': mrzLine2,
+        'namesConfirmed': namesConfirmed,
       };
 
   factory VisaTravellerForm.fromJson(Map<String, dynamic> j) => VisaTravellerForm(
@@ -101,6 +108,7 @@ class VisaTravellerForm {
         passportBackPath: j['passportBackPath'],
         mrzLine1: j['mrzLine1'] ?? '',
         mrzLine2: j['mrzLine2'] ?? '',
+        namesConfirmed: j['namesConfirmed'] ?? false,
       );
 }
 

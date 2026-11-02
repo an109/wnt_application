@@ -152,6 +152,7 @@ class _VisaApplyFlowScreenState extends State<VisaApplyFlowScreen> {
       // check; a partial read just fills them in for the traveller to check.
       t.mrzLine1 = mrz.fullyVerified ? mrz.line1 : '';
       t.mrzLine2 = mrz.fullyVerified ? mrz.line2 : '';
+      t.namesConfirmed = mrz.fullyVerified && mrz.namesConfirmed;
       t.firstName = _title(mrz.givenNames.isEmpty ? mrz.surname : mrz.givenNames);
       t.lastName = mrz.givenNames.isEmpty ? '' : _title(mrz.surname);
       t.passportNo = mrz.passportNumber;
@@ -164,6 +165,15 @@ class _VisaApplyFlowScreenState extends State<VisaApplyFlowScreen> {
       _stage = _Stage.detail;
       _editing = false;
     });
+    // An Indian passport prints the parents' names on its back page, which the
+    // front scan cannot see: ask for that page straight away (the traveller can
+    // skip and type the names instead). Not again when they are already filled.
+    final t = _t;
+    if (t.passportFrom == 'India' && (t.fatherName.trim().isEmpty || t.motherName.trim().isEmpty)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _scanBackPage();
+      });
+    }
   }
 
   String _title(String s) => s
@@ -754,9 +764,93 @@ class _VisaApplyFlowScreenState extends State<VisaApplyFlowScreen> {
     );
   }
 
+  Widget _scanBackRow(VisaTravellerForm t) {
+    final done = t.passportBackPath != null;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: InkWell(
+        onTap: _scanBackPage,
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: VisaColors.primarySoft,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Row(
+            children: [
+              Icon(done ? Icons.check_circle : Icons.document_scanner_outlined, size: 18, color: VisaColors.primary),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  done
+                      ? 'Back page scanned — tap to scan again'
+                      : "Scan the back page to fill your parents' names",
+                  style: visaText(10.5, weight: FontWeight.w600, color: VisaColors.primary),
+                ),
+              ),
+              const Icon(Icons.chevron_right, size: 18, color: VisaColors.primary),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Photographs the back page of an Indian passport and fills the parents'
+  /// names and the old passport number from it. Opened by itself after the
+  /// front scan, and again from the row on the details screen. "Skip" (or
+  /// back) leaves the names to be typed. Anything it misses stays editable.
+  bool _backScanOpen = false;
+
+  Future<void> _scanBackPage() async {
+    if (_backScanOpen) return;
+    _backScanOpen = true;
+    final t = _t;
+    final VisaPassportBackScan? scan;
+    try {
+      scan = await Navigator.of(context).push<VisaPassportBackScan>(
+        MaterialPageRoute(
+          builder: (ctx) => Scaffold(
+            backgroundColor: Colors.white,
+            appBar: AppBar(
+              backgroundColor: Colors.white,
+              elevation: 0,
+              iconTheme: const IconThemeData(color: VisaColors.title),
+              title: Text('Passport back page', style: visaText(15, weight: FontWeight.w700, color: VisaColors.title)),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: Text("Skip, I'll type them", style: visaText(11, weight: FontWeight.w700, color: VisaColors.cta)),
+                ),
+              ],
+            ),
+            body: SafeArea(
+              child: VisaPassportStep(back: true, onScannedBack: (s) => Navigator.of(ctx).pop(s)),
+            ),
+          ),
+        ),
+      );
+    } finally {
+      _backScanOpen = false;
+    }
+    final result = scan;
+    if (result == null || !mounted) return;
+    setState(() {
+      final b = result.back;
+      t.passportBackPath = result.path;
+      if (b.fatherName.isNotEmpty) t.fatherName = b.fatherName;
+      if (b.motherName.isNotEmpty) t.motherName = b.motherName;
+      if (b.oldPassportNumber.isNotEmpty) t.oldPassportNo = b.oldPassportNumber;
+    });
+  }
+
   Widget _detailView() {
     final t = _t;
     final locked = t.passportVerified;
+    // Names are locked only when they matched the printed ones; otherwise the
+    // traveller can correct a letter the scan got wrong.
+    final namesLocked = locked && t.namesConfirmed;
     final f = visaDateFormat;
     final now = DateTime.now();
     final until = _travelDate.add(Duration(days: _validityDays - 1));
@@ -804,8 +898,11 @@ class _VisaApplyFlowScreenState extends State<VisaApplyFlowScreen> {
                       const Icon(Icons.verified, size: 13, color: VisaColors.green),
                       const SizedBox(width: 4),
                       Expanded(
-                        child: Text('Verified from your passport. Rescan to change these details.',
-                            style: visaText(8.5, color: VisaColors.green)),
+                        child: Text(
+                            namesLocked
+                                ? 'Verified from your passport. Rescan to change these details.'
+                                : 'Passport number and dates are verified. Please check your name against your passport.',
+                            style: visaText(8.5, color: namesLocked ? VisaColors.green : const Color(0xFF9A3412))),
                       ),
                     ],
                   ),
@@ -813,11 +910,11 @@ class _VisaApplyFlowScreenState extends State<VisaApplyFlowScreen> {
               VisaTextInput(
                 label: 'First name',
                 value: t.firstName,
-                locked: locked,
+                locked: namesLocked,
                 error: _errors.contains('firstName'),
                 onChanged: (v) => t.firstName = v,
               ),
-              VisaTextInput(label: 'Last name', value: t.lastName, locked: locked, required: false, onChanged: (v) => t.lastName = v),
+              VisaTextInput(label: 'Last name', value: t.lastName, locked: namesLocked, required: false, onChanged: (v) => t.lastName = v),
               VisaTextInput(
                 label: 'Passport number',
                 value: t.passportNo,
@@ -855,6 +952,9 @@ class _VisaApplyFlowScreenState extends State<VisaApplyFlowScreen> {
                 onChanged: (v) => t.placeOfBirth = v,
               ),
               VisaTapInput(label: 'Gender', value: t.gender, locked: locked, onTap: () {}),
+              // Indian passports print the parents' names on the back page;
+              // the photo page does not carry them.
+              if (t.passportFrom == 'India') _scanBackRow(t),
               VisaTextInput(
                 label: 'Father name',
                 value: t.fatherName,
