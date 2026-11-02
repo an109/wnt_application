@@ -425,7 +425,10 @@ Future<void> initializeDependencies() async {
   sl.registerLazySingleton<AirportApiService>(() => AirportApiServiceImpl(sl<DioClient>().instance),);
   sl.registerLazySingleton<AuthApiService>(() => AuthApiServiceImpl(sl<Dio>()),);
   sl.registerLazySingleton<FlightApiService>(() => FlightApiService(sl<DioClient>()),);
-  sl.registerLazySingleton<TrishaApiService>(() => TrishaApiService(sl<DioClient>().instance));
+  sl.registerLazySingleton<TrishaApiService>(() => TrishaApiService(
+        sl<DioClient>().instance,
+        guestId: () => sl<PreferencesManager>().getThrishaGuestId(),
+      ));
   sl.registerFactory<FareRuleApiService>(() => FareRuleApiServiceImpl(sl<DioClient>().instance),);
   sl.registerFactory<FareQuoteApiService>(() => FareQuoteApiServiceImpl(sl<DioClient>().instance),);
   sl.registerFactory<SsrApiService>(() => SsrApiServiceImpl(sl<DioClient>().instance));

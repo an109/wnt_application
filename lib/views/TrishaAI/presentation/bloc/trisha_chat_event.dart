@@ -121,6 +121,13 @@ class TrishaExpertLoginCancelled extends TrishaChatEvent {
   const TrishaExpertLoginCancelled();
 }
 
+/// A visitor who was chatting as a guest logged in from a "Log in" card. The
+/// conversation stays on screen and carries on under a fresh chat of their own,
+/// now as them (so booking and account steps work).
+class TrishaLoggedIn extends TrishaChatEvent {
+  const TrishaLoggedIn();
+}
+
 /// User starts a new chat from the chooser (closes previous expert chat if any).
 class TrishaNewChatFromChooser extends TrishaChatEvent {
   const TrishaNewChatFromChooser();

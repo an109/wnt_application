@@ -36,6 +36,7 @@ class TrishaChatBloc extends Bloc<TrishaChatEvent, TrishaChatState> {
     on<TrishaExpertChatClosed>(_onExpertClosed);
     on<TrishaExpertLoginCancelled>(_onExpertLoginCancelled);
     on<TrishaNewChatFromChooser>(_onNewChatFromChooser);
+    on<TrishaLoggedIn>(_onLoggedIn);
 
     // Check for a previous expert chat on creation
     _checkPreviousExpert();
@@ -51,7 +52,19 @@ class TrishaChatBloc extends Bloc<TrishaChatEvent, TrishaChatState> {
 
   // ---- Check for previous expert chat on init --------------------------------
 
+  /// Whether the customer is signed in. False when that cannot be told (as in
+  /// a test with no preferences), which is the safe answer here.
+  bool get _signedIn {
+    try {
+      return isUserLoggedIn();
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<void> _checkPreviousExpert() async {
+    // A visitor who has not logged in has no expert chat to go back to.
+    if (!_signedIn) return;
     try {
       final chat = await api.getActiveExpertChat();
       if (chat.active && !isClosed) {
@@ -77,6 +90,31 @@ class TrishaChatBloc extends Bloc<TrishaChatEvent, TrishaChatState> {
 
   void _onExpertLoginCancelled(TrishaExpertLoginCancelled event, Emitter<TrishaChatState> emit) {
     emit(state.copyWith(needsLoginForExpert: false, busyCard: () => null));
+  }
+
+  /// The guest logged in: keep what was said and carry on under a new chat that
+  /// belongs to them. The earlier cards stay on screen but are no longer live.
+  Future<void> _onLoggedIn(TrishaLoggedIn event, Emitter<TrishaChatState> emit) async {
+    emit(state.copyWith(waiting: true, error: () => null));
+    try {
+      final reply = await api.startChat();
+      emit(state.copyWith(
+        sessionId: reply.sessionId,
+        waiting: false,
+        messages: [
+          ...state.messages,
+          TrishaMessage(
+            id: _nextId(),
+            fromUser: false,
+            text: reply.text,
+            cards: reply.cards,
+            quickReplies: reply.quickReplies,
+          ),
+        ],
+      ));
+    } on TrishaException catch (e) {
+      emit(state.copyWith(waiting: false, error: () => e.message));
+    }
   }
 
   Future<void> _onNewChatFromChooser(TrishaNewChatFromChooser event, Emitter<TrishaChatState> emit) async {

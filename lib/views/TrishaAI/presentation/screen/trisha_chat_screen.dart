@@ -69,6 +69,7 @@ class _TrishaChatViewState extends State<_TrishaChatView> {
       openProfile: _openProfile,
       pay: _pay,
       openFlights: () => Navigator.of(context).pop(),
+      login: _requestLogin,
     );
   }
 
@@ -123,8 +124,26 @@ class _TrishaChatViewState extends State<_TrishaChatView> {
         'status': r.code == Razorpay.PAYMENT_CANCELLED ? 'cancelled' : 'failed',
       }));
 
-  /// Recent chats: reopen one, or start a new chat.
+  /// A "Log in" card was tapped. Opens the login screen; once the visitor is
+  /// back and signed in, the chat carries on as them (or asks for the expert,
+  /// when that is what they were after).
+  Future<void> _requestLogin(String? reason) async {
+    final loggedIn = await openLogin(context);
+    if (!mounted || !loggedIn) return;
+    if (reason == 'expert') {
+      _bloc.add(const TrishaExpertRequested(fromLoginReturn: true));
+    } else {
+      _bloc.add(const TrishaLoggedIn());
+    }
+  }
+
+  /// Recent chats: reopen one, or start a new chat. They are kept per account,
+  /// so a visitor who has not logged in is asked to first.
   Future<void> _openHistory() async {
+    if (!isUserLoggedIn()) {
+      final loggedIn = await openLogin(context);
+      if (!mounted || !loggedIn) return;
+    }
     final current = _bloc.state.sessionId;
     final picked = await Navigator.push<String>(
       context,

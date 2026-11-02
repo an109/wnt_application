@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class PreferencesManager {
@@ -25,6 +26,21 @@ class PreferencesManager {
   static const String _lastSearchKey = 'last_search_data';
   static const String _searchHistoryKey = 'search_history';
   static const String _recentlyViewedHotelsKey = 'recently_viewed_hotels';
+
+  static const String _thrishaGuestIdKey = 'thrisha_guest_id';
+
+  /// An id this device makes up and keeps, sent to Thrisha as `X-Guest-Id` so
+  /// someone who has not logged in still gets a chat (the server refuses a
+  /// request that carries neither a login nor this id). It proves nothing about
+  /// who they are, survives logging in and out, and is never sent anywhere else.
+  String getThrishaGuestId() {
+    final saved = _prefs.getString(_thrishaGuestIdKey);
+    if (saved != null && saved.length >= 16) return saved;
+    final random = Random.secure();
+    final id = List.generate(32, (_) => random.nextInt(16).toRadixString(16)).join();
+    _prefs.setString(_thrishaGuestIdKey, id);
+    return id;
+  }
 
   // Token methods
   String? getToken() {

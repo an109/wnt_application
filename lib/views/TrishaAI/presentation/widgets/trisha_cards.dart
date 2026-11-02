@@ -25,12 +25,17 @@ class TrishaCardHandler {
   final void Function(Map<String, dynamic> checkout) pay;
   final VoidCallback openFlights;
 
+  /// Opens the login screen from a "Log in" card. [reason] is what the visitor
+  /// was after ('expert' or 'booking'), so the chat can carry on from there.
+  final void Function(String? reason)? login;
+
   const TrishaCardHandler({
     required this.action,
     required this.addTraveller,
     required this.openProfile,
     required this.pay,
     required this.openFlights,
+    this.login,
   });
 }
 
@@ -172,6 +177,18 @@ class TrishaCardView extends StatelessWidget {
         return _InsuranceConfirmedCard(data: d);
       case 'web_sources':
         return _WebSourcesCard(data: d);
+      case 'login_required':
+        // Thrisha asks a visitor who is chatting as a guest to log in before a
+        // step that needs an account (a booking, or a travel expert).
+        final reason = d['reason']?.toString();
+        return _ActionCard(
+          icon: Icons.lock_open_rounded,
+          text: reason == 'expert'
+              ? 'Log in to connect with a travel expert. Everything we have talked about goes with you.'
+              : 'Log in or sign up to continue with your booking.',
+          button: 'Log in or sign up',
+          onTap: active && handler.login != null ? () => handler.login!(reason) : null,
+        );
       case 'open_flight_booking':
         return _ActionCard(
           icon: Icons.flight_rounded,
