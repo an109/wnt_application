@@ -148,8 +148,10 @@ class _VisaApplyFlowScreenState extends State<VisaApplyFlowScreen> {
     setState(() {
       final t = _t;
       t.passportScanPath = scan.path;
-      t.mrzLine1 = mrz.line1;
-      t.mrzLine2 = mrz.line2;
+      // Only a fully verified MRZ locks the fields and goes to the backend
+      // check; a partial read just fills them in for the traveller to check.
+      t.mrzLine1 = mrz.fullyVerified ? mrz.line1 : '';
+      t.mrzLine2 = mrz.fullyVerified ? mrz.line2 : '';
       t.firstName = _title(mrz.givenNames.isEmpty ? mrz.surname : mrz.givenNames);
       t.lastName = mrz.givenNames.isEmpty ? '' : _title(mrz.surname);
       t.passportNo = mrz.passportNumber;

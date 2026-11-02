@@ -6,6 +6,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 
+import '../../data/visa_passport_image.dart';
 import '../../data/visa_passport_reader.dart';
 import '../utils/visa_camera.dart';
 import '../utils/visa_rules.dart';
@@ -167,22 +168,49 @@ class _VisaPassportStepState extends State<VisaPassportStep> with WidgetsBinding
   }
 
   /// Reads the passport from the photo at [path] and moves to review, or to
-  /// the failure screen with the reason.
+  /// the failure screen with the reason. Tries the photo as taken, then
+  /// prepared copies (upright, cropped, MRZ enlarged, turned) until every
+  /// check digit passes; the best partial read is kept otherwise.
   Future<void> _read(String path) async {
     setState(() {
       _photoPath = path;
       _phase = _Phase.reading;
     });
+    var variants = const <String>[];
     try {
-      final text = await _ocr.processImage(InputImage.fromFilePath(path));
+      VisaMrz? best;
+      var fullText = '';
+      var sawMrz = false;
+
+      Future<void> attempt(String file) async {
+        final text = (await _ocr.processImage(InputImage.fromFilePath(file))).text;
+        if (fullText.isEmpty) fullText = text;
+        if (text.replaceAll(' ', '').contains('<<')) sawMrz = true;
+        final mrz = readPassportMrz(text);
+        if (mrz == null) return;
+        if (best == null || (mrz.fullyVerified && !best!.fullyVerified) ||
+            (best!.surname.isEmpty && mrz.surname.isNotEmpty && mrz.fullyVerified == best!.fullyVerified)) {
+          best = mrz;
+        }
+      }
+
+      await attempt(path);
+      if (best?.fullyVerified != true) {
+        variants = await passportOcrVariants(path);
+        for (final v in variants) {
+          if (!mounted) return;
+          await attempt(v);
+          if (best?.fullyVerified == true && best!.surname.isNotEmpty) break;
+        }
+      }
       if (!mounted) return;
-      final mrz = readPassportMrz(text.text);
+
+      final mrz = best;
       if (mrz == null) {
-        final sawMrz = text.text.replaceAll(' ', '').contains('<<');
         _showFailure(
           path,
           sawMrz
-              ? 'We found the passport but the two lines at the bottom were not sharp enough to verify.'
+              ? 'We found the passport but the two lines at the bottom were not sharp enough to read.'
               : 'We could not find a passport photo page in this picture.',
         );
         return;
@@ -193,11 +221,14 @@ class _VisaPassportStepState extends State<VisaPassportStep> with WidgetsBinding
         return;
       }
       setState(() {
-        _scan = VisaPassportScan(path, mrz: mrz, front: readPassportFront(text.text, mrz));
+        _scan = VisaPassportScan(path, mrz: mrz, front: readPassportFront(fullText, mrz));
         _phase = _Phase.review;
       });
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[Passport] read failed: $e');
       if (mounted) _showFailure(path, 'This photo could not be read. Please try again.');
+    } finally {
+      deletePassportVariants(variants);
     }
   }
 
@@ -465,7 +496,9 @@ class _VisaPassportStepState extends State<VisaPassportStep> with WidgetsBinding
       if (scan.front.issueDate != null) ('Date of issue', visaDateFormat.format(scan.front.issueDate!)),
       if (scan.front.placeOfBirth.isNotEmpty) ('Place of birth', scan.front.placeOfBirth),
     ];
-    final verified = {'Surname', 'Given name', 'Passport number', 'Nationality', 'Date of birth', 'Gender', 'Date of expiry'};
+    final verified = m.fullyVerified
+        ? {'Surname', 'Given name', 'Passport number', 'Nationality', 'Date of birth', 'Gender', 'Date of expiry'}
+        : {'Passport number', 'Date of birth', 'Date of expiry'};
 
     return Column(
       key: const ValueKey('review'),
@@ -479,18 +512,25 @@ class _VisaPassportStepState extends State<VisaPassportStep> with WidgetsBinding
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 decoration: BoxDecoration(
-                  color: VisaColors.greenSoft,
+                  color: m.fullyVerified ? VisaColors.greenSoft : const Color(0xFFFFF7ED),
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: VisaColors.green.withValues(alpha: 0.3)),
+                  border: Border.all(
+                    color: m.fullyVerified ? VisaColors.green.withValues(alpha: 0.3) : const Color(0xFFFDBA74),
+                  ),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.verified_user, size: 18, color: VisaColors.green),
+                    Icon(m.fullyVerified ? Icons.verified_user : Icons.fact_check_outlined,
+                        size: 18, color: m.fullyVerified ? VisaColors.green : const Color(0xFFC2410C)),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'Passport verified — details match the machine-readable zone',
-                        style: visaText(10.5, weight: FontWeight.w600, color: const Color(0xFF166534)),
+                        m.fullyVerified
+                            ? 'Passport verified — details match the machine-readable zone'
+                            : 'Details read from your passport — please check the names before continuing',
+                        style: visaText(10.5,
+                            weight: FontWeight.w600,
+                            color: m.fullyVerified ? const Color(0xFF166534) : const Color(0xFF9A3412)),
                       ),
                     ),
                   ],
