@@ -15,6 +15,7 @@ import '../../../../core/utils/storage/shared_preference.dart';
 import '../../../../injection_container.dart' as di;
 import '../../../AKInsurance/presentation/screens/ins_home_screen.dart';
 import '../../../MainApi/domain/entities/general_setting_entity.dart';
+import 'package:wander_nova/core/services/promo_validation_service.dart';
 import '../../../MainApi/presentation/bloc/general_setting_bloc.dart';
 import '../../../MainApi/presentation/bloc/general_settings_event.dart';
 import '../../../MainApi/presentation/bloc/general_settings_state.dart';
@@ -583,17 +584,33 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
     );
   }
 
-  void _applyPromoCode() {
+  void _promoToast(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+    );
+  }
+
+  /// The amount a promo's minimum purchase is checked against, in INR: the
+  /// quoted fare (base + taxes), before add-ons and before any discount — the
+  /// same amount the website uses.
+  double get _promoEligibilityAmountInInr {
+    final route = _updatedRouteWithFareQuote ?? widget.routes.first;
+    final fare = route.fareQuoteData;
+    final currency = fare?.currency ?? 'INR';
+    final total = fare?.total ?? double.tryParse(widget.totalPrice) ?? 0;
+    return _convertAmount(total, from: currency, to: 'INR');
+  }
+
+  Future<void> _applyPromoCode() async {
     final code = _promoCodeController.text.trim().toUpperCase();
     if (code.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Please enter a promo code'),
-          backgroundColor: Colors.red,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        ),
-      );
+      _promoToast('Please enter a promo code');
       return;
     }
 
@@ -604,7 +621,7 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
       promoCodes = (bloc.state as PromoCodesLoaded).promoCodes;
     }
 
-    final matchedPromo = promoCodes.firstWhere(
+    final listedPromo = promoCodes.firstWhere(
           (p) => p.code.toUpperCase() == code,
       orElse: () => const PromoCodeEntity(
           code: '',
@@ -615,15 +632,34 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
       ),
     );
 
-    if (matchedPromo.code.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Invalid promo code. Please try again.'),
-          backgroundColor: Colors.red,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        ),
+    final eligibilityAmount = _promoEligibilityAmountInInr;
+    PromoCodeEntity matchedPromo;
+    if (listedPromo.code.isEmpty) {
+      // Not in the public offers list — it may still be a valid hidden code,
+      // so let the backend decide (existence, dates, type and minimum).
+      final result = await PromoValidationService.validate(
+        code: code,
+        scope: PromoScope.flights,
+        amountInInr: eligibilityAmount,
       );
+      if (!mounted) return;
+      if (result.unreachable) {
+        _promoToast("Couldn't check this promo code. Please check your connection and try again.");
+        return;
+      }
+      if (!result.isAccepted) {
+        _promoToast(result.error ?? 'Invalid promo code. Please try again.');
+        return;
+      }
+      matchedPromo = result.promo!;
+    } else {
+      matchedPromo = listedPromo;
+    }
+
+    // Minimum purchase set in the admin dashboard. Offers picked from the list
+    // never reach the backend, so this is the check that stops them.
+    if (!matchedPromo.isEligibleFor(eligibilityAmount)) {
+      _promoToast(matchedPromo.minPurchaseHint);
       return;
     }
 
@@ -1578,11 +1614,16 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
         ? '${double.tryParse(promo.discountValue)?.toStringAsFixed(0) ?? promo.discountValue}% off'
         : '${_getPreferredCurrencySymbol()}${promo.discountValue} off';
 
+    // A code whose minimum purchase isn't met stays visible but can't be used.
+    final eligible = isApplied || promo.isEligibleFor(_promoEligibilityAmountInInr);
+
     final body = isApplied
         ? 'Congratulations! Promo Discount of ${_getPreferredCurrencySymbol()}${_promoDiscountAmount.toStringAsFixed(0)} applied successfully to your booking.'
-        : (promo.description.isNotEmpty
-            ? promo.description
-            : 'Apply this code to get $offLabel on your booking.');
+        : (!eligible
+            ? promo.minPurchaseHint
+            : (promo.description.isNotEmpty
+                ? promo.description
+                : 'Apply this code to get $offLabel on your booking.'));
 
     return Container(
       width: double.infinity,
@@ -1662,6 +1703,8 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
                 onTap: () {
                   if (isApplied) {
                     _removePromoCode();
+                  } else if (!eligible) {
+                    _promoToast(promo.minPurchaseHint);
                   } else {
                     _promoCodeController.text = promo.code;
                     _applyPromoCode();
@@ -1672,7 +1715,9 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
                   style: TextStyle(
                     fontSize: context.fs(12),
                     fontWeight: FontWeight.w800,
-                    color: isApplied ? const Color(0xFFFF383C) : _pri,
+                    color: isApplied
+                        ? const Color(0xFFFF383C)
+                        : (eligible ? _pri : _muted),
                     letterSpacing: 0.7,
                   ),
                 ),

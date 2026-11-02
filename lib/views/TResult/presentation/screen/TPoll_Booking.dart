@@ -19,6 +19,7 @@ import '../../../../core/utils/storage/shared_preference.dart';
 import '../../../../injection_container.dart';
 import '../../../../newUIWidgets/fare_breakup_sheet.dart';
 import '../../../MainApi/domain/entities/general_setting_entity.dart';
+import 'package:wander_nova/core/services/promo_validation_service.dart';
 import '../../../MainApi/presentation/bloc/general_setting_bloc.dart';
 import '../../../MainApi/presentation/bloc/general_settings_event.dart';
 import '../../../MainApi/presentation/bloc/general_settings_state.dart';
@@ -1450,11 +1451,16 @@ class _TPollBookingScreenState extends State<TPollBookingScreen> {
         ? '${value?.toStringAsFixed(0) ?? promo.discountValue}% off'
         : '${_fmt(_toPref(value ?? 0, 'INR'))} off';
 
+    // A code whose minimum purchase isn't met stays visible but can't be used.
+    final eligible = isApplied || promo.isEligibleFor(_promoEligibilityAmountInInr);
+
     final body = isApplied
         ? '${_fmt(_promoDiscount)} instant discount applied'
-        : (promo.description.isNotEmpty
-            ? promo.description
-            : 'Apply this code to get $offLabel on your booking.');
+        : (!eligible
+            ? promo.minPurchaseHint
+            : (promo.description.isNotEmpty
+                ? promo.description
+                : 'Apply this code to get $offLabel on your booking.'));
 
     return Container(
       width: double.infinity,
@@ -1501,7 +1507,7 @@ class _TPollBookingScreenState extends State<TPollBookingScreen> {
                     letterSpacing: 0.7,
                     color: isApplied
                         ? const Color(0xffE5383B)
-                        : AppColors.AppBlue,
+                        : (eligible ? AppColors.AppBlue : _muted),
                   ),
                 ),
               ),
@@ -1534,7 +1540,12 @@ class _TPollBookingScreenState extends State<TPollBookingScreen> {
     );
   }
 
-  void _applyTypedPromo() {
+  /// The amount a promo's minimum purchase is checked against, in INR: the
+  /// trip fare alone. Add-ons are left out so ticking or un-ticking one can
+  /// never push an already-applied code below its minimum.
+  double get _promoEligibilityAmountInInr => _baseFareIn('INR');
+
+  Future<void> _applyTypedPromo() async {
     final code = _promoCodeController.text.trim().toUpperCase();
     if (code.isEmpty) {
       _toast('Please enter a promo code', _errorRed);
@@ -1544,14 +1555,36 @@ class _TPollBookingScreenState extends State<TPollBookingScreen> {
     final match = _availablePromos(state)
         .where((p) => p.code.trim().toUpperCase() == code)
         .toList();
-    if (match.isEmpty) {
-      _toast('Invalid promo code. Please try again.', _errorRed);
+    if (match.isNotEmpty) {
+      _applyPromo(match.first);
       return;
     }
-    _applyPromo(match.first);
+    // Not in the public offers list — it may still be a valid hidden code, so
+    // let the backend decide (existence, dates, type and minimum).
+    final result = await PromoValidationService.validate(
+      code: code,
+      scope: PromoScope.transport,
+      amountInInr: _promoEligibilityAmountInInr,
+    );
+    if (!mounted) return;
+    if (result.unreachable) {
+      _toast("Couldn't check this promo code. Please check your connection and try again.", _errorRed);
+      return;
+    }
+    if (!result.isAccepted) {
+      _toast(result.error ?? 'Invalid promo code. Please try again.', _errorRed);
+      return;
+    }
+    _applyPromo(result.promo!);
   }
 
   void _applyPromo(PromoCodeEntity promo) {
+    // Minimum purchase set in the admin dashboard. Offers picked from the list
+    // never reach the backend, so this is the check that stops them.
+    if (!promo.isEligibleFor(_promoEligibilityAmountInInr)) {
+      _toast(promo.minPurchaseHint, _errorRed);
+      return;
+    }
     setState(() {
       _appliedPromo = promo;
       _promoCodeController.clear();

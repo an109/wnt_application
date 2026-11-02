@@ -116,6 +116,7 @@ class PromoCodeModel extends Equatable {
   final String discountType; // percent or fixed
   final String discountValue;
   final String description;
+  final double minPurchase;
 
   const PromoCodeModel({
     required this.code,
@@ -123,15 +124,20 @@ class PromoCodeModel extends Equatable {
     required this.discountType,
     required this.discountValue,
     required this.description,
+    this.minPurchase = 0,
   });
 
   factory PromoCodeModel.fromJson(Map<String, dynamic> json) {
+    // The backend sends min_purchase as a string ("5000.00") or null; commas
+    // are tolerated because the admin form accepts them.
+    final rawMin = (json['min_purchase'] ?? json['minPurchase'])?.toString().replaceAll(',', '');
     return PromoCodeModel(
       code: json['code'] ?? '',
       category: json['category'] ?? '',
       discountType: json['discount_type'] ?? '',
       discountValue: json['discount_value']?.toString() ?? '0',
       description: json['description'] ?? '',
+      minPurchase: double.tryParse(rawMin ?? '') ?? 0,
     );
   }
 
@@ -142,11 +148,12 @@ class PromoCodeModel extends Equatable {
       discountType: discountType,
       discountValue: discountValue,
       description: description,
+      minPurchase: minPurchase,
     );
   }
 
   @override
-  List<Object?> get props => [code, category, discountType, discountValue, description];
+  List<Object?> get props => [code, category, discountType, discountValue, description, minPurchase];
 }
 
 class AboutTabModel extends Equatable {

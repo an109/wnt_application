@@ -59,16 +59,38 @@ class PromoCodeEntity extends Equatable {
   final String discountValue;
   final String description;
 
+  /// Minimum booking amount, in INR, the discount applies to (set in the admin
+  /// dashboard's promo codes). 0 = no minimum.
+  final double minPurchase;
+
   const PromoCodeEntity({
     required this.code,
     required this.category,
     required this.discountType,
     required this.discountValue,
     required this.description,
+    this.minPurchase = 0,
   });
 
+  /// True when [amountInInr] meets the minimum purchase. An amount of 0 fails
+  /// whenever a minimum exists, so a fare that hasn't loaded yet cannot let a
+  /// restricted code through (same rule as the website).
+  bool isEligibleFor(double amountInInr) =>
+      minPurchase <= 0 || amountInInr >= minPurchase;
+
+  /// "Applicable on bookings of ₹5,000 or more" — shown against a code that
+  /// cannot be used yet. The minimum is always an INR amount.
+  String get minPurchaseHint {
+    final whole = minPurchase.truncate().toString().replaceAllMapped(
+        RegExp(r'(\d)(?=(\d\d)+\d$)'), (m) => '${m[1]},');
+    final shown = minPurchase % 1 == 0
+        ? whole
+        : '$whole.${(minPurchase % 1).toStringAsFixed(2).substring(2)}';
+    return 'Applicable on bookings of ₹$shown or more';
+  }
+
   @override
-  List<Object?> get props => [code, category, discountType, discountValue, description];
+  List<Object?> get props => [code, category, discountType, discountValue, description, minPurchase];
 }
 
 class AboutTabEntity extends Equatable {

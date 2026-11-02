@@ -23,6 +23,7 @@ import '../../domain/entities/hotel_booking_entity.dart';
 import '../../../../UI_helper/responsive_layout.dart';
 import '../../../../common_widgets/logo.dart';
 import '../../../../core/services/hotel_session_service.dart';
+import '../../../../core/services/promo_validation_service.dart';
 import '../bloc/hotel_booking_bloc.dart';
 import '../bloc/hotel_booking_event.dart';
 import '../bloc/hotel_booking_state.dart';
@@ -653,6 +654,17 @@ class _HotelBookingReviewScreenState extends State<HotelBookingReviewScreen> {
         ? 'Get ${double.tryParse(promo.discountValue)?.toStringAsFixed(0) ?? promo.discountValue}% off on this booking'
         : 'Get ${_getDisplayCurrencySymbol()}${promo.discountValue} off on this booking';
 
+    // A code whose minimum purchase isn't met stays visible but can't be used.
+    final eligible = promo.isEligibleFor(_promoEligibilityAmountInInr(room, currency));
+    void onApply() {
+      if (!eligible) {
+        _promoToast(promo.minPurchaseHint);
+        return;
+      }
+      _promoCodeController.text = promo.code;
+      _applyPromoCode(room, currency);
+    }
+
     return Column(
       children: [
         if (showTopDivider)
@@ -663,10 +675,7 @@ class _HotelBookingReviewScreenState extends State<HotelBookingReviewScreen> {
               indent: 16,
               endIndent: 16),
         InkWell(
-          onTap: () {
-            _promoCodeController.text = promo.code;
-            _applyPromoCode(room, currency);
-          },
+          onTap: onApply,
           child: Padding(
             padding:
                 const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -715,7 +724,13 @@ class _HotelBookingReviewScreenState extends State<HotelBookingReviewScreen> {
                           color: _darkNavy,
                         ),
                       ),
-                      if (promo.description.isNotEmpty)
+                      if (!eligible)
+                        Text(
+                          promo.minPurchaseHint,
+                          style: TextStyle(
+                              fontSize: 11, color: _errorRed),
+                        )
+                      else if (promo.description.isNotEmpty)
                         Text(
                           promo.description,
                           style: TextStyle(
@@ -728,13 +743,12 @@ class _HotelBookingReviewScreenState extends State<HotelBookingReviewScreen> {
                 ),
                 const SizedBox(width: 8),
                 OutlinedButton(
-                  onPressed: () {
-                    _promoCodeController.text = promo.code;
-                    _applyPromoCode(room, currency);
-                  },
+                  onPressed: onApply,
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: _primaryBlue,
-                    side: const BorderSide(color: _primaryBlue, width: 1.5),
+                    foregroundColor: eligible ? _primaryBlue : Colors.grey,
+                    side: BorderSide(
+                        color: eligible ? _primaryBlue : Colors.grey.shade400,
+                        width: 1.5),
                     padding: const EdgeInsets.symmetric(
                         horizontal: 12, vertical: 6),
                     shape: RoundedRectangleBorder(
@@ -754,17 +768,40 @@ class _HotelBookingReviewScreenState extends State<HotelBookingReviewScreen> {
     );
   }
 
+  void _promoToast(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: _errorRed,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+    );
+  }
+
+  /// The amount a promo's minimum purchase is checked against, in INR: the
+  /// room price with taxes, before any discount — the same amount the
+  /// website uses for hotels.
+  double _promoEligibilityAmountInInr(RoomEntity room, String currency) {
+    final total = room.basePrice + room.totalTax;
+    if (total <= 0) return 0;
+    if (currency.toUpperCase() == 'INR') return total;
+    try {
+      return CurrencyConverter.convert(
+        amount: total,
+        fromCurrency: currency,
+        toCurrency: 'INR',
+      );
+    } catch (_) {
+      return 0; // can't tell what it is in INR — fail closed
+    }
+  }
+
   Future<void> _applyPromoCode(RoomEntity room, String currency) async {
     final code = _promoCodeController.text.trim().toUpperCase();
     if (code.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Please enter a promo code'),
-          backgroundColor: _errorRed,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        ),
-      );
+      _promoToast('Please enter a promo code');
       return;
     }
 
@@ -778,21 +815,40 @@ class _HotelBookingReviewScreenState extends State<HotelBookingReviewScreen> {
     }
 
     // 2. Find matching promo code
-    final matchedPromo = promoCodes.firstWhere(
+    final listedPromo = promoCodes.firstWhere(
           (p) => p.code.toUpperCase() == code,
       orElse: () => const PromoCodeEntity(
           code: '', category: '', discountType: '', discountValue: '0', description: ''),
     );
 
-    if (matchedPromo.code.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Invalid promo code. Please try again.'),
-          backgroundColor: _errorRed,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        ),
+    final eligibilityAmount = _promoEligibilityAmountInInr(room, currency);
+    PromoCodeEntity matchedPromo;
+    if (listedPromo.code.isEmpty) {
+      // Not in the public offers list — it may still be a valid hidden code,
+      // so let the backend decide (existence, dates, type and minimum).
+      final result = await PromoValidationService.validate(
+        code: code,
+        scope: PromoScope.hotels,
+        amountInInr: eligibilityAmount,
       );
+      if (!mounted) return;
+      if (result.unreachable) {
+        _promoToast("Couldn't check this promo code. Please check your connection and try again.");
+        return;
+      }
+      if (!result.isAccepted) {
+        _promoToast(result.error ?? 'Invalid promo code. Please try again.');
+        return;
+      }
+      matchedPromo = result.promo!;
+    } else {
+      matchedPromo = listedPromo;
+    }
+
+    // Minimum purchase set in the admin dashboard. Offers picked from the list
+    // never reach the backend, so this is the check that stops them.
+    if (!matchedPromo.isEligibleFor(eligibilityAmount)) {
+      _promoToast(matchedPromo.minPurchaseHint);
       return;
     }
 
