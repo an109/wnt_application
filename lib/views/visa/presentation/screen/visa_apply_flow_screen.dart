@@ -20,7 +20,7 @@ import '../widgets/visa_selfie_step.dart';
 import '../widgets/visa_sheets.dart';
 import 'visa_checkout_screen.dart';
 
-enum _Stage { when, departure, camera, selfie, passportFront, passportBack, detail, travellers, insurance }
+enum _Stage { when, departure, camera, selfie, passportFront, detail, travellers, insurance }
 
 /// Step-by-step application of visas that are not visa-free / on arrival
 /// (Figma "Start now 1-3", "Before Start …", "Before Start passport …").
@@ -141,8 +141,10 @@ class _VisaApplyFlowScreenState extends State<VisaApplyFlowScreen> {
         _editing = false;
       });
 
-  void _onFront(VisaPassportScan scan) {
-    final mrz = scan.mrz!;
+  /// One photo of the passport's photo page fills the passport fields;
+  /// MRZ values are checksum-verified and locked on the Detail step.
+  void _onPassport(VisaPassportScan scan) {
+    final mrz = scan.mrz;
     setState(() {
       final t = _t;
       t.passportScanPath = scan.path;
@@ -155,22 +157,8 @@ class _VisaApplyFlowScreenState extends State<VisaApplyFlowScreen> {
       t.dob = mrz.dob;
       t.passportExpiry = mrz.expiry;
       t.gender = mrz.gender;
-      t.passportIssued ??= scan.front?.issueDate;
-      if (t.placeOfBirth.isEmpty) t.placeOfBirth = scan.front?.placeOfBirth ?? '';
-      // Only Indian passports carry the parents' names on a back page.
-      final needsBack = mrz.nationality == 'IND' && (!_editing || t.passportBackPath == null);
-      _stage = needsBack ? _Stage.passportBack : _Stage.detail;
-      if (!needsBack) _editing = false;
-    });
-  }
-
-  void _onBack(VisaPassportScan scan) {
-    final back = scan.back!;
-    setState(() {
-      _t.passportBackPath = scan.path;
-      if (back.fatherName.isNotEmpty) _t.fatherName = back.fatherName;
-      if (back.motherName.isNotEmpty) _t.motherName = back.motherName;
-      if (back.oldPassportNumber.isNotEmpty) _t.oldPassportNo = back.oldPassportNumber;
+      if (scan.front.issueDate != null) t.passportIssued = scan.front.issueDate;
+      if (scan.front.placeOfBirth.isNotEmpty) t.placeOfBirth = scan.front.placeOfBirth;
       _stage = _Stage.detail;
       _editing = false;
     });
@@ -405,8 +393,7 @@ class _VisaApplyFlowScreenState extends State<VisaApplyFlowScreen> {
       _Stage.camera => _Stage.departure,
       _Stage.selfie => _current > 0 ? _Stage.travellers : _Stage.camera,
       _Stage.passportFront => _Stage.selfie,
-      _Stage.passportBack => _Stage.passportFront,
-      _Stage.detail => _t.passportBackPath != null ? _Stage.passportBack : _Stage.passportFront,
+      _Stage.detail => _Stage.passportFront,
       _Stage.travellers => _Stage.detail,
       _Stage.insurance => _Stage.travellers,
     };
@@ -433,7 +420,7 @@ class _VisaApplyFlowScreenState extends State<VisaApplyFlowScreen> {
   VisaFlowStep get _step => switch (_stage) {
         _Stage.when || _Stage.departure => VisaFlowStep.dates,
         _Stage.camera || _Stage.selfie => VisaFlowStep.photo,
-        _Stage.passportFront || _Stage.passportBack => VisaFlowStep.passport,
+        _Stage.passportFront => VisaFlowStep.passport,
         _Stage.detail || _Stage.travellers => VisaFlowStep.detail,
         _Stage.insurance => VisaFlowStep.checkout,
       };
@@ -507,8 +494,7 @@ class _VisaApplyFlowScreenState extends State<VisaApplyFlowScreen> {
           initialPath: _t.selfiePath,
           onConfirmed: _onSelfie,
         ),
-      _Stage.passportFront => VisaPassportStep(key: ValueKey('front$_current'), back: false, onScanned: _onFront),
-      _Stage.passportBack => VisaPassportStep(key: ValueKey('back$_current'), back: true, onScanned: _onBack),
+      _Stage.passportFront => VisaPassportStep(key: ValueKey('passport$_current'), onScanned: _onPassport),
       _Stage.detail => _detailView(),
       _Stage.travellers => _travellersView(),
       _Stage.insurance => _insuranceView(),
@@ -923,9 +909,7 @@ class _VisaApplyFlowScreenState extends State<VisaApplyFlowScreen> {
               scrollDirection: Axis.horizontal,
               children: [
                 _docTile('Photo', t.selfiePath, () => _redo(_Stage.selfie)),
-                _docTile('Passport Front', t.passportScanPath, () => _redo(_Stage.passportFront)),
-                if (t.passportBackPath != null)
-                  _docTile('Passport Back', t.passportBackPath, () => _redo(_Stage.passportBack)),
+                _docTile('Passport', t.passportScanPath, () => _redo(_Stage.passportFront)),
               ],
             ),
           ),
