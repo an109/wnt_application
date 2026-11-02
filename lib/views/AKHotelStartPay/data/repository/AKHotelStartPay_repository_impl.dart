@@ -25,6 +25,8 @@ class AkHotelStartPayRepositoryImpl implements AkHotelStartPayRepository {
         'DepositPayment': true,
         'OnlinePayment': false,
         'search_tracing_key': request.searchTracingKey,
+        if (request.feeBreakdown != null && request.feeBreakdown!.isNotEmpty)
+          'fee_breakdown': request.feeBreakdown,
       };
 
       final response = await apiService.startPay(body);

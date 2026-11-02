@@ -21,6 +21,7 @@ import '../../domain/entities/TReservation-entity.dart';
 import '../../domain/usecase/TReservation_usecase.dart';
 import 'booking_confirmation_screen.dart';
 import 'package:wander_nova/common_widgets/app_loader.dart';
+import 'package:wander_nova/core/services/fee_service.dart';
 
 
 class PaymentScreen extends StatefulWidget {
@@ -155,9 +156,22 @@ class _PaymentScreenState extends State<PaymentScreen> {
   String get _minutes => _timeLeft.inMinutes.toString().padLeft(2, '0');
   String get _seconds => (_timeLeft.inSeconds % 60).toString().padLeft(2, '0');
 
+  /// Convenience + platform + booking-management fees from the admin
+  /// dashboard's Taxes & Margins, charged on the fare after add-ons and
+  /// discount (same base as the website's transfer payment).
+  FeeBreakdown get _fees =>
+      FeeService.instance.feeFor(FeeServiceType.transfers, widget.totalAmount);
+
+  /// What the customer pays: the trip total plus the fees.
+  double get _payableInInr =>
+      double.parse((widget.totalAmount + _fees.total).toStringAsFixed(2));
+
   @override
   void initState() {
     super.initState();
+    FeeService.instance.ensureLoaded().then((_) {
+      if (mounted) setState(() {});
+    });
     _tripType = widget.isOneWay ? 'one_way' : 'round_trip';
     _returnDate = widget.returnDate;
     _holdTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
@@ -224,7 +238,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
       currency: 'USD',
       selectedCurrency: 'INR',
       displayCurrency: 'INR',
-      displayTotalPrice: widget.totalAmount,
+      displayTotalPrice: _payableInInr,
       displayBasePrice: widget.baseFare,
       displayRideBasePrice: widget.baseFare,
       displayDiscountAmount: widget.discountAmount,
@@ -307,6 +321,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
         displayBasePrice: entity.displayBasePrice,
         displayRideBasePrice: entity.displayRideBasePrice,
         displayDiscountAmount: entity.displayDiscountAmount,
+        displayConvenienceFee: _fees.convenienceFee,
+        displayPlatformFee: _fees.platformFee,
+        displayBookingMgmtFee: _fees.bookingMgmtFee,
         optionalAmenities: entity.optionalAmenities,
         tripStartAddress: entity.tripStartAddress,
         tripEndAddress: entity.tripEndAddress,
@@ -438,7 +455,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                         expanded: _open == 'upi',
                         onTap: () => _toggle('upi'),
                         child: _open == 'upi' ? UpiSection(
-                          amount: widget.totalAmount,
+                          amount: _payableInInr,
                           busy: _isProcessing,
                           apps: _upiApps,
                           onPayWithApp: (app) => _payWithMethod({'method': 'upi', '_[flow]': 'intent', 'upi_app_package_name': app.package}),
@@ -452,7 +469,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                         expanded: _open == 'card',
                         onTap: () => _toggle('card'),
                         child: _open == 'card' ? CardForm(
-                          payLabel: 'Pay ${formatInr(widget.totalAmount)}',
+                          payLabel: 'Pay ${formatInr(_payableInInr)}',
                           busy: _isProcessing,
                           onSubmit: (card) => _payWithMethod({'method': 'card', 'card': card}),
                         ) : const SizedBox.shrink(),
@@ -464,7 +481,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                         expanded: _open == 'netbanking',
                         onTap: () => _toggle('netbanking'),
                         child: _open == 'netbanking' ? NetbankingSection(
-                          amount: widget.totalAmount,
+                          amount: _payableInInr,
                           busy: _isProcessing,
                           methods: _loadMethods(),
                           onPay: (bank) => _payWithMethod({'method': 'netbanking', 'bank': bank}),
@@ -477,7 +494,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                         expanded: _open == 'emi',
                         onTap: () => _toggle('emi'),
                         child: _open == 'emi' ? EmiSection(
-                          amount: widget.totalAmount,
+                          amount: _payableInInr,
                           busy: _isProcessing,
                           methods: _loadMethods(),
                           onPay: (months, card) => _payWithMethod({'method': 'emi', 'emi_duration': months, 'card': card}),
@@ -490,7 +507,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                         expanded: _open == 'wallet',
                         onTap: () => _toggle('wallet'),
                         child: _open == 'wallet' ? WalletsPayLaterSection(
-                          amount: widget.totalAmount,
+                          amount: _payableInInr,
                           busy: _isProcessing,
                           methods: _loadMethods(),
                           onPayWallet: (w) => _payWithMethod({'method': 'wallet', 'wallet': w}),
@@ -564,7 +581,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
             ),
           ),
           Text(
-            '₹ ${_amount(widget.totalAmount)}',
+            '₹ ${_amount(_payableInInr)}',
             style: TextStyle(
               fontSize: context.fs(22),
               fontWeight: FontWeight.w800,
@@ -696,7 +713,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                                 ),
                               ),
                               Text(
-                                '₹ ${_amount(widget.totalAmount)}',
+                                '₹ ${_amount(_payableInInr)}',
                                 style: TextStyle(
                                   fontSize: context.fs(22),
                                   fontWeight: FontWeight.w800,
@@ -726,6 +743,21 @@ class _PaymentScreenState extends State<PaymentScreen> {
                             : 'Discount',
                         '- ₹${_amount(widget.discountAmount)}',
                       ),
+                    ],
+                    if (_fees.convenienceFee > 0) ...[
+                      SizedBox(height: context.h(14)),
+                      _fareLine(context, 'Convenience Fee',
+                          '+ ₹${_amount(_fees.convenienceFee)}'),
+                    ],
+                    if (_fees.platformFee > 0) ...[
+                      SizedBox(height: context.h(14)),
+                      _fareLine(context, 'Platform Fee',
+                          '+ ₹${_amount(_fees.platformFee)}'),
+                    ],
+                    if (_fees.bookingMgmtFee > 0) ...[
+                      SizedBox(height: context.h(14)),
+                      _fareLine(context, 'Booking Management Fee',
+                          '+ ₹${_amount(_fees.bookingMgmtFee)}'),
                     ],
                     SizedBox(height: context.h(14)),
                     Align(
@@ -1528,7 +1560,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
       if (!mounted) return;
 
-      if (balance >= widget.totalAmount) {
+      if (balance >= _payableInInr) {
         if (!await _debitWallet()) return;
         setState(() => _statusMessage = 'Confirming your booking...');
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1575,7 +1607,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
   Future<bool> _debitWallet() async {
     setState(() => _statusMessage = 'Paying from your wallet...');
     final debit = await di.sl<WalletApiService>().payBooking(
-      amount: double.parse(widget.totalAmount.toStringAsFixed(2)),
+      amount: double.parse(_payableInInr.toStringAsFixed(2)),
       bookingType: 'transport',
       bookingRef: _orderReferenceId,
       description: 'Transport: ${widget.vehicleName} from '
@@ -1622,6 +1654,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
       return;
     }
 
+    await FeeService.instance.ensureLoaded();
     // Wallet uses the wallet-balance flow; every Custom Checkout method
     // (card/UPI/netbanking/wallet provider) is launched straight from its
     // own tile — see _startCardCheckout() etc. below.
@@ -1653,7 +1686,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
     try {
       // Total is shown in INR on this screen; send a 2-decimal amount.
-      final amount = double.parse(widget.totalAmount.toStringAsFixed(2));
+      final amount = double.parse(_payableInInr.toStringAsFixed(2));
       final dio = di.sl<DioClient>().instance;
       final userId = di.sl<PreferencesManager>().getUserId();
       final response = await dio.post(
@@ -1732,6 +1765,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
     if (_isProcessing) return;
     FocusScope.of(context).unfocus();
 
+    await FeeService.instance.ensureLoaded();
     final ready = await _ensureRazorpayOrder();
     if (!ready || !mounted) return;
 
@@ -1744,7 +1778,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
       final result = await _rzService.submitPayment(
         keyId: _razorpayKeyId!,
         data: {
-          'amount': (widget.totalAmount * 100).round(),
+          'amount': (_payableInInr * 100).round(),
           'currency': 'INR',
           'order_id': _razorpayOrderId,
           'email': widget.passengerEmail,

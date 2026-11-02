@@ -20,6 +20,7 @@ import 'package:wander_nova/views/AKRetrieveBooking/domain/entity/AKRetrieveBook
 import 'package:wander_nova/views/AKRetrieveBooking/domain/usecase/AKRetrieveBooking_usecase.dart';
 import 'package:wander_nova/views/AKStartPay/domain/entity/AKStartPay_entity.dart';
 import 'package:wander_nova/views/AKStartPay/domain/usecase/AKStartPay_usecase.dart';
+import 'package:wander_nova/core/services/fee_service.dart';
 import 'package:wander_nova/core/services/push_notification_service.dart';
 import 'package:wander_nova/views/flight_payment/data/razorpay_custom_checkout_service.dart';
 import 'package:wander_nova/views/flight_search/presentation/screen/booking_screen.dart';
@@ -214,9 +215,22 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
     final total = widget.netAmount -
         _promoDiscountInInr -
         _benefitAppliedInInr +
-        _insurancePremiumInInr;
+        _insurancePremiumInInr +
+        _fees.total;
     return total < _minChargeInInr ? _minChargeInInr : total;
   }
+
+  /// The fare the payment-page fees are charged on: the published fare before
+  /// any promo, without seat/meal/baggage add-ons — same base as the website.
+  double get _feeBaseInInr {
+    final base = widget.netAmount - widget.addOns.total;
+    return base > 0 ? base : 0;
+  }
+
+  /// Convenience + platform + booking-management fees from the admin
+  /// dashboard's Taxes & Margins, on top of the fare.
+  FeeBreakdown get _fees =>
+      FeeService.instance.feeFor(FeeServiceType.flights, _feeBaseInInr);
 
   // ── Benefit credit ───────────────────────────────────────────────────────
   // What the server says this booking may absorb. Null until /benefits/quote/
@@ -281,6 +295,9 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
     // _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleRazorpayExternalWallet);
 
     _loadBenefitQuote();
+    FeeService.instance.ensureLoaded().then((_) {
+      if (mounted) setState(() {});
+    });
 
     _holdTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (!mounted) return;
@@ -309,6 +326,7 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
     // Reserve the benefit credit before any money moves. If the server has
     // changed its mind about the cap, the total on screen is stale and the
     // payment must not proceed at it.
+    await FeeService.instance.ensureLoaded();
     if (!await _reserveBenefit()) return;
 
     if (_selectedPaymentMethod == 'wallet') {
@@ -804,6 +822,7 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
     if (_expired || _processing) return;
     FocusScope.of(context).unfocus();
 
+    await FeeService.instance.ensureLoaded();
     final ready = await _ensureRazorpayOrder();
     if (!ready || !mounted) return;
 
@@ -934,7 +953,11 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
         // are the reasonable values for the respective funding method but
         // are unverified against the real backend — flagged for manual
         // confirmation.
-        AkStartPayRequestEntity(sessionId: _sessionId, gateway: gateway),
+        AkStartPayRequestEntity(
+          sessionId: _sessionId,
+          gateway: gateway,
+          feeBreakdown: {'flight_fare': _feeBaseInInr, ..._fees.toJson()},
+        ),
       );
 
       if (result is DataSuccess<AkStartPayEntity>) {
@@ -1683,6 +1706,21 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
                     ),
                     SizedBox(height: context.h(14)),
                     _fareLine(context, 'Fare', _displayAmount(widget.netAmount)),
+                    if (_fees.convenienceFee > 0) ...[
+                      SizedBox(height: context.h(14)),
+                      _fareLine(context, 'Convenience Fee',
+                          _displayAmount(_fees.convenienceFee)),
+                    ],
+                    if (_fees.platformFee > 0) ...[
+                      SizedBox(height: context.h(14)),
+                      _fareLine(context, 'Platform Fee',
+                          _displayAmount(_fees.platformFee)),
+                    ],
+                    if (_fees.bookingMgmtFee > 0) ...[
+                      SizedBox(height: context.h(14)),
+                      _fareLine(context, 'Booking Management Fee',
+                          _displayAmount(_fees.bookingMgmtFee)),
+                    ],
                     if (_promoDiscountInInr > 0) ...[
                       SizedBox(height: context.h(14)),
                       _fareLine(

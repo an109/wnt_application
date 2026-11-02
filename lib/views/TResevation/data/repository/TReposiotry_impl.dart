@@ -36,6 +36,9 @@ class TransportReservationRepositoryImpl implements TransportReservationReposito
     required double displayBasePrice,
     required double displayRideBasePrice,
     required double displayDiscountAmount,
+    double displayConvenienceFee = 0,
+    double displayPlatformFee = 0,
+    double displayBookingMgmtFee = 0,
     required List<String> optionalAmenities,
     required String tripStartAddress,
     required String tripEndAddress,
@@ -85,6 +88,11 @@ class TransportReservationRepositoryImpl implements TransportReservationReposito
         'display_base_price': displayBasePrice,
         'display_ride_base_price': displayRideBasePrice,
         'display_discount_amount': displayDiscountAmount,
+        // Payment-page fees (admin Taxes & Margins), stored on the booking
+        // the same way the website sends them.
+        'display_convenience_fee': displayConvenienceFee,
+        'display_platform_fee': displayPlatformFee,
+        'display_booking_mgmt_fee': displayBookingMgmtFee,
         'optional_amenities': optionalAmenities,
         'trip_start_address': tripStartAddress,
         'trip_end_address': tripEndAddress,

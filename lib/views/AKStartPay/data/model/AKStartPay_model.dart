@@ -4,16 +4,22 @@ class AkStartPayRequestModel extends AkStartPayRequestEntity {
   const AkStartPayRequestModel({
     required super.sessionId,
     required super.gateway,
+    super.feeBreakdown,
   });
 
   factory AkStartPayRequestModel.fromEntity(AkStartPayRequestEntity entity) {
-    return AkStartPayRequestModel(sessionId: entity.sessionId, gateway: entity.gateway);
+    return AkStartPayRequestModel(
+      sessionId: entity.sessionId,
+      gateway: entity.gateway,
+      feeBreakdown: entity.feeBreakdown,
+    );
   }
 
   Map<String, dynamic> toJson() {
     return {
       'session_id': sessionId,
       'gateway': gateway,
+      if (feeBreakdown != null && feeBreakdown!.isNotEmpty) 'fee_breakdown': feeBreakdown,
     };
   }
 }

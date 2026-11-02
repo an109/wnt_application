@@ -4,13 +4,19 @@ class AkStartPayRequestEntity extends Equatable {
   final String sessionId;
   final String gateway;
 
+  /// The convenience / platform / booking-management fees charged on top of
+  /// the fare (the website's `fee_breakdown`). The backend stores it on the
+  /// booking so My Bookings, invoices and admin can show it. Null = none.
+  final Map<String, dynamic>? feeBreakdown;
+
   const AkStartPayRequestEntity({
     required this.sessionId,
     required this.gateway,
+    this.feeBreakdown,
   });
 
   @override
-  List<Object?> get props => [sessionId, gateway];
+  List<Object?> get props => [sessionId, gateway, feeBreakdown];
 }
 
 class AkStartPayEntity extends Equatable {

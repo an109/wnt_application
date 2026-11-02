@@ -11,6 +11,11 @@ class AkHotelStartPayRequestEntity extends Equatable {
   final String gateway;
   final String searchTracingKey;
 
+  /// Convenience / platform / booking-management fees and the totals behind
+  /// them (the website's `fee_breakdown`), stored on the booking by the
+  /// backend. Null = none.
+  final Map<String, dynamic>? feeBreakdown;
+
   const AkHotelStartPayRequestEntity({
     required this.transactionId,
     required this.netAmount,
@@ -18,10 +23,11 @@ class AkHotelStartPayRequestEntity extends Equatable {
     required this.paymentReference,
     required this.gateway,
     required this.searchTracingKey,
+    this.feeBreakdown,
   });
 
   @override
-  List<Object?> get props => [transactionId, netAmount, paymentAmount, paymentReference, gateway, searchTracingKey];
+  List<Object?> get props => [transactionId, netAmount, paymentAmount, paymentReference, gateway, searchTracingKey, feeBreakdown];
 }
 
 class AkHotelStartPayEntity extends Equatable {

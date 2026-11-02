@@ -23,6 +23,7 @@ import '../../../wallet/wallet/screen/checkout/upi_section.dart';
 import 'ak_hotel_booking_confirmed_screen.dart';
 import 'package:wander_nova/common_widgets/currency_scope.dart';
 import 'package:wander_nova/common_widgets/app_loader.dart';
+import 'package:wander_nova/core/services/fee_service.dart';
 import 'package:wander_nova/core/services/push_notification_service.dart';
 
 /// Payment step for the Akbar Hotels flow: this app's own gateway (Razorpay
@@ -151,9 +152,21 @@ class _AkHotelPaymentScreenState extends State<AkHotelPaymentScreen> {
   String get _minutes => _timeLeft.inMinutes.toString().padLeft(2, '0');
   String get _seconds => (_timeLeft.inSeconds % 60).toString().padLeft(2, '0');
 
+  /// Convenience + platform + booking-management fees from the admin
+  /// dashboard's Taxes & Margins, charged on the room fare.
+  FeeBreakdown get _fees =>
+      FeeService.instance.feeFor(FeeServiceType.hotels, widget.netAmount);
+
+  /// What the customer pays: the room fare plus the fees. [widget.netAmount]
+  /// stays the supplier cost and is what StartPay sends as NetAmount.
+  double get _payableInInr => widget.netAmount + _fees.total;
+
   @override
   void initState() {
     super.initState();
+    FeeService.instance.ensureLoaded().then((_) {
+      if (mounted) setState(() {});
+    });
     _holdTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (!mounted) return;
       final next = _timeLeft - const Duration(seconds: 1);
@@ -173,6 +186,7 @@ class _AkHotelPaymentScreenState extends State<AkHotelPaymentScreen> {
       setState(() => _errorMessage = 'Please select a payment method');
       return;
     }
+    await FeeService.instance.ensureLoaded();
     // Wallet uses the wallet-balance flow; every Custom Checkout method
     // (card/UPI/netbanking/wallet provider) is launched straight from its
     // own tile — see _startCardCheckout() etc. below.
@@ -206,7 +220,7 @@ class _AkHotelPaymentScreenState extends State<AkHotelPaymentScreen> {
 
       if (!mounted) return;
 
-      if (balance >= widget.netAmount) {
+      if (balance >= _payableInInr) {
         // Same last word as the flight flow: a wallet debit has no gateway
         // sheet to pause on, so it gets its own confirmation.
         setState(() => _processing = false);
@@ -239,7 +253,7 @@ class _AkHotelPaymentScreenState extends State<AkHotelPaymentScreen> {
   /// is there now, and what is left after. Returns false on dismiss, so a
   /// stray tap or a back gesture never spends the balance.
   Future<bool> _confirmWalletPayment(double balance) async {
-    final remaining = balance - widget.netAmount;
+    final remaining = balance - _payableInInr;
     String money(double v) => '₹${v.toStringAsFixed(2)}';
 
     final result = await showModalBottomSheet<bool>(
@@ -292,7 +306,7 @@ class _AkHotelPaymentScreenState extends State<AkHotelPaymentScreen> {
               ),
               SizedBox(height: context.h(18)),
               _walletConfirmRow(context, 'Amount to pay',
-                  money(widget.netAmount), emphasise: true),
+                  money(_payableInInr), emphasise: true),
               SizedBox(height: context.h(10)),
               _walletConfirmRow(context, 'Wallet balance', money(balance)),
               Padding(
@@ -342,7 +356,7 @@ class _AkHotelPaymentScreenState extends State<AkHotelPaymentScreen> {
                         child: FittedBox(
                           fit: BoxFit.scaleDown,
                           child: Text(
-                            'PAY ${money(widget.netAmount)}',
+                            'PAY ${money(_payableInInr)}',
                             style: TextStyle(
                               color: Colors.white,
                               fontSize: context.fs(13),
@@ -394,7 +408,7 @@ class _AkHotelPaymentScreenState extends State<AkHotelPaymentScreen> {
   Future<bool> _debitWallet() async {
     setState(() => _statusMessage = 'Paying from your wallet...');
     final debit = await sl<WalletApiService>().payBooking(
-      amount: widget.netAmount.ceilToDouble(),
+      amount: _payableInInr.ceilToDouble(),
       bookingType: 'hotel',
       bookingRef: widget.transactionId,
       description: 'Hotel: ${widget.hotelName}',
@@ -432,7 +446,7 @@ class _AkHotelPaymentScreenState extends State<AkHotelPaymentScreen> {
       final response = await dio.post(
         Urls.razorpayCreateOrder,
         data: {
-          'amount': widget.netAmount,
+          'amount': _payableInInr,
           'currency': 'INR',
           'reference_id': widget.transactionId,
           // Same as the website: tells the backend (webhook reconciliation)
@@ -505,7 +519,7 @@ class _AkHotelPaymentScreenState extends State<AkHotelPaymentScreen> {
       final result = await _rzService.submitPayment(
         keyId: _razorpayKeyId!,
         data: {
-          'amount': (widget.netAmount * 100).round(),
+          'amount': (_payableInInr * 100).round(),
           'currency': 'INR',
           'order_id': _razorpayOrderId,
           'email': widget.leadGuestEmail,
@@ -604,11 +618,20 @@ class _AkHotelPaymentScreenState extends State<AkHotelPaymentScreen> {
     final result = await sl<AkHotelStartPayUseCase>().call(
       AkHotelStartPayRequestEntity(
         transactionId: widget.transactionId,
+        // NetAmount is the supplier's cost; PaymentAmount is what the
+        // customer paid (fare + fees) — the backend checks the captured
+        // payment against PaymentAmount.
         netAmount: widget.netAmount,
-        paymentAmount: widget.netAmount,
+        paymentAmount: _payableInInr,
         paymentReference: paymentReference,
         gateway: gateway,
         searchTracingKey: widget.searchTracingKey,
+        feeBreakdown: {
+          'base_fare': widget.netAmount,
+          ..._fees.toJson(),
+          'amount_paid': _payableInInr,
+          'supplier_net': widget.netAmount,
+        },
       ),
     );
 
@@ -684,7 +707,7 @@ class _AkHotelPaymentScreenState extends State<AkHotelPaymentScreen> {
           adultsCount: widget.adultsCount,
           childrenCount: widget.childrenCount,
           baseFare: widget.baseFare,
-          netAmount: widget.netAmount,
+          netAmount: _payableInInr,
           leadGuestName: widget.leadGuestName,
           leadGuestEmail: widget.leadGuestEmail,
           leadGuestPhone: widget.leadGuestPhone,
@@ -738,7 +761,7 @@ class _AkHotelPaymentScreenState extends State<AkHotelPaymentScreen> {
           ),
         ),
         content: Text(
-          'This room is held at ₹${widget.netAmount.toStringAsFixed(2)} '
+          'This room is held at ₹${_payableInInr.toStringAsFixed(2)} '
           'only until the timer runs out. Going back ends the session — you '
           'will have to search again, where the rate may be different.',
           style: TextStyle(
@@ -868,7 +891,7 @@ class _AkHotelPaymentScreenState extends State<AkHotelPaymentScreen> {
                         expanded: _open == 'upi',
                         onTap: () => _toggle('upi'),
                         child: _open == 'upi' ? UpiSection(
-                          amount: widget.netAmount,
+                          amount: _payableInInr,
                           busy: _processing,
                           apps: _upiApps,
                           onPayWithApp: (app) => _payWithMethod({'method': 'upi', '_[flow]': 'intent', 'upi_app_package_name': app.package}),
@@ -882,7 +905,7 @@ class _AkHotelPaymentScreenState extends State<AkHotelPaymentScreen> {
                         expanded: _open == 'card',
                         onTap: () => _toggle('card'),
                         child: _open == 'card' ? CardForm(
-                          payLabel: 'Pay ${formatInr(widget.netAmount)}',
+                          payLabel: 'Pay ${formatInr(_payableInInr)}',
                           busy: _processing,
                           onSubmit: (card) => _payWithMethod({'method': 'card', 'card': card}),
                         ) : const SizedBox.shrink(),
@@ -894,7 +917,7 @@ class _AkHotelPaymentScreenState extends State<AkHotelPaymentScreen> {
                         expanded: _open == 'netbanking',
                         onTap: () => _toggle('netbanking'),
                         child: _open == 'netbanking' ? NetbankingSection(
-                          amount: widget.netAmount,
+                          amount: _payableInInr,
                           busy: _processing,
                           methods: _loadMethods(),
                           onPay: (bank) => _payWithMethod({'method': 'netbanking', 'bank': bank}),
@@ -907,7 +930,7 @@ class _AkHotelPaymentScreenState extends State<AkHotelPaymentScreen> {
                         expanded: _open == 'emi',
                         onTap: () => _toggle('emi'),
                         child: _open == 'emi' ? EmiSection(
-                          amount: widget.netAmount,
+                          amount: _payableInInr,
                           busy: _processing,
                           methods: _loadMethods(),
                           onPay: (months, card) => _payWithMethod({'method': 'emi', 'emi_duration': months, 'card': card}),
@@ -920,7 +943,7 @@ class _AkHotelPaymentScreenState extends State<AkHotelPaymentScreen> {
                         expanded: _open == 'wallet',
                         onTap: () => _toggle('wallet'),
                         child: _open == 'wallet' ? WalletsPayLaterSection(
-                          amount: widget.netAmount,
+                          amount: _payableInInr,
                           busy: _processing,
                           methods: _loadMethods(),
                           onPayWallet: (w) => _payWithMethod({'method': 'wallet', 'wallet': w}),
@@ -969,14 +992,39 @@ class _AkHotelPaymentScreenState extends State<AkHotelPaymentScreen> {
 
   // ==================== TOTAL DUE ====================
   Widget _totalDue(BuildContext context) {
-    final hint = context.moneyHint(widget.netAmount);
+    final hint = context.moneyHint(_payableInInr);
+    final fees = _fees;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
+        if (!fees.isZero) ...[
+          _feeRow(context, 'Room fare', widget.netAmount),
+          if (fees.convenienceFee > 0) _feeRow(context, 'Convenience Fee', fees.convenienceFee),
+          if (fees.platformFee > 0) _feeRow(context, 'Platform Fee', fees.platformFee),
+          if (fees.bookingMgmtFee > 0) _feeRow(context, 'Booking Management Fee', fees.bookingMgmtFee),
+          SizedBox(height: context.h(8)),
+        ],
         _totalDueRow(context),
         if (hint.isNotEmpty)
           Text('$hint · charged in INR', style: TextStyle(fontSize: context.fs(12), color: _muted)),
       ],
+    );
+  }
+
+  Widget _feeRow(BuildContext context, String label, double amount) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: context.h(4)),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(label, style: TextStyle(fontSize: context.fs(13), color: _muted)),
+          ),
+          Text(
+            '₹${amount.toStringAsFixed(2)}',
+            style: TextStyle(fontSize: context.fs(13), fontWeight: FontWeight.w600, color: _ink),
+          ),
+        ],
+      ),
     );
   }
 
@@ -992,7 +1040,7 @@ class _AkHotelPaymentScreenState extends State<AkHotelPaymentScreen> {
         ),
         SizedBox(width: context.w(8)),
         Text(
-          '₹${widget.netAmount.toStringAsFixed(0)}',
+          '₹${_payableInInr.toStringAsFixed(0)}',
           style: TextStyle(fontSize: context.fs(22), fontWeight: FontWeight.w800, color: Colors.black),
         ),
       ],
