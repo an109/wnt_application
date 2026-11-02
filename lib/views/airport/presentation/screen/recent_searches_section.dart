@@ -114,10 +114,18 @@ class _RecentSearchesSectionState extends State<RecentSearchesSection>
       final usable = history.where((entry) {
         final from = entry['fromAirport'];
         final to = entry['toAirport'];
-        return from is Map &&
-            to is Map &&
-            (from['code'] as String?)?.isNotEmpty == true &&
-            (to['code'] as String?)?.isNotEmpty == true;
+        if (from is! Map ||
+            to is! Map ||
+            (from['code'] as String?)?.isNotEmpty != true ||
+            (to['code'] as String?)?.isNotEmpty != true) {
+          return false;
+        }
+        // Multi-city searches (DM/IM) need per-leg data that isn't stored
+        // in the history shape, and they require the MultiCity/Search
+        // endpoint — skip them rather than hitting ExpressSearch and 400-ing.
+        final ft = entry['fareType'] as String?;
+        if (ft == 'DM' || ft == 'IM') return false;
+        return true;
       }).toList();
 
       if (!mounted) return;

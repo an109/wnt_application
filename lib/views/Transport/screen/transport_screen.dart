@@ -101,33 +101,33 @@ class _TransportBookingScreenState extends State<TransportBookingScreen> {
 
             const SliverToBoxAdapter(child: TrendingPackages()),
 
-            SliverToBoxAdapter(
-              child: BlocProvider(
-                create: (_) =>
-                    sl<GeneralSettingsBloc>()
-                      ..add(const LoadFaqList(domain: 'thewandernova.com')),
-                child: const FAQSection(),
-              ),
-            ),
+            // SliverToBoxAdapter(
+            //   child: BlocProvider(
+            //     create: (_) =>
+            //         sl<GeneralSettingsBloc>()
+            //           ..add(const LoadFaqList(domain: 'thewandernova.com')),
+            //     child: const FAQSection(),
+            //   ),
+            // ),
 
             const SliverToBoxAdapter(child: TravelStoriesSection()),
             const SliverToBoxAdapter(child: WhyChooseUs()),
 
-            SliverToBoxAdapter(
-              child: BlocProvider(
-                create: (_) => sl<GeneralSettingsBloc>()
-                  ..add(const LoadGeneralSettings(domain: 'thewandernova.com')),
-                child: const AboutCompanySection(),
-              ),
-            ),
+            // SliverToBoxAdapter(
+            //   child: BlocProvider(
+            //     create: (_) => sl<GeneralSettingsBloc>()
+            //       ..add(const LoadGeneralSettings(domain: 'thewandernova.com')),
+            //     child: const AboutCompanySection(),
+            //   ),
+            // ),
 
-            SliverToBoxAdapter(
-              child: BlocProvider(
-                create: (_) => sl<GeneralSettingsBloc>()
-                  ..add(const LoadGeneralSettings(domain: 'thewandernova.com')),
-                child: const ServicesInfoSection(),
-              ),
-            ),
+            // SliverToBoxAdapter(
+            //   child: BlocProvider(
+            //     create: (_) => sl<GeneralSettingsBloc>()
+            //       ..add(const LoadGeneralSettings(domain: 'thewandernova.com')),
+            //     child: const ServicesInfoSection(),
+            //   ),
+            // ),
           ],
         ),
       ),

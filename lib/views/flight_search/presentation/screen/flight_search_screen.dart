@@ -21,6 +21,7 @@ import '../../../../common_widgets/logo.dart';
 import '../../../../core/error/data_state.dart';
 import '../../../../core/utils/storage/shared_preference.dart';
 import '../../../../newUIWidgets/bankOffers.dart';
+import '../../../offers/all_bank_offers_screen.dart';
 import '../../domain/entities/flight_entity.dart';
 import '../../domain/entities/fare_trip_type.dart';
 // Legacy TBO search — replaced by the Akbar ExpressSearch/GetExpSearch tui flow below.
@@ -3661,7 +3662,9 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
   }
 
   Widget? _listBannerAt(int index) {
-    if (index == 0) return const BankOfferCarousel();
+    if (index == 0) return BankOfferCarousel(onOfferTap: (offers) {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => AllBankOffersScreen(offers: offers)));
+    });
     if (index == 2) return const FlightOfferBannerCarousel();
     if (index >= 6 && (index - 6) % 11 == 0) return const BannerCarousel();
     return null;
@@ -3706,7 +3709,9 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
       if (index == 0) {
         return Padding(
           padding: EdgeInsets.fromLTRB(context.w(0), context.h(8), context.w(0), context.h(4)),
-          child: const BankOfferCarousel(),
+          child: BankOfferCarousel(onOfferTap: (offers) {
+            Navigator.push(context, MaterialPageRoute(builder: (_) => AllBankOffersScreen(offers: offers)));
+          }),
         );
       }
       // ── After 1st card: FlightOfferBannerCarousel ─────────────────

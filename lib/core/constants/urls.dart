@@ -48,6 +48,8 @@ class Urls {
   static const String book = '$basesUrl/tbo/Book/';
   static const String ticket = '$basesUrl/tbo/Ticket/';
   static const String getBookingDetails = '$basesUrl/tbo/GetBookingDetails/';
+  static const String razorpayBankOffers =
+      '${baseUrl}payments/razorpay/offers/';
   static const String razorpayCreateOrder =
       '${baseUrl}payments/razorpay/create-order/';
   static const String razorpayVerify = '${baseUrl}payments/razorpay/verify/';

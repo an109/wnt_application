@@ -3,6 +3,8 @@
 /// fields of the back page of Indian passports.
 library;
 
+import 'package:flutter/foundation.dart';
+
 /// Data from a TD3 (passport) MRZ whose check digits all passed.
 class VisaMrz {
   final String line1;
@@ -89,13 +91,19 @@ DateTime? _date(String yymmdd, {required bool future}) {
 /// Finds and verifies the passport MRZ in OCR [text]. Returns null unless
 /// every check digit passes, so typed-over or edited data never verifies.
 VisaMrz? readPassportMrz(String text) {
-  final lines = text
-      .split('\n')
-      .map(_clean)
-      .where((l) => l.length >= 30 && l.contains('<'))
-      .toList();
+  final allLines = text.split('\n').map(_clean).toList();
+  final lines = allLines.where((l) => l.length >= 30 && l.contains('<')).toList();
+  debugPrint('[MRZ] Candidate lines: ${lines.length} out of ${allLines.length} total');
+  for (final l in lines) {
+    debugPrint('[MRZ] Line: $l (len=${l.length})');
+  }
   for (var i = 0; i < lines.length - 1; i++) {
-    if (!lines[i].startsWith('P')) continue;
+    if (!lines[i].startsWith('P')) {
+      debugPrint('[MRZ] Skipping line $i — does not start with P');
+      continue;
+    }
+    debugPrint('[MRZ] Trying pair: line1=${lines[i]}');
+    debugPrint('[MRZ]              line2=${lines[i + 1]}');
     final mrz = _parse(lines[i], lines[i + 1]);
     if (mrz != null) return mrz;
   }
@@ -117,12 +125,28 @@ VisaMrz? _parse(String a, String b) {
   final personalCheck = l2[42] == '<' ? '0' : _digits(l2[42]);
   final finalCheck = _digits(l2[43]);
 
-  if ('${mrzCheckDigit(number)}' != numberCheck) return null;
-  if ('${mrzCheckDigit(dobRaw)}' != dobCheck) return null;
-  if ('${mrzCheckDigit(expRaw)}' != expCheck) return null;
-  if ('${mrzCheckDigit(personal)}' != personalCheck) return null;
+  if ('${mrzCheckDigit(number)}' != numberCheck) {
+    debugPrint('[MRZ] FAIL passport number check: number=$number, expected=$numberCheck, got=${mrzCheckDigit(number)}');
+    return null;
+  }
+  if ('${mrzCheckDigit(dobRaw)}' != dobCheck) {
+    debugPrint('[MRZ] FAIL DOB check: dob=$dobRaw, expected=$dobCheck, got=${mrzCheckDigit(dobRaw)}');
+    return null;
+  }
+  if ('${mrzCheckDigit(expRaw)}' != expCheck) {
+    debugPrint('[MRZ] FAIL expiry check: exp=$expRaw, expected=$expCheck, got=${mrzCheckDigit(expRaw)}');
+    return null;
+  }
+  if ('${mrzCheckDigit(personal)}' != personalCheck) {
+    debugPrint('[MRZ] FAIL personal check: personal=$personal, expected=$personalCheck, got=${mrzCheckDigit(personal)}');
+    return null;
+  }
   final composite = '$number$numberCheck$dobRaw$dobCheck$expRaw$expCheck$personal$personalCheck';
-  if ('${mrzCheckDigit(composite)}' != finalCheck) return null;
+  if ('${mrzCheckDigit(composite)}' != finalCheck) {
+    debugPrint('[MRZ] FAIL composite check: expected=$finalCheck, got=${mrzCheckDigit(composite)}');
+    return null;
+  }
+  debugPrint('[MRZ] All check digits passed!');
 
   final dob = _date(dobRaw, future: false);
   final expiry = _date(expRaw, future: true);

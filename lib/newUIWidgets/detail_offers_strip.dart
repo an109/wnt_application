@@ -1,55 +1,10 @@
 import 'dart:async';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
-
-class _BankOffer {
-  final String logoPath;
-  final String bankName;
-  final String title;
-  final String description;
-  final String couponCode;
-
-  const _BankOffer({
-    required this.logoPath,
-    required this.bankName,
-    required this.title,
-    required this.description,
-    required this.couponCode,
-  });
-}
-
-const List<_BankOffer> _bankOffers = [
-  _BankOffer(
-    logoPath: 'assets/images/yes_bank_logo.png',
-    bankName: 'YES BANK',
-    title: 'Flat 10% instant discount',
-    description: 'On YES BANK credit & debit cards. Max discount ₹1,500',
-    couponCode: 'YESFEST',
-  ),
-  _BankOffer(
-    logoPath: 'assets/NewIcons/credit.png',
-    bankName: 'HDFC BANK',
-    title: 'Up to ₹2,000 OFF',
-    description: 'On HDFC Bank credit card EMI transactions',
-    couponCode: 'HDFCEMI',
-  ),
-  _BankOffer(
-    logoPath: 'assets/NewIcons/net_banking.png',
-    bankName: 'SBI CARD',
-    title: 'Flat ₹750 instant discount',
-    description: 'On SBI credit cards. Min booking ₹5,000',
-    couponCode: 'SBIFLY',
-  ),
-  _BankOffer(
-    logoPath: 'assets/NewIcons/upi.png',
-    bankName: 'UPI',
-    title: 'No convenience fee',
-    description: 'Pay via any UPI app and save on every booking',
-    couponCode: 'UPIFREE',
-  ),
-];
+import 'package:wander_nova/core/services/bank_offer_service.dart';
 
 const Color _cardBg = Color(0xFFF7F8FC);
 const Color _borderColor = Color(0xFFE8EAF0);
@@ -59,7 +14,6 @@ const Color _couponBg = Color(0xFFEEF1FF);
 const Color _couponBorder = Color(0xFFCDD3F0);
 const Color _couponText = Color(0xFF3B4FC4);
 const Color _bankNameColor = Color(0xFF6B7082);
-const Color _dotActive = Color(0xFF3B4FC4);
 
 class DetailOffersStrip extends StatefulWidget {
   const DetailOffersStrip({super.key});
@@ -72,18 +26,32 @@ class _DetailOffersStripState extends State<DetailOffersStrip> {
   late final PageController _controller;
   int _current = 0;
   Timer? _timer;
+  List<BankOffer>? _offers;
+  bool _loading = true;
 
   @override
   void initState() {
     super.initState();
     _controller = PageController(viewportFraction: 0.92);
-    _startAutoPlay();
+    _loadOffers();
+  }
+
+  Future<void> _loadOffers() async {
+    try {
+      final offers = await BankOfferService().fetchOffers(type: 'flight');
+      if (mounted) {
+        setState(() { _offers = offers; _loading = false; });
+        if (offers.length > 1) _startAutoPlay();
+      }
+    } catch (_) {
+      if (mounted) setState(() { _offers = []; _loading = false; });
+    }
   }
 
   void _startAutoPlay() {
     _timer = Timer.periodic(const Duration(seconds: 4), (_) {
-      if (!mounted) return;
-      final next = (_current + 1) % _bankOffers.length;
+      if (!mounted || _offers == null || _offers!.isEmpty) return;
+      final next = (_current + 1) % _offers!.length;
       _controller.animateToPage(
         next,
         duration: const Duration(milliseconds: 500),
@@ -101,6 +69,10 @@ class _DetailOffersStripState extends State<DetailOffersStrip> {
 
   @override
   Widget build(BuildContext context) {
+    if (_loading || _offers == null || _offers!.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -108,11 +80,11 @@ class _DetailOffersStripState extends State<DetailOffersStrip> {
           height: context.h(106),
           child: PageView.builder(
             controller: _controller,
-            itemCount: _bankOffers.length,
+            itemCount: _offers!.length,
             onPageChanged: (i) => setState(() => _current = i),
             itemBuilder: (ctx, i) => Padding(
               padding: EdgeInsets.symmetric(horizontal: context.w(4)),
-              child: _BankOfferCard(offer: _bankOffers[i]),
+              child: _BankOfferCard(offer: _offers![i]),
             ),
           ),
         ),
@@ -122,7 +94,7 @@ class _DetailOffersStripState extends State<DetailOffersStrip> {
 }
 
 class _BankOfferCard extends StatelessWidget {
-  final _BankOffer offer;
+  final BankOffer offer;
   const _BankOfferCard({required this.offer});
 
   @override
@@ -146,7 +118,6 @@ class _BankOfferCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // Bank logo
           Container(
             width: context.w(42),
             height: context.w(42),
@@ -156,18 +127,9 @@ class _BankOfferCard extends StatelessWidget {
               border: Border.all(color: _borderColor, width: 0.5),
             ),
             padding: EdgeInsets.all(context.w(6)),
-            child: Image.asset(
-              offer.logoPath,
-              fit: BoxFit.contain,
-              errorBuilder: (_, __, ___) => Icon(
-                Icons.account_balance_rounded,
-                size: context.fs(20),
-                color: _bankNameColor,
-              ),
-            ),
+            child: _buildLogo(context),
           ),
           SizedBox(width: context.w(12)),
-          // Text content
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -199,7 +161,7 @@ class _BankOfferCard extends StatelessWidget {
                 ),
                 SizedBox(height: context.h(2)),
                 Text(
-                  offer.description,
+                  offer.displayText,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
@@ -210,55 +172,75 @@ class _BankOfferCard extends StatelessWidget {
                   ),
                 ),
                 SizedBox(height: context.h(6)),
-                // Coupon chip
-                GestureDetector(
-                  onTap: () {
-                    Clipboard.setData(ClipboardData(text: offer.couponCode));
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Coupon ${offer.couponCode} copied!'),
-                        duration: const Duration(seconds: 1),
-                        behavior: SnackBarBehavior.floating,
+                if (offer.hasCode)
+                  GestureDetector(
+                    onTap: () {
+                      Clipboard.setData(ClipboardData(text: offer.code));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Coupon ${offer.code} copied!'),
+                          duration: const Duration(seconds: 1),
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                    },
+                    child: Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: context.w(8),
+                        vertical: context.h(3),
                       ),
-                    );
-                  },
-                  child: Container(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: context.w(8),
-                      vertical: context.h(3),
-                    ),
-                    decoration: BoxDecoration(
-                      color: _couponBg,
-                      borderRadius: BorderRadius.circular(context.r(4)),
-                      border: Border.all(color: _couponBorder, width: 0.8),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          offer.couponCode,
-                          style: TextStyle(
-                            fontSize: context.fs(9),
-                            fontWeight: FontWeight.w800,
-                            color: _couponText,
-                            letterSpacing: 1.0,
+                      decoration: BoxDecoration(
+                        color: _couponBg,
+                        borderRadius: BorderRadius.circular(context.r(4)),
+                        border: Border.all(color: _couponBorder, width: 0.8),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            offer.code,
+                            style: TextStyle(
+                              fontSize: context.fs(9),
+                              fontWeight: FontWeight.w800,
+                              color: _couponText,
+                              letterSpacing: 1.0,
+                            ),
                           ),
-                        ),
-                        SizedBox(width: context.w(4)),
-                        Icon(
-                          Icons.copy_rounded,
-                          size: context.fs(9),
-                          color: _couponText.withValues(alpha: 0.60),
-                        ),
-                      ],
+                          SizedBox(width: context.w(4)),
+                          Icon(
+                            Icons.copy_rounded,
+                            size: context.fs(9),
+                            color: _couponText.withValues(alpha: 0.60),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
               ],
             ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildLogo(BuildContext context) {
+    final url = offer.logoUrl;
+    if (url != null && url.isNotEmpty) {
+      return CachedNetworkImage(
+        imageUrl: url,
+        fit: BoxFit.contain,
+        errorWidget: (_, __, ___) => Icon(
+          Icons.account_balance_rounded,
+          size: context.fs(20),
+          color: _bankNameColor,
+        ),
+      );
+    }
+    return Icon(
+      Icons.account_balance_rounded,
+      size: context.fs(20),
+      color: _bankNameColor,
     );
   }
 }

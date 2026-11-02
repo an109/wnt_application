@@ -18,9 +18,8 @@ class VisaPassportScan {
   const VisaPassportScan(this.path, {this.mrz, this.front, this.back});
 }
 
-/// "Scan your passport" / "Now flip to the back page" (Figma "Before Start
-/// passport FRO…/bAC…"). Captures by itself once the page is readable: the
-/// front only when its MRZ passes every check digit.
+/// "Scan your passport" / "Now flip to the back page".
+/// User captures a photo manually, then OCR extracts the data.
 class VisaPassportStep extends StatefulWidget {
   final bool back;
   final ValueChanged<VisaPassportScan> onScanned;
@@ -31,14 +30,14 @@ class VisaPassportStep extends StatefulWidget {
   State<VisaPassportStep> createState() => _VisaPassportStepState();
 }
 
-class _VisaPassportStepState extends State<VisaPassportStep> with WidgetsBindingObserver {
+class _VisaPassportStepState extends State<VisaPassportStep> with WidgetsBindingObserver, TickerProviderStateMixin {
   CameraController? _camera;
   final TextRecognizer _ocr = TextRecognizer(script: TextRecognitionScript.latin);
   bool _processing = false;
-  bool _capturing = false;
-  DateTime _lastFrame = DateTime.fromMillisecondsSinceEpoch(0);
   String _hint = 'Place the page inside the frame';
   String? _error;
+  late final AnimationController _scanLineCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 2500))..repeat();
+  late final AnimationController _pulseCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 1800))..repeat(reverse: true);
 
   @override
   void initState() {
@@ -52,7 +51,7 @@ class _VisaPassportStepState extends State<VisaPassportStep> with WidgetsBinding
     super.didUpdateWidget(old);
     if (old.back != widget.back) {
       _hint = 'Place the page inside the frame';
-      _capturing = false;
+      _processing = false;
       if (_camera == null) _start();
     }
   }
@@ -60,6 +59,8 @@ class _VisaPassportStepState extends State<VisaPassportStep> with WidgetsBinding
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _scanLineCtrl.dispose();
+    _pulseCtrl.dispose();
     _stop();
     _ocr.close();
     super.dispose();
@@ -69,23 +70,27 @@ class _VisaPassportStepState extends State<VisaPassportStep> with WidgetsBinding
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.paused) {
       _stop();
-    } else if (state == AppLifecycleState.resumed && _camera == null && !_capturing) {
+    } else if (state == AppLifecycleState.resumed && _camera == null && !_processing) {
       _start();
     }
   }
 
   Future<void> _start() async {
     try {
-      final c = await openVisaCamera(CameraLensDirection.back);
+      final c = await openVisaCamera(CameraLensDirection.back, preset: ResolutionPreset.veryHigh);
       if (!mounted) {
         await c.dispose();
         return;
       }
+      try {
+        await c.setFocusMode(FocusMode.auto);
+        await c.setFlashMode(FlashMode.off);
+      } catch (_) {}
       setState(() {
         _camera = c;
         _error = null;
+        _hint = 'Place the page inside the frame';
       });
-      await c.startImageStream(_onFrame);
     } on CameraException catch (e) {
       if (!mounted) return;
       final denied = e.code.toLowerCase().contains('denied');
@@ -105,7 +110,6 @@ class _VisaPassportStepState extends State<VisaPassportStep> with WidgetsBinding
     await c.dispose();
   }
 
-  /// Reads the page from OCR text; null while it is not readable yet.
   VisaPassportScan? _read(String path, String text) {
     if (widget.back) {
       final back = readPassportBack(text);
@@ -116,59 +120,55 @@ class _VisaPassportStepState extends State<VisaPassportStep> with WidgetsBinding
     return VisaPassportScan(path, mrz: mrz, front: readPassportFront(text, mrz));
   }
 
-  String _guide(RecognizedText text) {
-    if (text.blocks.isEmpty) return 'Place the page inside the frame';
-    if (widget.back) return 'Hold steady';
-    final hasMrzLine = text.text.split('\n').any((l) => l.replaceAll(' ', '').contains('<<'));
-    return hasMrzLine ? 'Hold steady' : 'Move further away';
-  }
-
-  Future<void> _onFrame(CameraImage image) async {
-    final camera = _camera;
-    if (_processing || _capturing || camera == null) return;
-    final now = DateTime.now();
-    if (now.difference(_lastFrame).inMilliseconds < 350) return;
-    _lastFrame = now;
-    final input = visaInputImage(image, camera.description);
-    if (input == null) return;
-    _processing = true;
-    try {
-      final text = await _ocr.processImage(input);
-      if (!mounted || _capturing) return;
-      final scan = _read('', text.text);
-      if (scan == null) {
-        final hint = _guide(text);
-        if (hint != _hint) setState(() => _hint = hint);
-        return;
-      }
-      await _capture(scan);
-    } catch (_) {
-      // Dropped frame.
-    } finally {
-      _processing = false;
-    }
-  }
-
-  Future<void> _capture(VisaPassportScan fromFrame) async {
+  Future<void> _capturePhoto() async {
     final c = _camera;
-    if (c == null) return;
+    if (c == null || _processing) return;
     setState(() {
-      _capturing = true;
-      _hint = 'Captured · checking';
+      _processing = true;
+      _hint = 'Focusing…';
     });
     try {
-      await c.stopImageStream();
+      // Lock focus and exposure before capturing for a sharp image.
+      try {
+        await c.setFocusMode(FocusMode.auto);
+        await c.setExposureMode(ExposureMode.auto);
+      } catch (_) {}
+      // Give the camera time to auto-focus and stabilise.
+      await Future.delayed(const Duration(milliseconds: 800));
+      if (!mounted) return;
+      setState(() => _hint = 'Extracting details…');
       final file = await c.takePicture();
+      debugPrint('[PassportScan] Photo saved: ${file.path}');
       await _stop();
       final text = await _ocr.processImage(InputImage.fromFilePath(file.path));
-      // The still photo usually reads better; keep the frame's result if not.
-      final scan = _read(file.path, text.text) ??
-          VisaPassportScan(file.path, mrz: fromFrame.mrz, front: fromFrame.front, back: fromFrame.back);
+      if (!mounted) return;
+      debugPrint('[PassportScan] OCR text:\n${text.text}');
+      debugPrint('[PassportScan] OCR blocks: ${text.blocks.length}');
+      final scan = _read(file.path, text.text);
+      if (scan == null) {
+        debugPrint('[PassportScan] MRZ parse failed — no valid MRZ found in OCR output');
+        setState(() {
+          _processing = false;
+          _hint = 'Could not read. Try again';
+        });
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          behavior: SnackBarBehavior.floating,
+          content: Text(widget.back
+              ? 'Could not read the back page. Make sure text is clear and fully visible.'
+              : 'Could not verify this passport. The two lines at the bottom must be sharp and fully visible.'),
+        ));
+        _start();
+        return;
+      }
       _finish(scan);
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[PassportScan] Capture error: $e');
       await _stop();
       if (!mounted) return;
-      setState(() => _capturing = false);
+      setState(() {
+        _processing = false;
+        _hint = 'Something went wrong. Try again';
+      });
       _start();
     }
   }
@@ -183,14 +183,14 @@ class _VisaPassportStepState extends State<VisaPassportStep> with WidgetsBinding
       return;
     }
     setState(() {
-      _capturing = true;
-      _hint = 'Checking photo…';
+      _processing = true;
+      _hint = 'Extracting details…';
     });
     final text = await _ocr.processImage(InputImage.fromFilePath(path));
     if (!mounted) return;
     final scan = _read(path, text.text);
     if (scan == null) {
-      setState(() => _capturing = false);
+      setState(() => _processing = false);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         behavior: SnackBarBehavior.floating,
         content: Text(widget.back
@@ -207,7 +207,7 @@ class _VisaPassportStepState extends State<VisaPassportStep> with WidgetsBinding
     if (!mounted) return;
     final expiry = scan.mrz?.expiry;
     if (expiry != null && expiry.isBefore(DateTime.now())) {
-      setState(() => _capturing = false);
+      setState(() => _processing = false);
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
         behavior: SnackBarBehavior.floating,
         content: Text('This passport has expired. Please renew it before applying.'),
@@ -234,10 +234,10 @@ class _VisaPassportStepState extends State<VisaPassportStep> with WidgetsBinding
           child: const Icon(Icons.badge, color: Colors.white, size: 20),
         ),
         const SizedBox(height: 10),
-        Text(widget.back ? 'Now flip to the back page' : 'Scan your passport',
+        Text(widget.back ? 'Now flip to the back page' : 'Capture your passport',
             style: visaText(14, weight: FontWeight.w600, color: VisaColors.title)),
         const SizedBox(height: 2),
-        Text("We'll auto capture it when passport is in focus", style: visaText(9.5, color: VisaColors.text)),
+        Text('Align the passport page and tap the capture button', style: visaText(9.5, color: VisaColors.text)),
         const SizedBox(height: 2),
         Text(widget.back ? 'BACK PAGE' : 'FRONT PAGE',
             style: visaText(9.5, weight: FontWeight.w600, color: const Color(0xFF6B21A8))),
@@ -254,13 +254,42 @@ class _VisaPassportStepState extends State<VisaPassportStep> with WidgetsBinding
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(4),
                   child: live
-                      ? FittedBox(
-                          fit: BoxFit.cover,
-                          child: SizedBox(
-                            width: _camera!.value.previewSize?.height ?? 300,
-                            height: _camera!.value.previewSize?.width ?? 400,
-                            child: CameraPreview(_camera!),
-                          ),
+                      ? Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            FittedBox(
+                              fit: BoxFit.cover,
+                              child: SizedBox(
+                                width: _camera!.value.previewSize?.height ?? 300,
+                                height: _camera!.value.previewSize?.width ?? 400,
+                                child: CameraPreview(_camera!),
+                              ),
+                            ),
+                            if (!_processing)
+                              Positioned.fill(
+                                child: AnimatedBuilder(
+                                  animation: _scanLineCtrl,
+                                  builder: (context, _) => CustomPaint(
+                                    painter: _ScanLinePainter(_scanLineCtrl.value),
+                                  ),
+                                ),
+                              ),
+                            if (!_processing)
+                              Positioned.fill(
+                                child: AnimatedBuilder(
+                                  animation: _pulseCtrl,
+                                  builder: (context, _) => Container(
+                                    decoration: BoxDecoration(
+                                      border: Border.all(
+                                        color: const Color(0xFF6B21A8).withValues(alpha: 0.3 + 0.4 * _pulseCtrl.value),
+                                        width: 2,
+                                      ),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
                         )
                       : Center(
                           child: _error != null
@@ -269,7 +298,16 @@ class _VisaPassportStepState extends State<VisaPassportStep> with WidgetsBinding
                                   child: Text(_error!,
                                       textAlign: TextAlign.center, style: visaText(10, color: VisaColors.text)),
                                 )
-                              : const CircularProgressIndicator(strokeWidth: 2, color: VisaColors.primary),
+                              : _processing
+                                  ? Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const CircularProgressIndicator(strokeWidth: 2, color: VisaColors.primary),
+                                        const SizedBox(height: 10),
+                                        Text('Extracting details…', style: visaText(10, color: VisaColors.text)),
+                                      ],
+                                    )
+                                  : const CircularProgressIndicator(strokeWidth: 2, color: VisaColors.primary),
                         ),
                 ),
               ),
@@ -282,9 +320,29 @@ class _VisaPassportStepState extends State<VisaPassportStep> with WidgetsBinding
           decoration: BoxDecoration(color: const Color(0xFFF59E5B), borderRadius: BorderRadius.circular(14)),
           child: Text(_hint.toUpperCase(), style: visaText(10, weight: FontWeight.w700, color: Colors.white)),
         ),
+        const SizedBox(height: 20),
+        // Capture button
+        GestureDetector(
+          onTap: (live && !_processing) ? _capturePhoto : null,
+          child: Container(
+            width: 64,
+            height: 64,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: (live && !_processing) ? VisaColors.primary : Colors.grey, width: 4),
+            ),
+            padding: const EdgeInsets.all(4),
+            child: Container(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: (live && !_processing) ? VisaColors.primary : Colors.grey,
+              ),
+            ),
+          ),
+        ),
         const Spacer(),
         TextButton.icon(
-          onPressed: _capturing ? null : _upload,
+          onPressed: _processing ? null : _upload,
           icon: const Icon(Icons.upload_file, size: 16, color: VisaColors.primary),
           label: Text('Upload a photo instead',
               style: visaText(10, weight: FontWeight.w600, color: VisaColors.primary,
@@ -294,6 +352,31 @@ class _VisaPassportStepState extends State<VisaPassportStep> with WidgetsBinding
       ],
     );
   }
+}
+
+class _ScanLinePainter extends CustomPainter {
+  final double progress;
+  _ScanLinePainter(this.progress);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final y = size.height * progress;
+    final paint = Paint()
+      ..shader = LinearGradient(
+        colors: [
+          const Color(0xFF6B21A8).withValues(alpha: 0),
+          const Color(0xFF6B21A8).withValues(alpha: 0.7),
+          const Color(0xFF6B21A8).withValues(alpha: 0),
+        ],
+        stops: const [0, 0.5, 1],
+      ).createShader(Rect.fromLTWH(0, y - 12, size.width, 24))
+      ..strokeWidth = 2
+      ..style = PaintingStyle.stroke;
+    canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
+  }
+
+  @override
+  bool shouldRepaint(_ScanLinePainter old) => true;
 }
 
 class _CornersPainter extends CustomPainter {
