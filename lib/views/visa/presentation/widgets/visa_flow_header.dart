@@ -4,9 +4,9 @@ import 'package:intl/intl.dart';
 import '../utils/visa_theme.dart';
 
 /// Steps of the cost-visa application (Figma "Start now …").
-enum VisaFlowStep { dates, photo, passport, detail, checkout }
+enum VisaFlowStep { dates, photo, passport, detail, documents, checkout }
 
-/// Back arrow, "Visa on …" pill and the five-step progress bar.
+/// Back arrow, "Visa on …" pill and the six-step progress bar.
 class VisaFlowHeader extends StatelessWidget {
   final DateTime visaOn;
   final VisaFlowStep step;
@@ -22,12 +22,13 @@ class VisaFlowHeader extends StatelessWidget {
     this.subtitle,
   });
 
-  static const _labels = ['Dates', 'Photo', 'Passport', 'Detail', 'Checkout'];
+  static const _labels = ['Dates', 'Photo', 'Passport', 'Detail', 'Documents', 'Checkout'];
   static const _icons = [
     Icons.calendar_month,
     Icons.center_focus_strong_outlined,
     Icons.document_scanner_outlined,
     Icons.person_add_alt_1_outlined,
+    Icons.folder_open_outlined,
     Icons.verified_outlined,
   ];
 
@@ -65,9 +66,9 @@ class VisaFlowHeader extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                for (var i = 0; i < 5; i++) ...[
+                for (var i = 0; i < _labels.length; i++) ...[
                   _node(i),
-                  if (i < 4)
+                  if (i < _labels.length - 1)
                     Expanded(
                       child: Container(
                         height: 3,
@@ -88,8 +89,10 @@ class VisaFlowHeader extends StatelessWidget {
     final done = i < step.index;
     final current = i == step.index;
     final filled = done || current;
+    // Six steps have to fit the narrowest phone, so the node is only as wide
+    // as its label needs.
     return SizedBox(
-      width: 46,
+      width: 42,
       child: Column(
         children: [
           Stack(
@@ -119,10 +122,14 @@ class VisaFlowHeader extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 4),
-          Text(_labels[i],
-              style: visaText(8.5,
-                  weight: current ? FontWeight.w600 : FontWeight.w500,
-                  color: filled ? VisaColors.primary : const Color(0xFF7CC6EA))),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(_labels[i],
+                maxLines: 1,
+                style: visaText(8.5,
+                    weight: current ? FontWeight.w600 : FontWeight.w500,
+                    color: filled ? VisaColors.primary : const Color(0xFF7CC6EA))),
+          ),
         ],
       ),
     );

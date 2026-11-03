@@ -8,6 +8,7 @@ import '../../../../core/utils/storage/shared_preference.dart';
 import '../../../../injection_container.dart' as di;
 import '../../../Visa_popularDestinaton/domain/entities/visa_destination_entity.dart';
 import '../../data/visa_form_data.dart';
+import '../../data/visa_submit_service.dart';
 import '../utils/visa_rules.dart';
 import '../utils/visa_theme.dart';
 import '../widgets/visa_calendar.dart';
@@ -19,6 +20,7 @@ import '../widgets/visa_passport_step.dart';
 import '../widgets/visa_selfie_step.dart';
 import '../widgets/visa_sheets.dart';
 import 'visa_checkout_screen.dart';
+import 'visa_documents_screen.dart';
 
 enum _Stage { when, departure, camera, selfie, passportFront, detail, travellers, insurance }
 
@@ -191,6 +193,7 @@ class _VisaApplyFlowScreenState extends State<VisaApplyFlowScreen> {
     'placeOfBirth': 'Enter the place of birth',
     'fatherName': "Enter your father's name",
     'motherName': "Enter your mother's name",
+    'employment': 'Select the employment status',
     'email': 'Enter a valid email for visa updates',
     'phone': 'Enter a valid mobile number',
   };
@@ -211,6 +214,7 @@ class _VisaApplyFlowScreenState extends State<VisaApplyFlowScreen> {
     if (t.placeOfBirth.trim().isEmpty) return 'placeOfBirth';
     if (t.fatherName.trim().isEmpty) return 'fatherName';
     if (t.motherName.trim().isEmpty) return 'motherName';
+    if (t.employment.trim().isEmpty) return 'employment';
     if (i == 0) {
       if (!RegExp(r'^[\w\-.+]+@([\w\-]+\.)+[\w\-]{2,}$').hasMatch(_trip.email.trim())) return 'email';
       if (_trip.phone.replaceAll(RegExp(r'\D'), '').length < 8) return 'phone';
@@ -363,8 +367,39 @@ class _VisaApplyFlowScreenState extends State<VisaApplyFlowScreen> {
     return (b.difference(a).inDays + 1).clamp(1, 180);
   }
 
-  void _toCheckout({required bool insurance}) {
-    Navigator.push(
+  /// Nothing configured for the destination means no document step at all,
+  /// rather than an empty one.
+  bool get _hasDocuments => _d.requiredDocuments.isNotEmpty;
+
+  /// Documents first, which is where the application is saved and the lead
+  /// reaches the CRM, then checkout to pay for it.
+  Future<void> _toCheckout({required bool insurance}) async {
+    final days = insurance ? _insuranceDays : null;
+    VisaCreatedApplication? created;
+    if (_hasDocuments) {
+      final outcome = await Navigator.push<VisaDocumentsOutcome>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => VisaDocumentsScreen(
+            destination: _d,
+            visaType: _type,
+            travellers: _travellers,
+            trip: _trip,
+            insuranceDays: days,
+            validFrom: _travelDate,
+            header: VisaFlowHeader(
+              visaOn: _visaOn,
+              step: VisaFlowStep.documents,
+              onBack: () => Navigator.pop(context),
+            ),
+          ),
+        ),
+      );
+      // Backed out of the documents step: stay on the insurance step.
+      if (!mounted || outcome == null) return;
+      created = outcome.created;
+    }
+    await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => VisaCheckoutScreen(
@@ -372,7 +407,8 @@ class _VisaApplyFlowScreenState extends State<VisaApplyFlowScreen> {
           visaType: _type,
           travellers: _travellers,
           trip: _trip,
-          insuranceDays: insurance ? _insuranceDays : null,
+          insuranceDays: days,
+          created: created,
           header: VisaFlowHeader(
             visaOn: _visaOn,
             step: VisaFlowStep.checkout,
@@ -433,8 +469,9 @@ class _VisaApplyFlowScreenState extends State<VisaApplyFlowScreen> {
         _Stage.when || _Stage.departure => VisaFlowStep.dates,
         _Stage.camera || _Stage.selfie => VisaFlowStep.photo,
         _Stage.passportFront => VisaFlowStep.passport,
-        _Stage.detail || _Stage.travellers => VisaFlowStep.detail,
-        _Stage.insurance => VisaFlowStep.checkout,
+        // The insurance offer is the last of the trip details; documents and
+        // checkout are screens of their own, with their own header.
+        _Stage.detail || _Stage.travellers || _Stage.insurance => VisaFlowStep.detail,
       };
 
   void _snack(String message) {
@@ -974,6 +1011,29 @@ class _VisaApplyFlowScreenState extends State<VisaApplyFlowScreen> {
                 capitalization: TextCapitalization.characters,
                 onChanged: (v) => t.oldPassportNo = v.toUpperCase(),
               ),
+              // Which documents this traveller has to provide follows from
+              // their employment, so every traveller answers it, not only the
+              // first one who picked it on the cost page.
+              VisaTapInput(
+                label: 'Employment',
+                value: t.employment,
+                error: _errors.contains('employment'),
+                onTap: () async {
+                  final picked = await showVisaSheet<String>(
+                    context,
+                    VisaOptionList<String>(
+                      options: visaEmploymentOptions,
+                      labelOf: (o) => o,
+                      selected: t.employment.isEmpty ? null : t.employment,
+                    ),
+                  );
+                  if (picked == null) return;
+                  setState(() {
+                    if (picked != t.employment) t.documentPaths.clear();
+                    t.employment = picked;
+                  });
+                },
+              ),
             ],
           ),
         ),
@@ -1160,7 +1220,7 @@ class _VisaApplyFlowScreenState extends State<VisaApplyFlowScreen> {
     final until = from.add(Duration(days: days - 1));
     final price = VisaInsurancePlan.perDayInr * days * count;
     final money = '₹${NumberFormat.decimalPattern('en_IN').format(price.round())}';
-    final required = [..._d.requirementsItems, ..._d.requiredDocuments]
+    final required = [..._d.requirementsItems, ..._d.requiredDocumentLabels]
         .any((r) => r.toLowerCase().contains('insurance'));
     const benefits = [
       (Icons.medical_services_outlined, 'Emergency Medical Cover', 'Hospitalization & treatment', '\$50,000'),

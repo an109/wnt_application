@@ -1,5 +1,21 @@
 import '../../domain/entities/visa_destination_entity.dart';
 
+/// A required document as the dashboard stores it. Older rows are plain
+/// label strings, which stand for a document everyone must provide.
+VisaRequiredDocument _requiredDocument(dynamic d) {
+  if (d is! Map) {
+    return VisaRequiredDocument(label: d?.toString().trim() ?? '');
+  }
+  return VisaRequiredDocument(
+    label: (d['label'] ?? '').toString().trim(),
+    description: (d['description'] ?? '').toString().trim(),
+    required: d['required'] == null ? true : d['required'] == true,
+    occupation: (d['occupation'] ?? 'All').toString().trim().isEmpty
+        ? 'All'
+        : (d['occupation']).toString().trim(),
+  );
+}
+
 class VisaPopularDestinationModel extends VisaPopularDestinationEntity {
   const VisaPopularDestinationModel({
     required super.id,
@@ -62,10 +78,11 @@ class VisaPopularDestinationModel extends VisaPopularDestinationEntity {
               .where((f) => f['q']!.isNotEmpty)
               .toList() ??
           [],
-      // Admin stores either plain labels or {label, required}.
+      // Admin stores either plain labels or
+      // {label, description, required, occupation}.
       requiredDocuments: (json['required_documents'] as List<dynamic>?)
-              ?.map((d) => d is Map ? (d['label'] ?? '').toString() : d.toString())
-              .where((d) => d.isNotEmpty)
+              ?.map(_requiredDocument)
+              .where((d) => d.label.isNotEmpty)
               .toList() ??
           [],
       appInsights: json['app_insights'] is Map

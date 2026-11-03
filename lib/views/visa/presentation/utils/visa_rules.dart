@@ -225,7 +225,7 @@ extension VisaDestinationRules on VisaPopularDestinationEntity {
   }
 
   VisaDocs get docs {
-    final text = [...requirementsItems, ...requiredDocuments].join(' ').toLowerCase();
+    final text = [...requirementsItems, ...requiredDocumentLabels].join(' ').toLowerCase();
     if (RegExp(r'\b(us|usa|uk|schengen)\b').hasMatch(text) && text.contains('visa')) {
       return VisaDocs.otherVisa;
     }

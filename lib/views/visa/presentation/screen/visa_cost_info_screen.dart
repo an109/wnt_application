@@ -532,7 +532,7 @@ class _VisaCostInfoScreenState extends State<VisaCostInfoScreen> {
   Widget _documents() {
     final user = di.sl<PreferencesManager>().getUserData() ?? {};
     final name = (user['name'] ?? '').toString().trim();
-    final items = _d.requiredDocuments.isNotEmpty ? _d.requiredDocuments : _d.requirementsItems;
+    final items = _d.requiredDocuments.isNotEmpty ? _d.requiredDocumentLabels : _d.requirementsItems;
     final docs = items.isEmpty ? const ['Passport'] : items;
 
     return _grey(

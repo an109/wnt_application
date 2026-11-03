@@ -29,6 +29,10 @@ class VisaCheckoutScreen extends StatefulWidget {
   /// Insurance days already chosen in the application flow.
   final int? insuranceDays;
 
+  /// The application the documents step already saved, if there was one. The
+  /// lead is in the CRM by then; checkout only has to collect the payment.
+  final VisaCreatedApplication? created;
+
   /// Step header of the application flow; a plain "Checkout" bar otherwise.
   final Widget? header;
 
@@ -39,6 +43,7 @@ class VisaCheckoutScreen extends StatefulWidget {
     required this.travellers,
     required this.trip,
     this.insuranceDays,
+    this.created,
     this.header,
   });
 
@@ -54,6 +59,17 @@ class _VisaCheckoutScreenState extends State<VisaCheckoutScreen> {
   int? _insuranceDays;
   bool _busy = false;
   VisaCreatedApplication? _created;
+
+  /// The application is saved as soon as checkout opens, so the lead reaches
+  /// the CRM and the mails go out even if the traveller never pays — the point
+  /// the website creates it too. Guarded so editing the insurance or the
+  /// validity afterwards does not keep adding records; that case falls back to
+  /// creating at payment time, as before.
+  bool _leadStarted = false;
+
+  /// The save that is running, so paying waits for it instead of creating a
+  /// second application.
+  Future<void>? _leadInFlight;
 
   /// INR per unit of the visa fee currency; null until known. Payment stays
   /// blocked without it so a 350 AED fee is never charged as ₹350.
@@ -95,6 +111,31 @@ class _VisaCheckoutScreenState extends State<VisaCheckoutScreen> {
       _inrRate = rate == 1 ? null : rate;
       _rateFailed = rate == 1;
     });
+    _saveLead();
+  }
+
+  /// Creates the application behind the scenes once the total is known. It
+  /// also uploads the scans and the documents picked on the Documents step.
+  /// A failure is left silent: the traveller can still pay, and `_pay` tries
+  /// again.
+  void _saveLead() {
+    if (_leadStarted || _created != null || _inrRate == null) return;
+    if (!di.sl<PreferencesManager>().isLoggedIn()) return;
+    if (_email.isEmpty) return;
+    _leadStarted = true;
+    _leadInFlight = _runSaveLead();
+  }
+
+  Future<void> _runSaveLead() async {
+    await _submitEnquiry();
+    try {
+      final created = await _create();
+      if (!mounted) return;
+      setState(() => _created = created);
+    } on VisaSubmitException {
+      // Leave it to `_pay`, which reports the error to the traveller.
+      _leadStarted = false;
+    }
   }
 
   @override
@@ -106,6 +147,13 @@ class _VisaCheckoutScreenState extends State<VisaCheckoutScreen> {
       fallback: visaValidityDays(_type.stay),
     );
     _insuranceDays = widget.insuranceDays;
+    // Saved on the documents step: no second application, and the enquiry and
+    // the documents went with it.
+    _created = widget.created;
+    if (_created != null) {
+      _leadStarted = true;
+      _enquirySent = true;
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadRate());
   }
 
@@ -162,15 +210,9 @@ class _VisaCheckoutScreenState extends State<VisaCheckoutScreen> {
 
     setState(() => _busy = true);
     try {
-      // Submit visa enquiry before creating the application.
-      await _service.submitEnquiry(
-        email: _email,
-        contactNo: widget.trip.phone.replaceAll(RegExp(r'[^0-9+]'), ''),
-        visaType: _type.title,
-        travellers: '${widget.travellers.length}',
-        destinationId: _d.id,
-        attractionName: _d.shortName,
-      );
+      // A save started when checkout opened may still be running.
+      await _leadInFlight;
+      await _submitEnquiry();
       _created ??= await _create();
       if (_totalInr <= 0) {
         await _service.completePayment(
@@ -212,6 +254,22 @@ class _VisaCheckoutScreenState extends State<VisaCheckoutScreen> {
     }
   }
 
+  /// Visa enquiry, sent once per checkout before the application is created.
+  bool _enquirySent = false;
+
+  Future<void> _submitEnquiry() async {
+    if (_enquirySent) return;
+    _enquirySent = true;
+    await _service.submitEnquiry(
+      email: _email,
+      contactNo: widget.trip.phone.replaceAll(RegExp(r'[^0-9+]'), ''),
+      visaType: _type.title,
+      travellers: '${widget.travellers.length}',
+      destinationId: _d.id,
+      attractionName: _d.shortName,
+    );
+  }
+
   Future<VisaCreatedApplication> _create() async {
     final created = await _service.create(
       destination: _d.name,
@@ -244,10 +302,13 @@ class _VisaCheckoutScreenState extends State<VisaCheckoutScreen> {
       created.id,
       _email,
       widget.travellers,
+      documentLabels: {
+        for (final doc in _d.requiredDocuments) doc.key: doc.label,
+      },
     );
     if (!uploaded) {
       _snack(
-        'Passport photos could not be uploaded. Our team will collect them from you.',
+        'Your documents could not be uploaded. Our team will collect them from you.',
       );
     }
     return created;
@@ -339,30 +400,30 @@ class _VisaCheckoutScreenState extends State<VisaCheckoutScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               if (guaranteed != null)
-                Container(
-                  width: double.infinity,
-                  color: VisaColors.primarySoft,
-                  padding: const EdgeInsets.symmetric(vertical: 7),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(
-                        Icons.verified,
-                        size: 12,
-                        color: VisaColors.primary,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        '${_d.shortName} visa guaranteed by ${DateFormat('d MMM, h:mm a').format(guaranteed)}',
-                        style: visaText(
-                          9,
-                          weight: FontWeight.w500,
-                          color: VisaColors.title,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+                // Container(
+                //   width: double.infinity,
+                //   color: VisaColors.primarySoft,
+                //   padding: const EdgeInsets.symmetric(vertical: 7),
+                //   child: Row(
+                //     mainAxisAlignment: MainAxisAlignment.center,
+                //     children: [
+                //       // const Icon(
+                //       //   Icons.verified,
+                //       //   size: 12,
+                //       //   color: VisaColors.primary,
+                //       // ),
+                //       // const SizedBox(width: 4),
+                //       // Text(
+                //       //   '${_d.shortName} visa guaranteed by ${DateFormat('d MMM, h:mm a').format(guaranteed)}',
+                //       //   style: visaText(
+                //       //     9,
+                //       //     weight: FontWeight.w500,
+                //       //     color: VisaColors.title,
+                //       //   ),
+                //       // ),
+                //     ],
+                //   ),
+                // ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
                 child: _inrRate == null

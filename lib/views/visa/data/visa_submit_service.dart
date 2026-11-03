@@ -137,33 +137,56 @@ class VisaSubmitService {
     }
   }
 
-  /// Uploads each traveller's selfie and passport pages, named like
-  /// `traveller1_passport_front.jpg` so the team can tell them apart.
+  /// Uploads each traveller's selfie, passport pages and the documents picked
+  /// on the Documents step, named like `traveller1_passport_front.jpg` so the
+  /// team can tell them apart. Each file also carries its label and traveller
+  /// number, which the backend stores and forwards to the CRM.
   /// Returns false when it failed; the application itself is already saved,
   /// so the team can collect them later.
-  Future<bool> uploadDocuments(int applicationId, String email, List<VisaTravellerForm> travellers) async {
+  Future<bool> uploadDocuments(
+    int applicationId,
+    String email,
+    List<VisaTravellerForm> travellers, {
+    /// Labels of the configured documents, keyed as on [VisaTravellerForm.documentPaths].
+    Map<String, String> documentLabels = const {},
+  }) async {
     final files = <MultipartFile>[];
+    final labels = <String>[];
+    final indexes = <String>[];
+
+    Future<void> add(int traveller, String label, String path) async {
+      final ext = path.contains('.') ? path.substring(path.lastIndexOf('.')) : '.jpg';
+      final safe = label.replaceAll(RegExp(r'[^A-Za-z0-9_-]+'), '_');
+      files.add(await MultipartFile.fromFile(path, filename: 'traveller${traveller + 1}_$safe$ext'));
+      labels.add(label);
+      indexes.add('$traveller');
+    }
+
     for (var i = 0; i < travellers.length; i++) {
       final t = travellers[i];
-      final docs = {
+      final scans = {
         'selfie': t.selfiePath,
         'passport_front': t.passportScanPath,
         'passport_back': t.passportBackPath,
       };
-      for (final e in docs.entries) {
-        final path = e.value;
-        if (path == null) continue;
-        final ext = path.contains('.') ? path.substring(path.lastIndexOf('.')) : '.jpg';
-        files.add(await MultipartFile.fromFile(path, filename: 'traveller${i + 1}_${e.key}$ext'));
+      for (final e in scans.entries) {
+        if (e.value != null) await add(i, e.key, e.value!);
+      }
+      for (final e in t.documentPaths.entries) {
+        await add(i, documentLabels[e.key] ?? e.key, e.value);
       }
     }
     if (files.isEmpty) return true;
     try {
-      // The endpoint takes at most 15 files per request.
-      for (var start = 0; start < files.length; start += 15) {
+      // The endpoint takes 15 files per traveller, never more than 100 at once.
+      final batch = (15 * travellers.length).clamp(1, 100);
+      for (var start = 0; start < files.length; start += batch) {
+        final end = (start + batch).clamp(0, files.length);
         final form = FormData.fromMap({
           'user_email': email,
-          'files': files.sublist(start, (start + 15).clamp(0, files.length)),
+          'files': files.sublist(start, end),
+          'labels': labels.sublist(start, end),
+          'traveller_indexes': indexes.sublist(start, end),
         });
         final res = await _dio.post('${Urls.visaApplications}$applicationId/documents/', data: form);
         if ((res.data as Map?)?['success'] != true) return false;

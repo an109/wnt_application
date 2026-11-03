@@ -1,5 +1,40 @@
 /// Form state of the visa application (Figma "free Applica…"). Serialised
 /// for drafts and mapped onto the backend `extraDetails` fields.
+
+/// The reseller dashboard tags each required document with one of
+/// `Employee | Self-Employed | Student | Homemaker` (or `All`), while the app
+/// asks for employment in its own words. Without this translation an
+/// occupation-specific document would never match a traveller.
+const Map<String, String> visaEmploymentOccupations = {
+  'employed': 'Employee',
+  'employee': 'Employee',
+  'self employed': 'Self-Employed',
+  'self-employed': 'Self-Employed',
+  'not working': 'Homemaker',
+  'homemaker': 'Homemaker',
+  'student': 'Student',
+};
+
+/// Employment answers the app offers, in the words of the cost page.
+const List<String> visaEmploymentOptions = [
+  'Employed',
+  'Self Employed',
+  'Not Working',
+  'Student',
+];
+
+/// Dashboard occupation for an employment answer; empty when unknown, which
+/// the document list reads as "show everything".
+String visaOccupationFor(String employment) =>
+    visaEmploymentOccupations[employment.trim().toLowerCase()] ?? '';
+
+/// Dashboard occupation of a traveller: from the employment they picked, or
+/// from the occupation they typed when there is no employment answer.
+String visaOccupationOf(VisaTravellerForm t) {
+  final fromEmployment = visaOccupationFor(t.employment);
+  return fromEmployment.isNotEmpty ? fromEmployment : visaOccupationFor(t.occupation);
+}
+
 class VisaTravellerForm {
   String firstName;
   String lastName;
@@ -24,6 +59,9 @@ class VisaTravellerForm {
   /// Verified MRZ of the scanned passport; the backend re-checks it.
   String mrzLine1;
   String mrzLine2;
+
+  /// Files picked on the Documents step, keyed by `VisaRequiredDocument.key`.
+  Map<String, String> documentPaths;
 
   /// The scanned names matched the ones printed on the passport. The MRZ check
   /// digits do not cover names, so until this is true the name fields stay
@@ -52,8 +90,9 @@ class VisaTravellerForm {
     this.passportBackPath,
     this.mrzLine1 = '',
     this.mrzLine2 = '',
+    Map<String, String>? documentPaths,
     this.namesConfirmed = false,
-  });
+  }) : documentPaths = documentPaths ?? {};
 
   String get initials {
     final a = firstName.trim().isEmpty ? '' : firstName.trim()[0];
@@ -85,6 +124,7 @@ class VisaTravellerForm {
         'passportBackPath': passportBackPath,
         'mrzLine1': mrzLine1,
         'mrzLine2': mrzLine2,
+        'documentPaths': documentPaths,
         'namesConfirmed': namesConfirmed,
       };
 
@@ -108,6 +148,9 @@ class VisaTravellerForm {
         passportBackPath: j['passportBackPath'],
         mrzLine1: j['mrzLine1'] ?? '',
         mrzLine2: j['mrzLine2'] ?? '',
+        documentPaths: j['documentPaths'] is Map
+            ? (j['documentPaths'] as Map).map((k, v) => MapEntry(k.toString(), v.toString()))
+            : null,
         namesConfirmed: j['namesConfirmed'] ?? false,
       );
 }

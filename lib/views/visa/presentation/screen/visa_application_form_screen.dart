@@ -8,11 +8,13 @@ import '../../../../injection_container.dart' as di;
 import '../../../Visa_popularDestinaton/domain/entities/visa_destination_entity.dart';
 import '../../data/visa_draft_store.dart';
 import '../../data/visa_form_data.dart';
+import '../../data/visa_submit_service.dart';
 import '../utils/visa_rules.dart';
 import '../utils/visa_theme.dart';
 import '../widgets/visa_flag.dart';
 import '../widgets/visa_sheets.dart';
 import 'visa_checkout_screen.dart';
+import 'visa_documents_screen.dart';
 
 /// Visa application form (Figma 2021:7157 / 2021:7186 and the picker sheets).
 class VisaApplicationFormScreen extends StatefulWidget {
@@ -182,7 +184,7 @@ class _VisaApplicationFormScreenState extends State<VisaApplicationFormScreen> {
     'phone': 'Enter a valid phone number',
   };
 
-  void _submit() {
+  Future<void> _submit() async {
     for (var i = 0; i < _travellers.length; i++) {
       final e = _travellerError(i);
       if (e != null) return _fail(e, traveller: i);
@@ -190,6 +192,28 @@ class _VisaApplicationFormScreenState extends State<VisaApplicationFormScreen> {
     final e = _tripError();
     if (e != null) return _fail(e);
     _saveDraft();
+    // Documents come between the details and the payment, as on the website,
+    // and that page is where the application is saved and the lead reaches the
+    // CRM. Nothing configured for this destination means no document page, and
+    // checkout saves the application instead.
+    VisaCreatedApplication? created;
+    if (_d.requiredDocuments.isNotEmpty) {
+      final outcome = await Navigator.push<VisaDocumentsOutcome>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => VisaDocumentsScreen(
+            destination: _d,
+            visaType: widget.visaType,
+            travellers: _travellers,
+            trip: _trip,
+            onChanged: _saveDraft,
+          ),
+        ),
+      );
+      if (outcome == null || !mounted) return;
+      created = outcome.created;
+    }
+    if (!mounted) return;
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -198,6 +222,7 @@ class _VisaApplicationFormScreenState extends State<VisaApplicationFormScreen> {
           visaType: widget.visaType,
           travellers: _travellers,
           trip: _trip,
+          created: created,
         ),
       ),
     );

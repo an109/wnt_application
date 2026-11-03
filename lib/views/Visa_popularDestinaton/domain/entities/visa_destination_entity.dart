@@ -19,8 +19,9 @@ class VisaPopularDestinationEntity extends Equatable {
   final String requirementsHeading;
   /// `{q, a}` pairs from the destination's FAQ list.
   final List<Map<String, String>> faqs;
-  /// Labels of the documents the applicant must provide.
-  final List<String> requiredDocuments;
+  /// Documents the applicant must provide, as configured per destination in
+  /// the reseller dashboard. Each one may be tied to a single occupation.
+  final List<VisaRequiredDocument> requiredDocuments;
   /// Admin-entered stats for the app visa page (forecast, portal uptime …);
   /// empty when not filled in.
   final Map<String, dynamic> appInsights;
@@ -69,6 +70,52 @@ class VisaPopularDestinationEntity extends Equatable {
     requiredDocuments,
     appInsights,
   ];
+
+  /// Plain labels, for the places that only list the documents as text.
+  List<String> get requiredDocumentLabels =>
+      [for (final d in requiredDocuments) d.label];
+
+  /// The documents an applicant with [occupation] has to provide. Documents
+  /// left on "All" apply to everyone; when the occupation is unknown only
+  /// those are asked for, rather than every occupation's documents at once.
+  List<VisaRequiredDocument> documentsFor(String occupation) {
+    if (occupation.trim().isEmpty) {
+      return [for (final d in requiredDocuments) if (d.forEveryone) d];
+    }
+    return [for (final d in requiredDocuments) if (d.appliesTo(occupation)) d];
+  }
+}
+
+/// One configured document: `{label, description, required, occupation}` as
+/// stored in `VisaPopularDestination.required_documents`.
+class VisaRequiredDocument extends Equatable {
+  final String label;
+  final String description;
+  final bool required;
+
+  /// `All` (everyone) or one of Employee | Self-Employed | Student | Homemaker.
+  final String occupation;
+
+  const VisaRequiredDocument({
+    required this.label,
+    this.description = '',
+    this.required = true,
+    this.occupation = 'All',
+  });
+
+  /// Stable key for holding the picked file against this document.
+  String get key => '$occupation|$label';
+
+  bool get forEveryone {
+    final o = occupation.trim().toLowerCase();
+    return o.isEmpty || o == 'all';
+  }
+
+  bool appliesTo(String other) =>
+      forEveryone || occupation.trim().toLowerCase() == other.trim().toLowerCase();
+
+  @override
+  List<Object?> get props => [label, description, required, occupation];
 }
 
 class VisaTypeEntity extends Equatable {

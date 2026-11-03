@@ -34,7 +34,7 @@ class _VisaInfoScreenState extends State<VisaInfoScreen> {
   Widget build(BuildContext context) {
     final type = _type;
     final processing = type?.parsedProcessing ?? _d.fastestProcessing;
-    final requirements = _d.requiredDocuments.isNotEmpty ? _d.requiredDocuments : _d.requirementsItems;
+    final requirements = _d.requiredDocuments.isNotEmpty ? _d.requiredDocumentLabels : _d.requirementsItems;
 
     return Scaffold(
       backgroundColor: Colors.white,
