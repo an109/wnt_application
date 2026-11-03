@@ -45,6 +45,8 @@ class VisaSubmitService {
       final res = await _dio.post(Urls.visaEnquiry, data: {
         'email': email.trim(),
         'contact_no': contactNo.trim(),
+        // The application sent right after is the CRM lead; no second one.
+        'source': 'app',
         if (visaType != null) 'visa_type': visaType,
         if (travellers != null) 'travellers': travellers,
         if (destinationId != null) 'destination_id': destinationId,
