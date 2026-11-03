@@ -132,15 +132,15 @@ class FlightRouteSegment {
       resultFareType: results?.resultFareType,
       fareQuoteData: fare != null
           ? FareQuoteData(
-              currency: fare.currency ?? 'USD',
-              baseFare: fare.baseFare ?? 0.0,
-              tax: fare.tax ?? 0.0,
-              offeredFare: fare.offeredFare ?? 0.0,
-              publishedFare: fare.publishedFare ?? 0.0,
-              serviceFee: 0.0,
-              isLcc: results?.isLcc ?? false,
-              rawItinerary: results?.raw ?? const {},
-            )
+        currency: fare.currency ?? 'USD',
+        baseFare: fare.baseFare ?? 0.0,
+        tax: fare.tax ?? 0.0,
+        offeredFare: fare.offeredFare ?? 0.0,
+        publishedFare: fare.publishedFare ?? 0.0,
+        serviceFee: 0.0,
+        isLcc: results?.isLcc ?? false,
+        rawItinerary: results?.raw ?? const {},
+      )
           : null,
       departureDate: original.departureDate,
       flightType: original.flightType,
@@ -400,18 +400,18 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
   ({int adults, int children, int infants}) get _paxSplit {
     if (widget.adultCount > 0 || widget.childCount > 0 || widget.infantCount > 0) {
       return (
-        adults: widget.adultCount,
-        children: widget.childCount,
-        infants: widget.infantCount,
+      adults: widget.adultCount,
+      children: widget.childCount,
+      infants: widget.infantCount,
       );
     }
     final pricer = (_updatedRouteWithFareQuote ?? widget.routes.first).akFareData;
     if (pricer != null &&
         (pricer.adultCount > 0 || pricer.childCount > 0 || pricer.infantCount > 0)) {
       return (
-        adults: pricer.adultCount,
-        children: pricer.childCount,
-        infants: pricer.infantCount,
+      adults: pricer.adultCount,
+      children: pricer.childCount,
+      infants: pricer.infantCount,
       );
     }
     return (adults: widget.travellerCount < 1 ? 1 : widget.travellerCount, children: 0, infants: 0);
@@ -676,10 +676,10 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
     final addOnsInFareCurrency = originalCurrency.toUpperCase() == 'INR'
         ? _addOnsTotal
         : CurrencyConverter.convert(
-            amount: _addOnsTotal,
-            fromCurrency: 'INR',
-            toCurrency: originalCurrency,
-          );
+      amount: _addOnsTotal,
+      fromCurrency: 'INR',
+      toCurrency: originalCurrency,
+    );
     double baseTotal = (fare?.total ?? double.tryParse(widget.totalPrice) ?? 0) + addOnsInFareCurrency;
 
     // In the fare's own currency first, then converted twice: once for this
@@ -735,10 +735,10 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
     return targetCurrency.toUpperCase() == 'INR'
         ? _addOnsTotal
         : CurrencyConverter.convert(
-            amount: _addOnsTotal,
-            fromCurrency: 'INR',
-            toCurrency: targetCurrency,
-          );
+      amount: _addOnsTotal,
+      fromCurrency: 'INR',
+      toCurrency: targetCurrency,
+    );
   }
 
   String _getFinalTotalDisplay(FareQuoteData fare) {
@@ -811,13 +811,13 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
       final sourceCurrency = currency.isEmpty ? 'INR' : currency;
 
       final converted =
-          sourceCurrency.toUpperCase() == targetCurrency.toUpperCase()
+      sourceCurrency.toUpperCase() == targetCurrency.toUpperCase()
           ? amount
           : CurrencyConverter.convert(
-              amount: amount,
-              fromCurrency: sourceCurrency,
-              toCurrency: targetCurrency,
-            );
+        amount: amount,
+        fromCurrency: sourceCurrency,
+        toCurrency: targetCurrency,
+      );
 
       return CurrencyConverter.format(converted, targetCurrency);
     } catch (e) {
@@ -1338,18 +1338,18 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
   }
 
   Widget _dot(BuildContext context) => Container(
-        width: context.w(8),
-        height: context.w(8),
-        decoration: const BoxDecoration(color: _pri, shape: BoxShape.circle),
-      );
+    width: context.w(8),
+    height: context.w(8),
+    decoration: const BoxDecoration(color: _pri, shape: BoxShape.circle),
+  );
 
   Widget _buildEndpointColumn(
-    BuildContext context, {
-    required String time,
-    required String date,
-    required String place,
-    required bool alignEnd,
-  }) {
+      BuildContext context, {
+        required String time,
+        required String date,
+        required String place,
+        required bool alignEnd,
+      }) {
     return Column(
       crossAxisAlignment: alignEnd ? CrossAxisAlignment.end : CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -1382,11 +1382,11 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
   // ---------------------------------------------------------------------------
 
   List<({String label, GlobalKey key})> get _sections => [
-        (label: 'Traveller details', key: _travellerSectionKey),
-        (label: 'Offers', key: _offersSectionKey),
-        if (_isInternationalRoute) (label: 'Insurance', key: _insuranceSectionKey),
-        (label: 'Booking policies', key: _policiesSectionKey),
-      ];
+    (label: 'Traveller details', key: _travellerSectionKey),
+    (label: 'Offers', key: _offersSectionKey),
+    if (_isInternationalRoute) (label: 'Insurance', key: _insuranceSectionKey),
+    (label: 'Booking policies', key: _policiesSectionKey),
+  ];
 
   void _scrollToSection(int index) {
     setState(() => _activeSection = index);
@@ -1477,7 +1477,7 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _sectionTitle(context, 'Traveller Details'),
-            // trailing: '0/${widget.travellerCount} Added'),
+        // trailing: '0/${widget.travellerCount} Added'),
         SizedBox(height: context.h(16)),
         Container(
           width: double.infinity,
@@ -1541,18 +1541,18 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
         final seenCodes = <String>{};
         final all = state is PromoCodesLoaded
             ? state.promoCodes
-                // 'all' means the promo applies everywhere (not scoped to a
-                // single category) — e.g. the API's SAVE10 comes back with
-                // category "all" and still needs to show up here.
-                .where((p) {
-                  final cat = p.category.trim().toLowerCase();
-                  return cat == 'flight_booking' || cat == 'payment' || cat == 'all';
-                })
-                .where((p) {
-                  final code = p.code.trim().toUpperCase();
-                  return code.isNotEmpty && seenCodes.add(code);
-                })
-                .toList()
+        // 'all' means the promo applies everywhere (not scoped to a
+        // single category) — e.g. the API's SAVE10 comes back with
+        // category "all" and still needs to show up here.
+            .where((p) {
+          final cat = p.category.trim().toLowerCase();
+          return cat == 'flight_booking' || cat == 'payment' || cat == 'all';
+        })
+            .where((p) {
+          final code = p.code.trim().toUpperCase();
+          return code.isNotEmpty && seenCodes.add(code);
+        })
+            .toList()
             : <PromoCodeEntity>[];
         final visible = _showAllOffers ? all : all.take(2).toList();
 
@@ -1620,10 +1620,10 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
     final body = isApplied
         ? 'Congratulations! Promo Discount of ${_getPreferredCurrencySymbol()}${_promoDiscountAmount.toStringAsFixed(0)} applied successfully to your booking.'
         : (!eligible
-            ? promo.minPurchaseHint
-            : (promo.description.isNotEmpty
-                ? promo.description
-                : 'Apply this code to get $offLabel on your booking.'));
+        ? promo.minPurchaseHint
+        : (promo.description.isNotEmpty
+        ? promo.description
+        : 'Apply this code to get $offLabel on your booking.'));
 
     return Container(
       width: double.infinity,
@@ -1687,7 +1687,9 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
           SizedBox(height: context.h(11)),
           Text(
             body,
-            style: TextStyle(fontSize: context.fs(12), color: _muted),
+            style: TextStyle(
+                fontSize: ! eligible ? context.fs(13): context.fs(12),
+                color: !eligible ? Colors.red : _muted),
           ),
           SizedBox(height: context.h(11)),
           Container(
@@ -1736,25 +1738,25 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
   Widget _buildInsuranceSection(BuildContext context) {
     final benefits = <({IconData icon, Color bg, Color fg, String label, String value})>[
       (
-        icon: Icons.local_hospital_rounded,
-        bg: const Color(0xFFFEF2F2),
-        fg: const Color(0xFFEF4444),
-        label: 'Medical Expenses',
-        value: r'$250,000'
+      icon: Icons.local_hospital_rounded,
+      bg: const Color(0xFFFEF2F2),
+      fg: const Color(0xFFEF4444),
+      label: 'Medical Expenses',
+      value: r'$250,000'
       ),
       (
-        icon: Icons.event_busy_rounded,
-        bg: const Color(0xFFFFFBEB),
-        fg: const Color(0xFFF59E0B),
-        label: 'Trip Cancellation',
-        value: r'$2,500'
+      icon: Icons.event_busy_rounded,
+      bg: const Color(0xFFFFFBEB),
+      fg: const Color(0xFFF59E0B),
+      label: 'Trip Cancellation',
+      value: r'$2,500'
       ),
       (
-        icon: Icons.luggage_rounded,
-        bg: const Color(0xFFEFF6FF),
-        fg: const Color(0xFF3B82F6),
-        label: 'Delayed Baggage',
-        value: r'$500'
+      icon: Icons.luggage_rounded,
+      bg: const Color(0xFFEFF6FF),
+      fg: const Color(0xFF3B82F6),
+      label: 'Delayed Baggage',
+      value: r'$500'
       ),
     ];
 
@@ -1916,50 +1918,50 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
     final refundable = route.isRefundable == true;
 
     Widget bagRow(IconData icon, String label, String value) => Row(
-          children: [
-            Icon(icon, size: context.w(13), color: AppColors.black),
-            SizedBox(width: context.w(8)),
-            Text(label, style: TextStyle(fontSize: context.fs(10), color: _muted)),
-            SizedBox(width: context.w(8)),
-            Text.rich(
-              TextSpan(children: [
-                TextSpan(text: value, style: const TextStyle(color: Colors.black)),
-                TextSpan(text: ' /adult', style: TextStyle(color: _muted)),
-              ]),
-              style: TextStyle(fontSize: context.fs(10)),
-            ),
-          ],
-        );
+      children: [
+        Icon(icon, size: context.w(13), color: AppColors.black),
+        SizedBox(width: context.w(8)),
+        Text(label, style: TextStyle(fontSize: context.fs(10), color: _muted)),
+        SizedBox(width: context.w(8)),
+        Text.rich(
+          TextSpan(children: [
+            TextSpan(text: value, style: const TextStyle(color: Colors.black)),
+            TextSpan(text: ' /adult', style: TextStyle(color: _muted)),
+          ]),
+          style: TextStyle(fontSize: context.fs(10)),
+        ),
+      ],
+    );
 
     Widget bullet(String bold, String rest) => Padding(
-          padding: EdgeInsets.only(top: context.h(6)),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: EdgeInsets.only(top: context.h(4)),
-                child: Container(
-                  width: context.w(2),
-                  height: context.w(2),
-                  decoration: const BoxDecoration(color: Colors.black, shape: BoxShape.circle),
-                ),
-              ),
-              SizedBox(width: context.w(6)),
-              Expanded(
-                child: Text.rich(
-                  TextSpan(children: [
-                    TextSpan(
-                      text: bold,
-                      style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.black),
-                    ),
-                    TextSpan(text: rest, style: TextStyle(color: _muted)),
-                  ]),
-                  style: TextStyle(fontSize: context.fs(8)),
-                ),
-              ),
-            ],
+      padding: EdgeInsets.only(top: context.h(6)),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: EdgeInsets.only(top: context.h(4)),
+            child: Container(
+              width: context.w(2),
+              height: context.w(2),
+              decoration: const BoxDecoration(color: Colors.black, shape: BoxShape.circle),
+            ),
           ),
-        );
+          SizedBox(width: context.w(6)),
+          Expanded(
+            child: Text.rich(
+              TextSpan(children: [
+                TextSpan(
+                  text: bold,
+                  style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.black),
+                ),
+                TextSpan(text: rest, style: TextStyle(color: _muted)),
+              ]),
+              style: TextStyle(fontSize: context.fs(8)),
+            ),
+          ),
+        ],
+      ),
+    );
 
     return Column(
       key: _policiesSectionKey,
@@ -2073,9 +2075,9 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
     final total = fare != null
         ? _getFinalTotalDisplay(fare)
         : _convertFareAmount(
-            double.tryParse(widget.totalPrice.replaceAll(RegExp(r'[^0-9.]'), '')) ?? 0,
-            'INR',
-          );
+      double.tryParse(widget.totalPrice.replaceAll(RegExp(r'[^0-9.]'), '')) ?? 0,
+      'INR',
+    );
 
     final paxLabel = 'FOR ${widget.travellerCount} '
         '${widget.travellerCount > 1 ? 'TRAVELLERS' : 'ADULT'}';
@@ -2158,19 +2160,19 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
                 ),
                 child: _submittingItinerary
                     ? SizedBox(
-                        width: context.w(18),
-                        height: context.w(18),
-                        child: const CircularProgressIndicator(
-                            strokeWidth: 2, color: Colors.white),
-                      )
+                  width: context.w(18),
+                  height: context.w(18),
+                  child: const CircularProgressIndicator(
+                      strokeWidth: 2, color: Colors.white),
+                )
                     : Text(
-                        'CONTINUE',
-                        style: TextStyle(
-                          fontSize: context.fs(14),
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
-                        ),
-                      ),
+                  'CONTINUE',
+                  style: TextStyle(
+                    fontSize: context.fs(14),
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
               ),
             ),
           ],
@@ -2421,11 +2423,11 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
   }
 
   Widget _fareRow(
-    BuildContext context,
-    String label,
-    String value, {
-    bool isTotal = false,
-    bool isDiscount = false,
+      BuildContext context,
+      String label,
+      String value, {
+        bool isTotal = false,
+        bool isDiscount = false,
       }) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -2501,7 +2503,7 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
               "Login to auto-fill traveller details and manage your bookings easily.",
               style: TextStyle(
                 fontSize: context.fs(11),
-              color: AppColors.subhead,
+                color: AppColors.subhead,
               ),
             ),
           ),
@@ -2568,7 +2570,7 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
               SnackBar(
                 content: Text(
                   'Infant${name.isNotEmpty ? ' $name' : ''} will be 2 or older on the travel date. '
-                  'Please book as a child (2–11 years).',
+                      'Please book as a child (2–11 years).',
                 ),
                 duration: const Duration(seconds: 5),
               ),
@@ -2600,7 +2602,7 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
           childCount: _paxSplit.children,
           infantCount: _paxSplit.infants,
           additionalLegs:
-              widget.routes.length > 1 ? widget.routes.sublist(1) : const [],
+          widget.routes.length > 1 ? widget.routes.sublist(1) : const [],
           // The promo applied here has to survive the rest of the flow, or
           // the add-ons screen would quote the undiscounted fare again.
           promoCode: _appliedPromoCode,
@@ -2626,14 +2628,14 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
   /// through [FlightBookingScreen]: on failure it simply leaves the user on
   /// the add-ons screen to retry.
   Future<void> _completeBooking(
-    BuildContext ctx, {
-    required FlightRouteSegment route,
-    required String sessionId,
-    required Map<String, dynamic> lead,
-    required List<Map<String, dynamic>> travellers,
-    required List<String> travellerNames,
-    required AddOnsSummary addOns,
-  }) async {
+      BuildContext ctx, {
+        required FlightRouteSegment route,
+        required String sessionId,
+        required Map<String, dynamic> lead,
+        required List<Map<String, dynamic>> travellers,
+        required List<String> travellerNames,
+        required AddOnsSummary addOns,
+      }) async {
     if (!mounted) return;
     setState(() => _addOnsTotal = addOns.total);
 
@@ -2670,30 +2672,30 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
 
     final akTravellers = travellers
         .map((t) => AkTravellerRequestEntity(
-              title: apiTitle((t['title'] ?? 'Mr').toString()),
-              fName: (t['firstName'] ?? '').toString(),
-              lName: (t['lastName'] ?? '').toString(),
-              gender: _mapGender((t['gender'] ?? '').toString()),
-              ptc: (t['paxType'] ?? 'ADT').toString().isEmpty
-                  ? 'ADT'
-                  : (t['paxType'] ?? 'ADT').toString(),
-              dob: _toIsoDate((t['dateOfBirth'] ?? '').toString()),
-              email: (t['email'] ?? '').toString(),
-              pMobileNo: (t['mobileNumber'] ?? '').toString(),
-              // The traveller form always collects these on an international
-              // fare, and GetTravelCheckList marks them mandatory there, so
-              // leaving them out of the payload failed CreateItinerary with
-              // "Passenger details incomplete" before the booking even
-              // reached the airline. Blank on domestic fares, where the
-              // checklist asks for none of them.
-              passportNo: (t['passportNumber'] ?? '').toString().trim(),
-              nationality: (t['nationality'] ?? '').toString().trim(),
-              visaType: (t['visaType'] ?? '').toString().trim(),
-              pdoe: _toIsoDate((t['passportExpiry'] ?? '').toString().trim()),
-              pdoi: _toIsoDate((t['passportIssueDate'] ?? '').toString().trim()),
-              pli: (t['placeOfIssue'] ?? '').toString().trim(),
-              panNo: (t['panNumber'] ?? '').toString().trim(),
-            ))
+      title: apiTitle((t['title'] ?? 'Mr').toString()),
+      fName: (t['firstName'] ?? '').toString(),
+      lName: (t['lastName'] ?? '').toString(),
+      gender: _mapGender((t['gender'] ?? '').toString()),
+      ptc: (t['paxType'] ?? 'ADT').toString().isEmpty
+          ? 'ADT'
+          : (t['paxType'] ?? 'ADT').toString(),
+      dob: _toIsoDate((t['dateOfBirth'] ?? '').toString()),
+      email: (t['email'] ?? '').toString(),
+      pMobileNo: (t['mobileNumber'] ?? '').toString(),
+      // The traveller form always collects these on an international
+      // fare, and GetTravelCheckList marks them mandatory there, so
+      // leaving them out of the payload failed CreateItinerary with
+      // "Passenger details incomplete" before the booking even
+      // reached the airline. Blank on domestic fares, where the
+      // checklist asks for none of them.
+      passportNo: (t['passportNumber'] ?? '').toString().trim(),
+      nationality: (t['nationality'] ?? '').toString().trim(),
+      visaType: (t['visaType'] ?? '').toString().trim(),
+      pdoe: _toIsoDate((t['passportExpiry'] ?? '').toString().trim()),
+      pdoi: _toIsoDate((t['passportIssueDate'] ?? '').toString().trim()),
+      pli: (t['placeOfIssue'] ?? '').toString().trim(),
+      panNo: (t['panNumber'] ?? '').toString().trim(),
+    ))
         .toList();
 
     setState(() => _submittingItinerary = true);
@@ -2739,11 +2741,11 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
   /// confirm dialog instead of this screen's own `context`, since by the
   /// time this runs the visible screen is [SeatAddonsScreen], not this one.
   Future<AkCreateItineraryEntity?> _submitItinerary(
-    String sessionId,
-    AkContactInfoRequestEntity contactInfo,
-    List<AkTravellerRequestEntity> travellers, {
-    BuildContext? uiContext,
-  }) async {
+      String sessionId,
+      AkContactInfoRequestEntity contactInfo,
+      List<AkTravellerRequestEntity> travellers, {
+        BuildContext? uiContext,
+      }) async {
     if (widget.fareType == 'DM' && widget.routes.length > 1) {
       return _submitDomesticMulticityItinerary(
         contactInfo,
@@ -2762,10 +2764,10 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
   /// DM CreateItinerary: single call to MultiCity/CreateItinerary/ — the
   /// backend handles per-leg SequenceID/RefTransactionID chaining internally.
   Future<AkCreateItineraryEntity?> _submitDomesticMulticityItinerary(
-    AkContactInfoRequestEntity contactInfo,
-    List<AkTravellerRequestEntity> travellers, {
-    BuildContext? uiContext,
-  }) async {
+      AkContactInfoRequestEntity contactInfo,
+      List<AkTravellerRequestEntity> travellers, {
+        BuildContext? uiContext,
+      }) async {
     final dmSessionId = widget.routes.first.sessionId ?? '';
     if (dmSessionId.isEmpty) {
       _showSnack(uiContext, 'Session expired. Please search again.');
@@ -2809,13 +2811,13 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
   }
 
   Future<AkCreateItineraryEntity?> _submitSingleItinerary(
-    String sessionId,
-    AkContactInfoRequestEntity contactInfo,
-    List<AkTravellerRequestEntity> travellers, {
-    int? sequenceId,
-    String? refTransactionId,
-    BuildContext? uiContext,
-  }) async {
+      String sessionId,
+      AkContactInfoRequestEntity contactInfo,
+      List<AkTravellerRequestEntity> travellers, {
+        int? sequenceId,
+        String? refTransactionId,
+        BuildContext? uiContext,
+      }) async {
     final feedbackContext = uiContext ?? context;
     _createItineraryBloc.add(LoadAkCreateItineraryEvent(
       AkCreateItineraryRequestEntity(
@@ -2828,7 +2830,7 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
     ));
 
     final state = await _createItineraryBloc.stream.firstWhere(
-      (s) => s is AkCreateItineraryLoaded || s is AkCreateItineraryFailed,
+          (s) => s is AkCreateItineraryLoaded || s is AkCreateItineraryFailed,
     );
 
     if (state is AkCreateItineraryFailed) {

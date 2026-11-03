@@ -1,0 +1,7 @@
+dependency_overrides:
+  google_mlkit_commons:
+    path: tools/mlkit_sim_stubs/google_mlkit_commons
+  google_mlkit_face_detection:
+    path: tools/mlkit_sim_stubs/google_mlkit_face_detection
+  google_mlkit_text_recognition:
+    path: tools/mlkit_sim_stubs/google_mlkit_text_recognition

@@ -5,6 +5,7 @@ import 'package:camera/camera.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../../data/visa_passport_image.dart';
 import '../../data/visa_passport_reader.dart';
@@ -56,7 +57,7 @@ class _VisaPassportStepState extends State<VisaPassportStep> with WidgetsBinding
   static const _frameAspect = 1.42; // ID-3 passport page, 125 × 88 mm
 
   CameraController? _camera;
-  final TextRecognizer _ocr = TextRecognizer(script: TextRecognitionScript.latin);
+  TextRecognizer? _ocr;
 
   _Phase _phase = _Phase.camera;
   String? _cameraError;
@@ -78,7 +79,7 @@ class _VisaPassportStepState extends State<VisaPassportStep> with WidgetsBinding
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _stopCamera();
-    _ocr.close();
+    _ocr?.close();
     super.dispose();
   }
 
@@ -93,9 +94,37 @@ class _VisaPassportStepState extends State<VisaPassportStep> with WidgetsBinding
 
   // ---------------------------------------------------------------- camera
 
+  // Future<void> _startCamera() async {
+  //   try {
+  //     final c = await openVisaCamera(CameraLensDirection.back, preset: ResolutionPreset.veryHigh);
+  //     if (!mounted) {
+  //       await c.dispose();
+  //       return;
+  //     }
+  //     try {
+  //       await c.setFocusMode(FocusMode.auto);
+  //       await c.setFlashMode(FlashMode.off);
+  //     } catch (_) {}
+  //     setState(() {
+  //       _camera = c;
+  //       _cameraError = null;
+  //       _torch = false;
+  //     });
+  //   } on CameraException catch (e) {
+  //     if (!mounted) return;
+  //     final denied = e.code.toLowerCase().contains('denied');
+  //     setState(() => _cameraError = denied
+  //         ? 'Camera access is off. Allow it in Settings, or upload a photo of your passport.'
+  //         : 'The camera could not be opened. Upload a photo of your passport instead.');
+  //   }
+  // }
   Future<void> _startCamera() async {
     try {
-      final c = await openVisaCamera(CameraLensDirection.back, preset: ResolutionPreset.veryHigh);
+      // Key change: downgrade from veryHigh to high, or try high first
+      final c = await openVisaCamera(
+        CameraLensDirection.back,
+        preset: ResolutionPreset.high, // originally veryHigh
+      );
       if (!mounted) {
         await c.dispose();
         return;
@@ -115,6 +144,12 @@ class _VisaPassportStepState extends State<VisaPassportStep> with WidgetsBinding
       setState(() => _cameraError = denied
           ? 'Camera access is off. Allow it in Settings, or upload a photo of your passport.'
           : 'The camera could not be opened. Upload a photo of your passport instead.');
+    } catch (e) {
+      // Catch Null check and other non-CameraException exceptions
+      debugPrint('[PassportScan] camera init failed: $e');
+      if (!mounted) return;
+      setState(() => _cameraError =
+      'The camera could not be opened on this device. Upload a photo instead.');
     }
   }
 
@@ -153,15 +188,38 @@ class _VisaPassportStepState extends State<VisaPassportStep> with WidgetsBinding
     if (c == null || _busy || c.value.isTakingPicture) return;
     _busy = true;
     try {
+      // Lock focus so the MRZ lines are sharp.
+      try {
+        await c.setFocusMode(FocusMode.locked);
+        await Future.delayed(const Duration(milliseconds: 400));
+      } catch (_) {}
+
       final file = await c.takePicture();
+
+      // Copy to a stable path BEFORE disposing the camera — on some Android
+      // devices, CameraController.dispose() cleans up or truncates the temp
+      // file that takePicture() wrote, which leaves ML Kit with an empty image.
+      final dir = await getTemporaryDirectory();
+      final stamp = DateTime.now().microsecondsSinceEpoch;
+      final stable = File('${dir.path}/passport_capture_$stamp.jpg');
+      final bytes = await File(file.path).readAsBytes();
+      await stable.writeAsBytes(bytes, flush: true);
+      debugPrint('[PassportScan] captured ${bytes.length} bytes → ${stable.path}');
+
       if (_torch) {
-        try {
-          await c.setFlashMode(FlashMode.off);
-        } catch (_) {}
+        try { await c.setFlashMode(FlashMode.off); } catch (_) {}
       }
       await _stopCamera();
-      await _read(file.path);
-    } catch (_) {
+
+      if (bytes.length < 5000) {
+        if (mounted) _showFailure(null, 'The photo was too dark or blurry. Please try again with better lighting.');
+        stable.delete().ignore();
+        return;
+      }
+
+      await _read(stable.path);
+    } catch (e) {
+      debugPrint('[PassportScan] capture error: $e');
       if (mounted) _showFailure(null, 'The photo could not be taken. Please try again.');
     } finally {
       _busy = false;
@@ -173,10 +231,31 @@ class _VisaPassportStepState extends State<VisaPassportStep> with WidgetsBinding
     _busy = true;
     try {
       final result = await FilePicker.platform.pickFiles(type: FileType.image);
-      final path = result?.files.single.path;
-      if (path == null) return;
+      final picked = result?.files.single.path;
+      if (picked == null) return;
+
+      // Copy the picked file to a stable temp path — FilePicker returns a
+      // cache path on Android that can be cleaned up before OCR finishes,
+      // and some paths contain characters that ML Kit's native code rejects.
+      final dir = await getTemporaryDirectory();
+      final stamp = DateTime.now().microsecondsSinceEpoch;
+      final ext = picked.toLowerCase().endsWith('.png') ? 'png' : 'jpg';
+      final stable = File('${dir.path}/passport_upload_$stamp.$ext');
+      final bytes = await File(picked).readAsBytes();
+      await stable.writeAsBytes(bytes, flush: true);
+      debugPrint('[PassportScan] uploaded ${bytes.length} bytes → ${stable.path}');
+
+      if (bytes.length < 5000) {
+        if (mounted) _showFailure(null, 'The photo is too small or empty. Please pick a clearer image.');
+        stable.delete().ignore();
+        return;
+      }
+
       await _stopCamera();
-      await _read(path);
+      await _read(stable.path);
+    } catch (e) {
+      debugPrint('[PassportScan] upload error: $e');
+      if (mounted) _showFailure(null, 'The photo could not be opened. Please try a different image.');
     } finally {
       _busy = false;
     }
@@ -193,6 +272,8 @@ class _VisaPassportStepState extends State<VisaPassportStep> with WidgetsBinding
     });
     if (widget.back) return _readBack(path);
     var variants = const <String>[];
+    _ocr?.close();
+    _ocr = TextRecognizer(script: TextRecognitionScript.latin);
     try {
       VisaMrz? best;
       var fullText = '';
@@ -202,7 +283,10 @@ class _VisaPassportStepState extends State<VisaPassportStep> with WidgetsBinding
       final texts = <String>[];
 
       Future<void> attempt(String file) async {
-        final text = (await _ocr.processImage(InputImage.fromFilePath(file))).text;
+        final inputImage = InputImage.fromFilePath(file);
+        final result = await _ocr!.processImage(inputImage);
+        final text = result.text;
+        debugPrint('[PassportScan] OCR on ${file.split('/').last}: ${result.blocks.length} blocks, ${text.length} chars');
         texts.add(text);
         // The whole-photo pass carries the printed fields; keep the fullest.
         if (text.length > fullText.length) fullText = text;
@@ -228,7 +312,11 @@ class _VisaPassportStepState extends State<VisaPassportStep> with WidgetsBinding
 
       await attempt(path);
       if (!settled()) {
-        variants = await passportOcrVariants(path);
+        try {
+          variants = await passportOcrVariants(path);
+        } catch (e) {
+          debugPrint('[PassportScan] variant generation failed: $e');
+        }
         for (final v in variants) {
           if (!mounted) return;
           await attempt(v);
@@ -258,9 +346,16 @@ class _VisaPassportStepState extends State<VisaPassportStep> with WidgetsBinding
         _scan = VisaPassportScan(path, mrz: mrz, front: readPassportFront(fullText, mrz));
         _phase = _Phase.review;
       });
-    } catch (e) {
-      debugPrint('[Passport] read failed: $e');
-      if (mounted) _showFailure(path, 'This photo could not be read. Please try again.');
+    } catch (e, st) {
+      debugPrint('[Passport] read failed: $e\n$st');
+      if (mounted) {
+        final msg = e.toString().toLowerCase();
+        if (msg.contains('format') || msg.contains('decode') || msg.contains('image')) {
+          _showFailure(path, 'This image format is not supported. Please upload a JPEG or PNG photo of your passport.');
+        } else {
+          _showFailure(path, 'This photo could not be read. Please try again with a clearer photo.');
+        }
+      }
     } finally {
       deletePassportVariants(variants);
     }
@@ -271,12 +366,14 @@ class _VisaPassportStepState extends State<VisaPassportStep> with WidgetsBinding
   /// and keeps the read that found the most.
   Future<void> _readBack(String path) async {
     var variants = const <String>[];
+    _ocr?.close();
+    _ocr = TextRecognizer(script: TextRecognitionScript.latin);
     try {
       VisaPassportBack? best;
       var bestScore = -1;
 
       Future<void> attempt(String file) async {
-        final text = (await _ocr.processImage(InputImage.fromFilePath(file))).text;
+        final text = (await _ocr!.processImage(InputImage.fromFilePath(file))).text;
         final b = readPassportBack(text);
         if (!b.looksValid) return;
         final score = (b.fatherName.isNotEmpty ? 2 : 0) +
