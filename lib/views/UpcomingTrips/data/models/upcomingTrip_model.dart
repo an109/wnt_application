@@ -3,6 +3,8 @@ import 'traveller_model.dart';
 
 class UpcomingTripModel extends UpcomingTripEntity {
   const UpcomingTripModel({
+    super.trackId,
+    super.tracker,
     required super.id,
     required super.destination,
     required super.visaType,
@@ -26,7 +28,10 @@ class UpcomingTripModel extends UpcomingTripEntity {
   });
 
   factory UpcomingTripModel.fromJson(Map<String, dynamic> json) {
+    final tracker = json['tracker'];
     return UpcomingTripModel(
+      trackId: json['track_id'] as String? ?? '',
+      tracker: tracker is Map<String, dynamic> ? VisaTracker.fromJson(tracker) : const VisaTracker(),
       id: json['id'] as int? ?? 0,
       destination: json['destination'] as String? ?? '',
       visaType: json['visaType'] as String? ?? '',

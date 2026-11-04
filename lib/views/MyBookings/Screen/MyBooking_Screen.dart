@@ -34,17 +34,38 @@ import '../Transport/bloc/MyBooking_event.dart';
 import '../Transport/bloc/MyBooking_state.dart';
 import '../visa/screen/visa_booking_summary_card.dart' show VisaBookingSummaryScreen;
 import 'trip_card.dart';
+import 'visa_booking_card.dart';
 
-// Figma "Trip" frames (upcoming / past trip / cancelled). Every booking the
-// user has — flights, hotels, transfers, visas — sorted into the three tabs
-// by its travel date and cancellation state.
+// "My Bookings": every booking the user has — flights, hotels, transfers,
+// visas — filtered by service, searchable, and (outside Visa) sorted into
+// Upcoming / Past / Cancelled by travel date and cancellation state. Visa has
+// its own filters (All / In Progress / Approved / Rejected) because a visa is
+// tracked by its application status, not by a travel date.
 
 const Color _kInk = Color(0xFF111527);
 const Color _kMuted = Color(0xFF6B7280);
 
 enum _Tab { upcoming, past, cancelled }
 
+enum _Service { all, flight, hotel, transfer, visa }
+
+enum _VisaTab { all, inProgress, approved, rejected }
+
+/// Where a visa application is, for the Visa filters.
+enum _VisaGroup { inProgress, approved, rejected, other }
+
 class _Trip {
+  final _Service service;
+
+  /// Lower-cased text the search box matches against: booking id, place, names.
+  final String search;
+
+  /// Visa only: which of the Visa filters it belongs to.
+  final _VisaGroup visaGroup;
+
+  /// Set for visas, which draw their own card instead of [card].
+  final Widget Function(BuildContext context)? custom;
+
   final _Tab tab;
 
   /// When the trip itself happens — departure, check-in, pickup.
@@ -54,9 +75,18 @@ class _Trip {
   /// just paid for sits at the top of the list however far off it is.
   final DateTime? bookedOn;
 
-  final TripCardData Function(BuildContext context) card;
+  final TripCardData Function(BuildContext context)? card;
 
-  const _Trip(this.tab, this.start, this.bookedOn, this.card);
+  const _Trip(
+    this.tab,
+    this.start,
+    this.bookedOn,
+    this.card, {
+    required this.service,
+    this.search = '',
+    this.visaGroup = _VisaGroup.other,
+    this.custom,
+  });
 }
 
 class MyBookingScreen extends StatefulWidget {
@@ -71,6 +101,10 @@ class MyBookingScreen extends StatefulWidget {
 
 class _MyBookingScreenState extends State<MyBookingScreen> {
   _Tab _tab = _Tab.upcoming;
+  _Service _service = _Service.all;
+  _VisaTab _visaTab = _VisaTab.all;
+  final TextEditingController _searchCtrl = TextEditingController();
+  String _query = '';
 
   late final MyBookingBloc _transportBloc;
   late final HotelBookingListBloc _hotelBloc;
@@ -136,6 +170,7 @@ class _MyBookingScreenState extends State<MyBookingScreen> {
     _hotelBloc.close();
     _flightBloc.close();
     _visaBloc.close();
+    _searchCtrl.dispose();
     super.dispose();
   }
 
@@ -208,13 +243,30 @@ class _MyBookingScreenState extends State<MyBookingScreen> {
 
   void _push(Widget screen) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
 
+  List<_Trip> _everyTrip() => [
+    for (final f in _flights) _flightTrip(f, _push),
+    for (final h in _hotels) _hotelTrip(h, _push),
+    for (final t in _transfers) _transferTrip(t, _push),
+    for (final v in _visas) _visaTrip(v),
+  ];
+
+  /// What the current chip, sub-filter and search show.
+  bool _shown(_Trip t) {
+    if (_service != _Service.all && t.service != _service) return false;
+    if (_query.isNotEmpty && !t.search.contains(_query)) return false;
+    if (_service == _Service.visa) {
+      return switch (_visaTab) {
+        _VisaTab.all => true,
+        _VisaTab.inProgress => t.visaGroup == _VisaGroup.inProgress,
+        _VisaTab.approved => t.visaGroup == _VisaGroup.approved,
+        _VisaTab.rejected => t.visaGroup == _VisaGroup.rejected,
+      };
+    }
+    return t.tab == _tab;
+  }
+
   List<_Trip> _trips() {
-    final all = <_Trip>[
-      for (final f in _flights) _flightTrip(f, _push),
-      for (final h in _hotels) _hotelTrip(h, _push),
-      for (final t in _transfers) _transferTrip(t, _push),
-      for (final v in _visas) _visaTrip(v),
-    ].where((t) => t.tab == _tab).toList();
+    final all = _everyTrip().where(_shown).toList();
 
     // Newest booking first, in every tab: the booking the user just made is
     // what they open this screen to check. Where the API gave us no booking
@@ -265,18 +317,51 @@ class _MyBookingScreenState extends State<MyBookingScreen> {
                           SizedBox(width: context.fx(12)),
                         ],
                         Text(
-                          'Trip',
+                          'My Bookings',
                           style: TextStyle(fontSize: context.ffs(24), fontWeight: FontWeight.w500, color: _kInk),
                         ),
                       ],
                     ),
                     SizedBox(height: context.fx(2)),
                     Text(
-                      'Plan, save and manage your next adventure with ease.',
+                      'Track and manage all your bookings in one place.',
                       style: TextStyle(fontSize: context.ffs(13), color: const Color(0xFF4B5563)),
                     ),
-                    SizedBox(height: context.fx(18)),
-                    _TabBar(selected: _tab, onSelect: (t) => setState(() => _tab = t)),
+                    SizedBox(height: context.fx(14)),
+                  ],
+                ),
+              ),
+              _ServiceChips(selected: _service, onSelect: (s) => setState(() => _service = s)),
+              Padding(
+                padding: EdgeInsets.fromLTRB(context.fx(16), context.fx(12), context.fx(16), 0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _SearchField(
+                      controller: _searchCtrl,
+                      onChanged: (v) => setState(() => _query = v.trim().toLowerCase()),
+                    ),
+                    SizedBox(height: context.fx(14)),
+                    if (_service == _Service.visa)
+                      _SegmentBar<_VisaTab>(
+                        values: _VisaTab.values,
+                        labels: {
+                          _VisaTab.all: 'All',
+                          _VisaTab.inProgress:
+                              'In Progress (${_visas.where((v) => _visaGroup(v) == _VisaGroup.inProgress).length})',
+                          _VisaTab.approved: 'Approved',
+                          _VisaTab.rejected: 'Rejected',
+                        },
+                        selected: _visaTab,
+                        onSelect: (t) => setState(() => _visaTab = t),
+                      )
+                    else
+                      _SegmentBar<_Tab>(
+                        values: _Tab.values,
+                        labels: const {_Tab.upcoming: 'Upcoming', _Tab.past: 'Past Trips', _Tab.cancelled: 'Cancelled'},
+                        selected: _tab,
+                        onSelect: (t) => setState(() => _tab = t),
+                      ),
                   ],
                 ),
               ),
@@ -293,7 +378,7 @@ class _MyBookingScreenState extends State<MyBookingScreen> {
     if (!_signedIn) {
       return _Message(
         icon: Icons.luggage_outlined,
-        title: 'Sign in to see your trips',
+        title: 'Sign in to see your bookings',
         body: 'Your flights, hotels, transfers and visas will all show up here.',
         action: ('Sign in', _openLogin),
       );
@@ -308,9 +393,21 @@ class _MyBookingScreenState extends State<MyBookingScreen> {
     if (trips.isEmpty && _failed.isNotEmpty && _failed.length == _requested.length) {
       content = _Message(
         icon: Icons.cloud_off_rounded,
-        title: "Couldn't load your trips",
+        title: "Couldn't load your bookings",
         body: 'Check your connection and try again.',
         action: ('Try again', _fetchAll),
+      );
+    } else if (trips.isEmpty && _query.isNotEmpty) {
+      content = const _Message(
+        icon: Icons.search_off_rounded,
+        title: 'No bookings found',
+        body: 'Try a different booking ID, destination or name.',
+      );
+    } else if (trips.isEmpty && _service == _Service.visa) {
+      content = const _Message(
+        icon: Icons.assignment_outlined,
+        title: 'No visa applications here',
+        body: 'Visa applications you make will show up here with their progress.',
       );
     } else if (trips.isEmpty) {
       content = switch (_tab) {
@@ -341,7 +438,7 @@ class _MyBookingScreenState extends State<MyBookingScreen> {
         ),
         itemCount: trips.length,
         separatorBuilder: (_, __) => SizedBox(height: context.fx(16)),
-        itemBuilder: (context, i) => TripCard(data: trips[i].card(context)),
+        itemBuilder: (context, i) => trips[i].custom?.call(context) ?? TripCard(data: trips[i].card!(context)),
       );
     }
 
@@ -360,13 +457,130 @@ class _MyBookingScreenState extends State<MyBookingScreen> {
   }
 }
 
-class _TabBar extends StatelessWidget {
-  final _Tab selected;
-  final ValueChanged<_Tab> onSelect;
+/// Service chips: All / Flights / Hotels / Transfer / Visa.
+class _ServiceChips extends StatelessWidget {
+  final _Service selected;
+  final ValueChanged<_Service> onSelect;
 
-  const _TabBar({required this.selected, required this.onSelect});
+  const _ServiceChips({required this.selected, required this.onSelect});
 
-  static const _labels = {_Tab.upcoming: 'Upcoming', _Tab.past: 'Past Trips', _Tab.cancelled: 'Cancelled'};
+  static const _items = <_Service, (String, IconData)>{
+    _Service.all: ('All', Icons.grid_view_rounded),
+    _Service.flight: ('Flights', Icons.flight_rounded),
+    _Service.hotel: ('Hotels', Icons.hotel_rounded),
+    _Service.transfer: ('Transfer', Icons.local_taxi_rounded),
+    _Service.visa: ('Visa', Icons.assignment_rounded),
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: context.fx(38),
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: EdgeInsets.symmetric(horizontal: context.fx(16)),
+        itemCount: _items.length,
+        separatorBuilder: (_, __) => SizedBox(width: context.fx(8)),
+        itemBuilder: (context, i) {
+          final service = _items.keys.elementAt(i);
+          final (label, icon) = _items[service]!;
+          final on = service == selected;
+          return Semantics(
+            button: true,
+            selected: on,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => onSelect(service),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: EdgeInsets.symmetric(horizontal: context.fx(14)),
+                decoration: BoxDecoration(
+                  color: on ? AppColors.AppBlue : Colors.white,
+                  borderRadius: BorderRadius.circular(context.fx(20)),
+                  border: Border.all(color: on ? AppColors.AppBlue : const Color(0xFFD9DEE5)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(icon, size: context.fx(16), color: on ? Colors.white : _kMuted),
+                    SizedBox(width: context.fx(6)),
+                    Text(
+                      label,
+                      style: TextStyle(
+                        fontSize: context.ffs(13.5),
+                        fontWeight: FontWeight.w500,
+                        color: on ? Colors.white : _kInk,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _SearchField extends StatelessWidget {
+  final TextEditingController controller;
+  final ValueChanged<String> onChanged;
+
+  const _SearchField({required this.controller, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: context.fx(46),
+      child: TextField(
+        controller: controller,
+        onChanged: onChanged,
+        textInputAction: TextInputAction.search,
+        style: TextStyle(fontSize: context.ffs(13.5), color: _kInk),
+        decoration: InputDecoration(
+          hintText: 'Search by booking ID, destination or applicant',
+          hintStyle: TextStyle(fontSize: context.ffs(13), color: const Color(0xFF9CA3AF)),
+          prefixIcon: Icon(Icons.search_rounded, size: context.fx(20), color: _kMuted),
+          suffixIcon: controller.text.isEmpty
+              ? null
+              : IconButton(
+                  icon: Icon(Icons.close_rounded, size: context.fx(18), color: _kMuted),
+                  onPressed: () {
+                    controller.clear();
+                    onChanged('');
+                  },
+                ),
+          contentPadding: EdgeInsets.zero,
+          filled: true,
+          fillColor: Colors.white,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(context.fx(12)),
+            borderSide: const BorderSide(color: Color(0xFFD9DEE5)),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(context.fx(12)),
+            borderSide: const BorderSide(color: Color(0xFFD9DEE5)),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(context.fx(12)),
+            borderSide: BorderSide(color: AppColors.AppBlue),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The rounded segmented bar under the search box (Upcoming / Past / Cancelled,
+/// or All / In Progress / Approved / Rejected for Visa).
+class _SegmentBar<T> extends StatelessWidget {
+  final List<T> values;
+  final Map<T, String> labels;
+  final T selected;
+  final ValueChanged<T> onSelect;
+
+  const _SegmentBar({required this.values, required this.labels, required this.selected, required this.onSelect});
 
   @override
   Widget build(BuildContext context) {
@@ -379,7 +593,7 @@ class _TabBar extends StatelessWidget {
       ),
       child: Row(
         children: [
-          for (final tab in _Tab.values)
+          for (final tab in values)
             Expanded(
               child: Semantics(
                 button: true,
@@ -398,10 +612,10 @@ class _TabBar extends StatelessWidget {
                           : null,
                     ),
                     child: Text(
-                      _labels[tab]!,
+                      labels[tab] ?? '',
                       maxLines: 1,
                       style: TextStyle(
-                        fontSize: context.ffs(14.5),
+                        fontSize: context.ffs(values.length > 3 ? 12.5 : 14.5),
                         fontWeight: FontWeight.w500,
                         color: tab == selected ? AppColors.AppBlue : _kMuted,
                       ),
@@ -569,6 +783,8 @@ _Trip _flightTrip(FlightBookEntity b, void Function(Widget) push) {
       ],
       onDetails: () => push(FlightTripDetailsScreen(booking: b)),
     ),
+    service: _Service.flight,
+    search: _hay([b.pnr, info.airline, info.flightNumber, info.fromCity, info.toCity, info.fromCode, info.toCode]),
   );
 }
 
@@ -620,6 +836,8 @@ _Trip _hotelTrip(HotelBookingListEntity h, void Function(Widget) push) {
       ],
       onDetails: () => push(HotelBookingDetailsScreen(booking: h)),
     ),
+    service: _Service.hotel,
+    search: _hay([h.hotelName, h.hotelCity, h.roomType]),
   );
 }
 
@@ -660,39 +878,43 @@ _Trip _transferTrip(BookingEntity t, void Function(Widget) push) {
       ],
       onDetails: () => push(BookingDetailsScreen(booking: t)),
     ),
+    service: _Service.transfer,
+    search: _hay([t.vehicleName, t.providerName, t.confirmationNumber, t.startAddress, t.endAddress, t.destination]),
   );
+}
+
+/// Lower-cased text for the search box.
+String _hay(List<String?> parts) => parts.whereType<String>().where((p) => p.isNotEmpty).join(' ').toLowerCase();
+
+/// Which Visa filter an application belongs to. Unpaid applications (no
+/// tracker yet) are in none of them and only show under "All".
+_VisaGroup _visaGroup(TripItem v) {
+  final t = v.tracker;
+  if (t.rejected) return _VisaGroup.rejected;
+  if (t.approved) return _VisaGroup.approved;
+  if (t.started) return _VisaGroup.inProgress;
+  return _VisaGroup.other;
 }
 
 _Trip _visaTrip(TripItem v) {
   final onward = _parse(v.onwardDate);
   final back = _parse(v.returnDate);
   final status = v.status.toLowerCase();
-  final rejected = status.contains('reject');
+  final group = _visaGroup(v);
   final tab = status.contains('cancel')
       ? _Tab.cancelled
-      : ((rejected || _isPast(back ?? onward)) ? _Tab.past : _Tab.upcoming);
-  final inProgress = ['pending', 'review', 'process', 'submit'].any(status.contains);
-  final applicants = int.tryParse(v.applicantCount) ?? 0;
+      : ((group == _VisaGroup.rejected || _isPast(back ?? onward)) ? _Tab.past : _Tab.upcoming);
 
   return _Trip(
     tab,
     onward,
     _bookedOn([v.bookedDate]),
-    (context) => TripCardData(
-      leading: const TripIconTile(icon: Icons.assignment_rounded),
-      title: v.destination.isNotEmpty ? v.destination : 'Visa',
-      titleSuffix: 'Visa',
-      subtitle: [if (v.type.isNotEmpty) v.type, if (v.refId.isNotEmpty) v.refId].join(' • '),
-      status: rejected
-          ? const TripStatus(TripStatusKind.cancelled, 'Rejected')
-          : _status(tab, processing: inProgress, label: tab == _Tab.upcoming && v.status.isNotEmpty ? v.status : null),
-      from: TripEndpoint(code: _shortDate(onward), place: 'Onward', date: onward == null ? '' : '${onward.year}'),
-      to: TripEndpoint(code: _shortDate(back), place: 'Return', date: back == null ? '' : '${back.year}'),
-      middleTop: v.bookedDate.isNotEmpty ? 'Applied ${v.bookedDate}' : 'Visa',
-      middleIcon: Icons.assignment_turned_in_rounded,
-      facts: [
-        if (applicants > 0) (Icons.person_rounded, _plural(applicants, 'Applicant')),
-      ],
+    null,
+    service: _Service.visa,
+    visaGroup: group,
+    search: _hay([v.bookingId, v.destination, v.type, ...v.travellerNames]),
+    custom: (context) => VisaBookingCard(
+      visa: v,
       onDetails: () => VisaBookingSummaryScreen.open(context, v),
     ),
   );

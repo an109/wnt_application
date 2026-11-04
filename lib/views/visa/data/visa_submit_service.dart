@@ -21,6 +21,14 @@ class VisaCreatedApplication {
   const VisaCreatedApplication(this.id, this.trackId);
 }
 
+/// A coupon the server accepted for an application; empty [code] = removed.
+class VisaPromoResult {
+  final String code;
+  final String description;
+  final double discountInr;
+  const VisaPromoResult({required this.code, required this.description, required this.discountInr});
+}
+
 /// Backend calls of the visa checkout:
 /// enquiry → create → upload passport scans → (Razorpay) → complete-payment.
 class VisaSubmitService {
@@ -57,6 +65,36 @@ class VisaSubmitService {
       return null;
     } catch (_) {
       return null;
+    }
+  }
+
+  /// Applies [code] to the saved application, or removes the coupon when it
+  /// is empty. The server works the discount out and lowers the application's
+  /// total to match, so what is charged agrees with what was shown.
+  /// Throws [VisaSubmitException] with the reason the code was refused.
+  Future<VisaPromoResult> applyPromo({
+    required int applicationId,
+    required String email,
+    required String code,
+  }) async {
+    try {
+      final res = await _dio.post(
+        '${Urls.visaApplications}$applicationId/promo/',
+        data: {'user_email': email, 'code': code.trim().toUpperCase()},
+      );
+      final data = (res.data as Map?)?.cast<String, dynamic>() ?? {};
+      if (data['success'] != true) {
+        throw VisaSubmitException(_error(data) ?? 'Could not apply this coupon.');
+      }
+      return VisaPromoResult(
+        code: (data['code'] ?? '').toString(),
+        description: (data['description'] ?? '').toString(),
+        discountInr: double.tryParse('${data['discount'] ?? 0}') ?? 0,
+      );
+    } on DioException catch (e) {
+      throw VisaSubmitException(
+        _error(e.response?.data) ?? 'Could not reach the server. Check your connection and try again.',
+      );
     }
   }
 

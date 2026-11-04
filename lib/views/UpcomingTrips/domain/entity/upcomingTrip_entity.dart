@@ -3,7 +3,64 @@
 import 'package:equatable/equatable.dart';
 import 'traveller_entity.dart';
 
+/// One step of the visa tracker the CRM team moves an application along.
+class VisaTrackerStep extends Equatable {
+  final String key;
+  final String label;
+  final bool done;
+  final String? date; // ISO, set once the step is reached
+
+  const VisaTrackerStep({required this.key, required this.label, required this.done, this.date});
+
+  @override
+  List<Object?> get props => [key, label, done, date];
+}
+
+/// The visa tracker from the website API: every step, which are done, and
+/// whether the application was rejected. [stage] is empty until payment.
+class VisaTracker extends Equatable {
+  final String stage;
+  final String label;
+  final bool rejected;
+  final String rejectionReason;
+  final List<VisaTrackerStep> steps;
+
+  const VisaTracker({
+    this.stage = '',
+    this.label = '',
+    this.rejected = false,
+    this.rejectionReason = '',
+    this.steps = const [],
+  });
+
+  bool get started => stage.isNotEmpty;
+  bool get approved => stage == 'approved';
+
+  factory VisaTracker.fromJson(Map<String, dynamic> json) {
+    return VisaTracker(
+      stage: json['stage'] as String? ?? '',
+      label: json['label'] as String? ?? '',
+      rejected: json['rejected'] as bool? ?? false,
+      rejectionReason: json['rejection_reason'] as String? ?? '',
+      steps: ((json['steps'] as List<dynamic>?) ?? const [])
+          .whereType<Map<String, dynamic>>()
+          .map((s) => VisaTrackerStep(
+                key: s['key'] as String? ?? '',
+                label: s['label'] as String? ?? '',
+                done: s['done'] as bool? ?? false,
+                date: s['date'] as String?,
+              ))
+          .toList(),
+    );
+  }
+
+  @override
+  List<Object?> get props => [stage, label, rejected, rejectionReason, steps];
+}
+
 class UpcomingTripEntity extends Equatable {
+  final String trackId;
+  final VisaTracker tracker;
   final int id;
   final String destination;
   final String visaType;
@@ -26,6 +83,8 @@ class UpcomingTripEntity extends Equatable {
   final String updated;
 
   const UpcomingTripEntity({
+    this.trackId = '',
+    this.tracker = const VisaTracker(),
     required this.id,
     required this.destination,
     required this.visaType,
@@ -50,6 +109,8 @@ class UpcomingTripEntity extends Equatable {
 
   @override
   List<Object?> get props => [
+    trackId,
+    tracker,
     id,
     destination,
     visaType,

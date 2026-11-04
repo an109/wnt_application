@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 
+import '../../../MainApi/domain/entities/general_setting_entity.dart';
+import '../../../MainApi/presentation/bloc/general_setting_bloc.dart';
+import '../../../MainApi/presentation/bloc/general_settings_event.dart';
+import '../../../MainApi/presentation/bloc/general_settings_state.dart';
 import '../../../../UI_helper/currency_converter.dart';
 import '../../../../core/services/currency_service.dart';
 import '../../../../UI_helper/navigation_queue.dart';
@@ -71,6 +76,12 @@ class _VisaCheckoutScreenState extends State<VisaCheckoutScreen> {
   /// second application.
   Future<void>? _leadInFlight;
 
+  /// The coupon the server accepted for the saved application. It is reset
+  /// whenever a change makes checkout save a fresh application.
+  VisaPromoResult? _promo;
+  bool _couponBusy = false;
+  final _couponCtrl = TextEditingController();
+
   /// INR per unit of the visa fee currency; null until known. Payment stays
   /// blocked without it so a 350 AED fee is never charged as ₹350.
   double? _inrRate;
@@ -85,7 +96,13 @@ class _VisaCheckoutScreenState extends State<VisaCheckoutScreen> {
   double get _insuranceInr => _insuranceDays == null
       ? 0
       : VisaInsurancePlan.perDayInr * _insuranceDays! * _count;
-  double get _totalInr => _visaFeeInr * _count + _insuranceInr;
+  double get _grossInr => _visaFeeInr * _count + _insuranceInr;
+  double get _discountInr {
+    final d = _promo?.discountInr ?? 0;
+    return d > _grossInr ? _grossInr : d;
+  }
+
+  double get _totalInr => _grossInr - _discountInr;
 
   /// Checkout shows rupees: Razorpay charges INR.
   String _money(double inr) =>
@@ -154,7 +171,79 @@ class _VisaCheckoutScreenState extends State<VisaCheckoutScreen> {
       _leadStarted = true;
       _enquirySent = true;
     }
-    WidgetsBinding.instance.addPostFrameCallback((_) => _loadRate());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadRate();
+      final bloc = context.read<GeneralSettingsBloc>();
+      if (bloc.state is! PromoCodesLoaded) bloc.add(const LoadPromoCodes());
+    });
+  }
+
+  @override
+  void dispose() {
+    _couponCtrl.dispose();
+    super.dispose();
+  }
+
+  /// A new application is saved after an edit, and the coupon belonged to the
+  /// old one, so it has to be applied again.
+  void _dropPromo() {
+    if (_promo == null) return;
+    _promo = null;
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _snack('Coupon removed because your order changed. Apply it again.'),
+    );
+  }
+
+  Future<void> _applyCoupon(String raw) async {
+    final code = raw.trim().toUpperCase();
+    if (_couponBusy || _busy) return;
+    if (code.isEmpty) {
+      _snack('Enter a coupon code');
+      return;
+    }
+    if (_inrRate == null) {
+      _snack('Price is still loading. Try again in a moment.');
+      return;
+    }
+    if (!di.sl<PreferencesManager>().isLoggedIn()) {
+      _snack('Please sign in to apply a coupon.');
+      return;
+    }
+    setState(() => _couponBusy = true);
+    try {
+      // The coupon lives on the saved application, so make sure it exists.
+      await _leadInFlight;
+      if (_created == null) {
+        _leadStarted = true;
+        _created = await _create();
+      }
+      final r = await _service.applyPromo(applicationId: _created!.id, email: _email, code: code);
+      if (!mounted) return;
+      setState(() {
+        _promo = r;
+        _couponCtrl.clear();
+      });
+      _snack('Coupon ${r.code} applied. You save ${_money(r.discountInr)}.');
+    } on VisaSubmitException catch (e) {
+      _snack(e.message);
+    } finally {
+      if (mounted) setState(() => _couponBusy = false);
+    }
+  }
+
+  Future<void> _removeCoupon() async {
+    if (_promo == null || _couponBusy || _busy) return;
+    setState(() => _couponBusy = true);
+    try {
+      if (_created != null) {
+        await _service.applyPromo(applicationId: _created!.id, email: _email, code: '');
+      }
+      if (mounted) setState(() => _promo = null);
+    } on VisaSubmitException catch (e) {
+      _snack(e.message);
+    } finally {
+      if (mounted) setState(() => _couponBusy = false);
+    }
   }
 
   int get _tripDays {
@@ -176,6 +265,7 @@ class _VisaCheckoutScreenState extends State<VisaCheckoutScreen> {
       setState(() {
         _insuranceDays = days;
         _created = null;
+        _dropPromo();
       });
   }
 
@@ -188,6 +278,7 @@ class _VisaCheckoutScreenState extends State<VisaCheckoutScreen> {
       setState(() {
         _validFrom = start;
         _created = null;
+        _dropPromo();
       });
   }
 
@@ -386,6 +477,8 @@ class _VisaCheckoutScreenState extends State<VisaCheckoutScreen> {
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
                   children: [
                     _addOns(),
+                    const SizedBox(height: 12),
+                    _coupons(),
                     const SizedBox(height: 12),
                     _visaCard(),
                   ],
@@ -596,6 +689,7 @@ class _VisaCheckoutScreenState extends State<VisaCheckoutScreen> {
                           ? () => setState(() {
                               _insuranceDays = null;
                               _created = null;
+                              _dropPromo();
                             })
                           : _openInsurance,
                       child: Container(
@@ -632,6 +726,183 @@ class _VisaCheckoutScreenState extends State<VisaCheckoutScreen> {
             ),
           ),
           if (added) _insuranceDates(),
+        ],
+      ),
+    );
+  }
+
+  /// Offers the admin tagged for Visa (or for everything), once each.
+  List<PromoCodeEntity> _offers(GeneralSettingsState state) {
+    if (state is! PromoCodesLoaded) return const [];
+    final seen = <String>{};
+    return state.promoCodes.where((p) {
+      final cat = p.category.trim().toLowerCase();
+      final code = p.code.trim().toUpperCase();
+      return (cat == 'visa' || cat == 'all') && code.isNotEmpty && seen.add(code);
+    }).toList();
+  }
+
+  Widget _coupons() {
+    final applied = _promo;
+    return _card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.local_offer_outlined, size: 14, color: VisaColors.primary),
+              const SizedBox(width: 6),
+              Text('Coupons', style: visaText(11, weight: FontWeight.w600, color: VisaColors.title)),
+            ],
+          ),
+          const SizedBox(height: 10),
+          if (applied != null)
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: VisaColors.greenSoft,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: VisaColors.green),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.check_circle, size: 18, color: VisaColors.green),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(applied.code, style: visaText(11, weight: FontWeight.w700, color: VisaColors.title)),
+                        Text(
+                          'You save ${_money(_discountInr)}',
+                          style: visaText(9, weight: FontWeight.w500, color: VisaColors.green),
+                        ),
+                      ],
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: _couponBusy ? null : _removeCoupon,
+                    child: Text('Remove', style: visaText(10, weight: FontWeight.w600, color: VisaColors.red)),
+                  ),
+                ],
+              ),
+            )
+          else ...[
+            Row(
+              children: [
+                Expanded(
+                  child: SizedBox(
+                    height: 40,
+                    child: TextField(
+                      controller: _couponCtrl,
+                      enabled: !_couponBusy,
+                      textCapitalization: TextCapitalization.characters,
+                      textInputAction: TextInputAction.done,
+                      onSubmitted: _applyCoupon,
+                      style: visaText(11, weight: FontWeight.w600, color: VisaColors.title),
+                      decoration: InputDecoration(
+                        hintText: 'Enter coupon code',
+                        hintStyle: visaText(10.5, color: VisaColors.text),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(6),
+                          borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(6),
+                          borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(6),
+                          borderSide: const BorderSide(color: VisaColors.primary),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                SizedBox(
+                  height: 40,
+                  child: FilledButton(
+                    onPressed: _couponBusy ? null : () => _applyCoupon(_couponCtrl.text),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: VisaColors.primary,
+                      padding: const EdgeInsets.symmetric(horizontal: 18),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                    ),
+                    child: _couponBusy
+                        ? const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          )
+                        : Text('Apply', style: visaText(11, weight: FontWeight.w600, color: Colors.white)),
+                  ),
+                ),
+              ],
+            ),
+            BlocBuilder<GeneralSettingsBloc, GeneralSettingsState>(
+              builder: (context, state) {
+                final offers = _offers(state);
+                if (offers.isEmpty) return const SizedBox.shrink();
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 12),
+                    Text('Available offers', style: visaText(9, weight: FontWeight.w600, color: VisaColors.text)),
+                    const SizedBox(height: 6),
+                    for (final p in offers.take(4))
+                      _offerTile(p),
+                  ],
+                );
+              },
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _offerTile(PromoCodeEntity p) {
+    final eligible = _grossInr > 0 && p.isEligibleFor(_grossInr);
+    final value = p.discountType == 'percent' ? '${p.discountValue}% off' : '₹${p.discountValue} off';
+    return Container(
+      margin: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: VisaColors.surface,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${p.code} · $value',
+                  style: visaText(10.5, weight: FontWeight.w700, color: VisaColors.title),
+                ),
+                if (p.description.isNotEmpty)
+                  Text(p.description, maxLines: 2, overflow: TextOverflow.ellipsis, style: visaText(8.5, color: VisaColors.text)),
+                if (!eligible && p.minPurchase > 0)
+                  Text(p.minPurchaseHint, style: visaText(8.5, color: VisaColors.red)),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          GestureDetector(
+            onTap: (_couponBusy || !eligible) ? null : () => _applyCoupon(p.code),
+            child: Text(
+              'Apply',
+              style: visaText(
+                10.5,
+                weight: FontWeight.w700,
+                color: eligible ? VisaColors.primary : VisaColors.text,
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -748,6 +1019,12 @@ class _VisaCheckoutScreenState extends State<VisaCheckoutScreen> {
                   _priceRow(
                     'Travel insurance · $_insuranceDays days',
                     _money(_insuranceInr),
+                  ),
+                if (_promo != null)
+                  _priceRow(
+                    'Coupon ${_promo!.code}',
+                    '− ${_money(_discountInr)}',
+                    free: true,
                   ),
                 const Divider(height: 18, color: VisaColors.divider),
                 Row(

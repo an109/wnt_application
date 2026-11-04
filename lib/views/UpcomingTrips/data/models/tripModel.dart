@@ -16,8 +16,17 @@ class TripItem {
   final int entityId;
   final String onwardDate;
   final String returnDate;
+  final String trackId;
+  final VisaTracker tracker;
+  final List<String> travellerNames;
+
+  /// What the customer sees and searches by, e.g. WNVISA561860g.
+  String get bookingId => trackId.isNotEmpty ? trackId : 'WNVISA$entityId';
 
   const TripItem({
+    this.trackId = '',
+    this.tracker = const VisaTracker(),
+    this.travellerNames = const [],
     required this.refId,
     required this.destination,
     required this.type,
@@ -35,6 +44,9 @@ class TripItem {
   /// Factory to build a TripItem from the API entity
   factory TripItem.fromEntity(UpcomingTripEntity entity) {
     return TripItem(
+      trackId: entity.trackId,
+      tracker: entity.tracker,
+      travellerNames: entity.travellers.map((t) => t.fullName.trim()).where((n) => n.isNotEmpty).toList(),
       refId: 'VISA',
       destination: entity.destination,
       type: entity.visaType,
