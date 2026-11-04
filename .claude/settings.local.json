@@ -62,7 +62,12 @@
       "Bash(identify \"/Users/macbookair/Desktop/wnt_application/assets/trisha/trisha_orb.gif\")",
       "Bash(sips -g all \"/Users/macbookair/Desktop/wnt_application/assets/trisha/trisha_orb.gif\")",
       "Bash(python3 -c ' *)",
-      "Bash(ffprobe -v error -select_streams v:0 -show_entries stream=width,height,nb_frames -of csv=p=0 \"/Users/macbookair/Desktop/wnt_application/assets/trisha/trisha_orb.gif\")"
+      "Bash(ffprobe -v error -select_streams v:0 -show_entries stream=width,height,nb_frames -of csv=p=0 \"/Users/macbookair/Desktop/wnt_application/assets/trisha/trisha_orb.gif\")",
+      "Bash(adb devices *)",
+      "Bash(adb shell *)",
+      "Read(//Users/macbookair/.pub-cache/hosted/pub.dev/upgrader-13.7.0/lib/src/**)",
+      "Bash(sed -n '/UpgradeAlert\\({/,/}\\);/p' upgrade_alert.dart)",
+      "Bash(grep -n \"dart:io\\\\|import\" ../../../../../..)"
     ]
   }
 }

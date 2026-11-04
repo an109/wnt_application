@@ -3,6 +3,7 @@ import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:upgrader/upgrader.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import 'package:wander_nova/views/AKFlight_tui/presentation/bloc/akflight_Search_bloc.dart';
 import 'package:wander_nova/views/AKFlights/presentation/bloc/AKFlights_bloc.dart';
@@ -55,6 +56,7 @@ import 'package:wander_nova/views/wallet/presentation/bloc/wallet_bloc.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 
+import 'core/services/app_update_service.dart';
 import 'core/services/exchange_rate_service.dart';
 import 'core/services/push_notification_service.dart';
 import 'common_widgets/currency_scope.dart';
@@ -62,6 +64,11 @@ import 'core/utils/route_observer.dart';
 import 'views/Send_otp/presentation/bloc/send_otp_bloc.dart';
 import 'injection_container.dart' as di;
 import 'injection_container.dart';
+
+// Single instance so app rebuilds don't re-check the store or re-show the popup.
+final Upgrader _upgrader = Upgrader(
+  durationUntilAlertAgain: const Duration(days: 1),
+);
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -78,6 +85,10 @@ void main() async {
   }
   developer.log('', name: '');
   runApp(const MyApp());
+  // Fire-and-forget after the first frame; never blocks startup.
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    AppUpdateService.start();
+  });
   // After runApp so the permission prompt never delays the first frame.
   PushNotificationService.instance.init();
 }
@@ -144,7 +155,15 @@ class MyApp extends StatelessWidget {
         title: 'WanderNova',
         navigatorObservers: [appRouteObserver],
         // CurrencyScope: prices redraw when the currency or rates change.
-        builder: (context, child) => CurrencyScope(child: ResponsiveAppWrapper(child: child)),
+        // UpgradeAlert: store update popup on Android and iOS.
+        builder: (context, child) {
+          final app = CurrencyScope(child: ResponsiveAppWrapper(child: child));
+          return UpgradeAlert(
+            navigatorKey: PushNotificationService.navigatorKey,
+            upgrader: _upgrader,
+            child: app,
+          );
+        },
         theme: ThemeData(
           // primarySwatch: Colors.blue,
           //   textTheme: GoogleFonts.poppinsTextTheme(),
