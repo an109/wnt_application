@@ -148,14 +148,26 @@ class _MyBookingScreenState extends State<MyBookingScreen> {
       }))
       ..add(_visaBloc.stream.listen((s) {
         if (s is UpcomingTripLoaded) {
+          print('VISA DEBUG: UpcomingTripLoaded with ${s.trips.length} trips');
+          for (final t in s.trips) {
+            print('VISA DEBUG: trip id=${t.id} dest=${t.destination} type=${t.visaType} status=${t.status} tracker_stage=${t.tracker.stage}');
+          }
           _settle('visa', () {
-            _visas = s.trips
-                .map(TripItem.fromEntity)
+            final all = s.trips.map(TripItem.fromEntity).toList();
+            print('VISA DEBUG: After TripItem.fromEntity: ${all.length} items, categories: ${all.map((t) => t.category).toSet()}');
+            _visas = all
                 .where((t) => t.category.toLowerCase() == 'visa')
                 .toList();
+            print('VISA DEBUG: After filter: ${_visas.length} visa items');
           });
         }
-        if (s is UpcomingTripError) _settle('visa', null);
+        if (s is UpcomingTripError) {
+          print('VISA DEBUG: UpcomingTripError: ${s.error.message}');
+          _settle('visa', null);
+        }
+        if (s is UpcomingTripLoading) {
+          print('VISA DEBUG: UpcomingTripLoading');
+        }
       }));
 
     _startFetch();
@@ -201,12 +213,18 @@ class _MyBookingScreenState extends State<MyBookingScreen> {
     }
 
     final email = (prefs.getUserData()?['email'] as String?) ?? '';
+    print('VISA DEBUG: userId=$userId, email="$email", signedIn=$_signedIn');
     _requested.addAll(['flight', 'hotel', 'transport', if (email.isNotEmpty) 'visa']);
     _pending.addAll(_requested);
     _flightBloc.add(FetchFlightBookings(userId: userId));
     _hotelBloc.add(const FetchHotelBookings());
     _transportBloc.add(const FetchBookings());
-    if (email.isNotEmpty) _visaBloc.add(FetchUpcomingTrips(userEmail: email));
+    if (email.isNotEmpty) {
+      print('VISA DEBUG: Dispatching FetchUpcomingTrips with email=$email');
+      _visaBloc.add(FetchUpcomingTrips(userEmail: email));
+    } else {
+      print('VISA DEBUG: Email is empty, skipping visa fetch');
+    }
 
     _refreshing = Completer<void>();
     return _refreshing!.future;
@@ -317,14 +335,26 @@ class _MyBookingScreenState extends State<MyBookingScreen> {
                           SizedBox(width: context.fx(12)),
                         ],
                         Text(
-                          'My Bookings',
+                          switch (_service) {
+                            _Service.all => 'My Bookings',
+                            _Service.flight => 'Flight Bookings',
+                            _Service.hotel => 'Hotel Bookings',
+                            _Service.transfer => 'Transfer Bookings',
+                            _Service.visa => 'Visa Bookings',
+                          },
                           style: TextStyle(fontSize: context.ffs(24), fontWeight: FontWeight.w500, color: _kInk),
                         ),
                       ],
                     ),
                     SizedBox(height: context.fx(2)),
                     Text(
-                      'Track and manage all your bookings in one place.',
+                      switch (_service) {
+                        _Service.all => 'Track and manage all your bookings in one place.',
+                        _Service.flight => 'Track and manage your flight bookings.',
+                        _Service.hotel => 'Track and manage your hotel bookings.',
+                        _Service.transfer => 'Track and manage your transfer bookings.',
+                        _Service.visa => 'Track and manage your visa applications in one place.',
+                      },
                       style: TextStyle(fontSize: context.ffs(13), color: const Color(0xFF4B5563)),
                     ),
                     SizedBox(height: context.fx(14)),

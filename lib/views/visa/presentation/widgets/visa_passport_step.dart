@@ -58,6 +58,7 @@ class _VisaPassportStepState extends State<VisaPassportStep> with WidgetsBinding
 
   CameraController? _camera;
   TextRecognizer? _ocr;
+  bool _disposed = false;
 
   _Phase _phase = _Phase.camera;
   String? _cameraError;
@@ -77,9 +78,11 @@ class _VisaPassportStepState extends State<VisaPassportStep> with WidgetsBinding
 
   @override
   void dispose() {
+    _disposed = true;
     WidgetsBinding.instance.removeObserver(this);
     _stopCamera();
     _ocr?.close();
+    _ocr = null;
     super.dispose();
   }
 
@@ -94,30 +97,6 @@ class _VisaPassportStepState extends State<VisaPassportStep> with WidgetsBinding
 
   // ---------------------------------------------------------------- camera
 
-  // Future<void> _startCamera() async {
-  //   try {
-  //     final c = await openVisaCamera(CameraLensDirection.back, preset: ResolutionPreset.veryHigh);
-  //     if (!mounted) {
-  //       await c.dispose();
-  //       return;
-  //     }
-  //     try {
-  //       await c.setFocusMode(FocusMode.auto);
-  //       await c.setFlashMode(FlashMode.off);
-  //     } catch (_) {}
-  //     setState(() {
-  //       _camera = c;
-  //       _cameraError = null;
-  //       _torch = false;
-  //     });
-  //   } on CameraException catch (e) {
-  //     if (!mounted) return;
-  //     final denied = e.code.toLowerCase().contains('denied');
-  //     setState(() => _cameraError = denied
-  //         ? 'Camera access is off. Allow it in Settings, or upload a photo of your passport.'
-  //         : 'The camera could not be opened. Upload a photo of your passport instead.');
-  //   }
-  // }
   Future<void> _startCamera() async {
     try {
       // Key change: downgrade from veryHigh to high, or try high first
@@ -272,8 +251,10 @@ class _VisaPassportStepState extends State<VisaPassportStep> with WidgetsBinding
     });
     if (widget.back) return _readBack(path);
     var variants = const <String>[];
-    _ocr?.close();
-    _ocr = TextRecognizer(script: TextRecognitionScript.latin);
+    final prevOcr = _ocr;
+    final ocr = TextRecognizer(script: TextRecognitionScript.latin);
+    _ocr = ocr;
+    prevOcr?.close();
     try {
       VisaMrz? best;
       var fullText = '';
@@ -283,8 +264,9 @@ class _VisaPassportStepState extends State<VisaPassportStep> with WidgetsBinding
       final texts = <String>[];
 
       Future<void> attempt(String file) async {
+        if (_disposed) return;
         final inputImage = InputImage.fromFilePath(file);
-        final result = await _ocr!.processImage(inputImage);
+        final result = await ocr.processImage(inputImage);
         final text = result.text;
         debugPrint('[PassportScan] OCR on ${file.split('/').last}: ${result.blocks.length} blocks, ${text.length} chars');
         texts.add(text);
@@ -366,14 +348,17 @@ class _VisaPassportStepState extends State<VisaPassportStep> with WidgetsBinding
   /// and keeps the read that found the most.
   Future<void> _readBack(String path) async {
     var variants = const <String>[];
-    _ocr?.close();
-    _ocr = TextRecognizer(script: TextRecognitionScript.latin);
+    final prevOcr = _ocr;
+    final ocr = TextRecognizer(script: TextRecognitionScript.latin);
+    _ocr = ocr;
+    prevOcr?.close();
     try {
       VisaPassportBack? best;
       var bestScore = -1;
 
       Future<void> attempt(String file) async {
-        final text = (await _ocr!.processImage(InputImage.fromFilePath(file))).text;
+        if (_disposed) return;
+        final text = (await ocr.processImage(InputImage.fromFilePath(file))).text;
         final b = readPassportBack(text);
         if (!b.looksValid) return;
         final score = (b.fatherName.isNotEmpty ? 2 : 0) +
