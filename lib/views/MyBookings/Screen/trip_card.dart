@@ -48,6 +48,7 @@ class TripCardData {
   final Widget leading;
   final String title;
   final String? titleSuffix;
+  final String? typeLabel;
   final String subtitle;
   final TripStatus status;
   final TripEndpoint from;
@@ -62,6 +63,7 @@ class TripCardData {
     required this.leading,
     required this.title,
     this.titleSuffix,
+    this.typeLabel,
     required this.subtitle,
     required this.status,
     required this.from,
@@ -98,6 +100,19 @@ class TripCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              if (data.typeLabel != null && data.typeLabel!.isNotEmpty)
+                Padding(
+                  padding: EdgeInsets.only(bottom: context.fx(8)),
+                  child: Text(
+                    data.typeLabel!,
+                    style: TextStyle(
+                      fontSize: context.ffs(11),
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.AppBlue,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                ),
               _header(context),
               Padding(
                 padding: EdgeInsets.symmetric(vertical: context.fx(12)),
@@ -349,7 +364,11 @@ class TripIconTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF0A1B7A),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFFFF8C42), Color(0xFFFF6600)],
+        ),
         borderRadius: BorderRadius.circular(context.fx(6)),
       ),
       child: Icon(icon, size: context.fx(17), color: Colors.white),

@@ -695,7 +695,7 @@ class _InsReviewScreenState extends State<InsReviewScreen> {
                   keyboardType: TextInputType.phone,
                   maxLength: 10,
                   formatters: [FilteringTextInputFormatter.digitsOnly],
-                  hint: '9876543210',
+                  hint: '9999999999',
                 ),
               ),
             ],

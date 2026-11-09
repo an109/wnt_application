@@ -13,6 +13,7 @@ import 'package:wander_nova/core/resources/app_colours.dart';
 import 'package:wander_nova/core/services/pdf_generator.dart';
 
 import '../../../Visa_popularDestinaton/domain/entities/visa_destination_entity.dart';
+import '../../../MyBookings/Screen/MyBooking_Screen.dart';
 import '../../data/visa_form_data.dart';
 import '../../data/visa_pdf_builder.dart';
 import '../utils/visa_rules.dart';
@@ -69,6 +70,34 @@ class _VisaPaymentSuccessScreenState extends State<VisaPaymentSuccessScreen> {
 
   final DateTime _paidAt = DateTime.now();
   bool _downloading = false;
+  bool _popupShown = false;
+
+  @override
+  void initState() {
+    super.initState();
+    Future.delayed(const Duration(seconds: 3), _showViewStatusPopup);
+  }
+
+  void _showViewStatusPopup() {
+    if (!mounted || _popupShown) return;
+    _popupShown = true;
+    showModalBottomSheet(
+      context: context,
+      isDismissible: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _ViewStatusSheet(
+        onViewStatus: () {
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (_) => MyBookingScreen()),
+            (route) => false,
+          );
+        },
+        onCancel: () {
+          Navigator.of(context).popUntil((route) => route.isFirst);
+        },
+      ),
+    );
+  }
 
   VisaPopularDestinationEntity get _d => widget.destination;
   VisaTypeEntity get _type => widget.visaType;
@@ -1214,4 +1243,120 @@ class _SuccessTickPainter extends CustomPainter {
   @override
   bool shouldRepaint(_SuccessTickPainter old) =>
       old.progress != progress || old.color != color;
+}
+
+class _ViewStatusSheet extends StatelessWidget {
+  final VoidCallback onViewStatus;
+  final VoidCallback onCancel;
+
+  const _ViewStatusSheet({required this.onViewStatus, required this.onCancel});
+
+  static const _kOrange = Color(0xFFEE7330);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: EdgeInsets.symmetric(horizontal: context.w(16), vertical: context.h(12)),
+      padding: EdgeInsets.all(context.w(24)),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(context.r(20)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Align(
+            alignment: Alignment.topRight,
+            child: GestureDetector(
+              onTap: () => Navigator.pop(context),
+              child: Container(
+                width: context.w(28),
+                height: context.w(28),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: const Color(0xFFF5F5F5),
+                ),
+                child: Icon(Icons.close, size: context.w(16), color: Colors.black54),
+              ),
+            ),
+          ),
+          SizedBox(height: context.h(8)),
+          Text(
+            'View Status',
+            style: TextStyle(
+              fontFamily: 'Manrope',
+              fontSize: context.fs(20),
+              fontWeight: FontWeight.w700,
+              color: const Color(0xFF111527),
+            ),
+          ),
+          SizedBox(height: context.h(6)),
+          Text(
+            'Recommended for visa application tracking',
+            style: TextStyle(
+              fontFamily: 'Manrope',
+              fontSize: context.fs(12),
+              fontWeight: FontWeight.w400,
+              color: const Color(0xFF757575),
+            ),
+          ),
+          SizedBox(height: context.h(20)),
+          Container(
+            width: context.w(56),
+            height: context.w(56),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFFB3E5FC), Color(0xFF81D4FA)],
+              ),
+            ),
+            child: Icon(Icons.assignment_outlined, size: context.w(28), color: Colors.white),
+          ),
+          SizedBox(height: context.h(28)),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    onCancel();
+                  },
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: _kOrange,
+                    side: const BorderSide(color: _kOrange),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(context.r(10))),
+                    minimumSize: Size.fromHeight(context.h(48)),
+                  ),
+                  child: Text(
+                    'CANCEL',
+                    style: TextStyle(fontSize: context.fs(14), fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ),
+              SizedBox(width: context.w(12)),
+              Expanded(
+                child: FilledButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    onViewStatus();
+                  },
+                  style: FilledButton.styleFrom(
+                    backgroundColor: _kOrange,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(context.r(10))),
+                    minimumSize: Size.fromHeight(context.h(48)),
+                  ),
+                  child: Text(
+                    'VIEW STATUS',
+                    style: TextStyle(fontSize: context.fs(14), fontWeight: FontWeight.w600, color: Colors.white),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 }

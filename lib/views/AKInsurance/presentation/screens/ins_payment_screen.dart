@@ -347,7 +347,8 @@ class _InsPaymentScreenState extends State<InsPaymentScreen> {
     }
 
     // ---- issue the policy; the charge has already cleared by here ----
-    setState(() => _status = 'Issuing your policy…');
+    setState(() => _status = ''
+        'Issuing your policy…');
 
     final countryState = context.read<CountryBloc>().state;
     final issuer = InsPolicyIssuer(
@@ -404,10 +405,10 @@ class _InsPaymentScreenState extends State<InsPaymentScreen> {
       canPop: !_busy,
       child: Scaffold(
         backgroundColor: Colors.white,
-        body: SafeArea(
-          child: Stack(
-            children: [
-              Column(
+        body: Stack(
+          children: [
+            SafeArea(
+              child: Column(
                 children: [
                   _header(context),
                   Expanded(
@@ -450,15 +451,15 @@ class _InsPaymentScreenState extends State<InsPaymentScreen> {
                   ),
                 ],
               ),
+            ),
 
-              // The expanded summary is an overlay: it dims the page, drops
-              // the full breakdown down from the top and floats its dismiss
-              // cross outside the panel's bottom edge.
-              if (_summaryOpen) ..._summaryOverlay(context),
+            // The expanded summary is an overlay: it dims the page, drops
+            // the full breakdown down from the top and floats its dismiss
+            // cross outside the panel's bottom edge.
+            if (_summaryOpen) ..._summaryOverlay(context),
 
-              if (_busy) _processingOverlay(context),
-            ],
-          ),
+            if (_busy) _processingOverlay(context),
+          ],
         ),
       ),
     );
@@ -592,7 +593,7 @@ class _InsPaymentScreenState extends State<InsPaymentScreen> {
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: () => setState(() => _summaryOpen = false),
-          child: ColoredBox(color: Colors.black.withOpacity(0.35)),
+          child: ColoredBox(color: Colors.black.withValues(alpha: 0.35)),
         ),
       ),
       Positioned(
@@ -1051,7 +1052,7 @@ class _InsPaymentScreenState extends State<InsPaymentScreen> {
   Widget _processingOverlay(BuildContext context) {
     return Positioned.fill(
       child: ColoredBox(
-        color: Colors.black.withOpacity(0.45),
+        color: Colors.black.withValues(alpha: 0.45),
         child: Center(
           child: Container(
             margin: EdgeInsets.symmetric(horizontal: context.w(40)),

@@ -1,386 +1,766 @@
 import 'package:flutter/material.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
-import '../../../../common_widgets/logoWithoutShimmer.dart';
+
 import '../../../../core/resources/app_colours.dart';
 import '../domain/entity/MyBooking_entity.dart';
+
+const Color _kInk = Color(0xFF111527);
+const Color _kMuted = Color(0xFF6B7280);
+const Color _kLine = Color(0xFFE5E7EB);
+const Color _kOrange = Color(0xFFEE7330);
+const Color _kGreen = Color(0xFF34A853);
 
 class BookingTicketWidget extends StatelessWidget {
   final BookingEntity booking;
 
   const BookingTicketWidget({super.key, required this.booking});
 
+  bool get _isPending => booking.status.toLowerCase().contains('pending');
+  bool get _isCancelled =>
+      booking.status.toLowerCase().contains('cancel') || booking.cancelled;
+
   @override
   Widget build(BuildContext context) {
-    bool isPending = booking.status.toLowerCase().contains('pending');
-    bool isCancelled = booking.status.toLowerCase().contains('cancelled');
-    Color statusColor = isPending
-        ? const Color(0xFFFFA726)
-        : (isCancelled ? const Color(0xFFE53935) : const Color(0xFF4CAF50));
+    final gap = SizedBox(height: context.fx(16));
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: context.fx(8)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _buildHero(context),
+          gap,
+          _buildTransferCard(context),
+          gap,
+          _buildRouteCard(context),
+          gap,
+          _buildPassengerDetails(context),
+          gap,
+          _buildFareDetails(context),
+          gap,
+          _buildImportantInfo(context),
+          gap,
+        ],
+      ),
+    );
+  }
 
-    return Container(
-      color: AppColors.lightBg,
-      child: SingleChildScrollView(
-        physics: const BouncingScrollPhysics(),
-        padding: EdgeInsets.all(context.w(12)),
-        child: Column(
-          children: [
-            _buildHeader(context),
-            SizedBox(height: context.h(12)),
-            _buildConfirmationCard(context, statusColor),
-            SizedBox(height: context.h(12)),
-            _buildTripDetailsCard(context),
-            SizedBox(height: context.h(12)),
-            _buildPassengerCard(context),
-            SizedBox(height: context.h(12)),
-            _buildFareSummary(context),
-            SizedBox(height: context.h(10)),
-            _buildBookingInformation(context),
-            SizedBox(height: context.h(10)),
-            _buildImportantInfo(context),
-            SizedBox(height: context.h(14)),
-            Container(
-              height: context.h(4),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [AppColors.primary, Color(0xFF0077CC)],
-                ),
-                borderRadius: BorderRadius.circular(context.r(20)),
+  // ─────────────────────────────────────────────────── hero
+  Widget _buildHero(BuildContext context) {
+    return SizedBox(
+      height: context.fx(100),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          const DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Color(0xFF8CC8F2), Color(0xFFD8EEFC), Colors.white],
               ),
             ),
+          ),
+          Positioned(
+            left: -context.fx(40),
+            right: -context.fx(40),
+            bottom: -context.fx(36),
+            child: Image.asset('assets/home/footer_clouds.png',
+                height: context.fx(90), fit: BoxFit.cover),
+          ),
+          Positioned(
+            left: context.fx(16),
+            top: context.fx(20),
+            child: Container(
+              width: context.fx(56),
+              height: context.fx(56),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(context.fx(10)),
+                boxShadow: const [
+                  BoxShadow(
+                      color: Color(0x26000000),
+                      blurRadius: 10,
+                      offset: Offset(0, 3))
+                ],
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Color(0xFFFF8C42), Color(0xFFFF6600)],
+                ),
+              ),
+              child: Icon(Icons.directions_car_rounded,
+                  size: context.fx(28), color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ─────────────────────────────────────────────────── transfer card
+  Widget _buildTransferCard(BuildContext context) {
+    final (statusLabel, statusColor) = _isPending
+        ? ('Pending', const Color(0xFFE59400))
+        : (_isCancelled
+            ? ('Cancelled', const Color(0xFFE53935))
+            : ('Confirmed', _kGreen));
+    final corner = _isCancelled
+        ? ('Cancelled', const Color(0xFFE53935))
+        : (_isPending ? ('Pending', const Color(0xFFE59400)) : null);
+
+    return _Section(
+      padding: EdgeInsets.fromLTRB(
+          context.fx(14), context.fx(14), context.fx(14), context.fx(12)),
+      cornerTag: corner,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              if (booking.imageUrl.isNotEmpty)
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(context.fx(10)),
+                  child: SizedBox(
+                    width: context.fx(56),
+                    height: context.fx(56),
+                    child: Image.network(booking.imageUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) =>
+                            _fallbackIcon(context)),
+                  ),
+                )
+              else
+                _fallbackIcon(context),
+              SizedBox(width: context.fx(10)),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      booking.vehicleName.isNotEmpty
+                          ? booking.vehicleName
+                          : 'Transfer',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                          fontSize: context.ffs(15),
+                          fontWeight: FontWeight.w600,
+                          color: _kInk),
+                    ),
+                    if (booking.providerName.isNotEmpty)
+                      Text(
+                        booking.providerName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                            fontSize: context.ffs(11), color: _kMuted),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: context.fx(14)),
+          _Inset(
+            child: Column(
+              children: [
+                _kv(context, 'Service Type', booking.type.isNotEmpty ? booking.type : 'Transfer'),
+                _kv(context, 'Category', booking.category.isNotEmpty ? booking.category : 'N/A'),
+                _kv(context, 'Vehicle', booking.vehicleName.isNotEmpty ? booking.vehicleName : 'N/A'),
+                _kv(context, 'Provider', booking.providerName.isNotEmpty ? booking.providerName : 'N/A'),
+                _kv(context, 'Confirmation', booking.confirmationNumber.isNotEmpty ? booking.confirmationNumber : 'N/A'),
+              ],
+            ),
+          ),
+          Padding(
+            padding: EdgeInsets.symmetric(vertical: context.fx(12)),
+            child: const Divider(height: 1, color: Color(0xFFF0F1F4)),
+          ),
+          IntrinsicHeight(
+            child: Row(
+              children: [
+                Expanded(
+                    child: _Stat(
+                        icon: Icons.person_rounded,
+                        label: 'Passengers',
+                        value: booking.applicantCount > 0
+                            ? '${booking.applicantCount}'
+                            : '—')),
+                const VerticalDivider(width: 12, color: _kLine),
+                Expanded(
+                    child: _Stat(
+                        icon: Icons.calendar_today_rounded,
+                        label: 'Booked',
+                        value: booking.bookedDate.isNotEmpty
+                            ? booking.bookedDate
+                            : '—')),
+                const VerticalDivider(width: 12, color: _kLine),
+                Expanded(
+                    child: _Stat(
+                        icon: Icons.verified_rounded,
+                        label: 'Status',
+                        value: statusLabel)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ─────────────────────────────────────────────────── route card
+  Widget _buildRouteCard(BuildContext context) {
+    return _Section(
+      title: 'Route Details',
+      icon: Icons.route_rounded,
+      iconColor: AppColors.AppBlue,
+      child: Column(
+        children: [
+          _routePoint(context,
+              icon: Icons.trip_origin_rounded,
+              color: _kGreen,
+              label: 'Pickup',
+              address: booking.startAddress.isNotEmpty
+                  ? booking.startAddress
+                  : 'N/A',
+              time: _formatDateTime(booking.pickupDatetime)),
+          Padding(
+            padding: EdgeInsets.only(left: context.fx(14)),
+            child: Row(
+              children: [
+                Container(
+                    width: 2,
+                    height: context.fx(24),
+                    color: const Color(0xFFD5D9E0)),
+              ],
+            ),
+          ),
+          _routePoint(context,
+              icon: Icons.location_on_rounded,
+              color: const Color(0xFFE53935),
+              label: 'Drop-off',
+              address: booking.endAddress.isNotEmpty
+                  ? booking.endAddress
+                  : 'N/A',
+              time: ''),
+          if (booking.flightNumber.isNotEmpty) ...[
+            SizedBox(height: context.fx(12)),
+            _Inset(
+              tinted: true,
+              child: _kv(context, 'Flight Number', booking.flightNumber),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _routePoint(
+    BuildContext context, {
+    required IconData icon,
+    required Color color,
+    required String label,
+    required String address,
+    required String time,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: context.fx(30),
+          height: context.fx(30),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(context.fx(8)),
+          ),
+          child: Icon(icon, size: context.fx(16), color: color),
+        ),
+        SizedBox(width: context.fx(10)),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label,
+                  style: TextStyle(
+                      fontSize: context.ffs(11),
+                      fontWeight: FontWeight.w500,
+                      color: _kMuted)),
+              SizedBox(height: context.fx(2)),
+              Text(address,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                      fontSize: context.ffs(13),
+                      fontWeight: FontWeight.w600,
+                      color: _kInk)),
+              if (time.isNotEmpty)
+                Text(time,
+                    style: TextStyle(
+                        fontSize: context.ffs(11), color: _kMuted)),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ─────────────────────────────────────────────────── passenger details
+  Widget _buildPassengerDetails(BuildContext context) {
+    final name = '${booking.firstName} ${booking.lastName}'.trim();
+    return _Section(
+      title: 'Passenger Details',
+      icon: Icons.groups_rounded,
+      iconColor: AppColors.AppBlue,
+      child: Container(
+        padding: EdgeInsets.all(context.fx(12)),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(context.fx(12)),
+          border: Border.all(color: _kLine),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (name.isNotEmpty)
+              Text(name,
+                  style: TextStyle(
+                      fontSize: context.ffs(13.5),
+                      fontWeight: FontWeight.w600,
+                      color: _kInk)),
+            if (booking.email.isNotEmpty) ...[
+              SizedBox(height: context.fx(4)),
+              Row(
+                children: [
+                  Icon(Icons.email_rounded,
+                      size: context.fx(14), color: _kMuted),
+                  SizedBox(width: context.fx(6)),
+                  Expanded(
+                      child: Text(booking.email,
+                          style: TextStyle(
+                              fontSize: context.ffs(12), color: _kMuted))),
+                ],
+              ),
+            ],
+            if (booking.phoneNumber.isNotEmpty) ...[
+              SizedBox(height: context.fx(4)),
+              Row(
+                children: [
+                  Icon(Icons.phone_rounded,
+                      size: context.fx(14), color: _kMuted),
+                  SizedBox(width: context.fx(6)),
+                  Text(booking.phoneNumber,
+                      style: TextStyle(
+                          fontSize: context.ffs(12), color: _kMuted)),
+                ],
+              ),
+            ],
           ],
         ),
       ),
     );
   }
 
-  Widget _buildHeader(BuildContext context) {
-    return Row(
-      children: [
-        const Expanded(
-          child: Logo(scaleFactor: 0.6),
-        ),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                booking.type.toUpperCase(),
-                style: TextStyle(
-                  fontSize: context.fs(18),
-                  fontWeight: FontWeight.w800,
-                  color: Colors.black,
-                  letterSpacing: context.letterSpacingWider,
-                ),
-              ),
-              Text(
-                "VOUCHER",
-                style: TextStyle(
-                  fontSize: context.fs(18),
-                  fontWeight: FontWeight.w800,
-                  color: Colors.black,
-                  letterSpacing: context.letterSpacingWider,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
+  // ─────────────────────────────────────────────────── fare details
+  Widget _buildFareDetails(BuildContext context) {
+    final rawTotal = booking.rawTotalPrice;
+    final displayTotal = booking.totalPrice.isNotEmpty
+        ? booking.totalPrice
+        : rawTotal;
+    final currency = booking.currency;
+    final amountPaid = booking.amountPaid.isNotEmpty
+        ? booking.amountPaid
+        : displayTotal;
 
-  Widget _buildConfirmationCard(BuildContext context, Color statusColor) {
-    bool isPending = booking.status.toLowerCase().contains('pending');
-    bool isCancelled = booking.status.toLowerCase().contains('cancelled');
-    IconData statusIcon = isPending ? Icons.hourglass_empty_rounded :
-    (isCancelled ? Icons.cancel_rounded : Icons.check_circle_rounded);
+    double totalNum = double.tryParse(displayTotal) ?? 0;
+    double paidNum = double.tryParse(amountPaid) ?? 0;
+    double taxes = (totalNum - paidNum).abs();
+    String baseFare = paidNum > 0 ? paidNum.toStringAsFixed(2) : displayTotal;
+    String taxStr = taxes > 0 ? taxes.toStringAsFixed(2) : '0.00';
 
-    return Container(
-      padding: EdgeInsets.all(context.w(4)),
-      decoration: BoxDecoration(
-        color: statusColor.withOpacity(0.08),
-        borderRadius: BorderRadius.circular(context.r(10)),
-      ),
-      child: Row(
+    final payMethod = booking.paymentMethod.isNotEmpty
+        ? booking.paymentMethod
+        : 'Online';
+
+    return _Section(
+      title: 'Fare Details',
+      icon: Icons.description_rounded,
+      iconColor: _kOrange,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          CircleAvatar(
-            radius: context.w(15),
-            backgroundColor: statusColor,
-            child: Icon(
-              statusIcon,
-              color: Colors.white,
-              size: context.w(18),
-            ),
-          ),
-          SizedBox(width: context.w(12)),
-          Expanded(
+          _Inset(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  isPending ? "Booking is Pending" :
-                  (isCancelled ? "Booking Cancelled" : "Booking Confirmed"),
-                  style: TextStyle(
-                    fontSize: context.fs(14),
-                    fontWeight: FontWeight.w700,
-                    color: statusColor,
-                  ),
-                ),
-                Text(
-                  isPending ? "Your booking is being processed" :
-                  (isCancelled ? "This booking has been cancelled" : "Thank you for booking with us"),
-                  style: TextStyle(
-                    fontSize: context.fs(10),
-                    color: AppColors.textSecondary,
-                  ),
+                _kv(context, 'Vehicle', booking.vehicleName.isNotEmpty ? booking.vehicleName : 'N/A'),
+                _kv(context, 'Category', booking.category.isNotEmpty ? booking.category : 'N/A'),
+                _kv(context, 'Passengers', booking.applicantCount > 0 ? '${booking.applicantCount}' : '1'),
+                Divider(height: context.fx(16), color: _kLine),
+                _kv(context, 'Base Fare', '$currency $baseFare', muted: true),
+                _kv(context, 'Taxes & Fees', '$currency $taxStr', muted: true),
+                if (booking.amountPaid.isNotEmpty && booking.amountPaid != displayTotal)
+                  _kv(context, 'Amount Paid', '$currency ${booking.amountPaid}', muted: true),
+                Divider(height: context.fx(20), color: _kLine),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text('Total',
+                          style: TextStyle(
+                              fontSize: context.ffs(15),
+                              fontWeight: FontWeight.w500,
+                              color: _kInk)),
+                    ),
+                    Text(
+                      '$currency $displayTotal',
+                      style: TextStyle(
+                          fontSize: context.ffs(17),
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.AppBlue),
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                "Confirmation No",
-                style: TextStyle(
-                  fontSize: context.fs(8),
-                  color: AppColors.textLight,
-                ),
-              ),
-              Text(
-                booking.confirmationNumber,
-                style: TextStyle(
-                  fontSize: context.fs(16),
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.primary,
-                  letterSpacing: 0.5,
-                ),
-              ),
-            ],
+          SizedBox(height: context.fx(12)),
+          _Inset(
+            tinted: true,
+            title: 'Payment Details',
+            titleIcon: Icons.credit_card_rounded,
+            child: Column(
+              children: [
+                _kvChip(
+                    context,
+                    'Payment Status',
+                    _isCancelled
+                        ? ('Cancelled', const Color(0xFFE53935))
+                        : ('Success', _kGreen)),
+                _kv(context, 'Payment Method', payMethod),
+                if (booking.paymentId.isNotEmpty)
+                  _kv(context, 'Payment ID', booking.paymentId),
+                _kv(context, 'Confirmation', booking.confirmationNumber.isNotEmpty ? booking.confirmationNumber : 'N/A'),
+                _kv(context, 'Booked Date',
+                    booking.bookedDate.isNotEmpty ? booking.bookedDate : 'N/A'),
+              ],
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildTripDetailsCard(BuildContext context) {
-    return _sectionCard(
-      context,
-      "TRIP DETAILS",
-      [
-        _infoRow(context, "Pickup", booking.startAddress),
-        _infoRow(context, "Drop-off", booking.endAddress),
-        _infoRow(context, "Pickup Time", _formatDateTime(booking.pickupDatetime)),
-        if (booking.category == 'Flight') ...[
-          _infoRow(context, "Flight Number", booking.flightNumber),
-        ] else ...[
-          _infoRow(context, "Vehicle", booking.vehicleName),
-        ],
-        _infoRow(context, "Category", booking.category),
-      ],
-    );
-  }
-
-  Widget _buildPassengerCard(BuildContext context) {
-    return _sectionCard(
-      context,
-      "PASSENGER INFORMATION",
-      [
-        _infoRow(context, "Name", "${booking.firstName} ${booking.lastName}"),
-        _infoRow(context, "Email", booking.email),
-        _infoRow(context, "Phone", booking.phoneNumber),
-        _infoRow(context, "Applicants", booking.applicantCount.toString()),
-      ],
-    );
-  }
-
-  Widget _buildFareSummary(BuildContext context) {
-    String amount = booking.totalPrice;
-    if (amount.isEmpty) amount = booking.rawTotalPrice;
-
-    return _sectionCard(
-      context,
-      "FARE SUMMARY",
-      [
-        _fareRow(
-          context,
-          "Base Fare",
-          "${booking.currency} ${amount}",
-        ),
-        _fareRow(
-          context,
-          "Tax",
-          "${booking.currency} 0",
-        ),
-        Divider(height: context.h(16), color: AppColors.divider),
-        _fareRow(
-          context,
-          "Total Paid",
-          _getConvertedAmountText(booking),
-          big: true,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildBookingInformation(BuildContext context) {
-    return _sectionCard(
-      context,
-      "BOOKING INFORMATION",
-      [
-        // _infoRow(context, "Booking Reference", booking.re),
-        _infoRow(context, "Confirmation No", booking.confirmationNumber),
-        _infoRow(context, "Payment Mode", booking.type),
-        _infoRow(context, "Status", booking.status),
-        _infoRow(context, "Booked Date", booking.bookedDate),
-        _infoRow(context, "Provider", booking.providerName),
-      ],
-    );
-  }
-
+  // ─────────────────────────────────────────────────── important info
   Widget _buildImportantInfo(BuildContext context) {
-    bool isAirport = booking.category == 'Flight';
-    return _sectionCard(
-      context,
-      "IMPORTANT INFORMATION",
-      [
-        _bulletPoint(context, "Please present this voucher to the ${isAirport ? 'airline' : 'driver'} for check-in."),
-        _bulletPoint(context, "Carry a valid government-issued ID proof for all travelers."),
-        if (isAirport) ...[
-          _bulletPoint(context, "Arrive at the airport at least 2 hours before departure."),
-          _bulletPoint(context, "Check-in baggage allowance: As per airline policy."),
-        ] else ...[
-          _bulletPoint(context, "Please be ready at the pickup location 10 minutes before the scheduled time."),
-          _bulletPoint(context, "Driver will wait for maximum 15 minutes after the scheduled pickup time."),
-        ],
-        _bulletPoint(context, "Cancellation policy applies as per booking terms."),
-      ],
+    final isAirport = booking.category == 'Flight';
+    return _Section(
+      title: 'Important Info',
+      icon: Icons.info_rounded,
+      iconColor: const Color(0xFF6B6B6B),
+      compact: true,
+      child: Text(
+        isAirport
+            ? 'Please present this voucher at the airport for check-in.\n'
+                'Arrive at least 2 hours before departure.\n'
+                'Carry a valid government-issued ID for all travelers.\n'
+                'Cancellation policy applies as per booking terms.'
+            : 'Please be ready at the pickup location 10 minutes early.\n'
+                'Driver will wait maximum 15 minutes after scheduled time.\n'
+                'Carry a valid government-issued ID for all travelers.\n'
+                'Cancellation policy applies as per booking terms.',
+        style: TextStyle(
+            fontSize: context.ffs(11),
+            height: 1.45,
+            color: const Color(0xFF4B5563)),
+      ),
     );
   }
 
-  Widget _sectionCard(BuildContext context, String title, List<Widget> children) {
+  // ─────────────────────────────────────────────────── helpers
+  Widget _fallbackIcon(BuildContext context) {
     return Container(
-      width: double.infinity,
-      padding: EdgeInsets.all(context.w(14)),
+      width: context.fx(56),
+      height: context.fx(56),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(context.r(8)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: context.fs(14),
-              fontWeight: FontWeight.w700,
-              color: AppColors.primary,
-              letterSpacing: context.letterSpacingWider,
-            ),
-          ),
-          SizedBox(height: context.h(12)),
-          ...children,
-        ],
-      ),
-    );
-  }
-
-  Widget _fareRow(BuildContext context, String title, String value, {bool big = false}) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          title,
-          style: TextStyle(
-            fontSize: big ? context.fs(16) : context.fs(12),
-            fontWeight: big ? FontWeight.w800 : FontWeight.w600,
-            color: big ? AppColors.textPrimary : AppColors.textSecondary,
-          ),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFFFF8C42), Color(0xFFFF6600)],
         ),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: big ? context.fs(16) : context.fs(12),
-            fontWeight: big ? FontWeight.w800 : FontWeight.w600,
-            color: big ? AppColors.orange : AppColors.textPrimary,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _infoRow(BuildContext context, String label, String value) {
-    return Padding(
-      padding: EdgeInsets.symmetric(vertical: context.h(4)),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            "$label: ",
-            style: TextStyle(
-              fontSize: context.fs(11),
-              fontWeight: FontWeight.w600,
-              color: AppColors.textSecondary,
-            ),
-          ),
-          Expanded(
-            child: Text(
-              value.isEmpty ? 'N/A' : value,
-              style: TextStyle(
-                fontSize: context.fs(11),
-                fontWeight: FontWeight.w500,
-                color: AppColors.textPrimary,
-              ),
-            ),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(context.fx(10)),
       ),
-    );
-  }
-
-  Widget _bulletPoint(BuildContext context, String text) {
-    return Padding(
-      padding: EdgeInsets.symmetric(vertical: context.h(3)),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            "• ",
-            style: TextStyle(
-              fontSize: context.fs(11),
-              color: AppColors.primary,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          Expanded(
-            child: Text(
-              text,
-              style: TextStyle(
-                fontSize: context.fs(10),
-                color: AppColors.textSecondary,
-                height: 1.4,
-              ),
-            ),
-          ),
-        ],
-      ),
+      child: Icon(Icons.directions_car_rounded,
+          size: context.fx(28), color: Colors.white),
     );
   }
 
   String _formatDateTime(String isoString) {
-    if (isoString.isEmpty) return 'N/A';
+    if (isoString.isEmpty) return '';
     try {
-      DateTime dt = DateTime.parse(isoString);
-      List<String> months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-      String time = '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+      final dt = DateTime.parse(isoString);
+      const months = [
+        'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+      ];
+      final time =
+          '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
       return '${dt.day} ${months[dt.month - 1]} ${dt.year}, $time';
-    } catch (e) {
+    } catch (_) {
       return isoString;
     }
   }
 
-  String _getConvertedAmountText(BookingEntity booking) {
-    String amount = booking.totalPrice;
-    if (amount.isEmpty) amount = booking.rawTotalPrice;
-    return '${booking.currency} $amount';
+  Widget _kv(BuildContext context, String label, String value,
+      {bool muted = false}) {
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: context.fx(5)),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            flex: 5,
+            child: Text(label,
+                style: TextStyle(
+                    fontSize: context.ffs(12.5),
+                    color: muted ? _kMuted : const Color(0xFF4B5563))),
+          ),
+          SizedBox(width: context.fx(8)),
+          Flexible(
+            flex: 6,
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: Text(value,
+                  textAlign: TextAlign.right,
+                  style: TextStyle(
+                      fontSize: context.ffs(12.5),
+                      fontWeight: FontWeight.w500,
+                      color: _kInk)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _kvChip(
+      BuildContext context, String label, (String, Color) chip) {
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: context.fx(5)),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            flex: 5,
+            child: Text(label,
+                style: TextStyle(
+                    fontSize: context.ffs(12.5),
+                    color: const Color(0xFF4B5563))),
+          ),
+          SizedBox(width: context.fx(8)),
+          Container(
+            padding: EdgeInsets.symmetric(
+                horizontal: context.fx(10), vertical: context.fx(3)),
+            decoration: BoxDecoration(
+              color: chip.$2.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(context.fx(20)),
+            ),
+            child: Text(chip.$1,
+                style: TextStyle(
+                    fontSize: context.ffs(11.5), color: chip.$2)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════ shared widgets
+
+class _Section extends StatelessWidget {
+  final String? title;
+  final IconData? icon;
+  final Color? iconColor;
+  final Widget child;
+  final EdgeInsets? padding;
+  final (String, Color)? cornerTag;
+  final bool compact;
+
+  const _Section({
+    this.title,
+    this.icon,
+    this.iconColor,
+    required this.child,
+    this.padding,
+    this.cornerTag,
+    this.compact = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final card = Container(
+      padding:
+          padding ?? EdgeInsets.all(context.fx(compact ? 12 : 14)),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(context.fx(14)),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+        boxShadow: const [
+          BoxShadow(
+              color: Color(0x0D000000),
+              blurRadius: 10,
+              offset: Offset(0, 3))
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (title != null) ...[
+            Row(
+              children: [
+                Icon(icon,
+                    size: context.fx(compact ? 16 : 18),
+                    color: iconColor),
+                SizedBox(width: context.fx(8)),
+                Expanded(
+                  child: Text(
+                    title!,
+                    style: TextStyle(
+                      fontSize: context.ffs(compact ? 13 : 14.5),
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFF111527),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: context.fx(12)),
+          ],
+          child,
+        ],
+      ),
+    );
+    if (cornerTag == null) return card;
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        card,
+        Positioned(
+          top: -1,
+          right: context.fx(10),
+          child: Container(
+            padding: EdgeInsets.symmetric(
+                horizontal: context.fx(10), vertical: context.fx(3)),
+            decoration: BoxDecoration(
+              color: cornerTag!.$2,
+              borderRadius: BorderRadius.vertical(
+                  bottom: Radius.circular(context.fx(8))),
+            ),
+            child: Text(
+              cornerTag!.$1,
+              style: TextStyle(
+                  fontSize: context.ffs(10.5),
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _Inset extends StatelessWidget {
+  final Widget child;
+  final bool tinted;
+  final String? title;
+  final IconData? titleIcon;
+
+  const _Inset(
+      {required this.child,
+      this.tinted = false,
+      this.title,
+      this.titleIcon});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.all(context.fx(12)),
+      decoration: BoxDecoration(
+        color: tinted ? const Color(0xFFF3FAFE) : Colors.white,
+        borderRadius: BorderRadius.circular(context.fx(12)),
+        border: Border.all(
+            color: tinted
+                ? const Color(0xFFD6ECF8)
+                : const Color(0xFFE5E7EB)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (title != null) ...[
+            Row(
+              children: [
+                Icon(titleIcon,
+                    size: context.fx(16),
+                    color: const Color(0xFF34A853)),
+                SizedBox(width: context.fx(8)),
+                Text(title!,
+                    style: TextStyle(
+                        fontSize: context.ffs(12.5),
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF111527))),
+              ],
+            ),
+            SizedBox(height: context.fx(6)),
+          ],
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _Stat extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+
+  const _Stat(
+      {required this.icon, required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: context.fx(30),
+          height: context.fx(30),
+          decoration: BoxDecoration(
+            color: const Color(0xFFE3F2FD),
+            borderRadius: BorderRadius.circular(context.fx(6)),
+          ),
+          child: Icon(icon,
+              size: context.fx(17), color: const Color(0xFF3B9BE0)),
+        ),
+        SizedBox(width: context.fx(6)),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                      fontSize: context.ffs(10.5),
+                      color: const Color(0xFF6B7280))),
+              Text(
+                value,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                    fontSize: context.ffs(13),
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xFF111527)),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 }

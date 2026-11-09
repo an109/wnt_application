@@ -1,11 +1,11 @@
 class Urls {
 
-  static const String baseUrl = 'https://thewandernova.com/api/';
+  // static const String baseUrl = 'https://thewandernova.com/api/';
   // static const String baseUrl = 'http://167.71.233.208:8032/api/';
-  // static const String baseUrl = 'http://192.168.1.13:8000/api/';
-  static const String basesUrl = 'https://thewandernova.com/api';
+  static const String baseUrl = 'http://192.168.1.13:8000/api/';
+  // static const String basesUrl = 'https://thewandernova.com/api';
   // static const String basesUrl = 'http://167.71.233.208:8032/api';
-  // static const String basesUrl = 'http://192.168.1.13:8000/api';
+  static const String basesUrl = 'http://192.168.1.13:8000/api';
 
   // Thrisha AI chat service: the live service.
   static const String trishaBaseUrl = trishaProductionUrl;
@@ -143,6 +143,7 @@ class Urls {
   // Step 7/7 — JWT required. Read-only lookup of a booked policy.
   static const String insuranceGetItinerary =
       '$basesUrl/akbar-insurance/GetItinerary/';
+  static const String insuranceBookings = '$basesUrl/akbar-insurance/bookings/';
 
   // ------------------------------------------------------------------------------
 

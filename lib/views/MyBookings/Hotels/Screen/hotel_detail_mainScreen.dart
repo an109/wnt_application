@@ -5,7 +5,6 @@ import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import '../../../../core/resources/app_colours.dart';
 import '../../../../core/services/pdf_generator.dart';
 import '../domain/entity/HotelBookingEntity.dart';
-import 'HotelInvoice_widget.dart';
 import 'HotelTicket_widget.dart';
 import 'hotel_pdf_builder.dart';
 
@@ -20,26 +19,89 @@ class HotelBookingDetailsScreen extends StatefulWidget {
 }
 
 class _HotelBookingDetailsScreenState extends State<HotelBookingDetailsScreen> {
-  String _selectedView = 'ticket';
+  static const _kInk = Color(0xFF111527);
+  static const _kMuted = Color(0xFF757575);
+  static const _kOrange = Color(0xFFEE7330);
+
   bool _isDownloading = false;
+
+  String get _statusLabel {
+    final s = widget.booking.status.toLowerCase();
+    if (s.contains('cancelled')) return 'Cancelled';
+    if (s.contains('confirmed')) return 'Confirmed';
+    if (s.contains('pending')) return 'Pending';
+    return widget.booking.status.isNotEmpty ? widget.booking.status : 'Pending';
+  }
+
+  Color get _statusColor {
+    final s = widget.booking.status.toLowerCase();
+    if (s.contains('cancelled')) return const Color(0xFF7CC7EE);
+    if (s.contains('pending')) return const Color(0xFFFF9800);
+    return AppColors.AppBlue;
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.lightBg,
-      appBar: _buildAppBar(context),
-      body: Column(
-        children: [
-          _buildToggleBar(context),
-          Expanded(
-            child: SingleChildScrollView(
-              physics: const BouncingScrollPhysics(),
-              child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: context.w(12), vertical: context.h(8)),
-                child: _selectedView == 'ticket'
-                    ? HotelTicketWidget(booking: widget.booking)
-                    : HotelInvoiceWidget(booking: widget.booking),
+      body: SafeArea(
+        child: Column(
+          children: [
+            _topBar(),
+            Expanded(
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: context.w(12), vertical: context.h(8)),
+                  child: HotelTicketWidget(booking: widget.booking),
+                ),
               ),
+            ),
+          ],
+        ),
+      ),
+      bottomNavigationBar: _bottomBar(),
+    );
+  }
+
+  Widget _topBar() {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(context.w(8), context.h(6), context.w(4), context.h(10)),
+      child: Row(
+        children: [
+          IconButton(
+            tooltip: 'Back',
+            onPressed: () => Navigator.of(context).maybePop(),
+            icon: Icon(Icons.arrow_back, size: context.w(24), color: _kInk),
+          ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      'Hotel Details',
+                      style: TextStyle(fontSize: context.fs(18), fontWeight: FontWeight.w600, color: _kInk),
+                    ),
+                    SizedBox(width: context.w(8)),
+                    Container(
+                      padding: EdgeInsets.symmetric(horizontal: context.w(8), vertical: context.h(2)),
+                      decoration: BoxDecoration(color: _statusColor, borderRadius: BorderRadius.circular(context.r(20))),
+                      child: Text(
+                        _statusLabel,
+                        style: TextStyle(fontSize: context.fs(10.5), fontWeight: FontWeight.w600, color: Colors.white),
+                      ),
+                    ),
+                  ],
+                ),
+                Text(
+                  'Booking ID: ${widget.booking.confirmationNumber}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: context.fs(11), color: _kMuted),
+                ),
+              ],
             ),
           ),
         ],
@@ -47,46 +109,45 @@ class _HotelBookingDetailsScreenState extends State<HotelBookingDetailsScreen> {
     );
   }
 
-  PreferredSizeWidget _buildAppBar(BuildContext context) {
-    return AppBar(
-      backgroundColor: AppColors.primary,
-      elevation: 0,
-      leading: IconButton(
-        icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white),
-        onPressed: () => Navigator.pop(context),
+  Widget _bottomBar() {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        boxShadow: [BoxShadow(color: Color(0x14000000), blurRadius: 12, offset: Offset(0, -3))],
       ),
-      title: Text(
-        'Booking Details',
-        style: TextStyle(
-          fontSize: context.fs(18),
-          fontWeight: FontWeight.w600,
-          color: Colors.white,
-          letterSpacing: 0.5,
-        ),
-      ),
-      centerTitle: true,
-      actions: [
-        Container(
-          margin: EdgeInsets.only(right: context.w(8)),
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.2),
-            borderRadius: BorderRadius.circular(context.r(8)),
-          ),
-          child: IconButton(
-            icon: _isDownloading
-                ? SizedBox(
-              width: context.w(20),
-              height: context.w(20),
-              child: const CircularProgressIndicator(
-                color: Colors.white,
-                strokeWidth: 2,
-              ),
-            )
-                : const Icon(Icons.download_rounded, color: Colors.white),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(context.w(16), context.h(12), context.w(16), context.h(12)),
+          child: FilledButton(
             onPressed: _isDownloading ? null : _handleDownload,
+            style: FilledButton.styleFrom(
+              backgroundColor: _kOrange,
+              disabledBackgroundColor: const Color(0xFFF5C3A6),
+              disabledForegroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(context.r(10))),
+              minimumSize: Size.fromHeight(context.h(50)),
+            ),
+            child: _isDownloading
+                ? SizedBox(
+                    width: context.w(20),
+                    height: context.w(20),
+                    child: const CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                  )
+                : Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.download_rounded, size: context.w(18)),
+                      SizedBox(width: context.w(8)),
+                      Text(
+                        'DOWNLOAD TICKET',
+                        style: TextStyle(fontSize: context.fs(13.5), fontWeight: FontWeight.w600, letterSpacing: 0.2),
+                      ),
+                    ],
+                  ),
           ),
         ),
-      ],
+      ),
     );
   }
 
@@ -94,8 +155,7 @@ class _HotelBookingDetailsScreenState extends State<HotelBookingDetailsScreen> {
     setState(() => _isDownloading = true);
 
     try {
-      final type = _selectedView;
-      final filename = '${type}_${widget.booking.confirmationNumber}.pdf';
+      final filename = 'ticket_${widget.booking.confirmationNumber}.pdf';
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -116,11 +176,7 @@ class _HotelBookingDetailsScreenState extends State<HotelBookingDetailsScreen> {
         ),
       );
 
-      // Build a native, text-based PDF that mirrors the on-screen layout
-      // instead of capturing a screenshot of the widget.
-      final pdf = type == 'ticket'
-          ? await HotelPdfBuilder.buildTicket(widget.booking)
-          : await HotelPdfBuilder.buildInvoice(widget.booking);
+      final pdf = await HotelPdfBuilder.buildTicket(widget.booking);
 
       final file = await PDFService.savePDF(pdf, filename);
 
@@ -139,7 +195,7 @@ class _HotelBookingDetailsScreenState extends State<HotelBookingDetailsScreen> {
       setState(() => _isDownloading = false);
     }
   }
-  // Show success dialog with options
+
   void _showDownloadSuccessDialog(BuildContext context, File file) {
     showDialog(
       context: context,
@@ -156,13 +212,11 @@ class _HotelBookingDetailsScreenState extends State<HotelBookingDetailsScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-
-                /// Success icon
                 Container(
                   height: context.w(70),
                   width: context.w(70),
                   decoration: BoxDecoration(
-                    color: Colors.green.withOpacity(0.1),
+                    color: Colors.green.withValues(alpha: 0.1),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
@@ -171,10 +225,7 @@ class _HotelBookingDetailsScreenState extends State<HotelBookingDetailsScreen> {
                     size: context.w(42),
                   ),
                 ),
-
                 SizedBox(height: context.h(16)),
-
-                /// Title
                 Text(
                   'Download Complete',
                   style: TextStyle(
@@ -182,10 +233,7 @@ class _HotelBookingDetailsScreenState extends State<HotelBookingDetailsScreen> {
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-
                 SizedBox(height: context.h(10)),
-
-                /// File name
                 Text(
                   file.path.split('/').last,
                   textAlign: TextAlign.center,
@@ -194,13 +242,9 @@ class _HotelBookingDetailsScreenState extends State<HotelBookingDetailsScreen> {
                     color: AppColors.textSecondary,
                   ),
                 ),
-
                 SizedBox(height: context.h(24)),
-
-                /// Action buttons
                 Row(
                   children: [
-
                     Expanded(
                       child: OutlinedButton.icon(
                         onPressed: () async {
@@ -223,9 +267,7 @@ class _HotelBookingDetailsScreenState extends State<HotelBookingDetailsScreen> {
                         ),
                       ),
                     ),
-
                     SizedBox(width: context.w(12)),
-
                     Expanded(
                       child: ElevatedButton.icon(
                         onPressed: () async {
@@ -255,9 +297,7 @@ class _HotelBookingDetailsScreenState extends State<HotelBookingDetailsScreen> {
                     ),
                   ],
                 ),
-
                 SizedBox(height: context.h(12)),
-
                 TextButton(
                   onPressed: () => Navigator.pop(context),
                   child: const Text('Close'),
@@ -269,69 +309,4 @@ class _HotelBookingDetailsScreenState extends State<HotelBookingDetailsScreen> {
       },
     );
   }
-
-  Widget _buildToggleBar(BuildContext context) {
-    return Container(
-      margin: EdgeInsets.symmetric(horizontal: context.w(12), vertical: context.h(6)),
-      padding: EdgeInsets.all(context.w(3)),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(context.r(10)),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.shadow,
-            blurRadius: context.w(8),
-            offset: Offset(0, context.h(2)),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          _buildToggleOption('ticket', 'Ticket', Icons.confirmation_number_rounded, context),
-          _buildToggleOption('invoice', 'Invoice', Icons.receipt_long_rounded, context),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildToggleOption(String value, String label, IconData icon, BuildContext context) {
-    bool isSelected = _selectedView == value;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () => setState(() => _selectedView = value),
-        child: Container(
-          padding: EdgeInsets.symmetric(vertical: context.h(8)),
-          decoration: BoxDecoration(
-            gradient: isSelected
-                ? const LinearGradient(
-              colors: [AppColors.primary, Color(0xFF0077CC)],
-            )
-                : null,
-            borderRadius: BorderRadius.circular(context.r(8)),
-            color: isSelected ? null : Colors.transparent,
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                icon,
-                size: context.w(16),
-                color: isSelected ? Colors.white : AppColors.textSecondary,
-              ),
-              SizedBox(width: context.w(6)),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: context.fs(13),
-                  fontWeight: FontWeight.w600,
-                  color: isSelected ? Colors.white : AppColors.textSecondary,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
 }

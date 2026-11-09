@@ -32,6 +32,8 @@ class BookingModel extends BookingEntity {
     super.vehicleName,
     super.rawTotalPrice,
     super.rawCurrency,
+    super.paymentMethod,
+    super.paymentId,
     super.imageUrl
   });
 
@@ -148,6 +150,8 @@ class BookingModel extends BookingEntity {
       vehicleName: rawRequest['vehicle_name']?.toString() ?? '',
       rawTotalPrice: rawTotalPrice,
       rawCurrency: rawCurrency,
+      paymentMethod: json['payment_method']?.toString() ?? '',
+      paymentId: json['razorpay_payment_id']?.toString() ?? '',
       imageUrl: imageUrl,
     );
   }

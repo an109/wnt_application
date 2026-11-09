@@ -190,6 +190,11 @@ import 'package:wander_nova/views/MyBookings/Hotels/data/repository/HotelResposi
 import 'package:wander_nova/views/MyBookings/Hotels/domain/repository/HotelRepository.dart';
 import 'package:wander_nova/views/MyBookings/Hotels/domain/usecase/getHotelBookingUsecase.dart';
 import 'package:wander_nova/views/MyBookings/Hotels/bloc/BookingListBloc.dart';
+import 'package:wander_nova/views/MyBookings/Insurance/data/data_source/InsuranceBookingApiService.dart';
+import 'package:wander_nova/views/MyBookings/Insurance/data/repository/InsuranceBookingRepositoryImpl.dart';
+import 'package:wander_nova/views/MyBookings/Insurance/domain/repository/InsuranceBookingRepository.dart';
+import 'package:wander_nova/views/MyBookings/Insurance/domain/usecase/GetInsuranceBookingsUseCase.dart';
+import 'package:wander_nova/views/MyBookings/Insurance/bloc/InsuranceBookingBloc.dart';
 import 'package:wander_nova/views/MyBookings/Transport/data/data_source/MyBookng_api_Service.dart';
 import 'package:wander_nova/views/MyBookings/Transport/data/repository/MyBooking_repository_impl.dart';
 import 'package:wander_nova/views/MyBookings/Transport/domain/repository/MyBooking_repository.dart';
@@ -475,6 +480,7 @@ Future<void> initializeDependencies() async {
   sl.registerFactory<LoyaltyApiService>(() => LoyaltyApiServiceImpl(sl<DioClient>().instance));
   sl.registerFactory<TransactionApiService>(() => TransactionApiServiceImpl(sl<DioClient>().instance));
   sl.registerFactory<HotelListApiService>(() => HotelListApiServiceImpl(sl<DioClient>().instance));
+  sl.registerFactory<InsuranceBookingApiService>(() => InsuranceBookingApiServiceImpl(sl<DioClient>().instance));
   sl.registerFactory<ReservationPollApiService>(() => ReservationPollApiServiceImpl(sl<DioClient>().instance),);
   sl.registerFactory<VisaApplicationApiService>(() => VisaApplicationApiServiceImpl(sl<DioClient>().instance));
   sl.registerFactory<VApiService>(() => VApiServiceImpl(sl<DioClient>().instance),);
@@ -562,6 +568,7 @@ Future<void> initializeDependencies() async {
   sl.registerLazySingleton<LoyaltyRepository>(() => LoyaltyRepositoryImpl(sl()));
   sl.registerLazySingleton<TransactionRepository>(() => TransactionRepositoryImpl(sl()),);
   sl.registerLazySingleton<HotelListRepository>(() => HotelListRepositoryImpl(sl(), sl()));
+  sl.registerLazySingleton<InsuranceBookingRepository>(() => InsuranceBookingRepositoryImpl(sl(), sl()));
   sl.registerLazySingleton<ReservationPollRepository>(() => ReservationPollRepositoryImpl(sl()),);
   sl.registerLazySingleton<VisaApplicationRepository>(() => VisaApplicationRepositoryImpl(sl()));
   sl.registerLazySingleton<VRepository>(() => VRepositoryImpl(sl<VApiService>()),);
@@ -655,6 +662,7 @@ Future<void> initializeDependencies() async {
   sl.registerLazySingleton<GetUserLoyaltyUseCase>(() => GetUserLoyaltyUseCase(sl()));
   sl.registerLazySingleton<GetTransactionsUseCase>(() => GetTransactionsUseCase(sl<TransactionRepository>()));
   sl.registerLazySingleton<GetHotelBookingsUseCase>(() => GetHotelBookingsUseCase(sl<HotelListRepository>()));
+  sl.registerLazySingleton<GetInsuranceBookingsUseCase>(() => GetInsuranceBookingsUseCase(sl<InsuranceBookingRepository>()));
   sl.registerLazySingleton<GetReservationPollUseCase>(() => GetReservationPollUseCase(sl<ReservationPollRepository>()),);
   sl.registerLazySingleton<GetVisaApplicationsUseCase>(() => GetVisaApplicationsUseCase(sl<VisaApplicationRepository>()));
   sl.registerLazySingleton<GetVisaApplicationByIdUseCase>(() => GetVisaApplicationByIdUseCase(sl<VisaApplicationRepository>()));
@@ -763,6 +771,7 @@ Future<void> initializeDependencies() async {
   sl.registerFactory<LoyaltyBloc>(() => LoyaltyBloc(sl()));
   sl.registerFactory<TransactionBloc>(() => TransactionBloc(getTransactionsUseCase: sl()));
   sl.registerFactory<HotelBookingListBloc>(() => HotelBookingListBloc(sl()));
+  sl.registerFactory<InsuranceBookingBloc>(() => InsuranceBookingBloc(sl()));
   sl.registerFactory<ReservationPollBloc>(() => ReservationPollBloc(sl()),);
   sl.registerFactory<VisaApplicationBloc>(() => VisaApplicationBloc(
       getVisaApplicationsUseCase: sl<GetVisaApplicationsUseCase>(),

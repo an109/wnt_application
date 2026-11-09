@@ -3,11 +3,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 
-import '../../../../UI_helper/currency_converter.dart';
 import '../../../../core/resources/app_colours.dart';
 import '../../../../core/services/pdf_generator.dart';
 import '../../../UpcomingTrips/data/models/tripModel.dart';
-import 'Visa_Invoice_widget.dart';
 import 'Visa_ticket_widget.dart';
 import 'visa_booking_summary_card.dart' show VisaBookingSummaryScreen;
 import 'visa_pdf_builder.dart';
@@ -26,42 +24,89 @@ class VisaBookingDetailsScreen extends StatefulWidget {
 }
 
 class _VisaBookingDetailsScreenState extends State<VisaBookingDetailsScreen> {
-  String _displayCurrency = 'USD';
-  bool _currencyInitialized = false;
-  String _selectedView = 'ticket';
+  static const _kInk = Color(0xFF111527);
+  static const _kMuted = Color(0xFF757575);
+  static const _kOrange = Color(0xFFEE7330);
+
   bool _isDownloading = false;
 
-  @override
-  void initState() {
-    super.initState();
-    _displayCurrency = CurrencyConverter.getPreferredCurrency();
-    _currencyInitialized = true;
+  String get _statusLabel {
+    final s = widget.trip.status.toLowerCase();
+    if (s.contains('cancelled')) return 'Cancelled';
+    if (s.contains('pending')) return 'Pending';
+    if (s.contains('confirmed') || s.contains('approved')) return 'Confirmed';
+    return widget.trip.status.isNotEmpty ? widget.trip.status : 'Pending';
+  }
+
+  Color get _statusColor {
+    final s = widget.trip.status.toLowerCase();
+    if (s.contains('cancelled')) return const Color(0xFF7CC7EE);
+    if (s.contains('pending')) return const Color(0xFFFF9800);
+    return AppColors.AppBlue;
   }
 
   @override
   Widget build(BuildContext context) {
-    final trip = widget.trip;
-    bool isPending = trip.status.toLowerCase().contains('pending');
-    bool isCancelled = trip.status.toLowerCase().contains('cancelled');
-    Color statusColor = isPending
-        ? const Color(0xFFFFA726)
-        : (isCancelled ? const Color(0xFFE53935) : const Color(0xFF4CAF50));
-
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
-      appBar: _buildAppBar(context),
-      body: Column(
-        children: [
-          _buildToggleBar(context),
-          Expanded(
-            child: SingleChildScrollView(
-              physics: const BouncingScrollPhysics(),
-              child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: context.w(16)),
-                child: _selectedView == 'ticket'
-                    ? VisaTicketWidget(trip: widget.trip)
-                    : VisaInvoiceWidget(trip: widget.trip),
+      body: SafeArea(
+        child: Column(
+          children: [
+            _topBar(),
+            Expanded(
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: context.w(16)),
+                  child: VisaTicketWidget(trip: widget.trip),
+                ),
               ),
+            ),
+          ],
+        ),
+      ),
+      bottomNavigationBar: _bottomBar(),
+    );
+  }
+
+  Widget _topBar() {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(context.w(8), context.h(6), context.w(4), context.h(10)),
+      child: Row(
+        children: [
+          IconButton(
+            tooltip: 'Back',
+            onPressed: () => Navigator.of(context).maybePop(),
+            icon: Icon(Icons.arrow_back, size: context.w(24), color: _kInk),
+          ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      'Visa Details',
+                      style: TextStyle(fontSize: context.fs(18), fontWeight: FontWeight.w600, color: _kInk),
+                    ),
+                    SizedBox(width: context.w(8)),
+                    Container(
+                      padding: EdgeInsets.symmetric(horizontal: context.w(8), vertical: context.h(2)),
+                      decoration: BoxDecoration(color: _statusColor, borderRadius: BorderRadius.circular(context.r(20))),
+                      child: Text(
+                        _statusLabel,
+                        style: TextStyle(fontSize: context.fs(10.5), fontWeight: FontWeight.w600, color: Colors.white),
+                      ),
+                    ),
+                  ],
+                ),
+                Text(
+                  'Booking ID: ${widget.trip.bookingId}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: context.fs(11), color: _kMuted),
+                ),
+              ],
             ),
           ),
         ],
@@ -69,62 +114,80 @@ class _VisaBookingDetailsScreenState extends State<VisaBookingDetailsScreen> {
     );
   }
 
-  PreferredSizeWidget _buildAppBar(BuildContext context) {
-    return AppBar(
-      backgroundColor: AppColors.primary,
-      elevation: 0,
-      leading: IconButton(
-        icon: Icon(
-          Icons.arrow_back_ios_new_rounded,
-          size: context.w(18),
-          color: Colors.white,
-        ),
-        onPressed: () => Navigator.pop(context),
+  Widget _bottomBar() {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        boxShadow: [BoxShadow(color: Color(0x14000000), blurRadius: 12, offset: Offset(0, -3))],
       ),
-      title: Text(
-        'Visa Details',
-        style: TextStyle(
-          fontSize: context.fs(16),
-          fontWeight: FontWeight.w600,
-          color: Colors.white,
-          letterSpacing: -0.3,
-        ),
-      ),
-      centerTitle: true,
-      actions: [
-        Container(
-          margin: EdgeInsets.only(right: context.w(8)),
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.2),
-            borderRadius: BorderRadius.circular(context.r(8)),
-          ),
-          child: IconButton(
-            tooltip: 'Booking Summary',
-            icon: Icon(Icons.receipt_long_outlined, color: Colors.white, size: context.w(20)),
-            onPressed: () => VisaBookingSummaryScreen.open(context, widget.trip),
-          ),
-        ),
-        Container(
-          margin: EdgeInsets.only(right: context.w(8)),
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.2),
-            borderRadius: BorderRadius.circular(context.r(8)),
-          ),
-          child: IconButton(
-            icon: _isDownloading
-                ? SizedBox(
-              width: context.w(20),
-              height: context.w(20),
-              child: const CircularProgressIndicator(
-                color: Colors.white,
-                strokeWidth: 2,
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(context.w(16), context.h(12), context.w(16), context.h(12)),
+          child: Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => VisaBookingSummaryScreen.open(context, widget.trip),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: _kOrange,
+                    side: const BorderSide(color: _kOrange),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(context.r(10))),
+                    minimumSize: Size.fromHeight(context.h(50)),
+                    padding: EdgeInsets.symmetric(horizontal: context.w(8)),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.receipt_long_rounded, size: context.w(18)),
+                      SizedBox(width: context.w(8)),
+                      Text(
+                        'VIEW INVOICE',
+                        style: TextStyle(fontSize: context.fs(13.5), fontWeight: FontWeight.w600, letterSpacing: 0.2),
+                      ),
+                    ],
+                  ),
+                ),
               ),
-            )
-                : const Icon(Icons.download_rounded, color: Colors.white),
-            onPressed: _isDownloading ? null : _handleDownload,
+              SizedBox(width: context.w(12)),
+              Expanded(
+                child: FilledButton(
+                  onPressed: _isDownloading ? null : _handleDownload,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: _kOrange,
+                    disabledBackgroundColor: const Color(0xFFF5C3A6),
+                    disabledForegroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(context.r(10))),
+                    minimumSize: Size.fromHeight(context.h(50)),
+                    padding: EdgeInsets.symmetric(horizontal: context.w(8)),
+                  ),
+                  child: _isDownloading
+                      ? SizedBox(
+                          width: context.w(20),
+                          height: context.w(20),
+                          child: const CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                        )
+                      : Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.download_rounded, size: context.w(18)),
+                            SizedBox(width: context.w(8)),
+                            Flexible(
+                              child: Text(
+                                'DOWNLOAD',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(fontSize: context.fs(13.5), fontWeight: FontWeight.w600, letterSpacing: 0.2),
+                              ),
+                            ),
+                          ],
+                        ),
+                ),
+              ),
+            ],
           ),
         ),
-      ],
+      ),
     );
   }
 
@@ -132,8 +195,7 @@ class _VisaBookingDetailsScreenState extends State<VisaBookingDetailsScreen> {
     setState(() => _isDownloading = true);
 
     try {
-      final type = _selectedView;
-      final filename = '${type}_${widget.trip.refId}.pdf';
+      final filename = 'ticket_${widget.trip.refId}.pdf';
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -157,11 +219,7 @@ class _VisaBookingDetailsScreenState extends State<VisaBookingDetailsScreen> {
         ),
       );
 
-      // Build a native, text-based PDF that mirrors the on-screen layout
-      // instead of capturing a screenshot of the widget.
-      final pdf = type == 'ticket'
-          ? VisaPdfBuilder.buildTicket(widget.trip)
-          : VisaPdfBuilder.buildInvoice(widget.trip);
+      final pdf = VisaPdfBuilder.buildTicket(widget.trip);
 
       final file = await PDFService.savePDF(pdf, filename);
 
@@ -201,7 +259,7 @@ class _VisaBookingDetailsScreenState extends State<VisaBookingDetailsScreen> {
                   height: context.w(70),
                   width: context.w(70),
                   decoration: BoxDecoration(
-                    color: Colors.green.withOpacity(0.1),
+                    color: Colors.green.withValues(alpha: 0.1),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
@@ -292,88 +350,6 @@ class _VisaBookingDetailsScreenState extends State<VisaBookingDetailsScreen> {
           ),
         );
       },
-    );
-  }
-
-  Widget _buildToggleBar(BuildContext context) {
-    return Container(
-      margin: EdgeInsets.symmetric(
-        horizontal: context.w(12),
-        vertical: context.h(6),
-      ),
-      padding: EdgeInsets.all(context.w(3)),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(context.r(10)),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.shadow,
-            blurRadius: context.w(8),
-            offset: Offset(0, context.h(2)),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          _buildToggleOption(
-            'ticket',
-            'Visa',
-            Icons.description_rounded,
-            context,
-          ),
-          _buildToggleOption(
-            'invoice',
-            'Invoice',
-            Icons.receipt_long_rounded,
-            context,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildToggleOption(
-      String value,
-      String label,
-      IconData icon,
-      BuildContext context,
-      ) {
-    bool isSelected = _selectedView == value;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () => setState(() => _selectedView = value),
-        child: Container(
-          padding: EdgeInsets.symmetric(vertical: context.h(8)),
-          decoration: BoxDecoration(
-            gradient: isSelected
-                ? const LinearGradient(
-              colors: [AppColors.primary, Color(0xFF0077CC)],
-            )
-                : null,
-            borderRadius: BorderRadius.circular(context.r(8)),
-            color: isSelected ? null : Colors.transparent,
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                icon,
-                size: context.w(16),
-                color: isSelected ? Colors.white : AppColors.textSecondary,
-              ),
-              SizedBox(width: context.w(6)),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: context.fs(13),
-                  fontWeight: FontWeight.w600,
-                  color: isSelected ? Colors.white : AppColors.textSecondary,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }

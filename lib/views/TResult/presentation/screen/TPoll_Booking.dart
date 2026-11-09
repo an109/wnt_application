@@ -188,6 +188,10 @@ class _TPollBookingScreenState extends State<TPollBookingScreen> {
   /// Same as hotel: guests fill the form freely, then sign in from the pay
   /// button; payment only opens for a signed-in user.
   Future<void> _loginToBook() async {
+    if (isUserLoggedIn()) {
+      _validateAndProceed();
+      return;
+    }
     await Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const LoginSignupScreen()),
     );
@@ -199,7 +203,6 @@ class _TPollBookingScreenState extends State<TPollBookingScreen> {
       setState(() {
         _accountEmail = user.email;
         _userId = int.tryParse(user.id) ?? 0;
-        // Keep whatever the guest already typed; only fill the gaps.
         if (_firstNameController.text.trim().isEmpty) {
           _firstNameController.text = user.firstname ?? '';
         }
@@ -212,6 +215,10 @@ class _TPollBookingScreenState extends State<TPollBookingScreen> {
       });
     } catch (e) {
       debugPrint('Error reading user after login: $e');
+    }
+    // After successful login, proceed to payment automatically.
+    if (mounted && isUserLoggedIn()) {
+      _validateAndProceed();
     }
   }
 

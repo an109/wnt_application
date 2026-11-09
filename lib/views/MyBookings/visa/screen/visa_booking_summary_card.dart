@@ -24,6 +24,10 @@ class VisaBookingSummaryScreen extends StatefulWidget {
 }
 
 class _VisaBookingSummaryScreenState extends State<VisaBookingSummaryScreen> {
+  static const _kInk = Color(0xFF111527);
+  static const _kMuted = Color(0xFF757575);
+  static const _kOrange = Color(0xFFEE7330);
+
   bool _isDownloading = false;
 
   TripItem get trip => widget.trip;
@@ -38,6 +42,20 @@ class _VisaBookingSummaryScreenState extends State<VisaBookingSummaryScreen> {
   Color get _statusBg => _isPending
       ? const Color(0xFFFFF7ED)
       : (_isCancelled ? const Color(0xFFFEF2F2) : const Color(0xFFECFDF5));
+
+  String get _statusLabel {
+    final s = trip.status.toLowerCase();
+    if (s.contains('cancelled')) return 'Cancelled';
+    if (s.contains('pending')) return 'Pending';
+    return 'Confirmed';
+  }
+
+  Color get _chipColor {
+    final s = trip.status.toLowerCase();
+    if (s.contains('cancelled')) return const Color(0xFF7CC7EE);
+    if (s.contains('pending')) return const Color(0xFFFF9800);
+    return AppColors.AppBlue;
+  }
 
   Future<void> _handleDownload() async {
     setState(() => _isDownloading = true);
@@ -130,64 +148,127 @@ class _VisaBookingSummaryScreenState extends State<VisaBookingSummaryScreen> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        surfaceTintColor: Colors.transparent,
-        shadowColor: const Color(0x0D000000),
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back_ios_new_rounded, size: context.w(18), color: const Color(0xFF111827)),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Text(
-          'Visa Invoice',
-          style: TextStyle(
-            fontSize: context.fs(17),
-            fontWeight: FontWeight.w600,
-            color: const Color(0xFF111827),
+  Widget _topBar() {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(context.w(8), context.h(6), context.w(4), context.h(10)),
+      child: Row(
+        children: [
+          IconButton(
+            tooltip: 'Back',
+            onPressed: () => Navigator.of(context).maybePop(),
+            icon: Icon(Icons.arrow_back, size: context.w(24), color: _kInk),
           ),
-        ),
-        centerTitle: true,
-        actions: [
-          Container(
-            margin: EdgeInsets.only(right: context.w(12)),
-            child: IconButton(
-              icon: _isDownloading
-                  ? SizedBox(
-                      width: context.w(20),
-                      height: context.w(20),
-                      child: CircularProgressIndicator(color: AppColors.primary, strokeWidth: 2),
-                    )
-                  : Icon(Icons.download_rounded, color: AppColors.primary),
-              onPressed: _isDownloading ? null : _handleDownload,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      'Visa Invoice',
+                      style: TextStyle(fontSize: context.fs(18), fontWeight: FontWeight.w600, color: _kInk),
+                    ),
+                    SizedBox(width: context.w(8)),
+                    Container(
+                      padding: EdgeInsets.symmetric(horizontal: context.w(8), vertical: context.h(2)),
+                      decoration: BoxDecoration(color: _chipColor, borderRadius: BorderRadius.circular(context.r(20))),
+                      child: Text(
+                        _statusLabel,
+                        style: TextStyle(fontSize: context.fs(10.5), fontWeight: FontWeight.w600, color: Colors.white),
+                      ),
+                    ),
+                  ],
+                ),
+                Text(
+                  'Booking ID: ${trip.bookingId}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: context.fs(11), color: _kMuted),
+                ),
+              ],
             ),
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        physics: const BouncingScrollPhysics(),
+    );
+  }
+
+  Widget _bottomBar() {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        boxShadow: [BoxShadow(color: Color(0x14000000), blurRadius: 12, offset: Offset(0, -3))],
+      ),
+      child: SafeArea(
+        top: false,
         child: Padding(
-          padding: EdgeInsets.all(context.w(16)),
-          child: Column(
-            children: [
-              _buildStatusCard(context),
-              SizedBox(height: context.h(16)),
-              _buildApplicationDetails(context),
-              SizedBox(height: context.h(16)),
-              _buildPricingCard(context),
-              SizedBox(height: context.h(16)),
-              _buildBillingInfo(context),
-              SizedBox(height: context.h(16)),
-              _buildTermsCard(context),
-              SizedBox(height: context.h(32)),
-            ],
+          padding: EdgeInsets.fromLTRB(context.w(16), context.h(12), context.w(16), context.h(12)),
+          child: FilledButton(
+            onPressed: _isDownloading ? null : _handleDownload,
+            style: FilledButton.styleFrom(
+              backgroundColor: _kOrange,
+              disabledBackgroundColor: const Color(0xFFF5C3A6),
+              disabledForegroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(context.r(10))),
+              minimumSize: Size.fromHeight(context.h(50)),
+            ),
+            child: _isDownloading
+                ? SizedBox(
+                    width: context.w(20),
+                    height: context.w(20),
+                    child: const CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                  )
+                : Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.download_rounded, size: context.w(18)),
+                      SizedBox(width: context.w(8)),
+                      Text(
+                        'DOWNLOAD INVOICE',
+                        style: TextStyle(fontSize: context.fs(13.5), fontWeight: FontWeight.w600, letterSpacing: 0.2),
+                      ),
+                    ],
+                  ),
           ),
         ),
       ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
+      body: SafeArea(
+        child: Column(
+          children: [
+            _topBar(),
+            Expanded(
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                child: Padding(
+                  padding: EdgeInsets.all(context.w(16)),
+                  child: Column(
+                    children: [
+                      _buildStatusCard(context),
+                      SizedBox(height: context.h(16)),
+                      _buildApplicationDetails(context),
+                      SizedBox(height: context.h(16)),
+                      _buildPricingCard(context),
+                      SizedBox(height: context.h(16)),
+                      _buildBillingInfo(context),
+                      SizedBox(height: context.h(16)),
+                      _buildTermsCard(context),
+                      SizedBox(height: context.h(32)),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+      bottomNavigationBar: _bottomBar(),
     );
   }
 
