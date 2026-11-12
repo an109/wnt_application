@@ -532,7 +532,7 @@ Widget tripBottomBar(BuildContext context, List<Widget> buttons) {
 (String, Color) statusInfo(String status) {
   final s = status.toLowerCase();
   if (s.contains('cancelled') || s.contains('cancel')) {
-    return ('Cancelled', const Color(0xFF7CC7EE));
+    return ('Cancelled', const Color(0xFFEF4444));
   }
   if (s.contains('pending')) return ('Pending', const Color(0xFFFF9800));
   if (s.contains('confirmed') || s.contains('completed') || s.contains('approved')) {

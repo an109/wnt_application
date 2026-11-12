@@ -52,7 +52,7 @@ class _VisaBookingSummaryScreenState extends State<VisaBookingSummaryScreen> {
 
   Color get _chipColor {
     final s = trip.status.toLowerCase();
-    if (s.contains('cancelled')) return const Color(0xFF7CC7EE);
+    if (s.contains('cancelled')) return const Color(0xFFEF4444);
     if (s.contains('pending')) return const Color(0xFFFF9800);
     return AppColors.AppBlue;
   }
