@@ -977,28 +977,32 @@ class _InsReviewScreenState extends State<InsReviewScreen> {
                 ),
               ),
               SizedBox(height: context.h(6)),
+              // for (final q in _health.gatedQuestions)
+              //   q.isCheckbox
+              //       ? _pedCondition(context, q)
+              //       : _pedText(context, q),
               for (final q in _health.gatedQuestions)
-                q.isCheckbox
-                    ? _pedCondition(context, q)
-                    : _pedText(context, q),
-              SizedBox(height: context.h(12)),
-              InsField(
-                label: 'Details of the condition',
-                controller: _pedDesc,
-              ),
-              SizedBox(height: context.h(14)),
-              InsField(
-                label: 'Suffering since',
-                controller: _pedSince,
-                hint: 'e.g. March 2021',
-              ),
+                _pedCondition(context, q),
+
+              SizedBox(height: context.h(5)),
+              // InsField(
+              //   label: 'Details of the condition',
+              //   controller: _pedDesc,
+              // ),
+              // SizedBox(height: context.h(14)),
+              // InsField(
+              //   label: 'Suffering since',
+              //   controller: _pedSince,
+              //   hint: 'e.g. March 2021',
+              // ),
             ],
-            // Asked of everyone — previous claims and recent hospitalisation
-            // are not conditional on the pre-existing-disease answer.
-            for (final q in _health.independentQuestions) ...[
-              SizedBox(height: context.h(16)),
-              _pedText(context, q),
-            ],
+            if (_health.hasPed == true)
+              // Previous claims and hospitalisation history — only asked when
+              // the traveller declared a pre-existing condition.
+              for (final q in _health.independentQuestions) ...[
+                SizedBox(height: context.h(16)),
+                _pedText(context, q),
+              ],
           ],
         );
       },

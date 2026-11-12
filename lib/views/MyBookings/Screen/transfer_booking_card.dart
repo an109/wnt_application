@@ -106,7 +106,7 @@ class TransferBookingCard extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(
-          'TRANSFER BOOKING',
+          'TRANSFER',
           style: TextStyle(
             fontFamily: 'Manrope',
             fontSize: context.fs(11),

@@ -1055,7 +1055,7 @@ class _InsPaymentScreenState extends State<InsPaymentScreen> {
         color: Colors.black.withValues(alpha: 0.45),
         child: Center(
           child: Container(
-            margin: EdgeInsets.symmetric(horizontal: context.w(40)),
+            margin: EdgeInsets.symmetric(horizontal: context.w(16)),
             padding: EdgeInsets.symmetric(
               horizontal: context.w(24),
               vertical: context.h(26),
@@ -1064,7 +1064,7 @@ class _InsPaymentScreenState extends State<InsPaymentScreen> {
               color: Colors.white,
               borderRadius: BorderRadius.circular(context.r(16)),
             ),
-            child: AppLoadingView(message: _status, hint: 'Do not close this screen.'),
+            child: BookingProgressLoader(message: _status),
           ),
         ),
       ),

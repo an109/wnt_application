@@ -41,6 +41,8 @@ import '../Insurance/bloc/InsuranceBookingBloc.dart';
 import '../Insurance/bloc/InsuranceBookingEvent.dart';
 import '../Insurance/bloc/InsuranceBookingState.dart';
 import '../Insurance/domain/entity/InsuranceBookingEntity.dart';
+import '../Insurance/screen/insurance_detail_screen.dart';
+import '../../home/presentation/widgets/home_sections.dart' show HomeCroppedImage;
 
 // "My Bookings": every booking the user has — flights, hotels, transfers,
 // visas — filtered by service, searchable, and (outside Visa) sorted into
@@ -53,7 +55,7 @@ const Color _kMuted = Color(0xFF6B7280);
 
 enum _Tab { upcoming, past, cancelled }
 
-enum _Service { all, flight, hotel, transfer, visa, insurance }
+enum _Service { all, flight, hotel, transfer, visa, insurance, holiday }
 
 enum _VisaTab { all, inProgress, approved, rejected }
 
@@ -253,7 +255,24 @@ class _MyBookingScreenState extends State<MyBookingScreen> {
       if (apply == null) _failed.add(source);
       _pending.remove(source);
     });
+    if (apply != null) _precacheImages(source);
     if (_pending.isEmpty && !(_refreshing?.isCompleted ?? true)) _refreshing!.complete();
+  }
+
+  void _precacheImages(String source) {
+    final urls = <String>[];
+    if (source == 'hotel') {
+      for (final h in _hotels) {
+        if (h.hotelImage.isNotEmpty) urls.add(h.hotelImage);
+      }
+    } else if (source == 'transport') {
+      for (final t in _transfers) {
+        if (t.imageUrl.isNotEmpty) urls.add(t.imageUrl);
+      }
+    }
+    for (final url in urls) {
+      precacheImage(NetworkImage(url), context);
+    }
   }
 
   void _openLogin() {
@@ -282,7 +301,8 @@ class _MyBookingScreenState extends State<MyBookingScreen> {
     for (final h in _hotels) _hotelTrip(h, _push),
     for (final t in _transfers) _transferTrip(t, _push),
     for (final v in _visas) _visaTrip(v),
-    for (final i in _insurances) _insuranceTrip(i),
+    for (final i in _insurances) _insuranceTrip(i, _push),
+    // for (final hd in _holidays) _holidayTrip(hd, _push),
   ];
 
   /// What the current chip, sub-filter and search show.
@@ -359,6 +379,7 @@ class _MyBookingScreenState extends State<MyBookingScreen> {
                             _Service.transfer => 'Transfer Bookings',
                             _Service.visa => 'Visa Bookings',
                             _Service.insurance => 'Insurance',
+                            _Service.holiday => 'Holiday Bookings',
                           },
                           style: TextStyle(fontSize: context.ffs(24), fontWeight: FontWeight.w500, color: _kInk),
                         ),
@@ -373,6 +394,7 @@ class _MyBookingScreenState extends State<MyBookingScreen> {
                         _Service.transfer => 'Track and manage your transfer bookings.',
                         _Service.visa => 'Track and manage your visa applications in one place.',
                         _Service.insurance => 'Track and manage your insurance policies.',
+                        _Service.holiday => 'Track and manage your holiday packages.',
                       },
                       style: TextStyle(fontSize: context.ffs(13), color: const Color(0xFF4B5563)),
                     ),
@@ -404,6 +426,13 @@ class _MyBookingScreenState extends State<MyBookingScreen> {
                         selected: _visaTab,
                         onSelect: (t) => setState(() => _visaTab = t),
                       )
+                    else if (_service != _Service.all && _service != _Service.insurance)
+                      _SegmentBar<_Tab>(
+                        values: _Tab.values,
+                        labels: const {_Tab.upcoming: 'Upcoming', _Tab.past: 'Past Trips', _Tab.cancelled: 'Cancelled'},
+                        selected: _tab,
+                        onSelect: (t) => setState(() => _tab = t),
+                      ),
                     // else
                     //   _SegmentBar<_Tab>(
                     //     values: _Tab.values,
@@ -411,13 +440,6 @@ class _MyBookingScreenState extends State<MyBookingScreen> {
                     //     selected: _tab,
                     //     onSelect: (t) => setState(() => _tab = t),
                     //   ),
-                    else
-                      _SegmentBar<_Tab>(
-                        values: _Tab.values,
-                        labels: const {_Tab.upcoming: 'Upcoming', _Tab.past: 'Past Trips', _Tab.cancelled: 'Cancelled'},
-                        selected: _tab,
-                        onSelect: (t) => setState(() => _tab = t),
-                      ),
                   ],
                 ),
               ),
@@ -526,14 +548,30 @@ class _ServiceChips extends StatelessWidget {
 
   const _ServiceChips({required this.selected, required this.onSelect});
 
-  static const _items = <_Service, (String, String?)>{
-    _Service.all: ('All', null),
-    _Service.flight: ('Flights', 'assets/NewIcons/HFlight.png'),
-    _Service.hotel: ('Hotels', 'assets/NewIcons/hotel.png'),
-    _Service.transfer: ('Transfer', 'assets/NewIcons/car.png'),
-    _Service.visa: ('Visa', 'assets/NewIcons/visa.png'),
-    _Service.insurance: ('Insurance', 'assets/NewIcons/insurance.png'),
+  static const _r1 = 'assets/home/services_row1.png';
+  static const _r2 = 'assets/home/services_row2.png';
+
+  static const _items = <_Service, String>{
+    _Service.all: 'All',
+    _Service.flight: 'Flights',
+    _Service.hotel: 'Hotels',
+    _Service.transfer: 'Transfer',
+    _Service.visa: 'Visa',
+    _Service.insurance: 'Insurance',
+    _Service.holiday: 'Holiday',
   };
+
+  static Widget? _chipIcon(_Service s, double size) {
+    return switch (s) {
+      _Service.flight    => HomeCroppedImage(asset: _r1, width: size, height: size, imageWidthFactor: 5.0895, imageHeightFactor: 1.6941, leftFactor: -0.1469, topFactor: -0.3765),
+      _Service.hotel     => HomeCroppedImage(asset: _r1, width: size, height: size, imageWidthFactor: 5.0895, imageHeightFactor: 1.6941, leftFactor: -1.4116, topFactor: -0.3471),
+      _Service.holiday   => HomeCroppedImage(asset: _r1, width: size, height: size, imageWidthFactor: 5.0895, imageHeightFactor: 1.6941, leftFactor: -2.6175, topFactor: -0.4059),
+      _Service.visa      => HomeCroppedImage(asset: _r2, width: size, height: size, imageWidthFactor: 3.9512, imageHeightFactor: 1.2857, leftFactor: -0.1951, topFactor: -0.2143),
+      _Service.transfer  => HomeCroppedImage(asset: _r2, width: size, height: size, imageWidthFactor: 3.3585, imageHeightFactor: 1.2857, leftFactor: -2.2909, topFactor: -0.2143),
+      _Service.insurance => HomeCroppedImage(asset: _r2, width: size, height: size, imageWidthFactor: 3.9512, imageHeightFactor: 1.2857, leftFactor: -1.3422, topFactor: -0.2143),
+      _Service.all       => null,
+    };
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -546,8 +584,9 @@ class _ServiceChips extends StatelessWidget {
         separatorBuilder: (_, __) => SizedBox(width: context.fx(8)),
         itemBuilder: (context, i) {
           final service = _items.keys.elementAt(i);
-          final (label, asset) = _items[service]!;
+          final label = _items[service]!;
           final on = service == selected;
+          final icon = _chipIcon(service, context.fx(20));
           return Semantics(
             button: true,
             selected: on,
@@ -568,18 +607,8 @@ class _ServiceChips extends StatelessWidget {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    if (asset != null)
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(context.fx(10)),
-                        child: Image.asset(
-                          asset,
-                          width: context.fx(20),
-                          height: context.fx(20),
-                          fit: BoxFit.cover,
-                          // color: on ? Colors.white : null,
-                          colorBlendMode: on ? BlendMode.srcIn : null,
-                        ),
-                      )
+                    if (icon != null)
+                      icon
                     else
                       Icon(Icons.grid_view_rounded, size: context.fx(14), color: on ? Colors.white : _kMuted),
                     SizedBox(width: context.fx(6)),
@@ -929,7 +958,7 @@ _VisaGroup _visaGroup(TripItem v) {
   return _VisaGroup.other;
 }
 
-_Trip _insuranceTrip(InsuranceBookingEntity i) {
+_Trip _insuranceTrip(InsuranceBookingEntity i, void Function(Widget) push) {
   final start = _parse(i.startDate);
   final end = _parse(i.endDate);
   final status = i.status.toLowerCase();
@@ -953,6 +982,7 @@ _Trip _insuranceTrip(InsuranceBookingEntity i) {
       amount: i.totalAmount,
       currency: i.currency,
       status: _status(tab, processing: status.contains('pending')),
+      onDetails: () => push(InsuranceBookingDetailsScreen(booking: i)),
     ),
   );
 }
@@ -1003,6 +1033,7 @@ class _InsuranceBookingCard extends StatelessWidget {
   final String amount;
   final String currency;
   final TripStatus status;
+  final VoidCallback onDetails;
 
   const _InsuranceBookingCard({
     required this.planName,
@@ -1015,11 +1046,14 @@ class _InsuranceBookingCard extends StatelessWidget {
     required this.amount,
     required this.currency,
     required this.status,
+    required this.onDetails,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return GestureDetector(
+      onTap: onDetails,
+      child: Container(
       margin: EdgeInsets.only(bottom: context.h(12)),
       padding: EdgeInsets.all(context.w(12)),
       decoration: BoxDecoration(
@@ -1146,6 +1180,7 @@ class _InsuranceBookingCard extends StatelessWidget {
           ],
         ],
       ),
+    ),
     );
   }
 }

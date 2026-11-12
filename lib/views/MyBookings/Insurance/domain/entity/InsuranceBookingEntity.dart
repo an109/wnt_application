@@ -12,6 +12,8 @@ class InsuranceBookingEntity extends Equatable {
   final String endDate;
   final int travellers;
   final String totalAmount;
+  final String? basePremium;
+  final String? tax;
   final String currency;
   final String status;
   final String paymentMethod;
@@ -34,6 +36,8 @@ class InsuranceBookingEntity extends Equatable {
     required this.endDate,
     required this.travellers,
     required this.totalAmount,
+    this.basePremium,
+    this.tax,
     required this.currency,
     required this.status,
     required this.paymentMethod,
@@ -48,7 +52,7 @@ class InsuranceBookingEntity extends Equatable {
   @override
   List<Object?> get props => [
     id, user, policyNumber, transactionId, planName, providerName,
-    destination, startDate, endDate, travellers, totalAmount, currency,
+    destination, startDate, endDate, travellers, totalAmount, basePremium, tax, currency,
     status, paymentMethod, paymentId, holderName, email, phone, created, updated,
   ];
 }

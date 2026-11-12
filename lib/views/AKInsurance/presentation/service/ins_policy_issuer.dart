@@ -104,7 +104,15 @@ class InsPolicyIssuer {
       stateName: proposer.state,
     );
 
-    final questionAnswers = details.health.toQuestionAnswers();
+    // Build a lightweight PedInfo map so the backend auto-builds
+    // the correct provider-specific QuestionsAnswers shape.
+    final hasPed = details.health.hasPed == true;
+    final pedInfo = <String, dynamic>{
+      'IsPed': hasPed,
+      'Diseases': hasPed ? details.health.conditions.toList() : <String>[],
+      'SufferingSince': hasPed ? details.health.sufferingSince : '',
+      'Description': hasPed ? details.health.description : '',
+    };
 
     final nominee = AkInsuranceNomineeEntity(
       firstName: details.nominee.firstName,
@@ -173,7 +181,7 @@ class InsPolicyIssuer {
                 // the questionnaire PlanDetails returned — this used to be a
                 // hardcoded "no pre-existing disease" on everyone.
                 nominee: nominee,
-                questionsAnswers: questionAnswers,
+                pedInfo: pedInfo,
                 addresses: [address],
                 contactInfo: contact,
                 studentDetails: AkInsuranceStudentDetailsEntity(
@@ -196,6 +204,13 @@ class InsPolicyIssuer {
       onlinePayment: false,
       depositPayment: true,
       tui: tui,
+      wnMeta: {
+        'planId': plan.planId,
+        'planName': plan.planName,
+        'providerName': plan.provider,
+        'base': plan.premium,
+        'tax': 0,
+      },
     );
   }
 

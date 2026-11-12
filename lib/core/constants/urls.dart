@@ -2,10 +2,10 @@ class Urls {
 
   // static const String baseUrl = 'https://thewandernova.com/api/';
   // static const String baseUrl = 'http://167.71.233.208:8032/api/';
-  static const String baseUrl = 'http://192.168.1.13:8000/api/';
+  static const String baseUrl = 'http://192.168.1.4:8000/api/';
   // static const String basesUrl = 'https://thewandernova.com/api';
   // static const String basesUrl = 'http://167.71.233.208:8032/api';
-  static const String basesUrl = 'http://192.168.1.13:8000/api';
+  static const String basesUrl = 'http://192.168.1.4:8000/api';
 
   // Thrisha AI chat service: the live service.
   static const String trishaBaseUrl = trishaProductionUrl;
@@ -218,6 +218,7 @@ class Urls {
   static const String hotelBookingsList = '$basesUrl/tbo-hotel/bookings/list/';
   static const String bookings = '$basesUrl/flights/bookings';
   static const String myRefunds = '$basesUrl/refunds/my/';
+  static const String autoRefund = '$basesUrl/refunds/auto-refund/';
   static const String cancellationSettings = '$basesUrl/settings/cancellation/';
 
   // Visa Applications / Upcoming Trips

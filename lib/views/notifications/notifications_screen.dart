@@ -109,18 +109,18 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       child: Row(
         children: [
           const Expanded(child: AccountTopBar(title: 'Notifications')),
-          Semantics(
-            label: 'Notifications on or off',
-            child: Switch(
-              value: _alertsOn,
-              onChanged: _savingToggle ? null : _toggleAlerts,
-              activeTrackColor: AppColors.AppBlue,
-              activeThumbColor: Colors.white,
-              inactiveTrackColor: const Color(0xFFD5DAE1),
-              inactiveThumbColor: Colors.white,
-              trackOutlineColor: const WidgetStatePropertyAll(Colors.transparent),
-            ),
-          ),
+          // Semantics(
+          //   label: 'Notifications on or off',
+          //   child: Switch(
+          //     value: _alertsOn,
+          //     onChanged: _savingToggle ? null : _toggleAlerts,
+          //     activeTrackColor: AppColors.AppBlue,
+          //     activeThumbColor: Colors.white,
+          //     inactiveTrackColor: const Color(0xFFD5DAE1),
+          //     inactiveThumbColor: Colors.white,
+          //     trackOutlineColor: const WidgetStatePropertyAll(Colors.transparent),
+          //   ),
+          // ),
         ],
       ),
     );

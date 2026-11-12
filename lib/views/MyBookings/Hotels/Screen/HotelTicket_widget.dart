@@ -19,8 +19,8 @@ class HotelTicketWidget extends StatelessWidget {
         padding: EdgeInsets.all(context.w(12)),
         child: Column(
           children: [
-            _buildHeader(context),
-            SizedBox(height: context.h(10)),
+            // _buildHeader(context),
+            // SizedBox(height: context.h(10)),
             _buildConfirmationCard(context),
             SizedBox(height: context.h(12)),
             _buildHotelDetailsCard(context),

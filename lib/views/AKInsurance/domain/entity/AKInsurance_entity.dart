@@ -665,6 +665,7 @@ class AkInsuranceBookingTravellerEntity extends Equatable {
   final AkInsuranceContactInfoEntity? contactInfo;
   final AkInsuranceStudentDetailsEntity studentDetails;
   final String? employeId;
+  final Map<String, dynamic>? pedInfo;
 
   const AkInsuranceBookingTravellerEntity({
     required this.id,
@@ -679,16 +680,13 @@ class AkInsuranceBookingTravellerEntity extends Equatable {
     this.gender,
     required this.relationship,
     this.isProposer = false,
-    // Defaulted (not required) so the flight Trip Secure flow — which
-    // doesn't collect a nominee — keeps compiling unchanged. A blank name
-    // with a valid enum relation is the closest placeholder to the API
-    // doc's "null/""/0 where you have no real data" guidance.
     this.nominee = const AkInsuranceNomineeEntity(firstName: '', lastName: '', relation: 'Spouse'),
     this.questionsAnswers = const [AkInsuranceQuestionAnswerEntity.defaultPed],
     this.addresses = const [],
     this.contactInfo,
     this.studentDetails = const AkInsuranceStudentDetailsEntity(),
     this.employeId,
+    this.pedInfo,
   });
 
   @override
@@ -711,6 +709,7 @@ class AkInsuranceBookingTravellerEntity extends Equatable {
         contactInfo,
         studentDetails,
         employeId,
+        pedInfo,
       ];
 }
 
@@ -899,6 +898,7 @@ class AkInsuranceStartPayRequestEntity extends Equatable {
   final String? agentAti;
   final String channelId;
   final String tui;
+  final Map<String, dynamic>? wnMeta;
 
   const AkInsuranceStartPayRequestEntity({
     required this.paymentReference,
@@ -963,6 +963,7 @@ class AkInsuranceStartPayRequestEntity extends Equatable {
     this.agentAti,
     this.channelId = 'b2bindia',
     required this.tui,
+    this.wnMeta,
   });
 
   @override
@@ -1029,6 +1030,7 @@ class AkInsuranceStartPayRequestEntity extends Equatable {
         agentAti,
         channelId,
         tui,
+        wnMeta,
       ];
 }
 

@@ -11,6 +11,7 @@ import '../state/ins_search_query.dart';
 import '../tokens/ins_tokens.dart';
 import '../widgets/ins_common.dart';
 import '../widgets/ins_plan_card.dart';
+import '../../../../newUIWidgets/FooterImage.dart';
 
 /// "Payment Successful" — Figma `insurance booking payment done`.
 ///
@@ -424,8 +425,9 @@ class InsConfirmedScreen extends StatelessWidget {
             width: context.w(92),
             child: Column(
               children: [
-                Icon(Icons.account_balance_wallet_outlined,
-                    size: context.w(28), color: Colors.white),
+                // Icon(Icons.account_balance_wallet_outlined,
+                //     size: context.w(28), color: Colors.white),
+                Image.asset('assets/HbookImage/amountPaid.png', width: context.w(38), height: context.w(38)),
                 SizedBox(height: context.h(6)),
                 Text(
                   'Amount Paid',
@@ -645,37 +647,7 @@ class InsConfirmedScreen extends StatelessWidget {
   }
 
   Widget _footerBrand(BuildContext context) {
-    return Center(
-      child: Column(
-        children: [
-          Text(
-            'Thank you for choosing',
-            style: TextStyle(
-              fontSize: context.fs(11),
-              color: InsTokens.subGrey,
-            ),
-          ),
-          SizedBox(height: context.h(2)),
-          Text(
-            'WANDER NOVA',
-            style: TextStyle(
-              fontSize: context.fs(16),
-              fontWeight: FontWeight.w600,
-              letterSpacing: 1.5,
-              color: InsTokens.blue,
-            ),
-          ),
-          SizedBox(height: context.h(2)),
-          Text(
-            'Have a great trip!',
-            style: TextStyle(
-              fontSize: context.fs(11),
-              color: InsTokens.orange,
-            ),
-          ),
-        ],
-      ),
-    );
+    return const AuthFooterBadge();
   }
 
   // ------------------------------------------------------------- actions

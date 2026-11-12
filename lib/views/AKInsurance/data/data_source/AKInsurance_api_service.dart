@@ -75,15 +75,26 @@ class AkInsuranceApiServiceImpl implements AkInsuranceApiService {
   Future<Response> startPay(AkInsuranceStartPayRequestModel request) async {
     try {
       print('CALLING InsuranceStartPay API: ${Urls.insuranceStartPay}');
-      print('Request Body: ${request.toJson()}');
+      final json = request.toJson();
+      final plans = json['Plans'] as List?;
+      if (plans != null && plans.isNotEmpty) {
+        final travellers = (plans[0] as Map)['Travellers'] as List?;
+        if (travellers != null) {
+          for (final t in travellers) {
+            print('StartPay Traveller PedInfo: ${t['PedInfo']}');
+            print('StartPay Traveller QuestionsAnswers: ${t['QuestionsAnswers']}');
+          }
+        }
+      }
+      print('Request Body: $json');
 
       // Mirrors the flight/hotel StartPay convention: a non-200 that still
       // carries a body (e.g. "still processing") is a normal response to be
       // interpreted by the repository, not a thrown DioException.
       final response = await dio.post(
         Urls.insuranceStartPay,
-        data: request.toJson(),
-        options: Options(validateStatus: (status) => status != null && status < 500),
+        data: json,
+        options: Options(validateStatus: (_) => true),
       );
 
       print('InsuranceStartPay Response Status: ${response.statusCode}');
@@ -105,7 +116,33 @@ class AkInsuranceApiServiceImpl implements AkInsuranceApiService {
   }
 
   @override
-  Future<Response> getItinerary(AkInsuranceItineraryRequestModel request) {
-    return _post(Urls.insuranceGetItinerary, 'InsuranceGetItinerary', request.toJson());
+  Future<Response> getItinerary(AkInsuranceItineraryRequestModel request) async {
+    try {
+      print('CALLING InsuranceGetItinerary API: ${Urls.insuranceGetItinerary}');
+      final body = request.toJson();
+      print('Request Body: $body');
+
+      final response = await dio.post(
+        Urls.insuranceGetItinerary,
+        data: body,
+        options: Options(validateStatus: (_) => true),
+      );
+
+      print('InsuranceGetItinerary Response Status: ${response.statusCode}');
+      print('InsuranceGetItinerary Response Data: ${response.data}');
+
+      return response;
+    } on DioException catch (e) {
+      print('InsuranceGetItinerary API Error: ${e.message}');
+      print('InsuranceGetItinerary API Error Response: ${e.response?.data}');
+      rethrow;
+    } catch (e) {
+      print('InsuranceGetItinerary Unknown Error: $e');
+      throw DioException(
+        requestOptions: RequestOptions(path: Urls.insuranceGetItinerary),
+        error: e.toString(),
+        type: DioExceptionType.unknown,
+      );
+    }
   }
 }

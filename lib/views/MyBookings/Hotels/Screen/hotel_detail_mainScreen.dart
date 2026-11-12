@@ -1,106 +1,229 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
+
 import '../../../../core/resources/app_colours.dart';
-import '../../../../core/services/pdf_generator.dart';
+import '../../shared/cancel_booking_flow.dart';
+import '../../shared/trip_detail_widgets.dart';
 import '../domain/entity/HotelBookingEntity.dart';
-import 'HotelTicket_widget.dart';
 import 'hotel_pdf_builder.dart';
 
-
-class HotelBookingDetailsScreen extends StatefulWidget {
+class HotelBookingDetailsScreen extends StatelessWidget {
   final HotelBookingListEntity booking;
 
   const HotelBookingDetailsScreen({super.key, required this.booking});
 
   @override
-  State<HotelBookingDetailsScreen> createState() => _HotelBookingDetailsScreenState();
-}
-
-class _HotelBookingDetailsScreenState extends State<HotelBookingDetailsScreen> {
-  static const _kInk = Color(0xFF111527);
-  static const _kMuted = Color(0xFF757575);
-  static const _kOrange = Color(0xFFEE7330);
-
-  bool _isDownloading = false;
-
-  String get _statusLabel {
-    final s = widget.booking.status.toLowerCase();
-    if (s.contains('cancelled')) return 'Cancelled';
-    if (s.contains('confirmed')) return 'Confirmed';
-    if (s.contains('pending')) return 'Pending';
-    return widget.booking.status.isNotEmpty ? widget.booking.status : 'Pending';
-  }
-
-  Color get _statusColor {
-    final s = widget.booking.status.toLowerCase();
-    if (s.contains('cancelled')) return const Color(0xFF7CC7EE);
-    if (s.contains('pending')) return const Color(0xFFFF9800);
-    return AppColors.AppBlue;
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.lightBg,
-      body: SafeArea(
-        child: Column(
-          children: [
-            _topBar(),
-            Expanded(
-              child: SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                child: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: context.w(12), vertical: context.h(8)),
-                  child: HotelTicketWidget(booking: widget.booking),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-      bottomNavigationBar: _bottomBar(),
-    );
-  }
-
-  Widget _topBar() {
-    return Padding(
-      padding: EdgeInsets.fromLTRB(context.w(8), context.h(6), context.w(4), context.h(10)),
-      child: Row(
-        children: [
-          IconButton(
-            tooltip: 'Back',
-            onPressed: () => Navigator.of(context).maybePop(),
-            icon: Icon(Icons.arrow_back, size: context.w(24), color: _kInk),
+    final (label, color) = statusInfo(booking.status);
+    final gap = SizedBox(height: context.fx(16));
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.dark,
+      child: Scaffold(
+        backgroundColor: Colors.white,
+        bottomNavigationBar: tripBottomBar(context, [
+          TripActionButton(
+            label: 'CANCEL',
+            icon: Icons.cancel_outlined,
+            outlined: true,
+            onPressed: () => _onCancel(context),
           ),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+          TripActionButton(
+            label: 'DOWNLOAD TICKET',
+            icon: Icons.download_rounded,
+            onPressed: () => saveAndOfferPdf(
+              context,
+              filename: 'hotel_${booking.confirmationNumber}.pdf',
+              build: (logo) => HotelPdfBuilder.buildTicket(booking),
+            ),
+          ),
+        ]),
+        body: SafeArea(
+          bottom: false,
+          child: Column(
+            children: [
+              tripTopBar(
+                context,
+                title: 'Hotel Details',
+                subtitle: 'Booking ID: ${booking.confirmationNumber}',
+                statusLabel: label,
+                statusColor: color,
+              ),
+              Expanded(
+                child: ListView(
+                  physics: context.scrollPhysics,
+                  padding: EdgeInsets.only(bottom: context.fx(24)),
                   children: [
-                    Text(
-                      'Hotel Details',
-                      style: TextStyle(fontSize: context.fs(18), fontWeight: FontWeight.w600, color: _kInk),
-                    ),
-                    SizedBox(width: context.w(8)),
-                    Container(
-                      padding: EdgeInsets.symmetric(horizontal: context.w(8), vertical: context.h(2)),
-                      decoration: BoxDecoration(color: _statusColor, borderRadius: BorderRadius.circular(context.r(20))),
-                      child: Text(
-                        _statusLabel,
-                        style: TextStyle(fontSize: context.fs(10.5), fontWeight: FontWeight.w600, color: Colors.white),
+                    _hero(context),
+                    Padding(
+                      padding: EdgeInsets.symmetric(horizontal: context.fx(16)),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          gap,
+                          _hotelCard(context, label, color),
+                          gap,
+                          _guestDetails(context),
+                          gap,
+                          _fare(context),
+                          gap,
+                          _bookingInfo(context),
+                          gap,
+                          _importantInfo(context),
+                        ],
                       ),
                     ),
                   ],
                 ),
-                Text(
-                  'Booking ID: ${widget.booking.confirmationNumber}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: context.fs(11), color: _kMuted),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _hero(BuildContext context) {
+    return SizedBox(
+      height: context.fx(116),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          const DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Color(0xFFF2D8C8), Color(0xFFFCEDE4), Colors.white],
+              ),
+            ),
+          ),
+          Positioned(
+            left: context.fx(16),
+            top: context.fx(24),
+            child: Container(
+              width: context.fx(56),
+              height: context.fx(56),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(context.fx(10)),
+                boxShadow: const [
+                  BoxShadow(color: Color(0x26000000), blurRadius: 10, offset: Offset(0, 3))
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(context.fx(10)),
+                child: booking.hotelImage.isNotEmpty
+                    ? Image.network(
+                        booking.hotelImage,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => _hotelIcon(context),
+                      )
+                    : _hotelIcon(context),
+              ),
+            ),
+          ),
+          Positioned(
+            right: context.fx(16),
+            top: context.fx(28),
+            child: Icon(Icons.hotel_rounded, size: context.fx(64), color: Colors.white.withValues(alpha: 0.3)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _hotelIcon(BuildContext context) {
+    return Container(
+      color: const Color(0xFFF5F7FA),
+      child: Icon(Icons.hotel_rounded, color: const Color(0xFFD32F2F), size: context.fx(28)),
+    );
+  }
+
+  Widget _hotelCard(BuildContext context, String statusLabel, Color statusColor) {
+    final isCancelled = booking.status.toLowerCase().contains('cancel');
+    final isPast = !isCancelled && DateTime.tryParse(booking.checkOut)?.isBefore(DateTime.now()) == true;
+    final corner = isCancelled
+        ? ('Cancelled', kRed)
+        : isPast
+            ? ('Completed', const Color(0xFF7CC7EE))
+            : null;
+
+    return TripSection(
+      padding: EdgeInsets.fromLTRB(context.fx(14), context.fx(14), context.fx(14), context.fx(12)),
+      cornerTag: corner,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(context.fx(6)),
+                child: booking.hotelImage.isNotEmpty
+                    ? Image.network(
+                        booking.hotelImage,
+                        width: context.fx(32),
+                        height: context.fx(32),
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Icon(
+                            Icons.hotel_rounded,
+                            size: context.fx(32),
+                            color: const Color(0xFFD32F2F)),
+                      )
+                    : Icon(Icons.hotel_rounded, size: context.fx(32), color: const Color(0xFFD32F2F)),
+              ),
+              SizedBox(width: context.fx(10)),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      booking.hotelName,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: context.ffs(15), fontWeight: FontWeight.w600, color: kInk),
+                    ),
+                    Text(
+                      [booking.hotelAddress, booking.hotelCity, booking.hotelCountry]
+                          .where((s) => s.isNotEmpty)
+                          .join(', '),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: context.ffs(11), color: kMuted),
+                    ),
+                  ],
                 ),
+              ),
+            ],
+          ),
+          if (booking.hotelStars > 0) ...[
+            SizedBox(height: context.fx(8)),
+            Row(
+              children: List.generate(
+                booking.hotelStars > 5 ? 5 : booking.hotelStars,
+                (_) => Icon(Icons.star_rounded, color: Colors.amber, size: context.fx(16)),
+              ),
+            ),
+          ],
+          SizedBox(height: context.fx(14)),
+          Row(
+            children: [
+              Expanded(child: _dateBox(context, 'CHECK-IN', formatTripDate(booking.checkIn), AppColors.AppBlue)),
+              SizedBox(width: context.fx(10)),
+              Expanded(child: _dateBox(context, 'CHECK-OUT', formatTripDate(booking.checkOut), kOrange)),
+            ],
+          ),
+          Padding(
+            padding: EdgeInsets.symmetric(vertical: context.fx(12)),
+            child: const Divider(height: 1, color: Color(0xFFF0F1F4)),
+          ),
+          IntrinsicHeight(
+            child: Row(
+              children: [
+                Expanded(child: TripStat(icon: Icons.king_bed_rounded, label: 'Room', value: booking.roomType.isEmpty ? '—' : booking.roomType)),
+                const VerticalDivider(width: 12, color: kLine),
+                Expanded(child: TripStat(icon: Icons.door_front_door_rounded, label: 'Rooms', value: '${booking.rooms}')),
+                const VerticalDivider(width: 12, color: kLine),
+                Expanded(child: TripStat(icon: Icons.nights_stay_rounded, label: 'Nights', value: '${booking.nights}')),
               ],
             ),
           ),
@@ -109,204 +232,159 @@ class _HotelBookingDetailsScreenState extends State<HotelBookingDetailsScreen> {
     );
   }
 
-  Widget _bottomBar() {
+  Widget _dateBox(BuildContext context, String title, String value, Color color) {
     return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        boxShadow: [BoxShadow(color: Color(0x14000000), blurRadius: 12, offset: Offset(0, -3))],
+      padding: EdgeInsets.all(context.fx(10)),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(context.fx(10)),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
       ),
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(context.w(16), context.h(12), context.w(16), context.h(12)),
-          child: FilledButton(
-            onPressed: _isDownloading ? null : _handleDownload,
-            style: FilledButton.styleFrom(
-              backgroundColor: _kOrange,
-              disabledBackgroundColor: const Color(0xFFF5C3A6),
-              disabledForegroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(context.r(10))),
-              minimumSize: Size.fromHeight(context.h(50)),
-            ),
-            child: _isDownloading
-                ? SizedBox(
-                    width: context.w(20),
-                    height: context.w(20),
-                    child: const CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                  )
-                : Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.download_rounded, size: context.w(18)),
-                      SizedBox(width: context.w(8)),
-                      Text(
-                        'DOWNLOAD TICKET',
-                        style: TextStyle(fontSize: context.fs(13.5), fontWeight: FontWeight.w600, letterSpacing: 0.2),
-                      ),
-                    ],
-                  ),
-          ),
-        ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title,
+              style: TextStyle(
+                  fontSize: context.ffs(8),
+                  color: kMuted,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.8)),
+          SizedBox(height: context.fx(4)),
+          Text(value,
+              style: TextStyle(
+                  fontSize: context.ffs(14),
+                  fontWeight: FontWeight.w700,
+                  color: color)),
+        ],
       ),
     );
   }
 
-  Future<void> _handleDownload() async {
-    setState(() => _isDownloading = true);
-
-    try {
-      final filename = 'ticket_${widget.booking.confirmationNumber}.pdf';
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              SizedBox(
-                width: context.w(20),
-                height: context.w(20),
-                child: const CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-              ),
-              SizedBox(width: context.w(12)),
-              const Text('Generating PDF...'),
-            ],
-          ),
-          backgroundColor: AppColors.primary,
-          behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 5),
-        ),
-      );
-
-      final pdf = await HotelPdfBuilder.buildTicket(widget.booking);
-
-      final file = await PDFService.savePDF(pdf, filename);
-
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
-      _showDownloadSuccessDialog(context, file);
-    } catch (e) {
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Download failed: $e'),
-          backgroundColor: Colors.red,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    } finally {
-      setState(() => _isDownloading = false);
-    }
+  Widget _guestDetails(BuildContext context) {
+    return TripSection(
+      title: 'Guest Details',
+      icon: Icons.groups_rounded,
+      iconColor: AppColors.AppBlue,
+      child: Column(
+        children: [
+          tripKv(context, 'Guest Name', booking.guestName),
+          tripKv(context, 'Adults', '${booking.adults}'),
+          if (booking.children > 0) tripKv(context, 'Children', '${booking.children}'),
+          tripKv(context, 'Total Guests', '${booking.guests}'),
+        ],
+      ),
+    );
   }
 
-  void _showDownloadSuccessDialog(BuildContext context, File file) {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return Dialog(
-          insetPadding: EdgeInsets.symmetric(
-            horizontal: context.w(24),
-          ),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(context.r(18)),
-          ),
-          child: Padding(
-            padding: EdgeInsets.all(context.w(20)),
+  Widget _fare(BuildContext context) {
+    final cur = booking.currency.isEmpty ? 'INR' : booking.currency;
+    final total = double.tryParse(booking.totalFare) ?? 0;
+    final tax = double.tryParse(booking.tax) ?? 0;
+    final base = total - tax;
+    final taxIsZero = tax == 0;
+
+    return TripSection(
+      title: 'Fare Details',
+      icon: Icons.description_rounded,
+      iconColor: kOrange,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          TripInset(
             child: Column(
-              mainAxisSize: MainAxisSize.min,
               children: [
-                Container(
-                  height: context.w(70),
-                  width: context.w(70),
-                  decoration: BoxDecoration(
-                    color: Colors.green.withValues(alpha: 0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.check_circle_rounded,
-                    color: Colors.green,
-                    size: context.w(42),
-                  ),
-                ),
-                SizedBox(height: context.h(16)),
-                Text(
-                  'Download Complete',
-                  style: TextStyle(
-                    fontSize: context.fs(18),
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                SizedBox(height: context.h(10)),
-                Text(
-                  file.path.split('/').last,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: context.fs(14),
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-                SizedBox(height: context.h(24)),
+                if (base > 0) tripKv(context, 'Room Charges', formatMoney(base, cur), muted: true),
+                tripKv(context, 'Tax', taxIsZero ? 'Included' : formatMoney(tax, cur), muted: true),
+                Divider(height: context.fx(20), color: kLine),
                 Row(
                   children: [
                     Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () async {
-                          Navigator.pop(context);
-                          await PDFService.printPDF(file);
-                        },
-                        icon: Icon(
-                          Icons.print,
-                          size: context.w(18),
-                        ),
-                        label: const Text('Print'),
-                        style: OutlinedButton.styleFrom(
-                          padding: EdgeInsets.symmetric(
-                            vertical: context.h(12),
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius:
-                            BorderRadius.circular(context.r(10)),
-                          ),
-                        ),
-                      ),
+                      child: Text('Total Paid',
+                          style: TextStyle(fontSize: context.ffs(15), fontWeight: FontWeight.w500, color: kInk)),
                     ),
-                    SizedBox(width: context.w(12)),
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: () async {
-                          Navigator.pop(context);
-                          await PDFService.sharePDF(file);
-                        },
-                        icon: Icon(
-                          Icons.share,
-                          size: context.w(18),
-                          color: Colors.white,
-                        ),
-                        label: const Text(
-                          'Share',
-                          style: TextStyle(color: Colors.white),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          padding: EdgeInsets.symmetric(
-                            vertical: context.h(12),
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius:
-                            BorderRadius.circular(context.r(10)),
-                          ),
-                        ),
-                      ),
+                    Text(
+                      formatMoney(total, cur),
+                      style: TextStyle(fontSize: context.ffs(17), fontWeight: FontWeight.w600, color: AppColors.AppBlue),
                     ),
                   ],
-                ),
-                SizedBox(height: context.h(12)),
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Close'),
                 ),
               ],
             ),
           ),
-        );
-      },
+          SizedBox(height: context.fx(12)),
+          TripInset(
+            tinted: true,
+            title: 'Payment Details',
+            titleIcon: Icons.credit_card_rounded,
+            child: Column(
+              children: [
+                tripKv(context, 'Payment Status', '', chip: ('Success', kGreen)),
+                tripKv(context, 'Payment Method', 'Online'),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _bookingInfo(BuildContext context) {
+    return TripSection(
+      title: 'Booking Information',
+      icon: Icons.receipt_long_rounded,
+      iconColor: AppColors.AppBlue,
+      compact: true,
+      child: Column(
+        children: [
+          tripKv(context, 'Confirmation No.', booking.confirmationNumber),
+          tripKv(context, 'Booking Reference', booking.bookingReferenceId),
+          if (booking.guestReference.isNotEmpty)
+            tripKv(context, 'Guest Reference', booking.guestReference),
+          tripKv(context, 'Status', booking.status),
+          tripKv(context, 'Booking Date', formatTripDate(booking.bookingDate ?? booking.created)),
+          tripKv(context, 'Email', booking.email),
+          tripKv(context, 'Phone', booking.phone),
+        ],
+      ),
+    );
+  }
+
+  void _onCancel(BuildContext context) async {
+    final cur = booking.currency.isEmpty ? 'INR' : booking.currency;
+    final total = double.tryParse(booking.totalFare) ?? 0;
+    final cancelled = await showCancelAndRefundSheet(
+      context,
+      params: CancelBookingParams(
+        bookingType: 'Hotel',
+        bookingId: booking.confirmationNumber,
+        route: booking.hotelName,
+        detail: booking.hotelCity,
+        amount: total,
+        currency: cur,
+        apiBookingType: 'hotel',
+        entityId: booking.id,
+        hotelConfirmationNumber: booking.confirmationNumber,
+        checkoutId: booking.checkoutId,
+      ),
+    );
+    if (cancelled == true && context.mounted) {
+      Navigator.of(context).pop();
+    }
+  }
+
+  Widget _importantInfo(BuildContext context) {
+    return TripSection(
+      title: 'Important Info',
+      icon: Icons.info_rounded,
+      iconColor: const Color(0xFF6B6B6B),
+      compact: true,
+      child: Text(
+        'Present this voucher at hotel reception for check-in.\n'
+        'Carry a valid government-issued ID proof for all guests.\n'
+        'Check-in: 2:00 PM | Check-out: 11:00 AM.\n'
+        'Early check-in is subject to availability.',
+        style: TextStyle(fontSize: context.ffs(11), height: 1.45, color: const Color(0xFF4B5563)),
+      ),
     );
   }
 }

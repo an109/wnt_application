@@ -1,111 +1,187 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 
 import '../../../../core/resources/app_colours.dart';
-import '../../../../core/services/pdf_generator.dart';
 import '../../../UpcomingTrips/data/models/tripModel.dart';
-import 'Visa_ticket_widget.dart';
+import '../../shared/trip_detail_widgets.dart';
 import 'visa_booking_summary_card.dart' show VisaBookingSummaryScreen;
 import 'visa_pdf_builder.dart';
 
-class VisaBookingDetailsScreen extends StatefulWidget {
+class VisaBookingDetailsScreen extends StatelessWidget {
   final TripItem trip;
 
-  const VisaBookingDetailsScreen({
-    super.key,
-    required this.trip,
-  });
-
-  @override
-  State<VisaBookingDetailsScreen> createState() =>
-      _VisaBookingDetailsScreenState();
-}
-
-class _VisaBookingDetailsScreenState extends State<VisaBookingDetailsScreen> {
-  static const _kInk = Color(0xFF111527);
-  static const _kMuted = Color(0xFF757575);
-  static const _kOrange = Color(0xFFEE7330);
-
-  bool _isDownloading = false;
-
-  String get _statusLabel {
-    final s = widget.trip.status.toLowerCase();
-    if (s.contains('cancelled')) return 'Cancelled';
-    if (s.contains('pending')) return 'Pending';
-    if (s.contains('confirmed') || s.contains('approved')) return 'Confirmed';
-    return widget.trip.status.isNotEmpty ? widget.trip.status : 'Pending';
-  }
-
-  Color get _statusColor {
-    final s = widget.trip.status.toLowerCase();
-    if (s.contains('cancelled')) return const Color(0xFF7CC7EE);
-    if (s.contains('pending')) return const Color(0xFFFF9800);
-    return AppColors.AppBlue;
-  }
+  const VisaBookingDetailsScreen({super.key, required this.trip});
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
-      body: SafeArea(
-        child: Column(
-          children: [
-            _topBar(),
-            Expanded(
-              child: SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                child: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: context.w(16)),
-                  child: VisaTicketWidget(trip: widget.trip),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-      bottomNavigationBar: _bottomBar(),
-    );
-  }
+    final (label, color) = statusInfo(trip.status);
+    final gap = SizedBox(height: context.fx(16));
 
-  Widget _topBar() {
-    return Padding(
-      padding: EdgeInsets.fromLTRB(context.w(8), context.h(6), context.w(4), context.h(10)),
-      child: Row(
-        children: [
-          IconButton(
-            tooltip: 'Back',
-            onPressed: () => Navigator.of(context).maybePop(),
-            icon: Icon(Icons.arrow_back, size: context.w(24), color: _kInk),
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.dark,
+      child: Scaffold(
+        backgroundColor: Colors.white,
+        bottomNavigationBar: tripBottomBar(context, [
+          TripActionButton(
+            label: 'VIEW INVOICE',
+            icon: Icons.receipt_long_rounded,
+            outlined: true,
+            onPressed: () => VisaBookingSummaryScreen.open(context, trip),
           ),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+          TripActionButton(
+            label: 'DOWNLOAD',
+            icon: Icons.download_rounded,
+            onPressed: () => saveAndOfferPdf(
+              context,
+              filename: 'visa_${trip.bookingId}.pdf',
+              build: (logo) async => VisaPdfBuilder.buildTicket(trip),
+            ),
+          ),
+        ]),
+        body: SafeArea(
+          bottom: false,
+          child: Column(
+            children: [
+              tripTopBar(
+                context,
+                title: 'Visa Details',
+                subtitle: 'Booking ID: ${trip.bookingId}',
+                statusLabel: label,
+                statusColor: color,
+              ),
+              Expanded(
+                child: ListView(
+                  physics: context.scrollPhysics,
+                  padding: EdgeInsets.only(bottom: context.fx(24)),
                   children: [
-                    Text(
-                      'Visa Details',
-                      style: TextStyle(fontSize: context.fs(18), fontWeight: FontWeight.w600, color: _kInk),
-                    ),
-                    SizedBox(width: context.w(8)),
-                    Container(
-                      padding: EdgeInsets.symmetric(horizontal: context.w(8), vertical: context.h(2)),
-                      decoration: BoxDecoration(color: _statusColor, borderRadius: BorderRadius.circular(context.r(20))),
-                      child: Text(
-                        _statusLabel,
-                        style: TextStyle(fontSize: context.fs(10.5), fontWeight: FontWeight.w600, color: Colors.white),
+                    _hero(context),
+                    Padding(
+                      padding: EdgeInsets.symmetric(horizontal: context.fx(16)),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          gap,
+                          _visaCard(context),
+                          gap,
+                          _travellerDetails(context),
+                          gap,
+                          _fare(context),
+                          gap,
+                          _bookingInfo(context),
+                          gap,
+                          _importantInfo(context),
+                        ],
                       ),
                     ),
                   ],
                 ),
-                Text(
-                  'Booking ID: ${widget.trip.bookingId}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: context.fs(11), color: _kMuted),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _hero(BuildContext context) {
+    return SizedBox(
+      height: context.fx(116),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          const DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Color(0xFFD6D0E8), Color(0xFFEDE8F5), Colors.white],
+              ),
+            ),
+          ),
+          Positioned(
+            left: context.fx(16),
+            top: context.fx(24),
+            child: Container(
+              width: context.fx(56),
+              height: context.fx(56),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF5F7FA),
+                borderRadius: BorderRadius.circular(context.fx(10)),
+                boxShadow: const [
+                  BoxShadow(color: Color(0x26000000), blurRadius: 10, offset: Offset(0, 3))
+                ],
+              ),
+              child: Icon(Icons.card_travel_rounded, color: AppColors.primary, size: context.fx(28)),
+            ),
+          ),
+          Positioned(
+            right: context.fx(16),
+            top: context.fx(28),
+            child: Icon(Icons.card_travel_rounded, size: context.fx(64), color: Colors.white.withValues(alpha: 0.3)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _visaCard(BuildContext context) {
+    return TripSection(
+      padding: EdgeInsets.fromLTRB(context.fx(14), context.fx(14), context.fx(14), context.fx(12)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: context.fx(32),
+                height: context.fx(32),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF5F7FA),
+                  borderRadius: BorderRadius.circular(context.fx(6)),
                 ),
+                child: Icon(Icons.card_travel_rounded, color: AppColors.primary, size: context.fx(20)),
+              ),
+              SizedBox(width: context.fx(10)),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${trip.destination} Visa',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: context.ffs(15), fontWeight: FontWeight.w600, color: kInk),
+                    ),
+                    Text(
+                      trip.type.isNotEmpty ? trip.type : 'Visa Application',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: context.ffs(11), color: kMuted),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: context.fx(14)),
+          Row(
+            children: [
+              Expanded(child: _dateBox(context, 'ONWARD DATE', formatTripDate(trip.onwardDate), AppColors.AppBlue)),
+              SizedBox(width: context.fx(10)),
+              Expanded(child: _dateBox(context, 'RETURN DATE', formatTripDate(trip.returnDate), kOrange)),
+            ],
+          ),
+          Padding(
+            padding: EdgeInsets.symmetric(vertical: context.fx(12)),
+            child: const Divider(height: 1, color: Color(0xFFF0F1F4)),
+          ),
+          IntrinsicHeight(
+            child: Row(
+              children: [
+                Expanded(child: TripStat(icon: Icons.public_rounded, label: 'Destination', value: trip.destination.isEmpty ? '—' : trip.destination)),
+                const VerticalDivider(width: 12, color: kLine),
+                Expanded(child: TripStat(icon: Icons.groups_rounded, label: 'Applicants', value: trip.applicantCount)),
               ],
             ),
           ),
@@ -114,242 +190,132 @@ class _VisaBookingDetailsScreenState extends State<VisaBookingDetailsScreen> {
     );
   }
 
-  Widget _bottomBar() {
+  Widget _dateBox(BuildContext context, String title, String value, Color color) {
     return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        boxShadow: [BoxShadow(color: Color(0x14000000), blurRadius: 12, offset: Offset(0, -3))],
+      padding: EdgeInsets.all(context.fx(10)),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(context.fx(10)),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
       ),
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(context.w(16), context.h(12), context.w(16), context.h(12)),
-          child: Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: () => VisaBookingSummaryScreen.open(context, widget.trip),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: _kOrange,
-                    side: const BorderSide(color: _kOrange),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(context.r(10))),
-                    minimumSize: Size.fromHeight(context.h(50)),
-                    padding: EdgeInsets.symmetric(horizontal: context.w(8)),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.receipt_long_rounded, size: context.w(18)),
-                      SizedBox(width: context.w(8)),
-                      Text(
-                        'VIEW INVOICE',
-                        style: TextStyle(fontSize: context.fs(13.5), fontWeight: FontWeight.w600, letterSpacing: 0.2),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              SizedBox(width: context.w(12)),
-              Expanded(
-                child: FilledButton(
-                  onPressed: _isDownloading ? null : _handleDownload,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: _kOrange,
-                    disabledBackgroundColor: const Color(0xFFF5C3A6),
-                    disabledForegroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(context.r(10))),
-                    minimumSize: Size.fromHeight(context.h(50)),
-                    padding: EdgeInsets.symmetric(horizontal: context.w(8)),
-                  ),
-                  child: _isDownloading
-                      ? SizedBox(
-                          width: context.w(20),
-                          height: context.w(20),
-                          child: const CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                        )
-                      : Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.download_rounded, size: context.w(18)),
-                            SizedBox(width: context.w(8)),
-                            Flexible(
-                              child: Text(
-                                'DOWNLOAD',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(fontSize: context.fs(13.5), fontWeight: FontWeight.w600, letterSpacing: 0.2),
-                              ),
-                            ),
-                          ],
-                        ),
-                ),
-              ),
-            ],
-          ),
-        ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title,
+              style: TextStyle(
+                  fontSize: context.ffs(8),
+                  color: kMuted,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.8)),
+          SizedBox(height: context.fx(4)),
+          Text(value,
+              style: TextStyle(
+                  fontSize: context.ffs(14),
+                  fontWeight: FontWeight.w700,
+                  color: color)),
+        ],
       ),
     );
   }
 
-  Future<void> _handleDownload() async {
-    setState(() => _isDownloading = true);
-
-    try {
-      final filename = 'ticket_${widget.trip.refId}.pdf';
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              SizedBox(
-                width: context.w(20),
-                height: context.w(20),
-                child: const CircularProgressIndicator(
-                  color: Colors.white,
-                  strokeWidth: 2,
-                ),
-              ),
-              SizedBox(width: context.w(12)),
-              const Text('Generating PDF...'),
-            ],
-          ),
-          backgroundColor: AppColors.primary,
-          behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 5),
-        ),
-      );
-
-      final pdf = VisaPdfBuilder.buildTicket(widget.trip);
-
-      final file = await PDFService.savePDF(pdf, filename);
-
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
-      _showDownloadSuccessDialog(context, file);
-    } catch (e) {
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Download failed: $e'),
-          backgroundColor: Colors.red,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    } finally {
-      setState(() => _isDownloading = false);
-    }
+  Widget _travellerDetails(BuildContext context) {
+    return TripSection(
+      title: 'Traveller Details',
+      icon: Icons.groups_rounded,
+      iconColor: AppColors.AppBlue,
+      child: Column(
+        children: [
+          tripKv(context, 'Applicants', trip.applicantCount),
+          if (trip.travellerNames.isNotEmpty)
+            for (int i = 0; i < trip.travellerNames.length; i++)
+              tripKv(context, 'Traveller ${i + 1}', trip.travellerNames[i]),
+        ],
+      ),
+    );
   }
 
-  void _showDownloadSuccessDialog(BuildContext context, File file) {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return Dialog(
-          insetPadding: EdgeInsets.symmetric(
-            horizontal: context.w(24),
-          ),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(context.r(18)),
-          ),
-          child: Padding(
-            padding: EdgeInsets.all(context.w(20)),
+  Widget _fare(BuildContext context) {
+    final cur = trip.originalCurrency.isEmpty ? 'INR' : trip.originalCurrency;
+    final total = trip.price;
+
+    return TripSection(
+      title: 'Fare Details',
+      icon: Icons.description_rounded,
+      iconColor: kOrange,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          TripInset(
             child: Column(
-              mainAxisSize: MainAxisSize.min,
               children: [
-                Container(
-                  height: context.w(70),
-                  width: context.w(70),
-                  decoration: BoxDecoration(
-                    color: Colors.green.withValues(alpha: 0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.check_circle_rounded,
-                    color: Colors.green,
-                    size: context.w(42),
-                  ),
-                ),
-                SizedBox(height: context.h(16)),
-                Text(
-                  'Download Complete',
-                  style: TextStyle(
-                    fontSize: context.fs(18),
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                SizedBox(height: context.h(10)),
-                Text(
-                  file.path.split('/').last,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: context.fs(14),
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-                SizedBox(height: context.h(24)),
+                tripKv(context, 'Visa Fee', formatMoney(total, cur), muted: true),
+                tripKv(context, 'Tax', 'Included', muted: true),
+                Divider(height: context.fx(20), color: kLine),
                 Row(
                   children: [
                     Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () async {
-                          Navigator.pop(context);
-                          await PDFService.printPDF(file);
-                        },
-                        icon: Icon(
-                          Icons.print,
-                          size: context.w(18),
-                        ),
-                        label: const Text('Print'),
-                        style: OutlinedButton.styleFrom(
-                          padding: EdgeInsets.symmetric(
-                            vertical: context.h(12),
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius:
-                            BorderRadius.circular(context.r(10)),
-                          ),
-                        ),
-                      ),
+                      child: Text('Total Paid',
+                          style: TextStyle(fontSize: context.ffs(15), fontWeight: FontWeight.w500, color: kInk)),
                     ),
-                    SizedBox(width: context.w(12)),
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: () async {
-                          Navigator.pop(context);
-                          await PDFService.sharePDF(file);
-                        },
-                        icon: Icon(
-                          Icons.share,
-                          size: context.w(18),
-                          color: Colors.white,
-                        ),
-                        label: const Text(
-                          'Share',
-                          style: TextStyle(color: Colors.white),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          padding: EdgeInsets.symmetric(
-                            vertical: context.h(12),
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius:
-                            BorderRadius.circular(context.r(10)),
-                          ),
-                        ),
-                      ),
+                    Text(
+                      formatMoney(total, cur),
+                      style: TextStyle(fontSize: context.ffs(17), fontWeight: FontWeight.w600, color: AppColors.AppBlue),
                     ),
                   ],
-                ),
-                SizedBox(height: context.h(12)),
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Close'),
                 ),
               ],
             ),
           ),
-        );
-      },
+          SizedBox(height: context.fx(12)),
+          TripInset(
+            tinted: true,
+            title: 'Payment Details',
+            titleIcon: Icons.credit_card_rounded,
+            child: Column(
+              children: [
+                tripKv(context, 'Payment Status', '', chip: ('Success', kGreen)),
+                tripKv(context, 'Payment Mode', trip.type),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _bookingInfo(BuildContext context) {
+    return TripSection(
+      title: 'Booking Information',
+      icon: Icons.receipt_long_rounded,
+      iconColor: AppColors.AppBlue,
+      compact: true,
+      child: Column(
+        children: [
+          tripKv(context, 'Booking ID', trip.bookingId),
+          if (trip.refId.isNotEmpty && trip.refId != 'VISA')
+            tripKv(context, 'Reference ID', trip.refId),
+          tripKv(context, 'Visa Type', trip.type),
+          tripKv(context, 'Status', trip.status),
+          tripKv(context, 'Booking Date', formatTripDate(trip.bookedDate)),
+          tripKv(context, 'Category', trip.category),
+        ],
+      ),
+    );
+  }
+
+  Widget _importantInfo(BuildContext context) {
+    return TripSection(
+      title: 'Important Info',
+      icon: Icons.info_rounded,
+      iconColor: const Color(0xFF6B6B6B),
+      compact: true,
+      child: Text(
+        'Processing times may vary based on destination country.\n'
+        'Ensure all documents submitted are valid and up to date.\n'
+        'Carry printed copies of your visa approval for travel.\n'
+        'Check destination entry requirements before departure.',
+        style: TextStyle(fontSize: context.ffs(11), height: 1.45, color: const Color(0xFF4B5563)),
+      ),
     );
   }
 }

@@ -204,7 +204,12 @@ class AkInsuranceRepositoryImpl implements AkInsuranceRepository {
       );
 
       if (response.statusCode != 200) {
-        return _failed(path, 'Could not issue the Trip Secure policy', response: response);
+        final body = response.data;
+        final detail = body is Map ? (body['error'] ?? body['message'] ?? '') : '';
+        final msg = detail.toString().isNotEmpty
+            ? detail.toString()
+            : 'Could not issue the Trip Secure policy (${response.statusCode})';
+        return _failed(path, msg, response: response);
       }
 
       if (response.data is! Map) {
@@ -236,7 +241,12 @@ class AkInsuranceRepositoryImpl implements AkInsuranceRepository {
       );
 
       if (response.statusCode != 200 || response.data is! Map) {
-        return _failed(path, 'Could not load the policy confirmation', response: response);
+        final body = response.data;
+        final detail = body is Map ? (body['error'] ?? body['detail'] ?? body['message'] ?? '') : '';
+        final msg = detail.toString().isNotEmpty
+            ? detail.toString()
+            : 'Could not load the policy confirmation (${response.statusCode})';
+        return _failed(path, msg, response: response);
       }
 
       return DataSuccess(

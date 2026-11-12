@@ -852,7 +852,8 @@ class AkInsuranceAnswerModel extends AkInsuranceAnswerEntity {
 
   Map<String, dynamic> toJson() => {
         'YesNo': yesNo,
-        'Description': description,
+        'description': description,
+        'isDescriptive': false,
       };
 }
 
@@ -906,6 +907,7 @@ class AkInsuranceBookingTravellerModel extends AkInsuranceBookingTravellerEntity
     required super.contactInfo,
     required super.studentDetails,
     required super.employeId,
+    super.pedInfo,
   });
 
   factory AkInsuranceBookingTravellerModel.fromEntity(AkInsuranceBookingTravellerEntity entity) =>
@@ -928,32 +930,43 @@ class AkInsuranceBookingTravellerModel extends AkInsuranceBookingTravellerEntity
         contactInfo: entity.contactInfo,
         studentDetails: entity.studentDetails,
         employeId: entity.employeId,
+        pedInfo: entity.pedInfo,
       );
 
-  Map<String, dynamic> toJson() => {
-        'Id': id,
-        'Title': title,
-        'FirstName': firstName,
-        'LastName': lastName,
-        'BirthDate': birthDate,
-        'PassportNumber': passportNumber,
-        'VisaType': visaType,
-        'PNRNumber': pnrNumber,
-        'MaritalStatus': maritalStatus,
-        'Gender': gender,
-        'Relationship': relationship,
-        'IsProposer': isProposer,
-        'Nominee': AkInsuranceNomineeModel.fromEntity(nominee).toJson(),
-        'QuestionsAnswers': questionsAnswers
-            .map((qa) => AkInsuranceQuestionAnswerModel.fromEntity(qa).toJson())
-            .toList(),
-        'Addresses': addresses.map((a) => AkInsuranceAddressModel.fromEntity(a).toJson()).toList(),
-        'ContactInfo': contactInfo == null
-            ? null
-            : AkInsuranceContactInfoModel.fromEntity(contactInfo!).toJson(),
-        'StudentDetails': AkInsuranceStudentDetailsModel.fromEntity(studentDetails).toJson(),
-        'EmployeID': employeId,
-      };
+  Map<String, dynamic> toJson() {
+    final map = <String, dynamic>{
+      'Id': id,
+      'Title': title,
+      'FirstName': firstName,
+      'LastName': lastName,
+      'BirthDate': birthDate,
+      'PassportNumber': passportNumber,
+      'VisaType': visaType,
+      'PNRNumber': pnrNumber,
+      'MaritalStatus': maritalStatus,
+      'Gender': gender,
+      'Relationship': relationship,
+      'IsProposer': isProposer,
+      'Nominee': AkInsuranceNomineeModel.fromEntity(nominee).toJson(),
+      'Addresses': addresses.map((a) => AkInsuranceAddressModel.fromEntity(a).toJson()).toList(),
+      'ContactInfo': contactInfo == null
+          ? null
+          : AkInsuranceContactInfoModel.fromEntity(contactInfo!).toJson(),
+      'StudentDetails': AkInsuranceStudentDetailsModel.fromEntity(studentDetails).toJson(),
+      'EmployeID': employeId,
+    };
+    if (pedInfo != null) {
+      // Let the backend auto-build the correct provider-specific
+      // QuestionsAnswers from our simplified PedInfo.
+      map['PedInfo'] = pedInfo;
+      map['QuestionsAnswers'] = <dynamic>[];
+    } else {
+      map['QuestionsAnswers'] = questionsAnswers
+          .map((qa) => AkInsuranceQuestionAnswerModel.fromEntity(qa).toJson())
+          .toList();
+    }
+    return map;
+  }
 }
 
 class AkInsurancePlanBookingModel extends AkInsurancePlanBookingEntity {
@@ -1135,6 +1148,7 @@ class AkInsuranceStartPayRequestModel extends AkInsuranceStartPayRequestEntity {
     required super.agentAti,
     required super.channelId,
     required super.tui,
+    super.wnMeta,
   });
 
   factory AkInsuranceStartPayRequestModel.fromEntity(
@@ -1203,6 +1217,7 @@ class AkInsuranceStartPayRequestModel extends AkInsuranceStartPayRequestEntity {
         agentAti: entity.agentAti,
         channelId: entity.channelId,
         tui: entity.tui,
+        wnMeta: entity.wnMeta,
       );
 
   Map<String, dynamic> toJson() => {
@@ -1268,6 +1283,7 @@ class AkInsuranceStartPayRequestModel extends AkInsuranceStartPayRequestEntity {
         'AgentATI': agentAti,
         'ChannelId': channelId,
         'TUI': tui,
+        if (wnMeta != null) 'wn_meta': wnMeta,
       };
 }
 
