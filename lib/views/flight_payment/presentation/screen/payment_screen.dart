@@ -1658,13 +1658,19 @@ class _FlightPaymentScreenState extends State<FlightPaymentScreen> {
 
       _razorpayOrderId = response.data['order_id'] as String?;
       final keyId = response.data['key_id'] as String?;
+      // The paise amount the order was really created for. Checkout must open
+      // with exactly this, not a fresh (_displayAmount * 100) conversion:
+      // 4.09 * 100 is 408.99999999999994, so .toInt() gave 408 against a 409
+      // paise order and Razorpay refused payment initiation.
+      final orderPaise = (response.data['amount'] as num?)?.toInt() ??
+          (_displayAmount * 100).round();
 
       if (!mounted) return;
       setState(() => _isCreatingOrder = false);
 
       _razorpay.open({
         'key': keyId ?? '',
-        'amount': (_displayAmount * 100).toInt(),
+        'amount': orderPaise,
         'currency': _displayCurrency,
         'name': 'WanderNova',
         'description': 'Flight ${widget.route.from} → ${widget.route.to}',

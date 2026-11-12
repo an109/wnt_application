@@ -146,6 +146,12 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
   /// re-created per tile tap.
   String? _razorpayOrderId;
   String? _razorpayKeyId;
+  /// The paise amount the Razorpay order was actually created for, as the
+  /// backend reports it. Payment initiation MUST use exactly this number —
+  /// re-deriving it from a double here is what produced "Your payment amount
+  /// is different from your order amount" (4.09 * 100 truncates to 408 on one
+  /// side and rounds to 409 on the other).
+  int? _razorpayOrderAmountPaise;
 
   bool _processing = false;
   String _statusMessage = '';
@@ -179,12 +185,13 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
 
   String get _sessionId => widget.route.sessionId ?? '';
 
-  /// Akbar amounts (netAmount, wallet balance) are always in INR — this
-  /// converts to whatever currency the user has picked in Settings, instead
-  /// of always showing a hardcoded ₹.
-  /// Amounts on this page are charged in INR, so they are shown in INR;
-  /// the "≈" line under Total Due gives the user's own currency.
-  String _displayAmount(double amountInInr) => CurrencyConverter.format(amountInInr, 'INR');
+  /// Amounts on this page are charged in INR, so they are shown in INR; the
+  /// "≈" line under Total Due gives the user's own currency.
+  ///
+  /// Shown exactly as it is charged, paise included: [CurrencyConverter.format]
+  /// drops the decimals for INR, which is why the header read "Total Due 4"
+  /// while the pay button read "4.09".
+  String _displayAmount(double amountInInr) => formatInr(amountInInr);
 
   /// The Trip Secure premium, in raw INR — never the user's display currency.
   /// [AkInsuranceQuotesModel] defaults a missing currency to 'INR' already,
@@ -219,6 +226,16 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
         _fees.total;
     return total < _minChargeInInr ? _minChargeInInr : total;
   }
+
+  /// The charge in paise — the only place rupees become the integer Razorpay
+  /// works in. Everything the customer sees and everything Razorpay is told
+  /// derives from this, so the displayed total and the charged total can
+  /// never drift apart by a rounding step.
+  int get _chargePaise => (_totalChargeInInr * 100).round();
+
+  /// [_chargePaise] back in rupees, exact to the paise (4.09, never
+  /// 4.089999999999999).
+  double get _chargeableInInr => _chargePaise / 100;
 
   /// The fare the payment-page fees are charged on: the published fare before
   /// any promo, without seat/meal/baggage add-ons — same base as the website.
@@ -449,7 +466,7 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
 
       if (!mounted) return;
 
-      if (balance >= _totalChargeInInr) {
+      if (balance >= _chargeableInInr) {
         // Last word before the money leaves the wallet. A wallet debit has
         // no gateway sheet of its own to pause on, so without this the tap
         // that opens "My Wallet" is also the tap that spends the balance.
@@ -481,7 +498,7 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
   /// is there now, and what is left after. Returns false on dismiss, so a
   /// stray tap or a back gesture never spends the balance.
   Future<bool> _confirmWalletPayment(double balance) async {
-    final remaining = balance - _totalChargeInInr;
+    final remaining = balance - _chargeableInInr;
 
     final result = await showModalBottomSheet<bool>(
       context: context,
@@ -531,7 +548,7 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
               ),
               SizedBox(height: context.h(18)),
               _walletConfirmRow(context, 'Amount to pay',
-                  _displayAmount(_totalChargeInInr), emphasise: true),
+                  _displayAmount(_chargeableInInr), emphasise: true),
               SizedBox(height: context.h(10)),
               _walletConfirmRow(
                   context, 'Wallet balance', _displayAmount(balance)),
@@ -582,7 +599,7 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
                         child: FittedBox(
                           fit: BoxFit.scaleDown,
                           child: Text(
-                            'PAY ${_displayAmount(_totalChargeInInr)}',
+                            'PAY ${_displayAmount(_chargeableInInr)}',
                             style: TextStyle(
                               color: Colors.white,
                               fontSize: context.fs(13),
@@ -634,7 +651,7 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
   Future<bool> _debitWallet() async {
     setState(() => _statusMessage = 'Paying from your wallet...');
     final debit = await sl<WalletApiService>().payBooking(
-      amount: _totalChargeInInr.ceilToDouble(),
+      amount: _chargeableInInr.ceilToDouble(),
       bookingType: 'flight',
       bookingRef: _sessionId,
       description: 'Flight: ${widget.route.from} → ${widget.route.to}',
@@ -762,7 +779,9 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
       final response = await dio.post(
         Urls.razorpayCreateOrder,
         data: {
-          'amount': _totalChargeInInr,
+          // Two decimals exactly, so the backend's paise conversion and ours
+          // agree to the last paise.
+          'amount': _chargeableInInr.toStringAsFixed(2),
           'currency': 'INR',
           'reference_id': _sanitizedOrderId(_sessionId),
           // Same as the website: tells the backend (webhook reconciliation)
@@ -774,6 +793,7 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
 
       final orderId = response.data['order_id'] as String?;
       final keyId = response.data['key_id'] as String?;
+      final orderPaise = (response.data['amount'] as num?)?.toInt();
 
       if (!mounted) return false;
 
@@ -789,6 +809,7 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
         _processing = false;
         _razorpayOrderId = orderId;
         _razorpayKeyId = keyId;
+        _razorpayOrderAmountPaise = orderPaise;
       });
       return true;
     } on DioException catch (e) {
@@ -836,7 +857,8 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
       final result = await _rzService.submitPayment(
         keyId: _razorpayKeyId!,
         data: {
-          'amount': (_totalChargeInInr * 100).round(),
+          // The order's own amount, never a fresh conversion.
+          'amount': _razorpayOrderAmountPaise ?? _chargePaise,
           'currency': 'INR',
           'order_id': _razorpayOrderId,
           'email': (widget.leadPassenger['email'] ?? '').toString(),
@@ -1093,7 +1115,7 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
             transactionId: _transactionId,
             // What was actually charged, not the pre-promo fare — the ticket
             // screen labels this "Amount actually paid".
-            netAmount: _totalChargeInInr,
+            netAmount: _chargeableInInr,
             travellerCount: widget.travellerCount,
             travellerNames: widget.travellerNames,
           ),
@@ -1238,7 +1260,7 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
           ),
         ),
         content: Text(
-          'This booking is held at ${_displayAmount(_totalChargeInInr)} only '
+          'This booking is held at ${_displayAmount(_chargeableInInr)} only '
           'until the timer runs out. Going back ends the session — the seats '
           'are released and you will have to search again, where the fare may '
           'be different.',
@@ -1376,7 +1398,7 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
                         expanded: _open == 'upi',
                         onTap: () => _toggle('upi'),
                         child: _open == 'upi' ? UpiSection(
-                          amount: _totalChargeInInr,
+                          amount: _chargeableInInr,
                           busy: _processing,
                           apps: _upiApps,
                           onPayWithApp: (app) => _payWithMethod({'method': 'upi', '_[flow]': 'intent', 'upi_app_package_name': app.package}),
@@ -1390,7 +1412,7 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
                         expanded: _open == 'card',
                         onTap: () => _toggle('card'),
                         child: _open == 'card' ? CardForm(
-                          payLabel: 'Pay ${formatInr(_totalChargeInInr)}',
+                          payLabel: 'Pay ${formatInr(_chargeableInInr)}',
                           busy: _processing,
                           onSubmit: (card) => _payWithMethod({'method': 'card', 'card': card}),
                         ) : const SizedBox.shrink(),
@@ -1402,7 +1424,7 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
                         expanded: _open == 'netbanking',
                         onTap: () => _toggle('netbanking'),
                         child: _open == 'netbanking' ? NetbankingSection(
-                          amount: _totalChargeInInr,
+                          amount: _chargeableInInr,
                           busy: _processing,
                           methods: _loadMethods(),
                           onPay: (bank) => _payWithMethod({'method': 'netbanking', 'bank': bank}),
@@ -1415,7 +1437,7 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
                         expanded: _open == 'emi',
                         onTap: () => _toggle('emi'),
                         child: _open == 'emi' ? EmiSection(
-                          amount: _totalChargeInInr,
+                          amount: _chargeableInInr,
                           busy: _processing,
                           methods: _loadMethods(),
                           onPay: (months, card) => _payWithMethod({'method': 'emi', 'emi_duration': months, 'card': card}),
@@ -1428,7 +1450,7 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
                         expanded: _open == 'wallet',
                         onTap: () => _toggle('wallet'),
                         child: _open == 'wallet' ? WalletsPayLaterSection(
-                          amount: _totalChargeInInr,
+                          amount: _chargeableInInr,
                           busy: _processing,
                           methods: _loadMethods(),
                           onPayWallet: (w) => _payWithMethod({'method': 'wallet', 'wallet': w}),
@@ -1534,9 +1556,9 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(fontSize: context.fs(13), color: _muted),
                 ),
-                if (context.moneyHint(_totalChargeInInr).isNotEmpty)
+                if (context.moneyHint(_chargeableInInr).isNotEmpty)
                   Text(
-                    '${context.moneyHint(_totalChargeInInr)} · charged in INR',
+                    '${context.moneyHint(_chargeableInInr)} · charged in INR',
                     style: TextStyle(fontSize: context.fs(12), color: _muted),
                   ),
               ],
@@ -1544,7 +1566,7 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
           ),
           SizedBox(width: context.w(8)),
           Text(
-            _displayAmount(_totalChargeInInr),
+            _displayAmount(_chargeableInInr),
             style: TextStyle(
               fontSize: context.fs(22),
               fontWeight: FontWeight.w800,
@@ -1689,7 +1711,7 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
                               ),
                               SizedBox(width: context.w(8)),
                               Text(
-                                _displayAmount(_totalChargeInInr),
+                                _displayAmount(_chargeableInInr),
                                 style: TextStyle(
                                   fontSize: context.fs(22),
                                   fontWeight: FontWeight.w800,
