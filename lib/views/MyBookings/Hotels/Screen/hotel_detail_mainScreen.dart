@@ -364,6 +364,9 @@ class HotelBookingDetailsScreen extends StatelessWidget {
         apiBookingType: 'hotel',
         entityId: booking.id,
         hotelConfirmationNumber: booking.confirmationNumber,
+        hotelProvider: booking.provider,
+        hotelTransactionId: booking.tboBookingId,
+        hotelBookingReferenceId: booking.bookingReferenceId,
         checkoutId: booking.checkoutId,
       ),
     );

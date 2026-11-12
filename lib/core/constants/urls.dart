@@ -33,6 +33,7 @@ class Urls {
   static const String createItinerary = '$basesUrl/akbar/CreateItinerary/';
   static const String startPay = '$basesUrl/akbar/StartPay/';
   static const String retrieveBooking = '$basesUrl/akbar/RetrieveBooking/';
+  static const String akFlightCancel = '$basesUrl/akbar/Cancel/';
   static const String akSsr = '$basesUrl/akbar/SSR/';
   static const String akSelectSsr = '$basesUrl/akbar/SelectSSR/';
   static const String akSeatLayout = '$basesUrl/akbar/SeatLayout/';
@@ -115,6 +116,7 @@ class Urls {
   static const String akHotelCreateItinerary =
       '$basesUrl/akbar-hotels/create-itinerary/';
   static const String akHotelStartPay = '$basesUrl/akbar-hotels/start-pay/';
+  static const String akHotelCancel = '$basesUrl/akbar-hotels/cancel-booking/';
   static const String akHotelRetrieveBooking =
       '$basesUrl/akbar-hotels/retrieve-booking/';
 

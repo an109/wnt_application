@@ -9,6 +9,7 @@ import 'package:wander_nova/core/resources/app_colours.dart';
 import '../../../../core/services/pdf_generator.dart';
 import '../../../home/flight/flight_screen.dart';
 import '../../Screen/trip_card.dart';
+import '../../shared/cancel_booking_flow.dart';
 import '../data/data_source/flight_refund_service.dart';
 import '../domain/entities/FlightBookEntity.dart';
 import '../domain/flight_trip_info.dart';
@@ -888,9 +889,40 @@ class _FlightTripDetailsScreenState extends State<FlightTripDetailsScreen> {
 
   // ---------------------------------------------------------------------------
 
+  /// Only confirmed Akbar tickets that the airline marks refundable can be
+  /// cancelled here; the server enforces the same rules.
+  bool get _canCancel => _info.isConfirmed && _b.isAkbarBooking && _b.isRefundable != false;
+
+  Future<void> _cancelBooking() async {
+    final cancelled = await showCancelAndRefundSheet(
+      context,
+      params: CancelBookingParams(
+        bookingType: 'Flight',
+        bookingId: _b.pnr.isNotEmpty ? _b.pnr : '${_b.id}',
+        route: '${_info.fromCity} → ${_info.toCity}',
+        detail: '${_info.airline} ${_info.flightNumber}'.trim(),
+        amount: double.tryParse(_b.totalAmount) ?? 0,
+        currency: _b.currency,
+        apiBookingType: 'flight',
+        entityId: _b.id,
+        checkoutId: _b.checkoutId?.toString(),
+        ccavenueOrderId: _b.ccavenueOrderId?.toString(),
+        paidVia: _b.paidVia,
+      ),
+    );
+    if (cancelled == true && mounted) Navigator.of(context).pop();
+  }
+
   Widget _bottomBar() {
     final buttons = switch (_info.state) {
       FlightTripState.upcoming => [
+        if (_canCancel)
+          _ActionButton(
+            label: 'CANCEL',
+            icon: Icons.cancel_outlined,
+            outlined: true,
+            onPressed: _cancelBooking,
+          ),
         _ActionButton(
           label: _info.isConfirmed ? 'VIEW TICKETS' : 'TICKET BEING ISSUED',
           icon: Icons.confirmation_number_rounded,

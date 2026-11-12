@@ -23,6 +23,11 @@ class CancelBookingParams {
   /// Hotel confirmation number (for TBO cancel).
   final String? hotelConfirmationNumber;
 
+  /// 'tbo' | 'akbar' and, for Akbar, the supplier TransactionID.
+  final String hotelProvider;
+  final String? hotelTransactionId;
+  final String? hotelBookingReferenceId;
+
   /// Mozio reservation ID (for transport cancel).
   final String? transportReservationId;
 
@@ -41,6 +46,9 @@ class CancelBookingParams {
     required this.apiBookingType,
     required this.entityId,
     this.hotelConfirmationNumber,
+    this.hotelProvider = 'tbo',
+    this.hotelTransactionId,
+    this.hotelBookingReferenceId,
     this.transportReservationId,
     this.checkoutId,
     this.ccavenueOrderId,
@@ -438,15 +446,32 @@ class _CancelRefundSheetState extends State<_CancelRefundSheet> {
       final svc = CancellationService();
 
       // Step 1: Cancel the booking with the provider.
-      if (p.apiBookingType == 'hotel' &&
+      if (p.apiBookingType == 'flight') {
+        await svc.cancelAkbarFlight(p.entityId);
+      } else if (p.apiBookingType == 'hotel' && p.hotelProvider == 'akbar') {
+        final txn = p.hotelTransactionId ?? '';
+        if (txn.isEmpty) {
+          throw Exception('No supplier booking id for this hotel. Please contact support.');
+        }
+        await svc.cancelAkbarHotel(txn);
+      } else if (p.apiBookingType == 'hotel' &&
           p.hotelConfirmationNumber != null &&
           p.hotelConfirmationNumber!.isNotEmpty) {
         try {
           await svc.cancelHotel(p.hotelConfirmationNumber!);
-        } catch (e) {
-          final msg = e.toString().toLowerCase();
-          if (!msg.contains('cancelled')) rethrow;
+        } catch (_) {
+          // Only carry on if the supplier itself now shows the booking as
+          // cancelled (e.g. it was cancelled a moment ago); never guess from
+          // the error text.
+          final ref = (p.hotelBookingReferenceId?.isNotEmpty ?? false)
+              ? p.hotelBookingReferenceId!
+              : p.hotelConfirmationNumber!;
+          if (!await svc.tboHotelIsCancelled(ref)) {
+            throw Exception('Hotel cancellation failed');
+          }
         }
+      } else if (p.apiBookingType == 'hotel') {
+        throw Exception('No confirmation number for this hotel. Please contact support.');
       } else if (p.apiBookingType == 'transport' &&
           p.transportReservationId != null &&
           p.transportReservationId!.isNotEmpty) {

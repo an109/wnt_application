@@ -37,6 +37,8 @@ class BookingModel extends FlightBookEntity {
     List<Map<String, dynamic>> tboSegments = const [],
     Map<String, dynamic>? priceBreakdown,
     String? cancelledAt,
+    bool isAkbarBooking = false,
+    bool? isRefundable,
   }) : super(
     id: id,
     flightType: flightType,
@@ -72,6 +74,8 @@ class BookingModel extends FlightBookEntity {
     tboSegments: tboSegments,
     priceBreakdown: priceBreakdown,
     cancelledAt: cancelledAt,
+    isAkbarBooking: isAkbarBooking,
+    isRefundable: isRefundable,
   );
 
   factory BookingModel.fromJson(Map<String, dynamic> json) {
@@ -118,6 +122,8 @@ class BookingModel extends FlightBookEntity {
           ? Map<String, dynamic>.from(json['price_breakdown'] as Map)
           : null,
       cancelledAt: json['cancelled_at']?.toString(),
+      isAkbarBooking: json['is_akbar_booking'] == true,
+      isRefundable: json['is_refundable'] is bool ? json['is_refundable'] as bool : null,
     );
   }
 

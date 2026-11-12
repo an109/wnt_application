@@ -48,6 +48,12 @@ class FlightBookEntity extends Equatable {
   /// `cancelled_at` (ISO datetime) when [isCancelled].
   final String? cancelledAt;
 
+  /// `is_akbar_booking` — only Akbar tickets can be cancelled from the app.
+  final bool isAkbarBooking;
+
+  /// `is_refundable` — null when the supplier didn't say (older bookings).
+  final bool? isRefundable;
+
   const FlightBookEntity({
     required this.id,
     required this.flightType,
@@ -83,6 +89,8 @@ class FlightBookEntity extends Equatable {
     this.tboSegments = const [],
     this.priceBreakdown,
     this.cancelledAt,
+    this.isAkbarBooking = false,
+    this.isRefundable,
   });
 
   @override
@@ -121,6 +129,8 @@ class FlightBookEntity extends Equatable {
     tboSegments,
     priceBreakdown,
     cancelledAt,
+    isAkbarBooking,
+    isRefundable,
   ];
 }
 

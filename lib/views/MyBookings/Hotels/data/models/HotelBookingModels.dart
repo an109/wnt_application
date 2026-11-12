@@ -34,6 +34,7 @@ class HotelBookingListModel extends HotelBookingListEntity {
     required super.guestReference,
     required super.status,
     super.bookingDate,
+    super.provider,
     required super.created,
     required super.updated,
   });
@@ -72,6 +73,7 @@ class HotelBookingListModel extends HotelBookingListEntity {
       guestReference: json['guest_reference'] ?? '',
       status: json['status'] ?? '',
       bookingDate: json['bookingDate'],
+      provider: (json['provider'] ?? 'tbo').toString().toLowerCase(),
       created: json['created'] ?? '',
       updated: json['updated'] ?? '',
     );
@@ -111,6 +113,7 @@ class HotelBookingListModel extends HotelBookingListEntity {
       'guest_reference': guestReference,
       'status': status,
       'bookingDate': bookingDate,
+      'provider': provider,
       'created': created,
       'updated': updated,
     };

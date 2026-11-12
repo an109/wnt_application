@@ -33,6 +33,8 @@ class HotelBookingListEntity extends Equatable {
   final String guestReference;
   final String status;
   final String? bookingDate;
+  /// 'tbo' | 'akbar' — decides which supplier's cancel route is used.
+  final String provider;
   final String created;
   final String updated;
 
@@ -69,6 +71,7 @@ class HotelBookingListEntity extends Equatable {
     required this.guestReference,
     required this.status,
     this.bookingDate,
+    this.provider = 'tbo',
     required this.created,
     required this.updated,
   });
@@ -79,6 +82,6 @@ class HotelBookingListEntity extends Equatable {
     hotelName, hotelCode, hotelAddress, hotelCity, hotelCountry, hotelStars,
     hotelImage, roomType, checkIn, checkOut, nights, rooms, guests, adults,
     children, totalFare, tax, currency, guestName, email, phone, paymentMode,
-    checkoutId, guestReference, status, bookingDate, created, updated,
+    checkoutId, guestReference, status, bookingDate, provider, created, updated,
   ];
 }
