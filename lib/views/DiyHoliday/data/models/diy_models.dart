@@ -1540,21 +1540,34 @@ class DiyCheckoutOrder {
     required this.contact,
   });
 
+  /// Reads either shape:
+  ///  - the Wander Nova backend's, where `amount` IS the paise integer and
+  ///    there is no `prefill` (the caller supplies name/email/contact);
+  ///  - the planner's, with `amount` in rupees plus `amount_paise` and
+  ///    a nested `prefill`.
   factory DiyCheckoutOrder.fromJson(dynamic data) {
     final j = _map(data);
     final prefill = _map(j['prefill']);
+    // Trust an explicit amount_paise; otherwise `amount` is already paise.
+    final paise = j['amount_paise'] != null ? _int(j['amount_paise']) : _int(j['amount']);
+    final rupees = j['amount_paise'] != null ? _dbl(j['amount']) : paise / 100;
+    String pick(String key) {
+      final nested = _str(prefill[key]);
+      return nested.isNotEmpty ? nested : _str(j[key]);
+    }
+
     return DiyCheckoutOrder(
       keyId: _str(j['key_id']),
       orderId: _str(j['order_id']),
-      amount: _dbl(j['amount']),
-      amountPaise: _int(j['amount_paise']),
+      amount: rupees,
+      amountPaise: paise,
       currency: _str(j['currency']).isEmpty ? 'INR' : _str(j['currency']),
       percent: _int(j['percent']),
       reference: _str(j['reference']),
       description: _str(j['description']),
-      name: _str(prefill['name']),
-      email: _str(prefill['email']),
-      contact: _str(prefill['contact']),
+      name: pick('name'),
+      email: pick('email'),
+      contact: pick('contact'),
     );
   }
 }

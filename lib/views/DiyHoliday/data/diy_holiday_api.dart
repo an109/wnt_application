@@ -2,6 +2,9 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
 import '../../../core/constants/holiday_urls.dart';
+import '../../../core/constants/urls.dart';
+import '../../../core/network/dio_client.dart';
+import '../../../injection_container.dart';
 import 'models/diy_models.dart';
 
 /// Thrown by every [DiyHolidayApi] call so screens can show one message
@@ -583,30 +586,71 @@ class DiyHolidayApi {
 
   /// POST /bookings/{booking_id}/order/ — a Razorpay order for one
   /// instalment, for the in-app (Custom Checkout) payment screen.
+  /// Mints the instalment's Razorpay order on the **Wander Nova backend**
+  /// (`/api/payments/razorpay/diy-holiday/order/`), the same endpoint the
+  /// website uses — not the planner's own `/bookings/{id}/order/`.
+  ///
+  /// The backend owns the coupon rules, charges on our Razorpay account and
+  /// records the RazorpayTransaction, so app and web settle a booking the
+  /// same way. It takes the booking id in the BODY, not the path, and
+  /// returns no prefill fields, so the caller passes those in.
   Future<DiyCheckoutOrder> createBookingOrder({
     required String bookingId,
     required int percent,
+    String? promoCode,
+    String? userId,
+    String name = '',
+    String email = '',
+    String contact = '',
+    String description = '',
   }) async {
-    final data = await _post(HolidayUrls.bookingOrder(bookingId), {
+    final data = await _postMainBackend(Urls.diyHolidayOrder, {
+      'booking_id': bookingId,
       'percent': percent,
+      if (promoCode != null && promoCode.isNotEmpty) 'promo_code': promoCode,
+      if (userId != null && userId.isNotEmpty) 'user_id': userId,
     });
-    return DiyCheckoutOrder.fromJson(data);
+    return DiyCheckoutOrder.fromJson({
+      ...Map<String, dynamic>.from(data as Map),
+      'name': name,
+      'email': email,
+      'contact': contact,
+      'description': description,
+    });
   }
 
-  /// POST /bookings/{booking_id}/verify/ — Razorpay's signature checked and
-  /// the captured payment recorded on the booking.
-  Future<DiyBooking> verifyBookingPayment({
+  /// POST to the main Wander Nova backend (its own host, bearer token and
+  /// interceptors) rather than the planner.
+  Future<dynamic> _postMainBackend(String url, Map<String, dynamic> body) async {
+    try {
+      final res = await sl<DioClient>().instance.post(url, data: body);
+      return res.data;
+    } on DioException catch (e) {
+      throw _toException(e);
+    }
+  }
+
+  /// Verifies the instalment on the **Wander Nova backend**
+  /// (`/api/payments/razorpay/diy-holiday/verify/`), matching the website.
+  ///
+  /// Returns the backend's own payload (payment_id, amount, reference,
+  /// discount, balance_after, ...) — NOT a [DiyBooking]. The planner is not
+  /// told about this payment, so its `amount_paid` does not move; callers
+  /// must treat a successful response here as the confirmation rather than
+  /// waiting for the planner's balance to change.
+  Future<Map<String, dynamic>> verifyBookingPayment({
     required String bookingId,
     required String orderId,
     required String paymentId,
     required String signature,
   }) async {
-    final data = await _post(HolidayUrls.bookingVerify(bookingId), {
+    final data = await _postMainBackend(Urls.diyHolidayVerify, {
+      'booking_id': bookingId,
       'razorpay_order_id': orderId,
       'razorpay_payment_id': paymentId,
       'razorpay_signature': signature,
     });
-    return DiyBooking.fromJson(data);
+    return Map<String, dynamic>.from(data as Map);
   }
 
   /// POST /bookings/{booking_id}/sync/ — records anything paid on the

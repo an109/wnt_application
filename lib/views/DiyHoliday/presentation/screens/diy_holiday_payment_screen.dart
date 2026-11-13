@@ -11,6 +11,7 @@ import 'package:wander_nova/views/wallet/wallet/screen/checkout/method_sections.
 import 'package:wander_nova/views/wallet/wallet/screen/checkout/upi_section.dart';
 
 import '../../../../injection_container.dart';
+import 'package:wander_nova/core/utils/storage/shared_preference.dart';
 import '../../data/diy_holiday_api.dart';
 import '../../data/diy_traveller.dart';
 import '../../data/models/diy_models.dart';
@@ -68,6 +69,14 @@ class _DiyHolidayPaymentScreenState extends State<DiyHolidayPaymentScreen> {
   static const _holdDuration = Duration(minutes: 15);
 
   final DiyHolidayApi _api = sl<DiyHolidayApi>();
+
+  /// The lead traveller, used to prefill the gateway. The planner used to
+  /// send these back on the order; the Wander Nova backend does not.
+  DiyTraveller? get _lead =>
+      widget.travellers.isEmpty ? null : widget.travellers.first;
+  String get _leadName =>
+      _lead == null ? '' : '${_lead!.firstName} ${_lead!.lastName}'.trim();
+  String get _leadPhone => _lead?.phone ?? '';
   final _rz = RazorpayCustomCheckoutService();
   late final Future<List<UpiApp>> _upiApps = _rz.getUpiApps().catchError(
     (_) => <UpiApp>[],
@@ -118,6 +127,13 @@ class _DiyHolidayPaymentScreenState extends State<DiyHolidayPaymentScreen> {
       final order = await _api.createBookingOrder(
         bookingId: widget.booking.bookingId,
         percent: widget.instalment.percent,
+        // The backend returns no prefill, so hand it what this screen holds:
+        // the lead traveller, falling back to the signed-in account.
+        userId: sl<PreferencesManager>().getUserId()?.toString(),
+        name: _leadName,
+        email: sl<PreferencesManager>().getUserEmail() ?? '',
+        contact: _leadPhone,
+        description: widget.packageTitle,
       );
       if (!mounted) return false;
       setState(() {
@@ -224,28 +240,28 @@ class _DiyHolidayPaymentScreenState extends State<DiyHolidayPaymentScreen> {
       _processing = true;
       _status = 'Verifying payment...';
     });
-    final before = widget.booking.amountPaid;
     try {
-      var booking = await _api.verifyBookingPayment(
+      // Verified by OUR backend, which records the RazorpayTransaction and
+      // the holiday booking. It does NOT notify the planner, so the
+      // planner's amount_paid does not move — polling it (as this screen
+      // used to) would always time out. A successful response here is the
+      // confirmation.
+      final result = await _api.verifyBookingPayment(
         bookingId: widget.booking.bookingId,
         orderId: orderId,
         paymentId: paymentId,
         signature: signature,
       );
-      for (var i = 0; i < 5 && booking.amountPaid <= before; i++) {
-        await Future.delayed(const Duration(seconds: 3));
-        booking = await _api.syncBooking(widget.booking.bookingId);
-      }
       if (!mounted) return;
-      if (booking.amountPaid > before) {
-        _confirmed(booking, paymentId);
+      if (result['success'] == true) {
+        _confirmed(result, paymentId);
       } else {
         setState(() {
           _processing = false;
           _error =
               'We have your payment ($paymentId) but could not confirm it '
-              'yet. It will show on your booking ${booking.reference} shortly — '
-              'please do not pay again.';
+              'yet. It will show on your booking ${widget.booking.reference} '
+              'shortly — please do not pay again.';
         });
       }
     } catch (e) {
@@ -259,8 +275,14 @@ class _DiyHolidayPaymentScreenState extends State<DiyHolidayPaymentScreen> {
     }
   }
 
-  void _confirmed(DiyBooking paid, String paymentId) {
+  /// [paid] is the backend's verify payload (amount charged, reference,
+  /// balance_after, balance_due_on), not a planner [DiyBooking].
+  void _confirmed(Map<String, dynamic> paid, String paymentId) {
     _timer?.cancel();
+    final currency = widget.booking.currency;
+    final charged = double.tryParse('${paid['amount'] ?? ''}') ?? 0;
+    final balance = double.tryParse('${paid['balance_after'] ?? ''}') ?? 0;
+    final dueOn = '${paid['balance_due_on'] ?? ''}';
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
         builder: (_) => DiyBookingConfirmedScreen(
@@ -269,13 +291,13 @@ class _DiyHolidayPaymentScreenState extends State<DiyHolidayPaymentScreen> {
           departureDate: widget.departureDate,
           nights: widget.nights,
           travellers: widget.travellers.length,
-          amount: paid.amountPaid - widget.booking.amountPaid,
-          currency: paid.currency,
-          paymentReference: paid.reference,
+          amount: charged,
+          currency: currency,
+          paymentReference: '${paid['reference'] ?? widget.booking.reference}',
           paymentId: paymentId,
-          enquiryReference: paid.balance > 0
-              ? 'Balance ${diyChargeMoney(paid.balance, currency: paid.currency)}'
-                    '${paid.balanceDueOn.isEmpty ? '' : ' due by ${diyDayDate(paid.balanceDueOn)}'}'
+          enquiryReference: balance > 0
+              ? 'Balance ${diyChargeMoney(balance, currency: currency)}'
+                    '${dueOn.isEmpty ? '' : ' due by ${diyDayDate(dueOn)}'}'
               : null,
         ),
       ),

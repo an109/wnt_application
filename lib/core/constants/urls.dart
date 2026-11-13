@@ -54,6 +54,13 @@ class Urls {
   static const String razorpayCreateOrder =
       '${baseUrl}payments/razorpay/create-order/';
   static const String razorpayVerify = '${baseUrl}payments/razorpay/verify/';
+  // DIY holiday instalments go through OUR backend, exactly as the website
+  // does: it owns the coupon rules, mints the order on our Razorpay account
+  // and records the RazorpayTransaction / HolidayPackageBooking.
+  static const String diyHolidayOrder =
+      '${baseUrl}payments/razorpay/diy-holiday/order/';
+  static const String diyHolidayVerify =
+      '${baseUrl}payments/razorpay/diy-holiday/verify/';
   // Razorpay UPI QR for wallet top-ups (no order): create → poll status.
   // Not deployed on either server as of 2026-09-28 — confirm the final paths
   // with the backend (every other Razorpay route lives under payments/).

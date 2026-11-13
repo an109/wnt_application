@@ -271,6 +271,9 @@ class PreferencesManager {
     await _prefs?.setInt('user_id', id);
   }
 
+  /// The signed-in account's email, when one was saved at login.
+  String? getUserEmail() => _prefs?.getString('user_email');
+
   Future<void> saveUserEmail(String email) async {
     await _prefs?.setString('user_email', email);
   }
