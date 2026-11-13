@@ -70,6 +70,9 @@ class _VisaPaymentScreenState extends State<VisaPaymentScreen> {
 
   String? _razorpayOrderId;
   String? _razorpayKeyId;
+  /// The paise the Razorpay order was minted for, from the backend.
+  /// Payment initiation must use exactly this number.
+  int? _razorpayOrderAmountPaise;
   late final Future<List<UpiApp>> _upiApps = _rzService.getUpiApps().catchError((_) => <UpiApp>[]);
   Future<Map<String, dynamic>>? _methods;
 
@@ -175,6 +178,7 @@ class _VisaPaymentScreenState extends State<VisaPaymentScreen> {
         _processing = false;
         _razorpayOrderId = order['order_id'].toString();
         _razorpayKeyId = order['key_id'].toString();
+        _razorpayOrderAmountPaise = (order['amount'] as num?)?.toInt();
       });
       return true;
     } on VisaSubmitException catch (e) {
@@ -213,7 +217,9 @@ class _VisaPaymentScreenState extends State<VisaPaymentScreen> {
       final result = await _rzService.submitPayment(
         keyId: _razorpayKeyId!,
         data: {
-          'amount': (widget.amountInr * 100).round(),
+          // The order's own amount, never a second conversion of the
+          // same rupees -- the two can differ by a paisa.
+          'amount': _razorpayOrderAmountPaise ?? (widget.amountInr * 100).round(),
           'currency': 'INR',
           'order_id': _razorpayOrderId,
           'email': widget.email,

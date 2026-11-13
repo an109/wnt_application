@@ -191,12 +191,17 @@ class _HotelPaymentScreenState extends State<HotelPaymentScreen> {
 
       final orderId = response.data['order_id'];
       final keyId = response.data['key_id'];
+      // The paise amount the order was actually minted for. Re-deriving
+      // it here can disagree with the order by a paisa: 8.29 * 100 is
+      // 828.9999999999999, so .toInt() gives 828 against an 829-paise
+      // order, and Razorpay refuses payment initiation.
+      final orderPaise = (response.data['amount'] as num?)?.toInt() ??
+          (inrAmount * 100).round();
       print("Razorpay Key: $keyId");
 
       final options = {
         'key': keyId,
-        'amount': (inrAmount * 100).toInt(),
-        // 'amount': (widget.totalFare * 100).toInt(),
+        'amount': orderPaise,
         'currency': 'INR',
         'name': 'WanderNova',
         'description': 'Hotel: ${widget.hotelName}',

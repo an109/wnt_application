@@ -1660,8 +1660,8 @@ class _FlightPaymentScreenState extends State<FlightPaymentScreen> {
       final keyId = response.data['key_id'] as String?;
       // The paise amount the order was really created for. Checkout must open
       // with exactly this, not a fresh (_displayAmount * 100) conversion:
-      // 4.09 * 100 is 408.99999999999994, so .toInt() gave 408 against a 409
-      // paise order and Razorpay refused payment initiation.
+      // 8.29 * 100 is 828.9999999999999, so .toInt() gave 828 against an
+      // 829-paise order, and Razorpay refused payment initiation.
       final orderPaise = (response.data['amount'] as num?)?.toInt() ??
           (_displayAmount * 100).round();
 

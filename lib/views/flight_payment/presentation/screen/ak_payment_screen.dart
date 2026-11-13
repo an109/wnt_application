@@ -146,11 +146,27 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
   /// re-created per tile tap.
   String? _razorpayOrderId;
   String? _razorpayKeyId;
+  /// Resolve when the fee config and the benefit quote have landed. Until
+  /// then the total on screen is provisional.
+  late final Future<void> _feesReady;
+  late final Future<void> _benefitReady;
+
+  /// Every async input to [_totalChargeInInr] has settled, so the total is
+  /// final and an order minted for it will match what the customer is
+  /// charged. The convenience fee arriving *after* the order was created is
+  /// what produced a 400-paise order against a 409-paise payment: Razorpay
+  /// refused it with "Your payment amount is different from your order
+  /// amount". Neither future rejects -- both swallow their own errors.
+  Future<void> _pricingSettled() async {
+    await _feesReady;
+    await _benefitReady;
+  }
+
   /// The paise amount the Razorpay order was actually created for, as the
   /// backend reports it. Payment initiation MUST use exactly this number —
-  /// re-deriving it from a double here is what produced "Your payment amount
-  /// is different from your order amount" (4.09 * 100 truncates to 408 on one
-  /// side and rounds to 409 on the other).
+  /// re-deriving it from a double can disagree with the order by a paisa
+  /// (8.29 * 100 is 828.9999999999999, so truncation gives 828 where
+  /// rounding gives 829), which Razorpay refuses.
   int? _razorpayOrderAmountPaise;
 
   bool _processing = false;
@@ -233,8 +249,8 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
   /// never drift apart by a rounding step.
   int get _chargePaise => (_totalChargeInInr * 100).round();
 
-  /// [_chargePaise] back in rupees, exact to the paise (4.09, never
-  /// 4.089999999999999).
+  /// [_chargePaise] back in rupees, exact to the paise (8.29, never
+  /// 8.289999999999999).
   double get _chargeableInInr => _chargePaise / 100;
 
   /// The fare the payment-page fees are charged on: the published fare before
@@ -311,8 +327,12 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
     // _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _handleRazorpayError);
     // _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleRazorpayExternalWallet);
 
-    _loadBenefitQuote();
-    FeeService.instance.ensureLoaded().then((_) {
+    // Both of these change _totalChargeInInr when they land. The Razorpay
+    // order must not be minted before they have, or it is created for a
+    // stale total -- see [_pricingSettled].
+    _benefitReady = _loadBenefitQuote();
+    _feesReady = FeeService.instance.ensureLoaded();
+    _feesReady.then((_) {
       if (mounted) setState(() {});
     });
 
@@ -773,6 +793,13 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
       _statusMessage = 'Preparing payment...';
     });
 
+    // The order is minted for _chargePaise, so every input to it has to be
+    // in before we ask for one. This method is reached from _loadMethods()
+    // when a method panel is opened, which can easily be before the fee
+    // config has arrived.
+    await _pricingSettled();
+    if (!mounted) return false;
+
     try {
       final dio = sl<DioClient>().instance;
       final userId = sl<PreferencesManager>().getUserId();
@@ -843,9 +870,22 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
     if (_expired || _processing) return;
     FocusScope.of(context).unfocus();
 
-    await FeeService.instance.ensureLoaded();
+    await _pricingSettled();
+    if (!mounted) return;
     final ready = await _ensureRazorpayOrder();
     if (!ready || !mounted) return;
+
+    // The total moved after the order was minted. Charging the order's amount
+    // would quietly take a different sum from the one on screen, so start a
+    // fresh order for the price the customer is actually looking at.
+    if (_razorpayOrderAmountPaise != null &&
+        _razorpayOrderAmountPaise != _chargePaise) {
+      _razorpayOrderId = null;
+      _razorpayKeyId = null;
+      _razorpayOrderAmountPaise = null;
+      _methods = null;
+      if (!await _ensureRazorpayOrder() || !mounted) return;
+    }
 
     setState(() {
       _processing = true;

@@ -425,6 +425,13 @@ class _InsurancePaymentScreenState extends State<InsurancePaymentScreen> {
 
       final orderId = response.data['order_id'] as String?;
       final keyId = response.data['key_id'] as String?;
+      // The paise amount the order was actually minted for. Re-deriving
+      // it here can disagree with the order by a paisa: 8.29 * 100 is
+      // 828.9999999999999, so .toInt() gives 828 against an 829-paise
+      // order, and Razorpay refuses payment initiation.
+      // (This one also sent a *double* as the paise amount.)
+      final orderPaise = (response.data['amount'] as num?)?.toInt() ??
+          (widget.totalAmount * 100).round();
 
       if (!mounted) return;
       setState(() {
@@ -434,7 +441,7 @@ class _InsurancePaymentScreenState extends State<InsurancePaymentScreen> {
 
       _razorpay.open({
         'key': keyId ?? '',
-        'amount': widget.totalAmount * 100,
+        'amount': orderPaise,
         'currency': 'INR',
         'name': 'WanderNova',
         'description': '${widget.policy.planName} — Travel Insurance',

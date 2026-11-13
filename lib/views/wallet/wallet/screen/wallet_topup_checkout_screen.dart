@@ -61,6 +61,8 @@ class _WalletTopUpCheckoutScreenState extends State<WalletTopUpCheckoutScreen> {
   // attempts/methods — one order, one payment.
   String? _orderId;
   String? _keyId;
+  /// The paise /wallet/add-money/ minted the Razorpay order for.
+  int? _orderAmountPaise;
   String? _reference;
 
   // Razorpay requires a contact number and email on every payment. Taken from
@@ -162,6 +164,7 @@ class _WalletTopUpCheckoutScreenState extends State<WalletTopUpCheckoutScreen> {
       );
       final body = (response.data as Map?)?.cast<String, dynamic>() ?? {};
       final orderId = body['razorpay_order_id']?.toString();
+      final orderPaise = (body['amount_paise'] as num?)?.toInt();
       final keyId = body['key_id']?.toString();
       final reference = body['reference']?.toString();
       if (body['success'] == true &&
@@ -171,6 +174,7 @@ class _WalletTopUpCheckoutScreenState extends State<WalletTopUpCheckoutScreen> {
           reference.isNotEmpty) {
         _orderId = orderId;
         _keyId = keyId;
+        _orderAmountPaise = orderPaise;
         _reference = reference;
       } else {
         error =
@@ -269,7 +273,9 @@ class _WalletTopUpCheckoutScreenState extends State<WalletTopUpCheckoutScreen> {
       final result = await _service.submitPayment(
         keyId: _keyId!,
         data: {
-          'amount': (_amount * 100).round(),
+          // What /wallet/add-money/ minted the order for, never a second
+          // client-side conversion of the same rupees.
+          'amount': _orderAmountPaise ?? (_amount * 100).round(),
           'currency': 'INR',
           'order_id': _orderId,
           'email': _email,

@@ -77,6 +77,9 @@ class _DiyPaymentScreenState extends State<DiyPaymentScreen> {
 
   String? _orderId;
   String? _keyId;
+  /// The paise the Razorpay order was minted for, from the backend.
+  /// Payment initiation must use exactly this number.
+  int? _orderAmountPaise;
 
   String get _leadName =>
       widget.travellers.isEmpty ? '' : widget.travellers.first.fullName;
@@ -116,6 +119,7 @@ class _DiyPaymentScreenState extends State<DiyPaymentScreen> {
 
       final orderId = res.data['order_id'] as String?;
       final keyId = res.data['key_id'] as String?;
+      final orderPaise = (res.data['amount'] as num?)?.toInt();
       if (!mounted) return false;
 
       if (orderId == null || keyId == null) {
@@ -130,6 +134,7 @@ class _DiyPaymentScreenState extends State<DiyPaymentScreen> {
         _busy = false;
         _orderId = orderId;
         _keyId = keyId;
+        _orderAmountPaise = orderPaise;
       });
       return true;
     } on DioException catch (_) {
@@ -163,6 +168,7 @@ class _DiyPaymentScreenState extends State<DiyPaymentScreen> {
                 keyId: _keyId!,
                 orderId: _orderId!,
                 amountInInr: widget.amount,
+                orderAmountPaise: _orderAmountPaise,
                 name: _leadName,
                 email: widget.contactEmail,
                 contact: widget.contactPhone,

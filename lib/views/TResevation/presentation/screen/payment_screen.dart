@@ -142,6 +142,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
   /// payment, so this is memoized rather than re-created per tile tap.
   String? _razorpayOrderId;
   String? _razorpayKeyId;
+  /// The paise the order was minted for, straight from the backend.
+  /// Payment initiation must use exactly this number.
+  int? _razorpayOrderAmountPaise;
 
   // Set once /wallet/pay-booking/ has charged the wallet for this booking, so
   // it is never charged twice.
@@ -1704,6 +1707,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
       final orderId = response.data['order_id'] as String?;
       final keyId = response.data['key_id'] as String?;
+      final orderPaise = (response.data['amount'] as num?)?.toInt();
 
       if (!mounted) return false;
 
@@ -1723,6 +1727,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
         _isProcessing = false;
         _razorpayOrderId = orderId;
         _razorpayKeyId = keyId;
+        _razorpayOrderAmountPaise = orderPaise;
       });
       return true;
     } on DioException catch (e) {
@@ -1778,7 +1783,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
       final result = await _rzService.submitPayment(
         keyId: _razorpayKeyId!,
         data: {
-          'amount': (_payableInInr * 100).round(),
+          // The order's own amount, never a second conversion.
+          'amount': _razorpayOrderAmountPaise ?? (_payableInInr * 100).round(),
           'currency': 'INR',
           'order_id': _razorpayOrderId,
           'email': widget.passengerEmail,

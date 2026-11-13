@@ -131,6 +131,9 @@ class _AkHotelPaymentScreenState extends State<AkHotelPaymentScreen> {
   /// per payment attempt.
   String? _razorpayOrderId;
   String? _razorpayKeyId;
+  /// The paise the order was minted for, straight from the backend.
+  /// Payment initiation must use exactly this number.
+  int? _razorpayOrderAmountPaise;
 
   // Set once /wallet/pay-booking/ has charged the wallet for this booking —
   // StartPay is never re-run blindly, and the wallet is never charged twice.
@@ -458,6 +461,7 @@ class _AkHotelPaymentScreenState extends State<AkHotelPaymentScreen> {
 
       final orderId = response.data['order_id'] as String?;
       final keyId = response.data['key_id'] as String?;
+      final orderPaise = (response.data['amount'] as num?)?.toInt();
 
       if (!mounted) return false;
 
@@ -473,6 +477,7 @@ class _AkHotelPaymentScreenState extends State<AkHotelPaymentScreen> {
         _processing = false;
         _razorpayOrderId = orderId;
         _razorpayKeyId = keyId;
+        _razorpayOrderAmountPaise = orderPaise;
       });
       return true;
     } on DioException catch (e) {
@@ -519,7 +524,8 @@ class _AkHotelPaymentScreenState extends State<AkHotelPaymentScreen> {
       final result = await _rzService.submitPayment(
         keyId: _razorpayKeyId!,
         data: {
-          'amount': (_payableInInr * 100).round(),
+          // The order's own amount, never a second conversion.
+          'amount': _razorpayOrderAmountPaise ?? (_payableInInr * 100).round(),
           'currency': 'INR',
           'order_id': _razorpayOrderId,
           'email': widget.leadGuestEmail,
