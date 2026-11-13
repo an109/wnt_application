@@ -160,13 +160,16 @@ List<String> _parseImages(dynamic raw, Map<String, dynamic> json) {
   return images;
 }
 
-// === NEW: Helper to get hero image ===
 String _getHeroImage(Map<String, dynamic> json) {
-  // First try heroImage field
-  final hero = json['heroImage']?.toString() ?? '';
+  final raw = json['heroImage'];
+  String hero = '';
+  if (raw is String) {
+    hero = raw;
+  } else if (raw is Map) {
+    hero = (raw['url'] ?? '').toString();
+  }
   if (hero.isNotEmpty) return hero;
 
-  // If empty, try to get first room image
   final images = _parseImages(json['images'], json);
   if (images.isNotEmpty) return images.first;
 

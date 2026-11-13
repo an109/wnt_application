@@ -10,7 +10,7 @@ import '../../../../core/services/pdf_generator.dart';
 import '../../../home/flight/flight_screen.dart';
 import '../../Screen/trip_card.dart';
 import '../../shared/cancel_booking_flow.dart';
-import '../data/data_source/flight_refund_service.dart';
+import '../../shared/booking_refund_service.dart';
 import '../domain/entities/FlightBookEntity.dart';
 import '../domain/flight_trip_info.dart';
 import 'flight_pdf_builder.dart';
@@ -136,7 +136,7 @@ Future<void> saveAndOfferPdf(
 
 class FlightTripDetailsScreen extends StatefulWidget {
   final FlightBookEntity booking;
-  final FlightRefundService? refundService;
+  final BookingRefundService? refundService;
 
   const FlightTripDetailsScreen({super.key, required this.booking, this.refundService});
 
@@ -150,7 +150,7 @@ class _FlightTripDetailsScreenState extends State<FlightTripDetailsScreen> {
 
   // Cancelled trips only.
   bool _refundLoading = false;
-  FlightRefund? _refund;
+  BookingRefund? _refund;
   int? _refundDays;
 
   FlightBookEntity get _b => widget.booking;
@@ -173,11 +173,11 @@ class _FlightTripDetailsScreenState extends State<FlightTripDetailsScreen> {
 
   Future<void> _loadRefund() async {
     setState(() => _refundLoading = true);
-    final service = widget.refundService ?? FlightRefundService();
-    FlightRefund? refund;
+    final service = widget.refundService ?? BookingRefundService();
+    BookingRefund? refund;
     int? days;
     try {
-      refund = await service.forBooking(bookingId: _b.id, pnr: _b.pnr);
+      refund = await service.forBooking(bookingType: 'flight', bookingId: _b.id, pnr: _b.pnr);
     } catch (_) {}
     try {
       days = await service.processingDays();
@@ -792,6 +792,7 @@ class _FlightTripDetailsScreenState extends State<FlightTripDetailsScreen> {
           if (r.providerPenalty > 0) _kv('Airline Penalty', _money(r.providerPenalty, r.currency)),
           if (r.platformFee > 0) _kv('Processing Fee', _money(r.platformFee, r.currency)),
           _kv('Refund Method', method),
+          if (r.reference.isNotEmpty) _kv('Refund ID', r.reference),
           if (open && _refundDays != null) _kv('Expected Refund', 'Within $_refundDays business days'),
         ],
       );

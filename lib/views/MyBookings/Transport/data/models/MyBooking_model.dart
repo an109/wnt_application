@@ -34,7 +34,8 @@ class BookingModel extends BookingEntity {
     super.rawCurrency,
     super.paymentMethod,
     super.paymentId,
-    super.imageUrl
+    super.imageUrl,
+    super.priceBreakdown,
   });
 
   factory BookingModel.fromJson(Map<String, dynamic> json) {
@@ -153,6 +154,9 @@ class BookingModel extends BookingEntity {
       paymentMethod: json['payment_method']?.toString() ?? '',
       paymentId: json['razorpay_payment_id']?.toString() ?? '',
       imageUrl: imageUrl,
+      priceBreakdown: json['price_breakdown'] is Map
+          ? Map<String, dynamic>.from(json['price_breakdown'] as Map)
+          : null,
     );
   }
 }

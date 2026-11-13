@@ -85,10 +85,11 @@ class AkHotelResultsScreen extends StatefulWidget {
 class _AkHotelResultsScreenState extends State<AkHotelResultsScreen> {
   static const _blue = AppColors.AppBlue;
   static const _pageBg = AppColors.white;
-  static const _maxRatePolls = 20;
+  static const _maxRatePolls = 12;
 
   final ScrollController _scrollController = ScrollController();
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  bool _disposed = false;
   // Purely additive, client-side "Sort" from the new bottom bar — reorders
   // whatever's already been fetched/filtered/searched, never re-queries.
   AkHotelSortOption? _sortOption;
@@ -121,7 +122,7 @@ class _AkHotelResultsScreenState extends State<AkHotelResultsScreen> {
   // "View more" can scroll straight to it instead of navigating away.
   final GlobalKey _nearbyExpandedKey = GlobalKey();
 
-  static const _maxAutoContentPages = 12;
+  static const _maxAutoContentPages = 6;
 
   @override
   void initState() {
@@ -136,6 +137,7 @@ class _AkHotelResultsScreenState extends State<AkHotelResultsScreen> {
 
   @override
   void dispose() {
+    _disposed = true;
     _scrollController.dispose();
     CurrencyConverter.currencyListenable.removeListener(_onCurrencyChanged);
     super.dispose();
@@ -173,17 +175,22 @@ class _AkHotelResultsScreenState extends State<AkHotelResultsScreen> {
   /// the user searched for.
   Future<void> _autoLoadContentUntilMerged() async {
     int pagesLoaded = 0;
-    while (mounted && pagesLoaded < _maxAutoContentPages) {
+    int noProgressCount = 0;
+    while (!_disposed && mounted && pagesLoaded < _maxAutoContentPages) {
       await _loadNextContentPage();
       pagesLoaded++;
-      if (!mounted) return;
+      if (_disposed || !mounted) return;
+      if (_lastContentPageFailed) return;
       if (_mergedHotels.isNotEmpty) return;
       if (_error != null) return;
       if (_contentTotal > 0 && _contentById.length >= _contentTotal) return;
       if (_rateCompleted) return;
-      // Pure throttle between page requests — no documented backend
-      // rate-limit requires it, so keep it short rather than adding dead
-      // time on top of each round trip while nothing has merged yet.
+      if (_contentById.length == _lastContentSizeBefore) {
+        noProgressCount++;
+        if (noProgressCount >= 2) return;
+      } else {
+        noProgressCount = 0;
+      }
       await Future.delayed(const Duration(milliseconds: 150));
     }
   }
@@ -201,22 +208,22 @@ class _AkHotelResultsScreenState extends State<AkHotelResultsScreen> {
   /// city, not a specific property) have no match at all, so this must not
   /// keep paging forever hunting for one that was never coming.
   Future<void> _autoLoadContentForMatch() async {
-    // The first pass bails out silently if the screen was popped mid-fetch,
-    // and its `.then` still lands here — don't touch state once disposed.
-    if (!mounted) return;
-    if (_matchedHotels.isNotEmpty) return; // nothing to look for
+    if (_disposed || !mounted) return;
+    if (_matchedHotels.isNotEmpty) return;
     setState(() => _matchSearchInProgress = true);
     try {
       const maxExtraPages = 4;
       int extraPagesLoaded = 0;
-      while (mounted &&
+      while (!_disposed &&
+          mounted &&
           extraPagesLoaded < maxExtraPages &&
           _matchedHotels.isEmpty &&
           _error == null &&
+          !_lastContentPageFailed &&
           !(_contentTotal > 0 && _contentById.length >= _contentTotal)) {
         await _loadNextContentPage();
         extraPagesLoaded++;
-        if (!mounted) return;
+        if (_disposed || !mounted) return;
         await Future.delayed(const Duration(milliseconds: 150));
       }
     } finally {
@@ -224,9 +231,14 @@ class _AkHotelResultsScreenState extends State<AkHotelResultsScreen> {
     }
   }
 
+  bool _lastContentPageFailed = false;
+  int _lastContentSizeBefore = 0;
+
   Future<void> _loadNextContentPage() async {
-    if (!mounted || _contentLoading) return;
+    if (_disposed || !mounted || _contentLoading) return;
     setState(() => _contentLoading = true);
+    _lastContentPageFailed = false;
+    _lastContentSizeBefore = _contentById.length;
 
     final offset = _contentById.isEmpty ? -1 : _contentById.length;
     final result = await sl<AkHotelResultContentUseCase>().call(
@@ -238,7 +250,7 @@ class _AkHotelResultsScreenState extends State<AkHotelResultsScreen> {
       ),
     );
 
-    if (!mounted) return;
+    if (_disposed || !mounted) return;
 
     if (result is DataSuccess<AkHotelResultContentEntity>) {
       final data = result.data!;
@@ -246,8 +258,6 @@ class _AkHotelResultsScreenState extends State<AkHotelResultsScreen> {
         _contentById[h.id] = h;
       }
       for (final h in data.curatedHotels) {
-        // Never overwrite a richer `hotels` entry with the sparse curated
-        // shape — this map is purely a fallback for ids `hotels` never has.
         if (!_contentById.containsKey(h.id)) _curatedById[h.id] = h;
       }
       setState(() {
@@ -257,6 +267,7 @@ class _AkHotelResultsScreenState extends State<AkHotelResultsScreen> {
         _initialLoading = false;
       });
     } else {
+      _lastContentPageFailed = true;
       setState(() {
         _contentLoading = false;
         _initialLoading = false;
@@ -266,42 +277,42 @@ class _AkHotelResultsScreenState extends State<AkHotelResultsScreen> {
   }
 
   Future<void> _pollRate() async {
-    if (!mounted) return;
+    if (_disposed || !mounted) return;
     setState(() => _ratePollingActive = true);
-    while (mounted && !_rateCompleted && _ratePollCount < _maxRatePolls) {
+    int emptyPollStreak = 0;
+    while (!_disposed && mounted && !_rateCompleted && _ratePollCount < _maxRatePolls) {
       _ratePollCount++;
       final result = await sl<AkHotelResultRateUseCase>().call(
         AkHotelResultRateRequestEntity(searchId: widget.searchId, searchTracingKey: widget.searchTracingKey),
       );
 
-      if (!mounted) return;
+      if (_disposed || !mounted) return;
 
       if (result is DataSuccess<AkHotelResultRateEntity>) {
         final data = result.data!;
         for (final h in data.hotels) {
           _rateById[h.id] = h;
         }
+        if (data.hotels.isEmpty) {
+          emptyPollStreak++;
+        } else {
+          emptyPollStreak = 0;
+        }
         setState(() {
           _currency = data.currency.isNotEmpty ? data.currency : _currency;
           _rateCompleted = data.isCompleted;
           _initialLoading = false;
         });
+        // Backend is responding but never returning hotels — stop early.
+        if (emptyPollStreak >= 4) break;
       } else {
-        // A transient rate-poll failure isn't fatal — content-only cards
-        // just won't have a price yet; keep polling.
         break;
       }
 
       if (!_rateCompleted) {
-        // Rate is a cumulative poll (each response already contains every
-        // price resolved so far), so polling faster only surfaces prices
-        // sooner — it can't skip or duplicate data. Most suppliers price
-        // within the first few seconds, so poll tightly at first to get the
-        // first hotel cards on screen fast, then back off so a slow search
-        // doesn't hammer the API while it finishes in the background.
-        final delay = _ratePollCount <= 6
-            ? const Duration(milliseconds: 1200)
-            : const Duration(seconds: 3);
+        final delay = _ratePollCount <= 4
+            ? const Duration(seconds: 2)
+            : const Duration(seconds: 4);
         await Future.delayed(delay);
       }
     }
@@ -697,7 +708,9 @@ class _AkHotelResultsScreenState extends State<AkHotelResultsScreen> {
       return const HotelLoadingIndicator();
     }
 
-    if (_error != null && _mergedHotels.isEmpty) {
+    final allMerged = _mergedHotels;
+
+    if (_error != null && allMerged.isEmpty) {
       return Center(
         child: Padding(
           padding: context.horizontalPadding,
@@ -715,9 +728,9 @@ class _AkHotelResultsScreenState extends State<AkHotelResultsScreen> {
       );
     }
 
-    final hotels = _applyFilters(_mergedHotels);
+    final hotels = _applyFilters(allMerged);
 
-    if (_mergedHotels.isEmpty) {
+    if (allMerged.isEmpty) {
       if (_rateTimedOut) {
         return Center(
           child: Padding(

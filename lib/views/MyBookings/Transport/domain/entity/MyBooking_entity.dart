@@ -98,6 +98,7 @@ class BookingEntity extends Equatable {
   final String rawCurrency;
   final String paymentMethod;
   final String paymentId;
+  final Map<String, dynamic>? priceBreakdown;
 
   @override
   List<Object?> get props => [
@@ -106,7 +107,8 @@ class BookingEntity extends Equatable {
     cancelledTimestamp, providerName, confirmationNumber, created, updated,
     destination, type, applicantCount, bookedDate, category,
     startAddress, endAddress, pickupDatetime, flightNumber, vehicleName,
-    rawTotalPrice, rawCurrency, paymentMethod, paymentId, imageUrl
+    rawTotalPrice, rawCurrency, paymentMethod, paymentId, imageUrl,
+    priceBreakdown,
   ];
 
   const BookingEntity({
@@ -142,6 +144,7 @@ class BookingEntity extends Equatable {
     this.rawCurrency = 'USD',
     this.paymentMethod = '',
     this.paymentId = '',
-    this.imageUrl = ''
+    this.imageUrl = '',
+    this.priceBreakdown,
   });
 }

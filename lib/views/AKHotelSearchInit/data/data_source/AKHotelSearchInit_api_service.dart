@@ -23,7 +23,6 @@ class AkHotelSearchInitApiServiceImpl implements AkHotelSearchInitApiService {
       );
 
       print('Search Init Response Status: ${response.statusCode}');
-      print('Search Init Response Data: ${response.data}');
 
       return response;
     } on DioException catch (e) {

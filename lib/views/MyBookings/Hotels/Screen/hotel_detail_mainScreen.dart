@@ -3,15 +3,52 @@ import 'package:flutter/services.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 
 import '../../../../core/resources/app_colours.dart';
+import '../../shared/booking_refund_service.dart';
 import '../../shared/cancel_booking_flow.dart';
 import '../../shared/trip_detail_widgets.dart';
 import '../domain/entity/HotelBookingEntity.dart';
 import 'hotel_pdf_builder.dart';
 
-class HotelBookingDetailsScreen extends StatelessWidget {
+class HotelBookingDetailsScreen extends StatefulWidget {
   final HotelBookingListEntity booking;
 
   const HotelBookingDetailsScreen({super.key, required this.booking});
+
+  @override
+  State<HotelBookingDetailsScreen> createState() => _HotelBookingDetailsScreenState();
+}
+
+class _HotelBookingDetailsScreenState extends State<HotelBookingDetailsScreen> {
+  HotelBookingListEntity get booking => widget.booking;
+
+  bool _refundLoading = false;
+  BookingRefund? _refund;
+  int? _refundDays;
+
+  @override
+  void initState() {
+    super.initState();
+    if (booking.status.toLowerCase().contains('cancel')) _loadRefund();
+  }
+
+  Future<void> _loadRefund() async {
+    setState(() => _refundLoading = true);
+    final service = BookingRefundService();
+    BookingRefund? refund;
+    int? days;
+    try {
+      refund = await service.forBooking(bookingType: 'hotel', bookingId: booking.id);
+    } catch (_) {}
+    try {
+      days = await service.processingDays();
+    } catch (_) {}
+    if (!mounted) return;
+    setState(() {
+      _refund = refund;
+      _refundDays = days;
+      _refundLoading = false;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -83,6 +120,10 @@ class HotelBookingDetailsScreen extends StatelessWidget {
                           _guestDetails(context),
                           gap,
                           _fare(context),
+                          if (booking.status.toLowerCase().contains('cancel')) ...[
+                            gap,
+                            _refundBox(context),
+                          ],
                           gap,
                           _bookingInfo(context),
                           gap,
@@ -295,10 +336,29 @@ class HotelBookingDetailsScreen extends StatelessWidget {
 
   Widget _fare(BuildContext context) {
     final cur = booking.currency.isEmpty ? 'INR' : booking.currency;
-    final total = double.tryParse(booking.totalFare) ?? 0;
+    final pb = booking.priceBreakdown;
+    double n(String key) => double.tryParse('${pb?[key] ?? ''}') ?? 0;
+    final total = double.tryParse(booking.totalFare) ?? (pb != null ? n('total_paid') : 0);
     final tax = double.tryParse(booking.tax) ?? 0;
     final base = total - tax;
     final taxIsZero = tax == 0;
+
+    final rows = <(String, double)>[
+      if (pb != null) ...[
+        if (n('room_charges') > 0) ('Room Charges', n('room_charges'))
+        else if (base > 0) ('Room Charges', base),
+        if (tax > 0) ('Tax', tax)
+        else if (n('tax') > 0) ('Tax', n('tax')),
+        if (n('convenience_fee') > 0) ('Convenience Fee', n('convenience_fee')),
+        if (n('platform_fee') > 0) ('Platform Fee', n('platform_fee')),
+        if (n('booking_mgmt_fee') > 0) ('Booking Fee', n('booking_mgmt_fee')),
+        if (n('coupon_discount') > 0)
+          ('Promo${(pb['coupon_code'] ?? '').toString().isNotEmpty ? ' (${pb['coupon_code']})' : ''}', -n('coupon_discount')),
+      ] else ...[
+        if (base > 0) ('Room Charges', base),
+        if (tax > 0) ('Tax', tax),
+      ],
+    ];
 
     return TripSection(
       title: 'Fare Details',
@@ -310,8 +370,9 @@ class HotelBookingDetailsScreen extends StatelessWidget {
           TripInset(
             child: Column(
               children: [
-                if (base > 0) tripKv(context, 'Room Charges', formatMoney(base, cur), muted: true),
-                tripKv(context, 'Tax', taxIsZero ? 'Included' : formatMoney(tax, cur), muted: true),
+                for (final (label, amount) in rows)
+                  tripKv(context, label, amount < 0 ? '- ${formatMoney(-amount, cur)}' : formatMoney(amount, cur), muted: true),
+                if (rows.isEmpty && taxIsZero) tripKv(context, 'Tax', 'Included', muted: true),
                 Divider(height: context.fx(20), color: kLine),
                 Row(
                   children: [
@@ -336,7 +397,7 @@ class HotelBookingDetailsScreen extends StatelessWidget {
             child: Column(
               children: [
                 tripKv(context, 'Payment Status', '', chip: ('Success', kGreen)),
-                tripKv(context, 'Payment Method', 'Online'),
+                tripKv(context, 'Payment Method', booking.paymentMode.isNotEmpty ? booking.paymentMode : 'Online'),
               ],
             ),
           ),
@@ -390,6 +451,48 @@ class HotelBookingDetailsScreen extends StatelessWidget {
     if (cancelled == true && context.mounted) {
       Navigator.of(context).pop();
     }
+  }
+
+  Widget _refundBox(BuildContext context) {
+    final cur = booking.currency.isEmpty ? 'INR' : booking.currency;
+    final r = _refund;
+    Widget body;
+    if (_refundLoading) {
+      body = Padding(
+        padding: EdgeInsets.symmetric(vertical: context.fx(8)),
+        child: const Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))),
+      );
+    } else if (r == null) {
+      body = Text(
+        'No refund request found for this booking yet.',
+        style: TextStyle(fontSize: context.ffs(12), height: 1.4, color: kMuted),
+      );
+    } else {
+      final (label, color) = switch (r.status) {
+        'completed' => ('Completed', kGreen),
+        'rejected' => ('Rejected', kRed),
+        'processing' => ('Processing', const Color(0xFFE59400)),
+        _ => ('Pending', const Color(0xFFE59400)),
+      };
+      final open = r.status == 'pending' || r.status == 'processing';
+      body = Column(
+        children: [
+          tripKv(context, 'Refund Status', '', chip: (label, color)),
+          tripKv(context, 'Refund Amount', formatMoney(r.refundAmount, r.currency.isEmpty ? cur : r.currency)),
+          if (r.providerPenalty > 0) tripKv(context, 'Cancellation Charges', formatMoney(r.providerPenalty, r.currency)),
+          if (r.platformFee > 0) tripKv(context, 'Processing Fee', formatMoney(r.platformFee, r.currency)),
+          tripKv(context, 'Refund Method', r.refundType == 'wallet' ? 'WanderNova Wallet' : 'Original Payment Method'),
+          if (r.reference.isNotEmpty) tripKv(context, 'Refund ID', r.reference),
+          if (open && _refundDays != null) tripKv(context, 'Expected Refund', 'Within $_refundDays business days'),
+        ],
+      );
+    }
+    return TripSection(
+      title: 'Refund Information',
+      icon: Icons.credit_card_rounded,
+      iconColor: kOrange,
+      child: TripInset(tinted: true, child: body),
+    );
   }
 
   Widget _importantInfo(BuildContext context) {

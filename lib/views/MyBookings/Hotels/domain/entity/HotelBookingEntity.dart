@@ -37,6 +37,9 @@ class HotelBookingListEntity extends Equatable {
   final String provider;
   /// `is_refundable` — null when the supplier didn't say (older bookings).
   final bool? isRefundable;
+  /// `price_breakdown`: convenience_fee, platform_fee, booking_mgmt_fee,
+  /// coupon_discount, coupon_code, total_paid. Null when unknown.
+  final Map<String, dynamic>? priceBreakdown;
   final String created;
   final String updated;
 
@@ -75,6 +78,7 @@ class HotelBookingListEntity extends Equatable {
     this.bookingDate,
     this.provider = 'tbo',
     this.isRefundable,
+    this.priceBreakdown,
     required this.created,
     required this.updated,
   });
@@ -86,6 +90,6 @@ class HotelBookingListEntity extends Equatable {
     hotelImage, roomType, checkIn, checkOut, nights, rooms, guests, adults,
     children, totalFare, tax, currency, guestName, email, phone, paymentMode,
     checkoutId, guestReference, status, bookingDate, provider, isRefundable,
-    created, updated,
+    priceBreakdown, created, updated,
   ];
 }

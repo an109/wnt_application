@@ -53,7 +53,7 @@ import '../../home/presentation/widgets/home_sections.dart' show HomeCroppedImag
 const Color _kInk = Color(0xFF111527);
 const Color _kMuted = Color(0xFF6B7280);
 
-enum _Tab { upcoming, past, cancelled }
+enum _Tab { all, upcoming, past, cancelled }
 
 enum _Service { all, flight, hotel, transfer, visa, insurance, holiday }
 
@@ -108,7 +108,9 @@ class MyBookingScreen extends StatefulWidget {
 }
 
 class _MyBookingScreenState extends State<MyBookingScreen> {
-  _Tab _tab = _Tab.upcoming;
+  final Map<_Service, _Tab> _tabs = {
+    for (final s in _Service.values) s: _Tab.all,
+  };
   _Service _service = _Service.all;
   _VisaTab _visaTab = _VisaTab.all;
   final TextEditingController _searchCtrl = TextEditingController();
@@ -309,6 +311,7 @@ class _MyBookingScreenState extends State<MyBookingScreen> {
   bool _shown(_Trip t) {
     if (_service != _Service.all && t.service != _service) return false;
     if (_query.isNotEmpty && !t.search.contains(_query)) return false;
+    if (_service == _Service.all) return true;
     if (_service == _Service.visa) {
       return switch (_visaTab) {
         _VisaTab.all => t.visaGroup != _VisaGroup.rejected,
@@ -317,7 +320,9 @@ class _MyBookingScreenState extends State<MyBookingScreen> {
         _VisaTab.rejected => t.visaGroup == _VisaGroup.rejected,
       };
     }
-    return t.tab == _tab;
+    final activeTab = _tabs[_service] ?? _Tab.upcoming;
+    if (activeTab == _Tab.all) return true;
+    return t.tab == activeTab;
   }
 
   List<_Trip> _trips() {
@@ -429,17 +434,10 @@ class _MyBookingScreenState extends State<MyBookingScreen> {
                     else if (_service != _Service.all && _service != _Service.insurance)
                       _SegmentBar<_Tab>(
                         values: _Tab.values,
-                        labels: const {_Tab.upcoming: 'Upcoming', _Tab.past: 'Past Trips', _Tab.cancelled: 'Cancelled'},
-                        selected: _tab,
-                        onSelect: (t) => setState(() => _tab = t),
+                        labels: const {_Tab.all: 'All', _Tab.upcoming: 'Upcoming', _Tab.past: 'Past Trips', _Tab.cancelled: 'Cancelled'},
+                        selected: _tabs[_service] ?? _Tab.upcoming,
+                        onSelect: (t) => setState(() => _tabs[_service] = t),
                       ),
-                    // else
-                    //   _SegmentBar<_Tab>(
-                    //     values: _Tab.values,
-                    //     labels: const {_Tab.upcoming: 'Upcoming', _Tab.past: 'Past Trips', _Tab.cancelled: 'Cancelled'},
-                    //     selected: _tab,
-                    //     onSelect: (t) => setState(() => _tab = t),
-                    //   ),
                   ],
                 ),
               ),
@@ -493,8 +491,20 @@ class _MyBookingScreenState extends State<MyBookingScreen> {
         title: 'No insurance policies here',
         body: 'Insurance policies you purchase will show up here.',
       );
+    } else if (trips.isEmpty && _service == _Service.all) {
+      content = const _Message(
+        icon: Icons.luggage_outlined,
+        title: 'No bookings yet',
+        body: 'Bookings you make will show up here.',
+      );
     } else if (trips.isEmpty) {
-      content = switch (_tab) {
+      final tab = _tabs[_service] ?? _Tab.upcoming;
+      content = switch (tab) {
+        _Tab.all => const _Message(
+          icon: Icons.luggage_outlined,
+          title: 'No bookings yet',
+          body: 'Bookings you make will show up here.',
+        ),
         _Tab.upcoming => const _Message(
           icon: Icons.flight_takeoff_rounded,
           title: 'No upcoming trips',
@@ -837,7 +847,7 @@ bool _isPast(DateTime? end) => end != null && _day(end).isBefore(_day(DateTime.n
 TripStatus _status(_Tab tab, {bool processing = false, String? label}) => switch (tab) {
   _Tab.cancelled => TripStatus(TripStatusKind.cancelled, label ?? 'Cancelled'),
   _Tab.past => TripStatus(TripStatusKind.completed, label ?? 'Completed'),
-  _Tab.upcoming => processing
+  _Tab.all || _Tab.upcoming => processing
       ? TripStatus(TripStatusKind.processing, label ?? 'Processing')
       : TripStatus(TripStatusKind.confirmed, label ?? 'Confirmed'),
 };

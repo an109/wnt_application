@@ -29,7 +29,7 @@ class DioClient {
         responseBody: true,
         error: true,
         requestHeader: true,
-        responseHeader: true,
+        responseHeader: false,
       ),
     );
 
