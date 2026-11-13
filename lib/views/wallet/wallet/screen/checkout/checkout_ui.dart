@@ -46,7 +46,7 @@ class ExpiryFormatter extends TextInputFormatter {
   ) {
     final digits = newValue.text.replaceAll(RegExp(r'\D'), '');
     final capped = digits.length > 4 ? digits.substring(0, 4) : digits;
-    final text = capped.length > 2
+    final text = capped.length >= 2
         ? '${capped.substring(0, 2)}/${capped.substring(2)}'
         : capped;
     return TextEditingValue(

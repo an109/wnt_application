@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:wander_nova/UI_helper/auth_guard.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:wander_nova/injection_container.dart' as di;
 
 import '../../../core/utils/storage/shared_preference.dart';
@@ -113,23 +112,21 @@ class _SocialAuthSectionState extends State<SocialAuthSection> {
   }
 
   void _onAuthenticated(AuthAuthenticated state) {
-    final accessToken = state.user.accessToken;
-    final refreshToken = state.user.refreshToken;
-    final userId = state.user.id;
-
-    if (accessToken != null && accessToken.isNotEmpty) {
-      SharedPreferences.getInstance().then((prefs) async {
-        final prefManager = await PreferencesManager.create(prefs);
-        await prefManager.saveToken(accessToken);
-
-        if (refreshToken != null && refreshToken.isNotEmpty) {
-          await prefManager.saveRefreshToken(refreshToken);
-        }
-        final parsedId = int.tryParse(userId.toString());
-        if (parsedId != null) {
-          await prefManager.saveUserId(parsedId);
-        }
-      });
+    // AuthBloc._persistAndEmit already saved token, refreshToken, and userData.
+    // Only save the separately-keyed userId/userEmail that payment screens read,
+    // using the DI singleton to avoid racing with the bloc's writes.
+    final prefs = di.sl<PreferencesManager>();
+    final parsedId = int.tryParse(state.user.id.toString());
+    if (parsedId != null) {
+      prefs.saveUserId(parsedId);
+    }
+    final email = state.user.email.trim();
+    if (email.isNotEmpty) {
+      prefs.saveUserEmail(email);
+    }
+    final name = (state.user.name ?? '').toString().trim();
+    if (name.isNotEmpty) {
+      prefs.saveUserName(name);
     }
 
     if (AuthReturn.tryReturn()) return;

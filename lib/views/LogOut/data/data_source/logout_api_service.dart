@@ -1,5 +1,7 @@
 import 'package:dio/dio.dart';
 import '../../../../core/constants/urls.dart';
+import '../../../../core/utils/storage/shared_preference.dart';
+import '../../../../injection_container.dart';
 
 abstract class LogoutApiService {
   Future<Response> logout();
@@ -15,7 +17,17 @@ class LogoutApiServiceImpl implements LogoutApiService {
     try {
       print('CALLING LOGOUT API: ${Urls.logout}');
 
-      final response = await dio.post(Urls.logout);
+      // Send the refresh token so the server can blacklist it and prevent
+      // it from minting new access tokens after the user has signed out.
+      final refreshToken = sl<PreferencesManager>().getRefreshToken();
+
+      final response = await dio.post(
+        Urls.logout,
+        data: {
+          if (refreshToken != null && refreshToken.isNotEmpty)
+            'refresh': refreshToken,
+        },
+      );
 
       print('LOGOUT RESPONSE STATUS: ${response.statusCode}');
       print('LOGOUT RESPONSE DATA: ${response.data}');

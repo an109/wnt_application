@@ -278,40 +278,7 @@ class _CustomDrawerState extends State<CustomDrawer>
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onTap: () => Navigator.of(context).pop(),
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    // 1. The white horizontal strip connecting to the button
-                    Positioned(
-                      top: context.statusBarHeight + context.fx(22), // Aligns vertically
-                      left: 0,
-                      right: 0,
-                      child: Container(
-                        height: context.fx(37), // Same height as the button
-                        decoration: const BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.horizontal(
-                            right: Radius.circular(20), // Adjust radius as needed
-                          ),
-                        ),
-                      ),
-                    ),
-                    // 2. The close button
-                    Positioned(
-                      top: context.statusBarHeight + context.fx(24),
-                      left: 14, // Sits perfectly on the left edge of this expanded area
-                      child: Container(
-                        width: context.fx(32),
-                        height: context.fx(32),
-                        decoration: const BoxDecoration(
-                          color: Color(0xFFE7E5E4),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(Icons.close_rounded, size: context.fx(20), color: AppColors.black),
-                      ),
-                    ),
-                  ],
-                ),
+                child: const SizedBox.expand(),
               ),
             ),
           ],

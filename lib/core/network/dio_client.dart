@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:developer' as developer;
+
 import 'package:dio/dio.dart';
 import '../../injection_container.dart';
 import '../constants/urls.dart';
@@ -60,6 +63,7 @@ class DioClient {
             try {
               final prefs = sl<PreferencesManager>();
               final refreshToken = prefs.getRefreshToken();
+              final storedUserId = prefs.getUserId();
 
               if (refreshToken == null || refreshToken.isEmpty) {
                 _isRefreshing = false;
@@ -78,6 +82,22 @@ class DioClient {
               if (newAccessToken == null) {
                 _isRefreshing = false;
                 _rejectPending();
+                return handler.next(e);
+              }
+
+              // Verify the refreshed token belongs to the same user.
+              final newTokenUserId = _userIdFromJwt(newAccessToken);
+              if (storedUserId != null && newTokenUserId != null && newTokenUserId != storedUserId) {
+                developer.log(
+                  'Token refresh returned a different user '
+                  '(stored=$storedUserId, token=$newTokenUserId). Forcing logout.',
+                  name: 'auth',
+                );
+                _isRefreshing = false;
+                _rejectPending();
+                await prefs.clearToken();
+                await prefs.clearUserData();
+                await prefs.clearAuth();
                 return handler.next(e);
               }
 
@@ -107,6 +127,23 @@ class DioClient {
         },
       ),
     );
+  }
+
+  /// Extracts `user_id` from a JWT access token without a crypto library.
+  /// Django Simple JWT stores it in the payload as `user_id`.
+  /// Returns null rather than throwing on any malformed input.
+  static int? _userIdFromJwt(String token) {
+    try {
+      final parts = token.split('.');
+      if (parts.length != 3) return null;
+      final payload = parts[1];
+      final normalized = base64Url.normalize(payload);
+      final decoded = utf8.decode(base64Url.decode(normalized));
+      final map = jsonDecode(decoded) as Map<String, dynamic>;
+      return map['user_id'] as int?;
+    } catch (_) {
+      return null;
+    }
   }
 
   void _retryPending(String newToken) {

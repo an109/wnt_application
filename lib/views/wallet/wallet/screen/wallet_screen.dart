@@ -41,7 +41,7 @@ class _WalletScreenState extends State<WalletScreen> {
   late final WalletBloc _walletBloc;
   late final TransactionBloc _transactionBloc;
 
-  List<Transaction> _allTransactions = [];
+  List<Transaction> _masterTransactions = [];
   NotificationSettings _notificationSettings = NotificationSettings();
 
   TransactionType _selectedType = TransactionType.all;
@@ -51,6 +51,12 @@ class _WalletScreenState extends State<WalletScreen> {
   bool _isLoadingTransactions = false;
   bool _hasMore = false;
   bool _isLoadMore = false;
+
+  List<Transaction> get _filteredTransactions {
+    if (_selectedType == TransactionType.all) return _masterTransactions;
+    final wantCredit = _selectedType == TransactionType.credit;
+    return _masterTransactions.where((t) => t.isCredit == wantCredit).toList();
+  }
 
   @override
   void initState() {
@@ -69,7 +75,7 @@ class _WalletScreenState extends State<WalletScreen> {
   /// True while the sheet's controls are narrowing the list, so the Filter
   /// button can show that something is on even while the sheet is closed.
   bool get _filtersActive =>
-      _selectedTime != TimeFilter.allTime || _searchQuery.isNotEmpty;
+      _selectedTime != TimeFilter.allTime || _searchQuery.isNotEmpty || _selectedType != TransactionType.all;
 
   /// Login saves `firstname` / `lastname` (no `name` key), so build the
   /// holder name from those; a plain `name` still wins when present.
@@ -98,12 +104,6 @@ class _WalletScreenState extends State<WalletScreen> {
     );
   }
 
-  // Helper to map TransactionType enum to API string parameter
-  String? _getApiType() {
-    final name = _selectedType.toString().split('.').last;
-    return name == 'all' ? null : name;
-  }
-
   // Helper to map TimeFilter enum to API days integer parameter
   int? _getApiDays() {
     final name = _selectedTime.toString().split('.').last;
@@ -113,31 +113,27 @@ class _WalletScreenState extends State<WalletScreen> {
     return null;
   }
 
-  // Centralized fetch method that dispatches events to the TransactionBloc
   void _fetchTransactions({bool reset = false}) {
     if (reset) {
       setState(() {
-        _allTransactions = [];
+        _masterTransactions = [];
         _hasMore = false;
         _isLoadMore = false;
+        _isLoadingTransactions = true;
+      });
+    } else {
+      setState(() {
+        _isLoadMore = true;
       });
     }
 
-    setState(() {
-      if (!reset) _isLoadMore = true;
-      _isLoadingTransactions =
-          !reset; // Only show full screen loader if not loading more
-    });
-
-    // Calculate the next page based on current accumulated items (assuming page size 20)
     int nextPage = 1;
     if (!reset) {
-      nextPage = (_allTransactions.length / 20).floor() + 1;
+      nextPage = (_masterTransactions.length / 20).floor() + 1;
     }
 
     _transactionBloc.add(
       FetchTransactions(
-        type: _getApiType(),
         days: _getApiDays(),
         search: _searchQuery.isNotEmpty ? _searchQuery : null,
         page: nextPage,
@@ -203,9 +199,9 @@ class _WalletScreenState extends State<WalletScreen> {
                 .toList();
             setState(() {
               if (_isLoadMore) {
-                _allTransactions.addAll(converted);
+                _masterTransactions.addAll(converted);
               } else {
-                _allTransactions = converted;
+                _masterTransactions = converted;
               }
               _hasMore = state.hasMore;
               _isLoadingTransactions = false;
@@ -293,7 +289,6 @@ class _WalletScreenState extends State<WalletScreen> {
                               filtersActive: _filtersActive,
                               onTypeChanged: (type) {
                                 setState(() => _selectedType = type);
-                                _fetchTransactions(reset: true);
                               },
                               onTimeChanged: _onTimeChanged,
                             ),
@@ -311,7 +306,7 @@ class _WalletScreenState extends State<WalletScreen> {
                               horizontal: context.w(16),
                             ),
                             child: TransactionList(
-                              transactions: _allTransactions,
+                              transactions: _filteredTransactions,
                               isLoading: _isLoadingTransactions,
                               hasMore: _hasMore,
                               onLoadMore: () {

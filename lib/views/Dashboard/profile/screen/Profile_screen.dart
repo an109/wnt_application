@@ -149,14 +149,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
       }
 
       if (_prefsManager != null) {
-        // Convert ProfileEntity to map format
+        // Preserve the user_id that was stored at login so it stays in sync
+        // with the separately-keyed getUserId() that payment screens read.
+        final existingId = _prefsManager!.getUserId();
+        final existingData = _prefsManager!.getUserData();
+
         final Map<String, dynamic> userData = {
+          if (existingId != null) 'id': existingId,
+          if (existingData?['id'] != null && existingId == null) 'id': existingData!['id'],
           'firstname': profile.firstName,
           'lastname': profile.lastName,
           'email': profile.email ?? '',
           'phone_number': profile.phoneNumber,
           'address': profile.address,
-          'travellers': _travellers, // Keep travellers from current state
+          'travellers': _travellers,
         };
         await _prefsManager!.saveUserData(userData);
       }

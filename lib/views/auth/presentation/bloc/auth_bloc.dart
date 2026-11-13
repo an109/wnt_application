@@ -40,6 +40,18 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       await preferencesManager.saveRefreshToken(user.refreshToken!);
     }
     await preferencesManager.saveUserType(int.tryParse(user.userType ?? '0') ?? 0);
+
+    // Keep the separately-keyed user_id / user_email in sync so payment
+    // screens that read getUserId() always match the session.
+    final parsedId = int.tryParse(user.id.toString());
+    if (parsedId != null) {
+      await preferencesManager.saveUserId(parsedId);
+    }
+    final email = (user.email).trim();
+    if (email.isNotEmpty) {
+      await preferencesManager.saveUserEmail(email);
+    }
+
     emit(AuthAuthenticated(user));
   }
 

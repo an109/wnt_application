@@ -83,6 +83,17 @@ class PreferencesManager {
   Future<bool> saveUserData(Map<String, dynamic> userData) async {
     final jsonString = jsonEncode(userData);
     await _prefs.setString(_userDataKey, jsonString);
+
+    // Keep the separately-keyed user_id in sync whenever user data is saved,
+    // so getUserId() never drifts from what user_data contains.
+    final id = userData['id'];
+    if (id != null) {
+      final intId = id is int ? id : int.tryParse(id.toString());
+      if (intId != null) {
+        await _prefs.setInt('user_id', intId);
+      }
+    }
+
     return _prefs.setBool(_isLoggedInKey, true);
   }
 
