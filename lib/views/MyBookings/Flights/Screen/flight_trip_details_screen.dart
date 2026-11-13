@@ -301,7 +301,7 @@ class _FlightTripDetailsScreenState extends State<FlightTripDetailsScreen> {
     final (label, color) = switch (_info.state) {
       FlightTripState.upcoming => ('Upcoming', AppColors.AppBlue),
       FlightTripState.past => ('Past Trip', const Color(0xFF7CC7EE)),
-      FlightTripState.cancelled => ('Cancelled', const Color(0xFF7CC7EE)),
+      FlightTripState.cancelled => ('Cancelled', const Color(0xFFEF4444)),
     };
     return Padding(
       padding: EdgeInsets.fromLTRB(context.fx(8), context.fx(6), context.fx(4), context.fx(10)),

@@ -21,23 +21,35 @@ class HotelBookingDetailsScreen extends StatelessWidget {
       value: SystemUiOverlayStyle.dark,
       child: Scaffold(
         backgroundColor: Colors.white,
-        bottomNavigationBar: tripBottomBar(context, [
-          TripActionButton(
-            label: 'CANCEL',
-            icon: Icons.cancel_outlined,
-            outlined: true,
-            onPressed: () => _onCancel(context),
-          ),
-          TripActionButton(
-            label: 'DOWNLOAD TICKET',
-            icon: Icons.download_rounded,
-            onPressed: () => saveAndOfferPdf(
-              context,
-              filename: 'hotel_${booking.confirmationNumber}.pdf',
-              build: (logo) => HotelPdfBuilder.buildTicket(booking),
-            ),
-          ),
-        ]),
+        bottomNavigationBar: booking.status.toLowerCase().contains('cancel')
+            ? tripBottomBar(context, [
+                TripActionButton(
+                  label: 'DOWNLOAD TICKET',
+                  icon: Icons.download_rounded,
+                  onPressed: () => saveAndOfferPdf(
+                    context,
+                    filename: 'hotel_${booking.confirmationNumber}.pdf',
+                    build: (logo) => HotelPdfBuilder.buildTicket(booking),
+                  ),
+                ),
+              ])
+            : tripBottomBar(context, [
+                TripActionButton(
+                  label: 'CANCEL',
+                  icon: Icons.cancel_outlined,
+                  outlined: true,
+                  onPressed: () => _onCancel(context),
+                ),
+                TripActionButton(
+                  label: 'DOWNLOAD TICKET',
+                  icon: Icons.download_rounded,
+                  onPressed: () => saveAndOfferPdf(
+                    context,
+                    filename: 'hotel_${booking.confirmationNumber}.pdf',
+                    build: (logo) => HotelPdfBuilder.buildTicket(booking),
+                  ),
+                ),
+              ]),
         body: SafeArea(
           bottom: false,
           child: Column(

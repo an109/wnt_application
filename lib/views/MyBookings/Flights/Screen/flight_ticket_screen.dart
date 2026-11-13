@@ -137,22 +137,22 @@ class FlightTicketScreen extends StatelessWidget {
             child: Padding(
               padding: EdgeInsets.fromLTRB(context.fx(16), context.fx(12), context.fx(16), context.fx(12)),
               child: FilledButton.icon(
-                onPressed: () => saveAndOfferPdf(
-                  context,
-                  filename: 'ticket_${booking.pnr.isEmpty ? booking.id : booking.pnr}.pdf',
-                  build: (logo) async => FlightPdfBuilder.buildTicket(booking: booking, logo: logo),
-                ),
-                icon: Icon(Icons.download_rounded, size: context.fx(20)),
-                label: Text(
-                  'DOWNLOAD TICKETS',
-                  style: TextStyle(fontSize: context.ffs(14), fontWeight: FontWeight.w600, letterSpacing: 0.2),
-                ),
-                style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFFEE7330),
-                  minimumSize: Size.fromHeight(context.fx(50)),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(context.fx(10))),
-                ),
-              ),
+                      onPressed: () => saveAndOfferPdf(
+                        context,
+                        filename: 'ticket_${booking.pnr.isEmpty ? booking.id : booking.pnr}.pdf',
+                        build: (logo) async => FlightPdfBuilder.buildTicket(booking: booking, logo: logo),
+                      ),
+                      icon: Icon(Icons.download_rounded, size: context.fx(20)),
+                      label: Text(
+                        'DOWNLOAD TICKETS',
+                        style: TextStyle(fontSize: context.ffs(14), fontWeight: FontWeight.w600, letterSpacing: 0.2),
+                      ),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: const Color(0xFFEE7330),
+                        minimumSize: Size.fromHeight(context.fx(50)),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(context.fx(10))),
+                      ),
+                    ),
             ),
           ),
         ),

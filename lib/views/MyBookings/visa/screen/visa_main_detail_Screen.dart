@@ -22,23 +22,35 @@ class VisaBookingDetailsScreen extends StatelessWidget {
       value: SystemUiOverlayStyle.dark,
       child: Scaffold(
         backgroundColor: Colors.white,
-        bottomNavigationBar: tripBottomBar(context, [
-          TripActionButton(
-            label: 'VIEW INVOICE',
-            icon: Icons.receipt_long_rounded,
-            outlined: true,
-            onPressed: () => VisaBookingSummaryScreen.open(context, trip),
-          ),
-          TripActionButton(
-            label: 'DOWNLOAD',
-            icon: Icons.download_rounded,
-            onPressed: () => saveAndOfferPdf(
-              context,
-              filename: 'visa_${trip.bookingId}.pdf',
-              build: (logo) async => VisaPdfBuilder.buildTicket(trip),
-            ),
-          ),
-        ]),
+        bottomNavigationBar: trip.status.toLowerCase().contains('cancelled')
+            ? tripBottomBar(context, [
+                TripActionButton(
+                  label: 'DOWNLOAD',
+                  icon: Icons.download_rounded,
+                  onPressed: () => saveAndOfferPdf(
+                    context,
+                    filename: 'visa_${trip.bookingId}.pdf',
+                    build: (logo) async => VisaPdfBuilder.buildTicket(trip),
+                  ),
+                ),
+              ])
+            : tripBottomBar(context, [
+                TripActionButton(
+                  label: 'VIEW INVOICE',
+                  icon: Icons.receipt_long_rounded,
+                  outlined: true,
+                  onPressed: () => VisaBookingSummaryScreen.open(context, trip),
+                ),
+                TripActionButton(
+                  label: 'DOWNLOAD',
+                  icon: Icons.download_rounded,
+                  onPressed: () => saveAndOfferPdf(
+                    context,
+                    filename: 'visa_${trip.bookingId}.pdf',
+                    build: (logo) async => VisaPdfBuilder.buildTicket(trip),
+                  ),
+                ),
+              ]),
         body: SafeArea(
           bottom: false,
           child: Column(
