@@ -166,6 +166,8 @@ class _DiyTravellerFormScreenState extends State<DiyTravellerFormScreen> {
       lastName: _lastName.text.trim(),
       phone: _phone.text.trim(),
       gender: _gender,
+      // The form has no title field; the address book needs one, so derive it.
+      title: _gender.toLowerCase() == 'female' ? 'Ms' : 'Mr',
       dob: _dob == null ? '' : _ymd(_dob!),
       paxType: label.toLowerCase().startsWith('child') ? 'Child' : 'Adult',
     );
