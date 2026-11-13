@@ -23,7 +23,13 @@ class BookingDetailsScreen extends StatelessWidget {
       value: SystemUiOverlayStyle.dark,
       child: Scaffold(
         backgroundColor: Colors.white,
-        bottomNavigationBar: (booking.status.toLowerCase().contains('cancel') || booking.cancelled)
+        // Mozio says per reservation whether it can still be cancelled
+        // (can_cancel, stored on the booking). A non-refundable transfer
+        // cannot, so offering CANCEL would only fail at the server -- show
+        // the download on its own instead.
+        bottomNavigationBar: (booking.status.toLowerCase().contains('cancel') ||
+                booking.cancelled ||
+                !booking.canCancel)
             ? tripBottomBar(context, [
                 TripActionButton(
                   label: 'DOWNLOAD TICKET',

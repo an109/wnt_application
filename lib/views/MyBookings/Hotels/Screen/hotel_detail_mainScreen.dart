@@ -21,7 +21,12 @@ class HotelBookingDetailsScreen extends StatelessWidget {
       value: SystemUiOverlayStyle.dark,
       child: Scaffold(
         backgroundColor: Colors.white,
-        bottomNavigationBar: booking.status.toLowerCase().contains('cancel')
+        // Akbar reports Refundable per room; the booking is stored as
+        // non-refundable if any room is. Only an explicit false hides
+        // CANCEL -- null means the supplier never said, and those stay
+        // cancellable rather than locking the customer out.
+        bottomNavigationBar: booking.status.toLowerCase().contains('cancel') ||
+                booking.isRefundable == false
             ? tripBottomBar(context, [
                 TripActionButton(
                   label: 'DOWNLOAD TICKET',

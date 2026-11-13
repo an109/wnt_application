@@ -35,6 +35,7 @@ class HotelBookingListModel extends HotelBookingListEntity {
     required super.status,
     super.bookingDate,
     super.provider,
+    super.isRefundable,
     required super.created,
     required super.updated,
   });
@@ -74,6 +75,8 @@ class HotelBookingListModel extends HotelBookingListEntity {
       status: json['status'] ?? '',
       bookingDate: json['bookingDate'],
       provider: (json['provider'] ?? 'tbo').toString().toLowerCase(),
+      isRefundable:
+          json['is_refundable'] is bool ? json['is_refundable'] as bool : null,
       created: json['created'] ?? '',
       updated: json['updated'] ?? '',
     );
@@ -114,6 +117,7 @@ class HotelBookingListModel extends HotelBookingListEntity {
       'status': status,
       'bookingDate': bookingDate,
       'provider': provider,
+      'is_refundable': isRefundable,
       'created': created,
       'updated': updated,
     };
