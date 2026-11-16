@@ -15,6 +15,7 @@ import '../../../../core/utils/storage/shared_preference.dart';
 import '../../../../injection_container.dart' as di;
 import '../../../AKInsurance/presentation/screens/ins_home_screen.dart';
 import '../../../MainApi/domain/entities/general_setting_entity.dart';
+import 'package:wander_nova/core/services/bank_offer_service.dart';
 import 'package:wander_nova/core/services/promo_validation_service.dart';
 import '../../../MainApi/presentation/bloc/general_setting_bloc.dart';
 import '../../../MainApi/presentation/bloc/general_settings_event.dart';
@@ -394,6 +395,43 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
   /// Figma shows two offer cards plus a "View more" toggle.
   bool _showAllOffers = false;
 
+  /// Card/bank offers (HDFC etc.) from the server. These are not promo codes:
+  /// they are applied by Razorpay when the traveller pays by card, so they
+  /// are kept apart from the promo logic above and only RECORDED here
+  /// ([BankOfferSelection]); the payment screen attaches the chosen one.
+  List<BankOffer> _bankOffers = const [];
+
+  Future<void> _loadBankOffers() async {
+    try {
+      final list = await BankOfferService().fetchOffers(type: 'flight');
+      if (!mounted) return;
+      final applied = BankOfferSelection.current;
+      if (applied != null && !list.any((o) => o.id == applied.id)) {
+        BankOfferSelection.clear();
+      }
+      setState(() => _bankOffers = list);
+    } catch (_) {
+      // Offers are a nice-to-have: no offers shown, booking carries on.
+    }
+  }
+
+  void _onBankOfferChanged() {
+    if (mounted) setState(() {});
+  }
+
+  void _applyBankOffer(BankOffer offer) {
+    if (offer.isBelowMinimum(_promoEligibilityAmountInInr)) {
+      _promoToast('Applicable on bookings of ₹${offer.minAmount.toStringAsFixed(0)} or more');
+      return;
+    }
+    BankOfferSelection.select(offer);
+    _promoToast(
+      'Bank offer applied. Pay by card'
+      '${offer.bankName.isNotEmpty ? ' with a ${offer.bankName} card' : ''}'
+      ' on the next screen to get it.',
+    );
+  }
+
   /// Passenger split for the traveller form. Prefers what the SearchCard
   /// selected, falls back to GetSPricer's echo for this fare, and finally to
   /// "everyone is an adult".
@@ -449,6 +487,9 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
         fareType: widget.fareType,
       );
     }
+
+    BankOfferSelection.selected.addListener(_onBankOfferChanged);
+    _loadBankOffers();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _fetchTravelCheckList();
@@ -611,6 +652,16 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
     final code = _promoCodeController.text.trim().toUpperCase();
     if (code.isEmpty) {
       _promoToast('Please enter a promo code');
+      return;
+    }
+
+    // A bank offer's own code (e.g. CHWNT) selects that offer, like a promo.
+    final bankMatch = _bankOffers
+        .where((o) => o.hasCode && o.code.toUpperCase() == code)
+        .firstOrNull;
+    if (bankMatch != null) {
+      _applyBankOffer(bankMatch);
+      _promoCodeController.clear();
       return;
     }
 
@@ -863,6 +914,7 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
   void dispose() {
     _checkListBloc.close();
     _createItineraryBloc.close();
+    BankOfferSelection.selected.removeListener(_onBankOfferChanged);
     _promoCodeController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -1562,6 +1614,10 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
           children: [
             _sectionTitle(context, 'Offers'),
             SizedBox(height: context.h(16)),
+            for (final b in _bankOffers) ...[
+              _buildBankOfferCard(context, b),
+              SizedBox(height: context.h(12)),
+            ],
             if (all.isEmpty)
               _buildPromoInputRow(context)
             else ...[
@@ -1720,6 +1776,127 @@ class _FlightBookingScreenState extends State<FlightBookingScreen> {
                     color: isApplied
                         ? const Color(0xFFFF383C)
                         : (eligible ? _pri : _muted),
+                    letterSpacing: 0.7,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// One bank/card offer, styled like [_buildOfferCard]. Applying only records
+  /// the choice; the discount comes from Razorpay at card payment.
+  Widget _buildBankOfferCard(BuildContext context, BankOffer offer) {
+    final isApplied = BankOfferSelection.current?.id == offer.id;
+    final below = !isApplied && offer.isBelowMinimum(_promoEligibilityAmountInInr);
+    final bank = offer.bankName.isNotEmpty ? 'a ${offer.bankName}' : 'a matching';
+
+    final body = isApplied
+        ? 'Applied. Pay by card with $bank card on the payment screen to get this discount.'
+        : below
+            ? 'Applicable on bookings of ₹${offer.minAmount.toStringAsFixed(0)} or more'
+            : (offer.displayText.isNotEmpty
+                ? offer.displayText
+                : 'Pay by card with $bank card to get this offer.');
+
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(context.w(20)),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(context.r(12)),
+        border: Border.all(
+          color: isApplied ? _pri : _stroke,
+          width: isApplied ? 1 : 0.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 1,
+            offset: const Offset(0, 1),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Image.asset(
+                'assets/NewIcons/coupon_offer.png',
+                width: context.w(18),
+                height: context.h(18),
+              ),
+              SizedBox(width: context.w(12)),
+              Expanded(
+                child: Text(
+                  (offer.hasCode ? offer.code : offer.title).toUpperCase(),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: context.fs(16),
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black,
+                    letterSpacing: -0.4,
+                  ),
+                ),
+              ),
+              SizedBox(width: context.w(8)),
+              Container(
+                padding: EdgeInsets.symmetric(
+                    horizontal: context.w(8), vertical: context.h(3)),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFECFDF5),
+                  borderRadius: BorderRadius.circular(context.r(6)),
+                ),
+                child: Text(
+                  offer.bankName.isNotEmpty ? '${offer.bankName} CARD' : 'CARD OFFER',
+                  style: TextStyle(
+                    fontSize: context.fs(10),
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFF16A34A),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: context.h(11)),
+          Text(
+            body,
+            style: TextStyle(
+              fontSize: below ? context.fs(13) : context.fs(12),
+              color: below ? Colors.red : _muted,
+            ),
+          ),
+          SizedBox(height: context.h(11)),
+          Container(
+            width: double.infinity,
+            padding: EdgeInsets.only(top: context.h(12.5)),
+            decoration: const BoxDecoration(
+              border: Border(top: BorderSide(color: _stroke, width: 0.5)),
+            ),
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () {
+                  if (isApplied) {
+                    BankOfferSelection.clear();
+                  } else {
+                    _applyBankOffer(offer);
+                  }
+                },
+                child: Text(
+                  isApplied ? 'Remove' : 'Apply',
+                  style: TextStyle(
+                    fontSize: context.fs(12),
+                    fontWeight: FontWeight.w800,
+                    color: isApplied
+                        ? const Color(0xFFFF383C)
+                        : (below ? _muted : _pri),
                     letterSpacing: 0.7,
                   ),
                 ),
