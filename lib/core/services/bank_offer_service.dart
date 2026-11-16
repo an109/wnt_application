@@ -57,6 +57,7 @@ class BankOfferService {
     final response = await _dio.get(
       Urls.razorpayBankOffers,
       queryParameters: {'type': type},
+      options: Options(headers: {'X-Domain': Urls.siteDomain}),
     );
     final data = response.data as Map<String, dynamic>;
     if (data['success'] == true) {

@@ -49,6 +49,12 @@ class Urls {
   static const String book = '$basesUrl/tbo/Book/';
   static const String ticket = '$basesUrl/tbo/Ticket/';
   static const String getBookingDetails = '$basesUrl/tbo/GetBookingDetails/';
+  /// The site this app belongs to, sent as X-Domain on the bank-offer calls the
+  /// way the website does. Offers are kept per site; without this header the
+  /// server only returns offers meant for every site, so an offer created for
+  /// thewandernova.com never shows up in the app.
+  static String get siteDomain => Uri.parse(baseUrl).host;
+
   static const String razorpayBankOffers =
       '${baseUrl}payments/razorpay/offers/';
   static const String razorpayCreateOrder =

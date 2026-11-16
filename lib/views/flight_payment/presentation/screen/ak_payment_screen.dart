@@ -926,6 +926,8 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
           'bank_offer_id': offer.id,
           if (userId != null) 'user_id': userId,
         },
+        // Same site as the offers list, so the server finds the offer again.
+        options: Options(headers: {'X-Domain': Urls.siteDomain}),
       );
 
       final orderId = response.data['order_id'] as String?;
