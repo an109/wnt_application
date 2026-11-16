@@ -23,7 +23,9 @@ import '../../../wallet/wallet/screen/checkout/upi_section.dart';
 import 'ak_hotel_booking_confirmed_screen.dart';
 import 'package:wander_nova/common_widgets/currency_scope.dart';
 import 'package:wander_nova/common_widgets/app_loader.dart';
+import 'package:wander_nova/core/services/bank_offer_service.dart';
 import 'package:wander_nova/core/services/fee_service.dart';
+import 'package:wander_nova/newUIWidgets/payment_bank_offers_card.dart';
 import 'package:wander_nova/core/services/push_notification_service.dart';
 
 /// Payment step for the Akbar Hotels flow: this app's own gateway (Razorpay
@@ -135,6 +137,16 @@ class _AkHotelPaymentScreenState extends State<AkHotelPaymentScreen> {
   /// Payment initiation must use exactly this number.
   int? _razorpayOrderAmountPaise;
 
+  /// A bank/card offer makes Razorpay accept the order ONLY for a card that
+  /// qualifies, so it can never share the order the other methods use. When the
+  /// traveller pays by card with an offer applied, this separate order (created
+  /// with the offer attached) is used instead. Reused only while it is for the
+  /// same offer and the same amount.
+  String? _offerOrderId;
+  String? _offerKeyId;
+  int? _offerOrderPaise;
+  int? _offerOrderOfferId;
+
   // Set once /wallet/pay-booking/ has charged the wallet for this booking —
   // StartPay is never re-run blindly, and the wallet is never charged twice.
   String? _walletDebitRef;
@@ -167,6 +179,7 @@ class _AkHotelPaymentScreenState extends State<AkHotelPaymentScreen> {
   @override
   void initState() {
     super.initState();
+    BankOfferSelection.selected.addListener(_onBankOfferChanged);
     FeeService.instance.ensureLoaded().then((_) {
       if (mounted) setState(() {});
     });
@@ -181,6 +194,7 @@ class _AkHotelPaymentScreenState extends State<AkHotelPaymentScreen> {
   @override
   void dispose() {
     _holdTimer?.cancel();
+    BankOfferSelection.selected.removeListener(_onBankOfferChanged);
     super.dispose();
   }
 
@@ -498,6 +512,115 @@ class _AkHotelPaymentScreenState extends State<AkHotelPaymentScreen> {
     }
   }
 
+  void _onBankOfferChanged() {
+    if (mounted) setState(() {});
+  }
+
+  /// The bank offer to attach to a CARD payment, or null. Only the offer the
+  /// traveller applied for a HOTEL, and only while the amount still reaches its
+  /// minimum. The server re-checks all of it; this just avoids a pointless request.
+  BankOffer? get _activeBankOffer {
+    final o = BankOfferSelection.currentFor('hotel');
+    if (o == null || o.isBelowMinimum(_payableInInr)) return null;
+    return o;
+  }
+
+  /// Creates (or reuses) the Razorpay order that carries [offer]. Same
+  /// reference_id (the itinerary TransactionID) as the normal order, so hotel
+  /// StartPay finds the paid transaction exactly as it does without an offer.
+  Future<bool> _ensureOfferOrder(BankOffer offer) async {
+    final wantedPaise = (_payableInInr * 100).round();
+    if (_offerOrderId != null &&
+        _offerKeyId != null &&
+        _offerOrderOfferId == offer.id &&
+        _offerOrderPaise == wantedPaise) {
+      return true;
+    }
+    _offerOrderId = null;
+    _offerKeyId = null;
+    _offerOrderPaise = null;
+    _offerOrderOfferId = null;
+
+    setState(() {
+      _processing = true;
+      _errorMessage = null;
+      _statusMessage = 'Applying bank offer...';
+    });
+
+    try {
+      final dio = sl<DioClient>().instance;
+      final userId = sl<PreferencesManager>().getUserId();
+      final response = await dio.post(
+        Urls.razorpayCreateOrder,
+        data: {
+          'amount': _payableInInr,
+          'currency': 'INR',
+          'reference_id': widget.transactionId,
+          'transaction_type': 'hotel',
+          'bank_offer_id': offer.id,
+          if (userId != null) 'user_id': userId,
+        },
+        // Same site as the offers list, so the server finds the offer again.
+        options: Options(headers: {'X-Domain': Urls.siteDomain}),
+      );
+
+      final orderId = response.data['order_id'] as String?;
+      final keyId = response.data['key_id'] as String?;
+      final orderPaise = (response.data['amount'] as num?)?.toInt();
+      if (!mounted) return false;
+
+      if (orderId == null || keyId == null) {
+        setState(() {
+          _processing = false;
+          _errorMessage = 'Could not apply the bank offer. Remove it to pay the regular amount, or try again.';
+        });
+        return false;
+      }
+
+      setState(() {
+        _processing = false;
+        _offerOrderId = orderId;
+        _offerKeyId = keyId;
+        _offerOrderPaise = orderPaise;
+        _offerOrderOfferId = offer.id;
+      });
+      return true;
+    } on DioException catch (e) {
+      if (!mounted) return false;
+      final body = e.response?.data;
+      final code = body is Map ? body['error_code'] : null;
+      final msg = body is Map ? body['error'] : null;
+      // The offer ended, is below its minimum, or is not valid here: drop it so
+      // the traveller is not stuck, and say why.
+      if (code == 'offer_unavailable') BankOfferSelection.clear();
+      setState(() {
+        _processing = false;
+        _errorMessage = (code == 'offer_unavailable' && msg is String)
+            ? msg
+            : 'Could not apply the bank offer. Remove it to pay the regular amount, or try again.';
+      });
+      print('Hotel Razorpay offer order error: ${e.message}');
+      return false;
+    } catch (e) {
+      if (!mounted) return false;
+      setState(() {
+        _processing = false;
+        _errorMessage = 'Could not start payment: $e';
+      });
+      return false;
+    }
+  }
+
+  /// Razorpay refuses a card that does not match the offer with a bare gateway
+  /// error; say what to do instead.
+  String _offerCardHint(String raw, BankOffer offer) {
+    final bank = offer.bankName.isNotEmpty ? offer.bankName : 'the matching bank';
+    if (RegExp('offer', caseSensitive: false).hasMatch(raw)) {
+      return 'This offer is not valid for the card you entered. It works only with $bank cards. Use a matching card, or remove or change the offer.';
+    }
+    return '$raw If you applied a bank offer, it works only with $bank cards. Use a matching card, or remove the offer.';
+  }
+
   void _toggle(String id) => setState(() => _open = _open == id ? null : id);
 
   Future<Map<String, dynamic>> _loadMethods() {
@@ -511,8 +634,15 @@ class _AkHotelPaymentScreenState extends State<AkHotelPaymentScreen> {
     if (_expired || _processing) return;
     FocusScope.of(context).unfocus();
 
-    final ready = await _ensureRazorpayOrder();
-    if (!ready || !mounted) return;
+    // A card payment with a bank offer applied goes through its own order (the
+    // offer is attached to it); every other method keeps the normal one.
+    final offer = method['method'] == 'card' ? _activeBankOffer : null;
+    if (offer != null) {
+      if (!await _ensureOfferOrder(offer) || !mounted) return;
+    } else {
+      final ready = await _ensureRazorpayOrder();
+      if (!ready || !mounted) return;
+    }
 
     setState(() {
       _processing = true;
@@ -522,12 +652,14 @@ class _AkHotelPaymentScreenState extends State<AkHotelPaymentScreen> {
 
     try {
       final result = await _rzService.submitPayment(
-        keyId: _razorpayKeyId!,
+        keyId: offer != null ? _offerKeyId! : _razorpayKeyId!,
         data: {
           // The order's own amount, never a second conversion.
-          'amount': _razorpayOrderAmountPaise ?? (_payableInInr * 100).round(),
+          'amount': offer != null
+              ? (_offerOrderPaise ?? (_payableInInr * 100).round())
+              : (_razorpayOrderAmountPaise ?? (_payableInInr * 100).round()),
           'currency': 'INR',
-          'order_id': _razorpayOrderId,
+          'order_id': offer != null ? _offerOrderId : _razorpayOrderId,
           'email': widget.leadGuestEmail,
           'contact': widget.leadGuestPhone,
           'description': 'Hotel booking: ${widget.hotelName}',
@@ -547,7 +679,8 @@ class _AkHotelPaymentScreenState extends State<AkHotelPaymentScreen> {
       } else {
         if (mounted) setState(() {
           _processing = false;
-          _errorMessage = e.message;
+          _errorMessage =
+              offer != null ? _offerCardHint(e.message, offer) : e.message;
         });
       }
     }
@@ -884,7 +1017,7 @@ class _AkHotelPaymentScreenState extends State<AkHotelPaymentScreen> {
                           subtitle: 'Pay using your wallet balance',
                         ),
                       ]),
-                      _promoStrip(context, 'Get an additional Rs 300 off with HDFCEMI on 6 month EMI.'),
+                      PaymentBankOffersCard(amountInr: _payableInInr, type: 'hotel'),
                       _sectionLabel(context, 'Pay Online'),
                       SizedBox(height: context.h(10)),
                       _googlePayTile(context),
@@ -906,7 +1039,9 @@ class _AkHotelPaymentScreenState extends State<AkHotelPaymentScreen> {
                       ),
                       CheckoutAccordion(
                         title: 'Credit / Debit Card',
-                        subtitle: 'Visa, Mastercard, RuPay, Amex & more',
+                        subtitle: _activeBankOffer != null
+                            ? 'Bank offer applied: ${_activeBankOffer!.displayText}'
+                            : 'Visa, Mastercard, RuPay, Amex & more',
                         leading: const CheckoutIcon('assets/NewIcons/credit.png'),
                         expanded: _open == 'card',
                         onTap: () => _toggle('card'),
@@ -1013,6 +1148,19 @@ class _AkHotelPaymentScreenState extends State<AkHotelPaymentScreen> {
         _totalDueRow(context),
         if (hint.isNotEmpty)
           Text('$hint · charged in INR', style: TextStyle(fontSize: context.fs(12), color: _muted)),
+        if (_activeBankOffer != null)
+          Padding(
+            padding: EdgeInsets.only(top: context.h(4)),
+            child: Text(
+              'Bank offer applied. The discount is taken when you pay by card, so your card is charged slightly less than this total.',
+              textAlign: TextAlign.end,
+              style: TextStyle(
+                fontSize: context.fs(12),
+                fontWeight: FontWeight.w600,
+                color: _offer,
+              ),
+            ),
+          ),
       ],
     );
   }
@@ -1151,29 +1299,6 @@ class _AkHotelPaymentScreenState extends State<AkHotelPaymentScreen> {
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(children: children),
-    );
-  }
-
-  /// Green promo strip shown above a payment card. Purely informational.
-  Widget _promoStrip(BuildContext context, String text) {
-    return Container(
-      width: double.infinity,
-      margin: EdgeInsets.only(bottom: context.h(12)),
-      padding: EdgeInsets.symmetric(horizontal: context.w(14), vertical: context.h(12)),
-      decoration: BoxDecoration(
-        color: _offer.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(context.r(12)),
-        border: Border.all(color: _offer.withValues(alpha: 0.18)),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.discount_rounded, size: context.w(18), color: _offer),
-          SizedBox(width: context.w(10)),
-          Expanded(
-            child: Text(text, style: TextStyle(fontSize: context.fs(12.5), fontWeight: FontWeight.w600, color: _ink, height: 1.35)),
-          ),
-        ],
-      ),
     );
   }
 

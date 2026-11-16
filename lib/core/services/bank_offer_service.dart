@@ -85,17 +85,26 @@ class BankOfferSelection {
   /// Listen to this to rebuild when the choice changes.
   static final ValueNotifier<BankOffer?> selected = ValueNotifier<BankOffer?>(null);
 
-  /// The applied offer, or null if none / it has expired.
-  static BankOffer? get current {
+  /// The booking type the offer was applied for ('flight', 'hotel', ...). An offer
+  /// applied to a flight must never ride into a hotel payment (the server would
+  /// refuse it), so it is only handed back for the type it was chosen for.
+  static String _type = 'flight';
+
+  /// The applied offer for [type], or null if none / expired / chosen for another type.
+  static BankOffer? currentFor(String type) {
     final o = selected.value;
     final at = _at;
-    if (o == null || at == null) return null;
+    if (o == null || at == null || _type != type) return null;
     if (DateTime.now().difference(at) > _maxAge) return null;
     return o;
   }
 
-  static void select(BankOffer offer) {
+  /// The applied FLIGHT offer (what the flight screens have always asked for).
+  static BankOffer? get current => currentFor('flight');
+
+  static void select(BankOffer offer, {String type = 'flight'}) {
     _at = DateTime.now();
+    _type = type;
     selected.value = offer;
   }
 

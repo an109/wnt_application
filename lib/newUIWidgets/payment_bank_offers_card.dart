@@ -15,7 +15,10 @@ import 'package:wander_nova/core/services/bank_offer_service.dart';
 /// minimum it does not reach.
 class PaymentBankOffersCard extends StatefulWidget {
   final double amountInr;
-  const PaymentBankOffersCard({super.key, required this.amountInr});
+
+  /// The booking type the offers are for ('flight', 'hotel', ...).
+  final String type;
+  const PaymentBankOffersCard({super.key, required this.amountInr, this.type = 'flight'});
 
   @override
   State<PaymentBankOffersCard> createState() => _PaymentBankOffersCardState();
@@ -48,11 +51,11 @@ class _PaymentBankOffersCardState extends State<PaymentBankOffersCard> {
 
   Future<void> _load() async {
     try {
-      final list = await BankOfferService().fetchOffers(type: 'flight');
+      final list = await BankOfferService().fetchOffers(type: widget.type);
       if (!mounted) return;
       // An applied offer that is no longer offered (ended, switched off) is
       // dropped so it can never get in the way of a payment.
-      final applied = BankOfferSelection.current;
+      final applied = BankOfferSelection.currentFor(widget.type);
       if (applied != null && !list.any((o) => o.id == applied.id)) {
         BankOfferSelection.clear();
       }
@@ -86,7 +89,7 @@ class _PaymentBankOffersCardState extends State<PaymentBankOffersCard> {
         return;
       }
       _codeError = '';
-      BankOfferSelection.select(match);
+      BankOfferSelection.select(match, type: widget.type);
       _codeCtrl.clear();
       _codeNote =
           '${match.code} applied — pay by card${match.bankName.isNotEmpty ? ' with a ${match.bankName} card' : ''} to get ${match.displayText.isNotEmpty ? match.displayText : 'this offer'}.';
@@ -109,7 +112,7 @@ class _PaymentBankOffersCardState extends State<PaymentBankOffersCard> {
       child: ValueListenableBuilder<BankOffer?>(
         valueListenable: BankOfferSelection.selected,
         builder: (context, _, __) {
-          final selected = BankOfferSelection.current;
+          final selected = BankOfferSelection.currentFor(widget.type);
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -262,7 +265,7 @@ class _PaymentBankOffersCardState extends State<PaymentBankOffersCard> {
                       });
                       applied
                           ? BankOfferSelection.clear()
-                          : BankOfferSelection.select(o);
+                          : BankOfferSelection.select(o, type: widget.type);
                     },
                     child: Text(
                       applied ? 'Remove' : 'Apply',

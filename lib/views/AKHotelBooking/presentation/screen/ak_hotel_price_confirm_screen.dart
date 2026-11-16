@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import 'package:wander_nova/core/resources/app_colours.dart';
 import 'package:wander_nova/core/utils/storage/shared_preference.dart';
+import 'package:wander_nova/newUIWidgets/payment_bank_offers_card.dart';
 import 'package:wander_nova/injection_container.dart';
 import '../../../../common_widgets/fast_network_image_cache_manager.dart';
 import '../../../../core/error/data_state.dart';
@@ -642,6 +643,9 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
           children: [
             _buildSummaryCard(context),
             SizedBox(height: context.gapLarge),
+            // Card/bank offers for hotels. Only RECORDS the choice (the payment screen
+            // attaches it); shows nothing when the server has no hotel offers live.
+            PaymentBankOffersCard(amountInr: _totalPayable, type: 'hotel'),
             if (_priced?.cancellationRules.isNotEmpty == true) ...[
               _buildCancellationCard(context),
               SizedBox(height: context.gapLarge),
