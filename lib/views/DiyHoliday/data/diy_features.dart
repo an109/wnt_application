@@ -33,7 +33,7 @@ class DiyFeatures {
   static const bool insuranceAddon = false;
 
   /// Waiting on: a coupon endpoint. Drives "Coupon & Offers" on review.
-  static const bool coupons = false;
+  static const bool coupons = true;
 
   /// Waiting on: a saved/wishlist endpoint. Drives the heart on package cards.
   static const bool wishlist = false;

@@ -42,6 +42,8 @@ class DiyHolidayPaymentScreen extends StatefulWidget {
   final DateTime? departureDate;
   final int nights;
   final List<DiyTraveller> travellers;
+  final String? couponCode;
+  final double couponDiscount;
 
   const DiyHolidayPaymentScreen({
     super.key,
@@ -53,6 +55,8 @@ class DiyHolidayPaymentScreen extends StatefulWidget {
     required this.departureDate,
     required this.nights,
     required this.travellers,
+    this.couponCode,
+    this.couponDiscount = 0,
   });
 
   @override
@@ -93,7 +97,15 @@ class _DiyHolidayPaymentScreenState extends State<DiyHolidayPaymentScreen> {
   String _status = '';
   String? _error;
 
-  double get _amount => widget.instalment.payNow;
+  double _discountedAmount(double amount) {
+    final total = widget.booking.grandTotal;
+    final discount = widget.couponDiscount;
+    if (total <= 0 || discount <= 0) return amount;
+    final ratio = amount / total;
+    return (amount - (discount * ratio)).clamp(0, double.infinity);
+  }
+
+  double get _amount => _discountedAmount(widget.instalment.payNow);
 
   @override
   void initState() {
@@ -635,18 +647,43 @@ class _DiyHolidayPaymentScreenState extends State<DiyHolidayPaymentScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               line('Package total (incl. taxes)', b.grandTotal),
+              if (widget.couponCode != null && widget.couponDiscount > 0)
+                Padding(
+                  padding: EdgeInsets.symmetric(vertical: context.h(7)),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Discount (${widget.couponCode})',
+                          style: TextStyle(
+                            fontSize: context.fs(12.5),
+                            color: const Color(0xff10B981),
+                          ),
+                        ),
+                      ),
+                      Text(
+                        '- ${diyChargeMoney(widget.couponDiscount, currency: b.currency)}',
+                        style: TextStyle(
+                          fontSize: context.fs(12.5),
+                          fontWeight: FontWeight.w500,
+                          color: const Color(0xff10B981),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               if (b.amountPaid > 0) line('Already paid', b.amountPaid),
               if (i.balance > 0)
                 line(
                   i.balanceDueOn.isEmpty
                       ? 'Remaining balance'
                       : 'Remaining balance (by ${diyDayDate(i.balanceDueOn)})',
-                  i.balance,
+                  _discountedAmount(i.balance),
                 ),
               const Divider(color: _stroke),
               line(
                 i.balance > 0 ? 'Pay now (${i.percent}%)' : 'Pay now',
-                i.payNow,
+                _amount,
                 strong: true,
               ),
             ],

@@ -466,6 +466,8 @@ Future<void> showDiyFareBreakup(
   required int travellers,
   required bool adultsOnly,
   String currency = 'INR',
+  String? couponCode,
+  double couponDiscount = 0,
 }) {
   String money(double v) => diyMoney(v, currency: currency);
   final heads = travellers > 0 ? travellers : 1;
@@ -575,6 +577,42 @@ Future<void> showDiyFareBreakup(
               tax,
             ),
           ],
+          if (couponCode != null && couponCode.isNotEmpty && couponDiscount > 0) ...[
+            Divider(
+              height: 1,
+              indent: context.w(18),
+              endIndent: context.w(18),
+              color: DiyTokens.line,
+            ),
+            Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: context.w(18),
+                vertical: context.h(14),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Discount ($couponCode)',
+                      style: TextStyle(
+                        fontSize: context.fs(13.5),
+                        fontWeight: FontWeight.w500,
+                        color: const Color(0xff10B981),
+                      ),
+                    ),
+                  ),
+                  Text(
+                    '- ${money(couponDiscount)}',
+                    style: TextStyle(
+                      fontSize: context.fs(13.5),
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xff10B981),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           Container(
             margin: EdgeInsets.only(top: context.h(8)),
             padding: EdgeInsets.symmetric(
@@ -605,7 +643,7 @@ Future<void> showDiyFareBreakup(
                   ),
                 ),
                 Text(
-                  money(total),
+                  money(total - couponDiscount),
                   style: TextStyle(
                     fontSize: context.fs(19),
                     fontWeight: FontWeight.w700,

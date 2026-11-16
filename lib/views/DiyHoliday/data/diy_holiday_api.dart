@@ -43,7 +43,7 @@ class DiyHolidayApi {
   DiyHolidayApi({Dio? dio})
     : _dio =
           dio ??
-          Dio(
+          (Dio(
             BaseOptions(
               baseUrl: baseUrl,
               // Hotel options take ~19s on a cold stop; keep generous room.
@@ -59,7 +59,14 @@ class DiyHolidayApi {
               contentType: Headers.jsonContentType,
               responseType: ResponseType.json,
             ),
-          );
+          )..interceptors.addAll([
+              if (kDebugMode)
+                LogInterceptor(
+                  requestBody: true,
+                  responseBody: true,
+                  logPrint: (o) => debugPrint(o.toString()),
+                ),
+            ]));
 
   // ------------------------------------------------------------- plumbing
 

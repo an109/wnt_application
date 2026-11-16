@@ -7,7 +7,8 @@ import '../../views/MainApi/domain/entities/general_setting_entity.dart';
 enum PromoScope {
   flights('flight_booking'),
   hotels('hotel_booking'),
-  transport('transport_booking');
+  transport('transport_booking'),
+  diyHoliday('holiday_booking');
 
   final String category;
   const PromoScope(this.category);

@@ -1,11 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:wander_nova/UI_helper/auth_guard.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
+import 'package:lottie/lottie.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 
+import '../../../../core/services/promo_validation_service.dart';
 import '../../../../core/utils/storage/shared_preference.dart';
 import '../../../../injection_container.dart';
+import '../../../MainApi/domain/entities/general_setting_entity.dart';
+import '../../../MainApi/presentation/bloc/general_setting_bloc.dart';
+import '../../../MainApi/presentation/bloc/general_settings_event.dart';
+import '../../../MainApi/presentation/bloc/general_settings_state.dart';
 import '../../data/diy_features.dart';
 import '../../data/diy_search_query.dart';
 import '../../data/diy_traveller.dart';
@@ -97,6 +104,12 @@ class _DiyReviewScreenState extends State<DiyReviewScreen> {
   /// fill turn red rather than only a toast saying so.
   bool _showMissing = false;
 
+  // ---- coupon / promo ----
+  bool _promoCodeApplied = false;
+  String _appliedPromoCode = '';
+  double _promoDiscountAmount = 0.0;
+  final TextEditingController _promoCodeController = TextEditingController();
+
   /// Everything a ticket or voucher needs: both names and a gender, and for a
   /// child the date of birth, because children are priced and booked on age.
   bool _ready(DiyTraveller t) =>
@@ -114,6 +127,11 @@ class _DiyReviewScreenState extends State<DiyReviewScreen> {
         const DiyTraveller(paxType: 'Child'),
     ];
     _prefillFromProfile();
+
+    final promoBloc = context.read<GeneralSettingsBloc>();
+    if (promoBloc.state is! PromoCodesLoaded) {
+      promoBloc.add(const LoadPromoCodes());
+    }
   }
 
   void _prefillFromProfile() {
@@ -142,6 +160,7 @@ class _DiyReviewScreenState extends State<DiyReviewScreen> {
   void dispose() {
     _email.dispose();
     _phone.dispose();
+    _promoCodeController.dispose();
     super.dispose();
   }
 
@@ -291,6 +310,8 @@ class _DiyReviewScreenState extends State<DiyReviewScreen> {
       builder: (_) => _BookingOptionsSheet(
         booking: booking,
         travellers: _travellers.length,
+        couponCode: _promoCodeApplied ? _appliedPromoCode : null,
+        couponDiscount: _promoDiscountAmount,
       ),
     );
     if (picked == null || !mounted) return;
@@ -309,6 +330,8 @@ class _DiyReviewScreenState extends State<DiyReviewScreen> {
           departureDate: widget.query.departureDate,
           nights: widget.nights,
           travellers: _travellers,
+          couponCode: _promoCodeApplied ? _appliedPromoCode : null,
+          couponDiscount: _promoDiscountAmount,
         ),
       ),
     );
@@ -357,7 +380,7 @@ class _DiyReviewScreenState extends State<DiyReviewScreen> {
               _cancellationAccordion(),
               if (DiyFeatures.coupons) ...[
                 SizedBox(height: context.h(10)),
-                _couponAccordion(),
+                _couponSection(),
               ],
               SizedBox(height: context.h(12)),
               _importantInformation(),
@@ -1051,11 +1074,480 @@ class _DiyReviewScreenState extends State<DiyReviewScreen> {
     );
   }
 
-  Widget _couponAccordion() {
-    return _accordion(
-      id: 'coupon',
-      title: 'Coupon & Offers',
-      child: const SizedBox.shrink(),
+  // --------------------------------------------------------- coupon / promo
+
+  void _removePromoCode() {
+    setState(() {
+      _promoCodeApplied = false;
+      _appliedPromoCode = '';
+      _promoDiscountAmount = 0.0;
+      _promoCodeController.clear();
+    });
+  }
+
+  void _promoToast(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: const Color(0xffDC2626),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+    );
+  }
+
+  double get _promoEligibilityAmount => widget.quotedTotal;
+
+  Future<void> _applyPromoCode() async {
+    final code = _promoCodeController.text.trim().toUpperCase();
+    if (code.isEmpty) {
+      _promoToast('Please enter a promo code');
+      return;
+    }
+
+    final bloc = context.read<GeneralSettingsBloc>();
+    List<PromoCodeEntity> promoCodes = [];
+    if (bloc.state is PromoCodesLoaded) {
+      promoCodes = (bloc.state as PromoCodesLoaded).promoCodes;
+    }
+
+    final listedPromo = promoCodes.firstWhere(
+      (p) => p.code.toUpperCase() == code,
+      orElse: () => const PromoCodeEntity(
+        code: '',
+        category: '',
+        discountType: '',
+        discountValue: '0',
+        description: '',
+      ),
+    );
+
+    final eligibility = _promoEligibilityAmount;
+    PromoCodeEntity matchedPromo;
+
+    if (listedPromo.code.isEmpty) {
+      final result = await PromoValidationService.validate(
+        code: code,
+        scope: PromoScope.diyHoliday,
+        amountInInr: eligibility,
+      );
+      if (!mounted) return;
+      if (result.unreachable) {
+        _promoToast("Couldn't check this promo code. Please check your connection and try again.");
+        return;
+      }
+      if (!result.isAccepted) {
+        _promoToast(result.error ?? 'Invalid promo code. Please try again.');
+        return;
+      }
+      matchedPromo = result.promo!;
+    } else {
+      matchedPromo = listedPromo;
+    }
+
+    if (!matchedPromo.isEligibleFor(eligibility)) {
+      _promoToast(matchedPromo.minPurchaseHint);
+      return;
+    }
+
+    double discount = 0;
+    final discountValue = double.tryParse(matchedPromo.discountValue) ?? 0;
+    if (matchedPromo.discountType == 'percent') {
+      discount = (widget.quotedTotal * discountValue) / 100;
+    } else {
+      discount = discountValue;
+    }
+
+    setState(() {
+      _promoCodeApplied = true;
+      _appliedPromoCode = matchedPromo.code;
+      _promoDiscountAmount = discount;
+    });
+
+    _showCelebrationDialog(discount, matchedPromo.code);
+  }
+
+  void _showCelebrationDialog(double discountAmount, String promoCode) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.2),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                height: 200,
+                width: double.infinity,
+                child: Lottie.asset(
+                  'assets/animation/celebrate.json',
+                  repeat: true,
+                  fit: BoxFit.contain,
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                '🎉 Promo Applied!',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xff0D1B3D),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'You saved ${diyMoney(discountAmount, currency: widget.currency)}',
+                style: const TextStyle(fontSize: 16, color: Color(0xff10B981)),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Code: $_appliedPromoCode',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Colors.grey.shade600,
+                ),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: DiyTokens.blue,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  child: const Text(
+                    'Continue Booking',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _couponSection() {
+    return BlocBuilder<GeneralSettingsBloc, GeneralSettingsState>(
+      builder: (context, state) {
+        final filtered = state is PromoCodesLoaded
+            ? state.promoCodes
+                .where((p) =>
+                    () {
+                      final cat = p.category.trim().toLowerCase();
+                      return cat == 'holiday_booking' ||
+                          cat == 'holidays' ||
+                          cat == 'holiday' ||
+                          cat == 'payment' ||
+                          cat == 'all';
+                    }())
+                .toList()
+            : <PromoCodeEntity>[];
+
+        return _card(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.local_offer_rounded,
+                      size: context.w(18), color: DiyTokens.blue),
+                  SizedBox(width: context.w(8)),
+                  Text(
+                    'Coupons & Offers',
+                    style: TextStyle(
+                      fontSize: context.fs(14),
+                      fontWeight: FontWeight.w700,
+                      color: DiyTokens.navy,
+                    ),
+                  ),
+                  if (filtered.isNotEmpty && !_promoCodeApplied) ...[
+                    const Spacer(),
+                    Container(
+                      padding: EdgeInsets.symmetric(
+                          horizontal: context.w(8), vertical: context.h(3)),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.shade50,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        '${filtered.length} offer${filtered.length > 1 ? 's' : ''}',
+                        style: TextStyle(
+                          fontSize: context.fs(10),
+                          fontWeight: FontWeight.w600,
+                          color: Colors.orange.shade700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              SizedBox(height: context.h(12)),
+              _promoCodeApplied
+                  ? _promoAppliedBanner()
+                  : _promoInputRow(),
+              if (!_promoCodeApplied && filtered.isNotEmpty) ...[
+                SizedBox(height: context.h(12)),
+                Divider(height: 1, thickness: 1, color: Colors.grey.shade100),
+                Padding(
+                  padding: EdgeInsets.only(top: context.h(10)),
+                  child: Text(
+                    'AVAILABLE OFFERS',
+                    style: TextStyle(
+                      fontSize: context.fs(10),
+                      fontWeight: FontWeight.w700,
+                      color: Colors.grey.shade500,
+                      letterSpacing: 0.8,
+                    ),
+                  ),
+                ),
+                ...filtered.asMap().entries.map(
+                  (e) => _couponCard(e.value, showTopDivider: e.key > 0),
+                ),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _promoAppliedBanner() {
+    return Container(
+      padding: EdgeInsets.all(context.w(12)),
+      decoration: BoxDecoration(
+        color: const Color(0xff10B981).withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xff10B981).withOpacity(0.3)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.check_circle_rounded,
+              color: Color(0xff10B981), size: 20),
+          SizedBox(width: context.w(8)),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '$_appliedPromoCode applied',
+                  style: TextStyle(
+                    fontSize: context.fs(13),
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xff10B981),
+                  ),
+                ),
+                Text(
+                  'You saved ${diyMoney(_promoDiscountAmount, currency: widget.currency)}',
+                  style: TextStyle(
+                    fontSize: context.fs(11),
+                    color: const Color(0xff10B981),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          InkWell(
+            onTap: _removePromoCode,
+            child: Text(
+              'Remove',
+              style: TextStyle(
+                fontSize: context.fs(11),
+                fontWeight: FontWeight.w600,
+                color: const Color(0xffDC2626),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _promoInputRow() {
+    return Row(
+      children: [
+        Expanded(
+          flex: 3,
+          child: TextField(
+            controller: _promoCodeController,
+            textCapitalization: TextCapitalization.characters,
+            decoration: InputDecoration(
+              hintText: 'ENTER COUPON CODE',
+              hintStyle: TextStyle(
+                  fontSize: context.fs(11), color: Colors.grey.shade400),
+              border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: Colors.grey.shade300)),
+              enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: Colors.grey.shade300)),
+              focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: DiyTokens.blue, width: 2)),
+              contentPadding: EdgeInsets.symmetric(
+                  horizontal: context.w(12), vertical: context.h(12)),
+            ),
+          ),
+        ),
+        SizedBox(width: context.w(8)),
+        SizedBox(
+          height: context.h(46),
+          child: ElevatedButton(
+            onPressed: _applyPromoCode,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: DiyTokens.blue,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8)),
+            ),
+            child: Text('APPLY',
+                style: TextStyle(
+                    fontSize: context.fs(13), fontWeight: FontWeight.w700)),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _couponCard(PromoCodeEntity promo, {bool showTopDivider = false}) {
+    final discountLabel = promo.discountType == 'percent'
+        ? 'Get ${double.tryParse(promo.discountValue)?.toStringAsFixed(0) ?? promo.discountValue}% off on this booking'
+        : 'Get ${diyMoney(double.tryParse(promo.discountValue) ?? 0, currency: widget.currency)} off on this booking';
+
+    final eligible = promo.isEligibleFor(_promoEligibilityAmount);
+    void onApply() {
+      if (!eligible) {
+        _promoToast(promo.minPurchaseHint);
+        return;
+      }
+      _promoCodeController.text = promo.code;
+      _applyPromoCode();
+    }
+
+    return Column(
+      children: [
+        if (showTopDivider)
+          Divider(height: 1, thickness: 1, color: Colors.grey.shade100),
+        InkWell(
+          onTap: onApply,
+          child: Padding(
+            padding: EdgeInsets.symmetric(
+                horizontal: context.w(0), vertical: context.h(10)),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Container(
+                  padding: EdgeInsets.all(context.w(8)),
+                  decoration: BoxDecoration(
+                    color: DiyTokens.blue.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(Icons.confirmation_number_outlined,
+                      color: DiyTokens.blue, size: context.w(18)),
+                ),
+                SizedBox(width: context.w(10)),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: EdgeInsets.symmetric(
+                            horizontal: context.w(8), vertical: context.h(3)),
+                        decoration: BoxDecoration(
+                          color: DiyTokens.blue.withOpacity(0.06),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(
+                              color: DiyTokens.blue.withOpacity(0.2)),
+                        ),
+                        child: Text(
+                          promo.code,
+                          style: TextStyle(
+                            fontSize: context.fs(10),
+                            fontWeight: FontWeight.w800,
+                            color: DiyTokens.blue,
+                            letterSpacing: 1,
+                          ),
+                        ),
+                      ),
+                      SizedBox(height: context.h(4)),
+                      Text(
+                        discountLabel,
+                        style: TextStyle(
+                          fontSize: context.fs(12),
+                          fontWeight: FontWeight.w600,
+                          color: DiyTokens.navy,
+                        ),
+                      ),
+                      if (!eligible)
+                        Text(
+                          promo.minPurchaseHint,
+                          style: TextStyle(
+                              fontSize: context.fs(10),
+                              color: const Color(0xffDC2626)),
+                        )
+                      else if (promo.description.isNotEmpty)
+                        Text(
+                          promo.description,
+                          style: TextStyle(
+                              fontSize: context.fs(10),
+                              color: Colors.grey.shade600),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                    ],
+                  ),
+                ),
+                SizedBox(width: context.w(8)),
+                OutlinedButton(
+                  onPressed: onApply,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor:
+                        eligible ? DiyTokens.blue : Colors.grey,
+                    side: BorderSide(
+                        color: eligible
+                            ? DiyTokens.blue
+                            : Colors.grey.shade400,
+                        width: 1.5),
+                    padding: EdgeInsets.symmetric(
+                        horizontal: context.w(10), vertical: context.h(5)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(6)),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: Text('APPLY',
+                      style: TextStyle(
+                          fontSize: context.fs(10),
+                          fontWeight: FontWeight.w700)),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -1165,7 +1657,7 @@ class _DiyReviewScreenState extends State<DiyReviewScreen> {
                     children: [
                       Text(
                         diyMoney(
-                          _booking?.grandTotal ?? widget.quotedTotal,
+                          (_booking?.grandTotal ?? widget.quotedTotal) - _promoDiscountAmount,
                           currency: widget.currency,
                         ),
                         style: TextStyle(
@@ -1246,6 +1738,8 @@ class _DiyReviewScreenState extends State<DiyReviewScreen> {
       travellers: _travellers.length,
       adultsOnly: widget.query.children == 0,
       currency: widget.currency,
+      couponCode: _promoCodeApplied ? _appliedPromoCode : null,
+      couponDiscount: _promoDiscountAmount,
     );
   }
 
@@ -1358,8 +1852,15 @@ class _DiyReviewScreenState extends State<DiyReviewScreen> {
 class _BookingOptionsSheet extends StatefulWidget {
   final DiyBooking booking;
   final int travellers;
+  final String? couponCode;
+  final double couponDiscount;
 
-  const _BookingOptionsSheet({required this.booking, required this.travellers});
+  const _BookingOptionsSheet({
+    required this.booking,
+    required this.travellers,
+    this.couponCode,
+    this.couponDiscount = 0,
+  });
 
   @override
   State<_BookingOptionsSheet> createState() => _BookingOptionsSheetState();
@@ -1375,6 +1876,14 @@ class _BookingOptionsSheetState extends State<_BookingOptionsSheet> {
   late DiyInstalment? _picked = _options.isEmpty ? null : _options.last;
 
   String _money(double v) => diyMoney(v, currency: widget.booking.currency);
+
+  double get _discount => widget.couponDiscount;
+  double _discounted(double amount) {
+    final total = widget.booking.grandTotal;
+    if (total <= 0 || _discount <= 0) return amount;
+    final ratio = amount / total;
+    return (amount - (_discount * ratio)).clamp(0, double.infinity);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1514,7 +2023,7 @@ class _BookingOptionsSheetState extends State<_BookingOptionsSheet> {
                 Row(
                   children: [
                     Text(
-                      _money(_picked?.payNow ?? b.balance),
+                      _money(_discounted(_picked?.payNow ?? b.balance)),
                       style: TextStyle(
                         fontSize: context.fs(19),
                         fontWeight: FontWeight.w700,
@@ -1529,14 +2038,24 @@ class _BookingOptionsSheetState extends State<_BookingOptionsSheet> {
                     ),
                   ],
                 ),
-                Text(
-                  'Grand Total - ${widget.travellers} Traveller'
-                  '${widget.travellers == 1 ? '' : 's'}',
-                  style: TextStyle(
-                    fontSize: context.fs(9),
-                    color: DiyTokens.subGrey,
+                if (widget.couponCode != null && widget.couponDiscount > 0)
+                  Text(
+                    '${widget.couponCode} applied  -${_money(widget.couponDiscount)}',
+                    style: TextStyle(
+                      fontSize: context.fs(9),
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xff10B981),
+                    ),
+                  )
+                else
+                  Text(
+                    'Grand Total - ${widget.travellers} Traveller'
+                    '${widget.travellers == 1 ? '' : 's'}',
+                    style: TextStyle(
+                      fontSize: context.fs(9),
+                      color: DiyTokens.subGrey,
+                    ),
                   ),
-                ),
               ],
             ),
           ),
@@ -1601,7 +2120,7 @@ class _BookingOptionsSheetState extends State<_BookingOptionsSheet> {
                 SizedBox(width: context.w(10)),
                 Expanded(
                   child: Text(
-                    full ? 'Pay in full' : 'Book Now @${_money(i.payNow)}',
+                    full ? 'Pay in full' : 'Book Now @${_money(_discounted(i.payNow))}',
                     style: TextStyle(
                       fontSize: context.fs(13.5),
                       fontWeight: FontWeight.w500,
@@ -1611,7 +2130,7 @@ class _BookingOptionsSheetState extends State<_BookingOptionsSheet> {
                 ),
                 if (full)
                   Text(
-                    _money(i.payNow),
+                    _money(_discounted(i.payNow)),
                     style: TextStyle(
                       fontSize: context.fs(12.5),
                       fontWeight: FontWeight.w700,
@@ -1657,15 +2176,15 @@ class _BookingOptionsSheetState extends State<_BookingOptionsSheet> {
                     _step(
                       1,
                       'Pay to Book',
-                      'Book Package @ ${_money(i.payNow)} (${i.percent}%)',
-                      i.payNow,
+                      'Book Package @ ${_money(_discounted(i.payNow))} (${i.percent}%)',
+                      _discounted(i.payNow),
                       connect: true,
                     ),
                     _step(
                       2,
                       due.isEmpty ? 'Before departure' : 'Before $due',
                       'Remaining balance',
-                      i.balance,
+                      _discounted(i.balance),
                     ),
                   ],
                 ),
