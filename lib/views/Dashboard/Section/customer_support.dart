@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
+import 'package:wander_nova/common_widgets/country_flag_image.dart';
 import 'package:wander_nova/core/resources/app_colours.dart';
 import 'package:wander_nova/injection_container.dart';
 import 'package:wander_nova/views/Dashboard/Section/data/support_api_service.dart';
@@ -30,11 +31,12 @@ const _kGreen = Color(0xFF34C759);
 const _kCardStroke = Color(0xFFEDEDF0);
 
 class _Dial {
-  final String flag;
+  final String isoCode;
   final String code;
   final String country;
+  final String? flag;
 
-  const _Dial(this.flag, this.code, this.country);
+  const _Dial(this.isoCode, this.code, this.country, {this.flag});
 }
 
 class CustomerSupportSection extends StatefulWidget {
@@ -48,14 +50,14 @@ class _CustomerSupportSectionState extends State<CustomerSupportSection> {
   static const String _supportNumber = '1800-102-3555';
 
   static const List<_Dial> _dials = [
-    _Dial('🇮🇳', '+91', 'India'),
-    _Dial('🇦🇪', '+971', 'UAE'),
-    _Dial('🇺🇸', '+1', 'United States'),
-    _Dial('🇬🇧', '+44', 'United Kingdom'),
-    _Dial('🇸🇬', '+65', 'Singapore'),
-    _Dial('🇦🇺', '+61', 'Australia'),
-    _Dial('🇸🇦', '+966', 'Saudi Arabia'),
-    _Dial('🇶🇦', '+974', 'Qatar'),
+    _Dial('in', '+91', 'India'),
+    _Dial('ae', '+971', 'UAE'),
+    _Dial('us', '+1', 'United States'),
+    _Dial('gb', '+44', 'United Kingdom'),
+    _Dial('sg', '+65', 'Singapore'),
+    _Dial('au', '+61', 'Australia'),
+    _Dial('sa', '+966', 'Saudi Arabia'),
+    _Dial('qa', '+974', 'Qatar'),
   ];
 
   bool _isEmailSupport = true;
@@ -374,7 +376,13 @@ class _CustomerSupportSectionState extends State<CustomerSupportSection> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(_dial.flag, style: TextStyle(fontSize: context.fs(14))),
+                CountryFlagImage(
+                  isoCode: _dial.isoCode,
+                  width: context.w(24),
+                  height: context.w(16),
+                  borderRadius: context.w(2),
+                  fallbackFlag: _dial.flag,
+                ),
                 SizedBox(width: context.w(6)),
                 Text(
                   _dial.code,
@@ -444,9 +452,12 @@ class _CustomerSupportSectionState extends State<CustomerSupportSection> {
             children: _dials.map((dial) {
               return ListTile(
                 onTap: () => Navigator.of(sheetContext).pop(dial),
-                leading: Text(
-                  dial.flag,
-                  style: TextStyle(fontSize: context.fs(20)),
+                leading: CountryFlagImage(
+                  isoCode: dial.isoCode,
+                  width: context.w(30),
+                  height: context.w(20),
+                  borderRadius: context.w(3),
+                  fallbackFlag: dial.flag,
                 ),
                 title: Text(
                   dial.country,

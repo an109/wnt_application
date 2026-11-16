@@ -1,11 +1,9 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
-/// Airline logo fetched from the Kiwi CDN by IATA code, with a graceful
-/// fallback to a coloured initials tile when the code/logo is missing or
-/// fails to load. Mirrors the pattern already used for AkFlightInfo cards
-/// (detail_popup.dart's `_airlineBadge`), extracted here so it can be
-/// reused wherever an airline needs to be shown by code/name.
+/// Airline logo fetched from the CloudFront CDN (same source as the web
+/// frontend), with pics.avs.io as fallback, and coloured initials tile as
+/// the last resort.
 class AirlineLogo extends StatelessWidget {
   final String code;
   final String name;
@@ -20,9 +18,37 @@ class AirlineLogo extends StatelessWidget {
     this.borderRadius,
   });
 
+  static const _cloudFrontBase =
+      'https://dhiz4uvf5rpaq.cloudfront.net/images/airline-logos';
+
+  // Fare-channel variants that map to a base IATA code, matching the web
+  // frontend's airlineLogos overrides.
+  static const _codeAliases = {
+    'QP': 'QP', 'CQP': 'QP', 'EQP': 'QP', 'SQP': 'QP',
+    'JCL': 'QP', 'NT': 'QP',
+    'CSG': 'SG', 'ESG': 'SG',
+  };
+
+  static String _resolveCode(String raw) {
+    final code = raw.trim().toUpperCase().replaceAll(RegExp(r'\s'), '');
+    return _codeAliases[code] ?? code;
+  }
+
+  static String getLogoUrl(String airlineCode) {
+    final code = _resolveCode(airlineCode);
+    if (code.isEmpty) return '';
+    return '$_cloudFrontBase/$code.jpg?V2';
+  }
+
+  static String _fallbackUrl(String airlineCode) {
+    final code = _resolveCode(airlineCode);
+    return 'https://pics.avs.io/120/120/$code.png';
+  }
+
   static String _initials(String code, String name) {
     final source = code.trim().isNotEmpty ? code : name;
-    final letters = source.replaceAll(RegExp(r'[^A-Za-z0-9]'), '').toUpperCase();
+    final letters =
+        source.replaceAll(RegExp(r'[^A-Za-z0-9]'), '').toUpperCase();
     if (letters.length >= 2) return letters.substring(0, 2);
     return letters.isEmpty ? 'FL' : letters;
   }
@@ -41,7 +67,7 @@ class AirlineLogo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final logoCode = code.trim().toUpperCase();
+    final logoCode = _resolveCode(code);
     final initials = _initials(logoCode, name);
     final radius = borderRadius ?? BorderRadius.circular(size * 0.18);
 
@@ -72,10 +98,15 @@ class AirlineLogo extends StatelessWidget {
           : Padding(
               padding: EdgeInsets.all(size * 0.06),
               child: CachedNetworkImage(
-                imageUrl: 'https://images.kiwi.com/airlines/64/$logoCode.png',
+                imageUrl: getLogoUrl(logoCode),
                 fit: BoxFit.contain,
                 placeholder: (_, __) => initialsTile(),
-                errorWidget: (_, __, ___) => initialsTile(),
+                errorWidget: (_, __, ___) => CachedNetworkImage(
+                  imageUrl: _fallbackUrl(logoCode),
+                  fit: BoxFit.contain,
+                  placeholder: (_, __) => initialsTile(),
+                  errorWidget: (_, __, ___) => initialsTile(),
+                ),
               ),
             ),
     );

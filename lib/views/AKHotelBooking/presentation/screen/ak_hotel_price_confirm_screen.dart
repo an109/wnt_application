@@ -1,11 +1,17 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import 'package:wander_nova/core/resources/app_colours.dart';
+import 'package:wander_nova/core/services/promo_validation_service.dart';
 import 'package:wander_nova/core/utils/storage/shared_preference.dart';
 import 'package:wander_nova/newUIWidgets/payment_bank_offers_card.dart';
 import 'package:wander_nova/injection_container.dart';
+import '../../../MainApi/domain/entities/general_setting_entity.dart';
+import '../../../MainApi/presentation/bloc/general_setting_bloc.dart';
+import '../../../MainApi/presentation/bloc/general_settings_event.dart';
+import '../../../MainApi/presentation/bloc/general_settings_state.dart';
 import '../../../../common_widgets/fast_network_image_cache_manager.dart';
 import '../../../../core/error/data_state.dart';
 import '../../../AKHotelCreateItinerary/domain/entity/AKHotelCreateItinerary_entity.dart';
@@ -106,6 +112,11 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
   ProfileEntity? _profile;
   bool _profileLoading = false;
 
+  bool _promoApplied = false;
+  String _appliedPromoCode = '';
+  double _promoDiscount = 0.0;
+  final TextEditingController _promoCtrl = TextEditingController();
+
   /// Display-only selection for the phone code dropdown — cosmetic, see
   /// [_labeledPhoneField].
   String _leadPhoneCode = '+91';
@@ -150,9 +161,12 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
   /// the first room's rate, which is also what's sent as CreateItinerary's
   /// NetAmount (a mismatch there is a plausible reason a multi-room
   /// itinerary gets rejected).
-  double get _totalPayable => _pricedRooms.isEmpty
+  double get _totalBeforePromo => _pricedRooms.isEmpty
       ? (_priced?.totalRate ?? 0)
       : _pricedRooms.fold(0.0, (sum, r) => sum + r.totalRate);
+
+  double get _totalPayable =>
+      (_totalBeforePromo - _promoDiscount).clamp(0, double.infinity);
 
   @override
   void initState() {
@@ -167,6 +181,12 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
         (_) => _applyBookingForSelf(true),
       );
     }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final promoBloc = context.read<GeneralSettingsBloc>();
+      if (promoBloc.state is! PromoCodesLoaded) {
+        promoBloc.add(const LoadPromoCodes());
+      }
+    });
   }
 
   @override
@@ -174,6 +194,7 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
     for (final g in _guests) {
       g.dispose();
     }
+    _promoCtrl.dispose();
     super.dispose();
   }
 
@@ -643,6 +664,8 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
           children: [
             _buildSummaryCard(context),
             SizedBox(height: context.gapLarge),
+            _buildPromoCodeSection(context),
+            SizedBox(height: context.gapLarge),
             // Card/bank offers for hotels. Only RECORDS the choice (the payment screen
             // attaches it); shows nothing when the server has no hotel offers live.
             PaymentBankOffersCard(amountInr: _totalPayable, type: 'hotel'),
@@ -659,6 +682,8 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
             // SizedBox(height: context.gapSmall),
             // _buildAddOtherGuestButton(context),
             _buildCompactGuestContainer(context),
+            // SizedBox(height: context.gapLarge),
+            // _buildPromoCodeSection(context),
             SizedBox(height: context.gapLarge),
             _buildTermsRow(context),
           ],
@@ -1699,6 +1724,331 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
     );
   }
 
+  // ── Promo Code ──────────────────────────────────────────────────────────
+
+  void _removePromo() {
+    setState(() {
+      _promoApplied = false;
+      _appliedPromoCode = '';
+      _promoDiscount = 0.0;
+      _promoCtrl.clear();
+    });
+  }
+
+  Future<void> _applyPromo() async {
+    final code = _promoCtrl.text.trim().toUpperCase();
+    if (code.isEmpty) {
+      _promoToast('Please enter a promo code');
+      return;
+    }
+
+    final bloc = context.read<GeneralSettingsBloc>();
+    List<PromoCodeEntity> promoCodes = [];
+    if (bloc.state is PromoCodesLoaded) {
+      promoCodes = (bloc.state as PromoCodesLoaded).promoCodes;
+    }
+
+    final listed = promoCodes.firstWhere(
+      (p) => p.code.trim().toUpperCase() == code,
+      orElse: () => const PromoCodeEntity(
+          code: '', category: '', discountType: '', discountValue: '0', description: ''),
+    );
+
+    final amount = _totalBeforePromo;
+    PromoCodeEntity matched;
+
+    if (listed.code.isEmpty) {
+      final result = await PromoValidationService.validate(
+        code: code, scope: PromoScope.hotels, amountInInr: amount,
+      );
+      if (result.unreachable) {
+        _promoToast("Couldn't check this promo code. Please check your connection and try again.");
+        return;
+      }
+      if (!result.isAccepted) {
+        _promoToast(result.error ?? 'Invalid promo code. Please try again.');
+        return;
+      }
+      matched = result.promo!;
+    } else {
+      matched = listed;
+    }
+
+    final cat = matched.category.trim().toLowerCase();
+    if (cat != 'hotel_booking' && cat != 'payment' && cat != 'all') {
+      _promoToast('This promo code is not valid for hotel bookings.');
+      return;
+    }
+
+    if (!matched.isEligibleFor(amount)) {
+      _promoToast(matched.minPurchaseHint);
+      return;
+    }
+
+    double discount = 0;
+    final discountVal = double.tryParse(matched.discountValue) ?? 0;
+    if (matched.discountType == 'percent') {
+      discount = (amount * discountVal) / 100;
+    } else {
+      discount = discountVal;
+    }
+
+    setState(() {
+      _promoApplied = true;
+      _appliedPromoCode = matched.code;
+      _promoDiscount = discount;
+    });
+  }
+
+  void _promoToast(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(
+        content: Text(message),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 3),
+      ));
+  }
+
+  Widget _buildPromoCodeSection(BuildContext context) {
+    return BlocBuilder<GeneralSettingsBloc, GeneralSettingsState>(
+      builder: (context, state) {
+        final filtered = state is PromoCodesLoaded
+            ? state.promoCodes
+                .where((p) =>
+                    p.category == 'hotel_booking' ||
+                    p.category == 'payment' ||
+                    p.category == 'all')
+                .toList()
+            : <PromoCodeEntity>[];
+
+        return Container(
+          padding: EdgeInsets.all(context.w(16)),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(context.r(12)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.local_offer_rounded,
+                      size: context.w(20), color: _blue),
+                  SizedBox(width: context.w(8)),
+                  Text(
+                    'Coupons & Offers',
+                    style: TextStyle(
+                      fontSize: context.fs(16),
+                      fontWeight: FontWeight.w700,
+                      color: _navy,
+                    ),
+                  ),
+                  if (filtered.isNotEmpty && !_promoApplied) ...[
+                    const Spacer(),
+                    Container(
+                      padding: EdgeInsets.symmetric(
+                          horizontal: context.w(8), vertical: context.h(3)),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.shade50,
+                        borderRadius: BorderRadius.circular(context.r(10)),
+                      ),
+                      child: Text(
+                        '${filtered.length} Available',
+                        style: TextStyle(
+                          fontSize: context.fs(11),
+                          fontWeight: FontWeight.w600,
+                          color: _accent,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              SizedBox(height: context.h(12)),
+              if (_promoApplied)
+                _buildPromoAppliedBanner(context)
+              else
+                _buildPromoInputRow(context),
+              if (!_promoApplied && filtered.isNotEmpty) ...[
+                SizedBox(height: context.h(12)),
+                ...filtered.map((p) => Padding(
+                      padding: EdgeInsets.only(bottom: context.h(8)),
+                      child: _buildCouponCard(context, p),
+                    )),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildPromoAppliedBanner(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.all(context.w(12)),
+      decoration: BoxDecoration(
+        color: const Color(0xffECFDF5),
+        borderRadius: BorderRadius.circular(context.r(8)),
+        border: Border.all(color: const Color(0xff10B981)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.check_circle, color: const Color(0xff10B981), size: context.w(20)),
+          SizedBox(width: context.w(8)),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '$_appliedPromoCode applied',
+                  style: TextStyle(
+                    fontSize: context.fs(14),
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xff065F46),
+                  ),
+                ),
+                Text(
+                  'You saved ₹${_promoDiscount.toStringAsFixed(2)}',
+                  style: TextStyle(
+                    fontSize: context.fs(12),
+                    color: const Color(0xff059669),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          GestureDetector(
+            onTap: _removePromo,
+            child: Icon(Icons.close, size: context.w(18), color: Colors.grey),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPromoInputRow(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: TextField(
+            controller: _promoCtrl,
+            textCapitalization: TextCapitalization.characters,
+            decoration: InputDecoration(
+              hintText: 'ENTER COUPON CODE',
+              hintStyle: TextStyle(fontSize: context.fs(13), color: _muted),
+              contentPadding: EdgeInsets.symmetric(
+                  horizontal: context.w(12), vertical: context.h(12)),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(context.r(8)),
+                borderSide: BorderSide(color: _border),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(context.r(8)),
+                borderSide: BorderSide(color: _border),
+              ),
+              isDense: true,
+            ),
+            style: TextStyle(fontSize: context.fs(14), fontWeight: FontWeight.w600),
+          ),
+        ),
+        SizedBox(width: context.w(10)),
+        ElevatedButton(
+          onPressed: _applyPromo,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: _blue,
+            padding: EdgeInsets.symmetric(
+                horizontal: context.w(16), vertical: context.h(12)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(context.r(8)),
+            ),
+          ),
+          child: Text('Apply',
+              style: TextStyle(fontSize: context.fs(13), color: Colors.white)),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCouponCard(BuildContext context, PromoCodeEntity promo) {
+    final discountLabel = promo.discountType == 'percent'
+        ? 'Get ${double.tryParse(promo.discountValue)?.toStringAsFixed(0) ?? promo.discountValue}% off on this booking'
+        : 'Get ₹${promo.discountValue} off on this booking';
+    final eligible = promo.isEligibleFor(_totalBeforePromo);
+
+    return GestureDetector(
+      onTap: () {
+        if (!eligible) {
+          _promoToast(promo.minPurchaseHint);
+          return;
+        }
+        _promoCtrl.text = promo.code;
+        _applyPromo();
+      },
+      child: Container(
+        padding: EdgeInsets.all(context.w(12)),
+        decoration: BoxDecoration(
+          color: eligible ? Colors.white : Colors.grey.shade50,
+          borderRadius: BorderRadius.circular(context.r(8)),
+          border: Border.all(color: eligible ? _blue.withValues(alpha: 0.3) : _border),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.confirmation_number_outlined,
+                size: context.w(20),
+                color: eligible ? _blue : _muted),
+            SizedBox(width: context.w(10)),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    promo.code,
+                    style: TextStyle(
+                      fontSize: context.fs(13),
+                      fontWeight: FontWeight.w700,
+                      color: eligible ? _navy : _muted,
+                    ),
+                  ),
+                  SizedBox(height: context.h(2)),
+                  Text(
+                    discountLabel,
+                    style: TextStyle(
+                      fontSize: context.fs(11),
+                      color: eligible ? const Color(0xff059669) : _muted,
+                    ),
+                  ),
+                  if (!eligible)
+                    Text(
+                      promo.minPurchaseHint,
+                      style: TextStyle(fontSize: context.fs(10), color: _muted),
+                    ),
+                ],
+              ),
+            ),
+            if (eligible)
+              Text(
+                'APPLY',
+                style: TextStyle(
+                  fontSize: context.fs(12),
+                  fontWeight: FontWeight.w700,
+                  color: _blue,
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildBottomBar(BuildContext context) {
     return Container(
       padding: EdgeInsets.fromLTRB(
@@ -1751,6 +2101,16 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    if (_promoApplied) ...[
+                      Text(
+                        '₹${_totalBeforePromo.toStringAsFixed(0)}',
+                        style: TextStyle(
+                          fontSize: context.fs(12),
+                          color: _muted,
+                          decoration: TextDecoration.lineThrough,
+                        ),
+                      ),
+                    ],
                     Text(
                       _priced == null
                           ? '—'
@@ -1760,12 +2120,12 @@ class _AkHotelPriceConfirmScreenState extends State<AkHotelPriceConfirmScreen> {
                       style: TextStyle(
                         fontSize: context.fs(20),
                         fontWeight: FontWeight.w900,
-                        color: _navy,
+                        color: _promoApplied ? const Color(0xff059669) : _navy,
                       ),
                     ),
                     SizedBox(height: context.h(2)),
                     Text(
-                      'Include taxes & fees',
+                      _promoApplied ? 'Promo applied' : 'Include taxes & fees',
                       style: TextStyle(
                         fontSize: context.fs(10.5),
                         color: _muted,

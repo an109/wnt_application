@@ -72,13 +72,16 @@ class Transaction {
   /// `14 May 2026, 02:57 pm` — the absolute stamp the design prints under the
   /// description. [formattedDate] stays as it was for anything still showing
   /// the relative form.
+  DateTime get _istDate => date.toUtc().add(const Duration(hours: 5, minutes: 30));
+
   String get formattedDateTime {
-    final h24 = date.hour;
+    final ist = _istDate;
+    final h24 = ist.hour;
     final h12 = h24 % 12 == 0 ? 12 : h24 % 12;
-    final mm = date.minute.toString().padLeft(2, '0');
+    final mm = ist.minute.toString().padLeft(2, '0');
     final suffix = h24 < 12 ? 'am' : 'pm';
-    return '${date.day} ${_months[date.month - 1]} ${date.year}, '
-        '${h12.toString().padLeft(2, '0')}:$mm $suffix';
+    return '${ist.day} ${_months[ist.month - 1]} ${ist.year}, '
+        '${h12.toString().padLeft(2, '0')}:$mm $suffix IST';
   }
 
   String get formattedDate {

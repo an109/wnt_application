@@ -125,10 +125,42 @@ class CurrencyConverter {
     return amountInUSD * targetRate;
   }
 
-  /// Flag emoji for the country/region that issues [currency]. Used by the
-  /// chips that show the active currency so the flag tracks whatever the
-  /// user picked in the drawer's currency picker instead of being hardcoded.
-  /// Unknown codes fall back to a neutral white flag rather than throwing.
+  /// ISO country code for each currency, used to build flagcdn.com URLs
+  /// matching the web frontend's approach.
+  static const Map<String, String> _currencyIso = {
+    'USD': 'us',
+    'INR': 'in',
+    'EUR': 'eu',
+    'GBP': 'gb',
+    'AED': 'ae',
+    'AUD': 'au',
+    'CAD': 'ca',
+    'SGD': 'sg',
+    'JPY': 'jp',
+    'CNY': 'cn',
+    'BHD': 'bh',
+    'KWD': 'kw',
+    'LKR': 'lk',
+    'MYR': 'my',
+    'OMR': 'om',
+    'QAR': 'qa',
+    'SAR': 'sa',
+    'THB': 'th',
+    'ZAR': 'za',
+  };
+
+  /// Returns the ISO country code for a currency (e.g. 'in' for INR).
+  static String getIsoCode(String currency) =>
+      _currencyIso[currency.toUpperCase()] ?? 'us';
+
+  /// Returns flagcdn.com URL for the currency's country flag image,
+  /// matching the web frontend.
+  static String getFlagUrl(String currency) {
+    final iso = getIsoCode(currency);
+    return 'https://flagcdn.com/w80/$iso.png';
+  }
+
+  /// Emoji flag — kept for backwards compatibility.
   static const Map<String, String> _currencyFlags = {
     'USD': '\u{1F1FA}\u{1F1F8}',
     'INR': '\u{1F1EE}\u{1F1F3}',

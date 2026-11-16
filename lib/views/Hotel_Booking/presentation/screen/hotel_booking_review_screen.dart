@@ -460,7 +460,7 @@ class _HotelBookingReviewScreenState extends State<HotelBookingReviewScreen> {
         final filtered = state is PromoCodesLoaded
             ? state.promoCodes
                 .where((p) =>
-                    p.category == 'hotel_booking' || p.category == 'payment')
+                    p.category == 'hotel_booking' || p.category == 'payment' || p.category == 'all')
                 .toList()
             : <PromoCodeEntity>[];
 

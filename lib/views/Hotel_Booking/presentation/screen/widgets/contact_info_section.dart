@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
+import 'package:wander_nova/common_widgets/country_flag_image.dart';
 
 class ContactInfoSection extends StatefulWidget {
   final String userEmail;
@@ -108,11 +109,11 @@ class ContactInfoSectionState extends State<ContactInfoSection> {
                       ),
                       child: Row(
                         children: [
-                          Image.network(
-                            'https://flagcdn.com/w40/in.png',
+                          CountryFlagImage(
+                            isoCode: 'in',
                             width: context.w(24),
-                            errorBuilder: (context, error, stackTrace) =>
-                            const Icon(Icons.flag, size: 24),
+                            height: context.w(16),
+                            borderRadius: context.w(2),
                           ),
                           SizedBox(width: context.w(8)),
                           Text(

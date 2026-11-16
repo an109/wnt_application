@@ -7,6 +7,7 @@ import 'package:wander_nova/views/AKFlights/data/model/AKFlights_model.dart';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:wander_nova/common_widgets/airline_logo.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
@@ -5050,7 +5051,7 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
         child: code.isEmpty
             ? initialsTile()
             : CachedNetworkImage(
-          imageUrl: 'https://images.kiwi.com/airlines/64/$code.png',
+          imageUrl: AirlineLogo.getLogoUrl(code),
           fit: BoxFit.contain,
           placeholder: (_, __) => initialsTile(),
           errorWidget: (_, __, ___) => initialsTile(),
@@ -5071,7 +5072,7 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
       child: code.isEmpty
           ? initialsTile()
           : CachedNetworkImage(
-        imageUrl: 'https://images.kiwi.com/airlines/64/$code.png',
+        imageUrl: AirlineLogo.getLogoUrl(code),
         fit: BoxFit.contain,
         placeholder: (_, __) => initialsTile(),
         errorWidget: (_, __, ___) => initialsTile(),

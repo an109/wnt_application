@@ -12,7 +12,6 @@ import 'package:wander_nova/views/flight_payment/data/razorpay_custom_checkout_s
 import 'checkout/card_form.dart';
 import 'checkout/checkout_ui.dart';
 import 'checkout/method_sections.dart';
-import 'checkout/qr_pay_panel.dart';
 import 'checkout/upi_section.dart';
 import 'package:wander_nova/common_widgets/app_loader.dart';
 
@@ -84,11 +83,6 @@ class _WalletTopUpCheckoutScreenState extends State<WalletTopUpCheckoutScreen> {
   /// The quick-add chips under the amount field, as the design lists them.
   static const _quickAmounts = <int>[20, 50, 100, 250, 500];
 
-  // Lives as long as this screen, so a QR keeps being polled while its tab
-  // is hidden or the UPI section is collapsed. Rebuilt whenever the amount
-  // changes, because a QR poster is minted for one amount.
-  late QrPayController _qr;
-
   bool get _busy => _processing;
 
   /// The amount is only payable once it is a real, positive figure — the
@@ -103,14 +97,12 @@ class _WalletTopUpCheckoutScreenState extends State<WalletTopUpCheckoutScreen> {
     _amountCtrl = TextEditingController(
       text: _amount > 0 ? _amount.toStringAsFixed(0) : '',
     );
-    _qr = QrPayController(amount: _amount, onPaid: _creditFromQr);
   }
 
   @override
   void dispose() {
     _submit.dispose();
     _amountCtrl.dispose();
-    _qr.dispose();
     super.dispose();
   }
 
@@ -124,7 +116,6 @@ class _WalletTopUpCheckoutScreenState extends State<WalletTopUpCheckoutScreen> {
     final next = double.parse(value.toStringAsFixed(2));
     if (next == _amount) return;
 
-    final oldQr = _qr;
     setState(() {
       _amount = next;
       _orderId = null;
@@ -132,9 +123,7 @@ class _WalletTopUpCheckoutScreenState extends State<WalletTopUpCheckoutScreen> {
       _reference = null;
       _methods = null;
       _errorMessage = null;
-      _qr = QrPayController(amount: next, onPaid: _creditFromQr);
     });
-    oldQr.dispose();
   }
 
   // ==================== ORDER / DETAILS ====================
@@ -363,22 +352,6 @@ class _WalletTopUpCheckoutScreenState extends State<WalletTopUpCheckoutScreen> {
     await _creditWallet(reference: _reference!, supportRef: supportRef);
   }
 
-  /// QR payments have no order/signature: the backend confirms the payment
-  /// with Razorpay directly from [paymentId], then credits the QR's own
-  /// wallet transaction [reference].
-  Future<bool> _creditFromQr(String reference, String paymentId) async {
-    if (!mounted) return false;
-    setState(() {
-      _processing = true;
-      _errorMessage = null;
-    });
-    return _creditWallet(
-      reference: reference,
-      paymentId: paymentId,
-      supportRef: paymentId,
-    );
-  }
-
   /// Returns whether the wallet was credited (the screen then closes).
   Future<bool> _creditWallet({
     required String reference,
@@ -537,7 +510,7 @@ class _WalletTopUpCheckoutScreenState extends State<WalletTopUpCheckoutScreen> {
           submitController: _submit,
           onPayWithVpa: (vpa) =>
               _pay({'method': 'upi', '_[flow]': 'collect', 'vpa': vpa}),
-          qrPanel: _amountIsPayable ? QrPayPanel(controller: _qr) : null,
+          qrPanel: null,
         ),
       ),
       _MethodRow(
@@ -955,7 +928,7 @@ class _WalletTopUpCheckoutScreenState extends State<WalletTopUpCheckoutScreen> {
         color: Colors.black.withValues(alpha: 0.35),
         child: Center(
           child: Container(
-            margin: EdgeInsets.symmetric(horizontal: context.w(40)),
+            margin: EdgeInsets.symmetric(horizontal: context.w(20)),
             padding: EdgeInsets.symmetric(
               horizontal: context.w(24),
               vertical: context.h(24),

@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wander_nova/UI_helper/currency_converter.dart';
@@ -20,7 +21,7 @@ class CurrencyChip extends StatelessWidget {
       valueListenable: CurrencyConverter.currencyListenable,
       builder: (context, currency, _) {
         final symbol = CurrencyConverter.getSymbol(currency);
-        final flag = CurrencyConverter.getFlag(currency);
+        final flagUrl = CurrencyConverter.getFlagUrl(currency);
 
         return GestureDetector(
           onTap: () {
@@ -40,7 +41,23 @@ class CurrencyChip extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(flag, style: TextStyle(fontSize: context.ffs(14))),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(context.fx(2)),
+                  child: CachedNetworkImage(
+                    imageUrl: flagUrl,
+                    width: context.fx(22),
+                    height: context.fx(16),
+                    fit: BoxFit.cover,
+                    placeholder: (_, __) => SizedBox(
+                      width: context.fx(22),
+                      height: context.fx(16),
+                    ),
+                    errorWidget: (_, __, ___) => Text(
+                      CurrencyConverter.getFlag(currency),
+                      style: TextStyle(fontSize: context.ffs(14)),
+                    ),
+                  ),
+                ),
                 SizedBox(width: context.fx(4)),
                 Text(
                   symbol,

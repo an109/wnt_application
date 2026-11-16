@@ -178,30 +178,6 @@ class _VoiceListeningOverlayState extends State<VoiceListeningOverlay>
               ),
             ),
 
-          SizedBox(height: context.fx(24)),
-
-          // Cancel button
-          GestureDetector(
-            onTap: widget.onCancel,
-            child: Container(
-              padding: EdgeInsets.symmetric(
-                horizontal: context.fx(32),
-                vertical: context.fx(10),
-              ),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(context.fx(24)),
-                border: Border.all(color: Colors.grey.shade300),
-              ),
-              child: Text(
-                'Tap to stop',
-                style: TextStyle(
-                  fontSize: context.ffs(13),
-                  fontWeight: FontWeight.w500,
-                  color: Colors.grey.shade600,
-                ),
-              ),
-            ),
-          ),
         ],
       ),
     );

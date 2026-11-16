@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
+import 'package:wander_nova/common_widgets/country_flag_image.dart';
 
 import '../../../common_widgets/logo.dart';
 import 'package:wander_nova/common_widgets/app_loader.dart';
@@ -389,18 +390,11 @@ class _MakePaymentScreenState extends State<MakePaymentScreen> {
                 ),
                 child: Row(
                   children: [
-                    Image.network(
-                      'https://flagcdn.com/w40/in.png',
+                    const CountryFlagImage(
+                      isoCode: 'in',
                       width: 24,
-                      height: 24,
-                      errorBuilder: (context, error, stackTrace) {
-                        return Container(
-                          width: 24,
-                          height: 24,
-                          color: Colors.orange,
-                          child: const Icon(Icons.flag, color: Colors.white, size: 16),
-                        );
-                      },
+                      height: 16,
+                      borderRadius: 2,
                     ),
                     const SizedBox(width: 8),
                     Text(

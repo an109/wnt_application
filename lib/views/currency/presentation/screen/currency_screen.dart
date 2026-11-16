@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../UI_helper/currency_converter.dart';
@@ -347,8 +348,6 @@ class _CurrencyScreenState extends State<CurrencyScreen> {
     );
   }
 
-  /// The flag chip. The app ships no flag images, so the emoji the rest of
-  /// the app already uses is boxed to read as the design's flag tile.
   Widget _flag(BuildContext context, String code) {
     return Container(
       width: context.w(46),
@@ -357,11 +356,23 @@ class _CurrencyScreenState extends State<CurrencyScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(context.r(6)),
-        // border: Border.all(color: const Color(0xFFE8ECF1)),
       ),
-      child: Text(
-        CurrencyConverter.getFlag(code),
-        style: TextStyle(fontSize: context.fs(25)),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(context.r(3)),
+        child: CachedNetworkImage(
+          imageUrl: CurrencyConverter.getFlagUrl(code),
+          width: context.w(36),
+          height: context.h(24),
+          fit: BoxFit.cover,
+          placeholder: (_, __) => SizedBox(
+            width: context.w(36),
+            height: context.h(24),
+          ),
+          errorWidget: (_, __, ___) => Text(
+            CurrencyConverter.getFlag(code),
+            style: TextStyle(fontSize: context.fs(25)),
+          ),
+        ),
       ),
     );
   }

@@ -7,6 +7,7 @@ import 'package:dio/dio.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:wander_nova/common_widgets/airline_logo.dart';
 import 'package:intl/intl.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import 'package:wander_nova/injection_container.dart';
@@ -4577,7 +4578,7 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup>
           : Padding(
               padding: EdgeInsets.all(context.w(4)),
               child: CachedNetworkImage(
-                imageUrl: 'https://images.kiwi.com/airlines/64/$logoCode.png',
+                imageUrl: AirlineLogo.getLogoUrl(logoCode),
                 fit: BoxFit.contain,
                 placeholder: (_, __) => initialsTile(),
                 errorWidget: (_, __, ___) => initialsTile(),

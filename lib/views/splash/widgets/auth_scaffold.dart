@@ -3,24 +3,22 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import 'package:wander_nova/core/resources/app_colours.dart';
 
+import '../../../common_widgets/country_flag_image.dart';
 import '../../../newUIWidgets/FooterImage.dart';
 
 /// Dial codes offered by the phone field on the auth screens.
 class AuthDial {
-  const AuthDial(this.flag, this.code, this.country);
+  const AuthDial(this.isoCode, this.code, this.country, {this.flag});
 
-  final String flag;
+  final String isoCode;
   final String code;
   final String country;
+  final String? flag;
 
-  static const india = AuthDial('🇮🇳', '+91', 'India');
+  static const india = AuthDial('in', '+91', 'India', flag: '🇮🇳');
 
-  /// India only for now: the rest of the app is still India-first, so the
-  /// phone field never offers a dial code we cannot serve.
   static const all = <AuthDial>[india];
 
-  /// With a single dial code there is nothing to pick, so the field shows a
-  /// fixed +91 chip instead of a dropdown.
   static bool get isPickable => all.length > 1;
 }
 
@@ -380,7 +378,13 @@ class AuthPhoneRow extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(dial.flag, style: TextStyle(fontSize: context.fs(16))),
+                CountryFlagImage(
+                  isoCode: dial.isoCode,
+                  width: context.w(24),
+                  height: context.w(16),
+                  borderRadius: context.w(2),
+                  fallbackFlag: dial.flag,
+                ),
                 SizedBox(width: context.w(6)),
                 Text(
                   dial.code,
@@ -444,7 +448,13 @@ Future<AuthDial?> showAuthDialPicker(BuildContext context) {
           children: AuthDial.all.map((dial) {
             return ListTile(
               onTap: () => Navigator.of(sheetContext).pop(dial),
-              leading: Text(dial.flag, style: TextStyle(fontSize: context.fs(20))),
+              leading: CountryFlagImage(
+                isoCode: dial.isoCode,
+                width: context.w(30),
+                height: context.w(20),
+                borderRadius: context.w(3),
+                fallbackFlag: dial.flag,
+              ),
               title: Text(
                 dial.country,
                 style: TextStyle(

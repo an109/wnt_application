@@ -3,6 +3,7 @@ import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import 'package:wander_nova/core/resources/app_colours.dart';
 import 'package:wander_nova/injection_container.dart' as di;
 
+import '../../../common_widgets/country_flag_image.dart';
 import '../../../core/utils/storage/shared_preference.dart';
 import '../widgets/wander_logo.dart';
 
@@ -139,7 +140,13 @@ class _ChooseCountryScreenState extends State<ChooseCountryScreen>
       children: [
         Opacity(
           opacity: isComingSoon ? 0.5 : 1,
-          child: Text(country.flag, style: TextStyle(fontSize: context.fs(14))),
+          child: CountryFlagImage(
+            isoCode: country.isoCode,
+            width: context.w(24),
+            height: context.w(16),
+            borderRadius: context.w(2),
+            fallbackFlag: country.flag,
+          ),
         ),
         SizedBox(width: context.w(10)),
         Expanded(
@@ -307,7 +314,13 @@ class _ChooseCountryScreenState extends State<ChooseCountryScreen>
       ),
       child: Row(
         children: [
-          Text(_country.flag, style: TextStyle(fontSize: context.fs(18))),
+          CountryFlagImage(
+            isoCode: _country.isoCode,
+            width: context.w(28),
+            height: context.w(20),
+            borderRadius: context.w(3),
+            fallbackFlag: _country.flag,
+          ),
           SizedBox(width: context.w(10)),
           Expanded(
             flex: 3,
