@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import '../constants/urls.dart';
 import '../../injection_container.dart';
 import '../network/dio_client.dart';
@@ -43,6 +44,10 @@ class BankOffer {
   }
 
   bool get hasCode => code.isNotEmpty;
+
+  /// True when [amountInr] is under this offer's minimum booking amount.
+  bool isBelowMinimum(double amountInr) =>
+      minAmount > 0 && amountInr > 0 && amountInr < minAmount;
 }
 
 class BankOfferService {
@@ -61,5 +66,40 @@ class BankOfferService {
           .toList();
     }
     return [];
+  }
+}
+
+/// The one bank/card offer the traveller has applied (at most one), kept in
+/// memory so it follows them from the offers list to the payment page.
+///
+/// It expires after an hour so a stale choice cannot follow someone into a
+/// later booking. Only the offer's id is ever sent to the server, which
+/// re-checks that the offer is still valid, so nothing here is trusted.
+class BankOfferSelection {
+  BankOfferSelection._();
+
+  static const _maxAge = Duration(hours: 1);
+  static DateTime? _at;
+
+  /// Listen to this to rebuild when the choice changes.
+  static final ValueNotifier<BankOffer?> selected = ValueNotifier<BankOffer?>(null);
+
+  /// The applied offer, or null if none / it has expired.
+  static BankOffer? get current {
+    final o = selected.value;
+    final at = _at;
+    if (o == null || at == null) return null;
+    if (DateTime.now().difference(at) > _maxAge) return null;
+    return o;
+  }
+
+  static void select(BankOffer offer) {
+    _at = DateTime.now();
+    selected.value = offer;
+  }
+
+  static void clear() {
+    _at = null;
+    selected.value = null;
   }
 }

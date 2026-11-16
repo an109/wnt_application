@@ -11,6 +11,14 @@
 /// constants where the path is fixed, functions where an id is interpolated.
 class HolidayUrls {
   // static const String baseUrl = 'http://192.168.1.4:8000/diy-api/v1/app/';
+  // DO NOT point this at the Wander Nova backend (Urls.baseUrl). That server
+  // does not serve /api/v1/app/* at all, so every DIY browse call here —
+  // destinations/trending, themes, packages/search — comes back 404.
+  // Only the two PAYMENT endpoints live on our backend, and they are reached
+  // through Urls.diyHolidayOrder / Urls.diyHolidayVerify, not through this
+  // class. To test the planner locally, run the planner itself and point this
+  // at that host and port (the planner is :8060, not the backend's :8000).
+  //static const String baseUrl = 'http://192.168.1.6:8000//api/v1/app/';
   static const String baseUrl = 'https://diy.thewandernova.com/api/v1/app/';
 
   /// No trailing slash — for callers that append their own path.

@@ -20,7 +20,9 @@ import 'package:wander_nova/views/AKRetrieveBooking/domain/entity/AKRetrieveBook
 import 'package:wander_nova/views/AKRetrieveBooking/domain/usecase/AKRetrieveBooking_usecase.dart';
 import 'package:wander_nova/views/AKStartPay/domain/entity/AKStartPay_entity.dart';
 import 'package:wander_nova/views/AKStartPay/domain/usecase/AKStartPay_usecase.dart';
+import 'package:wander_nova/core/services/bank_offer_service.dart';
 import 'package:wander_nova/core/services/fee_service.dart';
+import 'package:wander_nova/newUIWidgets/payment_bank_offers_card.dart';
 import 'package:wander_nova/core/services/push_notification_service.dart';
 import 'package:wander_nova/views/flight_payment/data/razorpay_custom_checkout_service.dart';
 import 'package:wander_nova/views/flight_search/presentation/screen/booking_screen.dart';
@@ -168,6 +170,16 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
   /// (8.29 * 100 is 828.9999999999999, so truncation gives 828 where
   /// rounding gives 829), which Razorpay refuses.
   int? _razorpayOrderAmountPaise;
+
+  /// A bank/card offer makes Razorpay accept the order ONLY for a card that
+  /// qualifies, so it can never share the order the other methods use. When
+  /// the traveller pays by card with an offer applied, this separate order
+  /// (created with the offer attached) is used instead. Reused only while it
+  /// is for the same offer and the same amount.
+  String? _offerOrderId;
+  String? _offerKeyId;
+  int? _offerOrderPaise;
+  int? _offerOrderOfferId;
 
   bool _processing = false;
   String _statusMessage = '';
@@ -330,6 +342,7 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
     // Both of these change _totalChargeInInr when they land. The Razorpay
     // order must not be minted before they have, or it is created for a
     // stale total -- see [_pricingSettled].
+    BankOfferSelection.selected.addListener(_onBankOfferChanged);
     _benefitReady = _loadBenefitQuote();
     _feesReady = FeeService.instance.ensureLoaded();
     _feesReady.then((_) {
@@ -347,6 +360,7 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
   @override
   void dispose() {
     _holdTimer?.cancel();
+    BankOfferSelection.selected.removeListener(_onBankOfferChanged);
     // _razorpay.clear();
     super.dispose();
   }
@@ -857,6 +871,120 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
     }
   }
 
+  void _onBankOfferChanged() {
+    if (mounted) setState(() {});
+  }
+
+  /// The bank offer to attach to a CARD payment, or null. Only the offer the
+  /// traveller applied, and only while the amount still reaches its minimum.
+  /// The server re-checks all of it; this just avoids a pointless request.
+  BankOffer? get _activeBankOffer {
+    final o = BankOfferSelection.current;
+    if (o == null || o.isBelowMinimum(_chargeableInInr)) return null;
+    return o;
+  }
+
+  /// Creates (or reuses) the Razorpay order that carries [offer]. Same
+  /// reference_id as the normal order, so StartPay matches the paid payment
+  /// to this booking exactly as it does on the website.
+  Future<bool> _ensureOfferOrder(BankOffer offer) async {
+    if (_offerOrderId != null &&
+        _offerKeyId != null &&
+        _offerOrderOfferId == offer.id &&
+        _offerOrderPaise == _chargePaise) {
+      return true;
+    }
+    _offerOrderId = null;
+    _offerKeyId = null;
+    _offerOrderPaise = null;
+    _offerOrderOfferId = null;
+
+    if (_sessionId.isEmpty) {
+      setState(() => _errorMessage = 'Booking session expired. Please start over.');
+      return false;
+    }
+
+    setState(() {
+      _processing = true;
+      _errorMessage = null;
+      _statusMessage = 'Applying bank offer...';
+    });
+
+    await _pricingSettled();
+    if (!mounted) return false;
+
+    try {
+      final dio = sl<DioClient>().instance;
+      final userId = sl<PreferencesManager>().getUserId();
+      final response = await dio.post(
+        Urls.razorpayCreateOrder,
+        data: {
+          'amount': _chargeableInInr.toStringAsFixed(2),
+          'currency': 'INR',
+          'reference_id': _sanitizedOrderId(_sessionId),
+          'transaction_type': 'flight',
+          'bank_offer_id': offer.id,
+          if (userId != null) 'user_id': userId,
+        },
+      );
+
+      final orderId = response.data['order_id'] as String?;
+      final keyId = response.data['key_id'] as String?;
+      final orderPaise = (response.data['amount'] as num?)?.toInt();
+      if (!mounted) return false;
+
+      if (orderId == null || keyId == null) {
+        setState(() {
+          _processing = false;
+          _errorMessage = 'Could not apply the bank offer. Remove it to pay the regular amount, or try again.';
+        });
+        return false;
+      }
+
+      setState(() {
+        _processing = false;
+        _offerOrderId = orderId;
+        _offerKeyId = keyId;
+        _offerOrderPaise = orderPaise;
+        _offerOrderOfferId = offer.id;
+      });
+      return true;
+    } on DioException catch (e) {
+      if (!mounted) return false;
+      final body = e.response?.data;
+      final code = body is Map ? body['error_code'] : null;
+      final msg = body is Map ? body['error'] : null;
+      // The offer ended, is below its minimum, or is not valid here: drop it
+      // so the traveller is not stuck, and say why.
+      if (code == 'offer_unavailable') BankOfferSelection.clear();
+      setState(() {
+        _processing = false;
+        _errorMessage = (code == 'offer_unavailable' && msg is String)
+            ? msg
+            : 'Could not apply the bank offer. Remove it to pay the regular amount, or try again.';
+      });
+      print('Razorpay offer order error: ${e.message}');
+      return false;
+    } catch (e) {
+      if (!mounted) return false;
+      setState(() {
+        _processing = false;
+        _errorMessage = 'Could not start payment: $e';
+      });
+      return false;
+    }
+  }
+
+  /// Razorpay refuses a card that does not match the offer with a bare
+  /// gateway error; say what to do instead.
+  String _offerCardHint(String raw, BankOffer offer) {
+    final bank = offer.bankName.isNotEmpty ? offer.bankName : 'the matching bank';
+    if (RegExp('offer', caseSensitive: false).hasMatch(raw)) {
+      return 'This offer is not valid for the card you entered. It works only with $bank cards. Use a matching card, or remove or change the offer.';
+    }
+    return '$raw If you applied a bank offer, it works only with $bank cards. Use a matching card, or remove the offer.';
+  }
+
   void _toggle(String id) => setState(() => _open = _open == id ? null : id);
 
   Future<Map<String, dynamic>> _loadMethods() {
@@ -872,13 +1000,21 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
 
     await _pricingSettled();
     if (!mounted) return;
-    final ready = await _ensureRazorpayOrder();
-    if (!ready || !mounted) return;
+    // A card payment with a bank offer applied goes through its own order
+    // (the offer is attached to it); every other method keeps the normal one.
+    final offer = method['method'] == 'card' ? _activeBankOffer : null;
+    if (offer != null) {
+      if (!await _ensureOfferOrder(offer) || !mounted) return;
+    } else {
+      final ready = await _ensureRazorpayOrder();
+      if (!ready || !mounted) return;
+    }
 
     // The total moved after the order was minted. Charging the order's amount
     // would quietly take a different sum from the one on screen, so start a
     // fresh order for the price the customer is actually looking at.
-    if (_razorpayOrderAmountPaise != null &&
+    if (offer == null &&
+        _razorpayOrderAmountPaise != null &&
         _razorpayOrderAmountPaise != _chargePaise) {
       _razorpayOrderId = null;
       _razorpayKeyId = null;
@@ -895,12 +1031,14 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
 
     try {
       final result = await _rzService.submitPayment(
-        keyId: _razorpayKeyId!,
+        keyId: offer != null ? _offerKeyId! : _razorpayKeyId!,
         data: {
           // The order's own amount, never a fresh conversion.
-          'amount': _razorpayOrderAmountPaise ?? _chargePaise,
+          'amount': offer != null
+              ? (_offerOrderPaise ?? _chargePaise)
+              : (_razorpayOrderAmountPaise ?? _chargePaise),
           'currency': 'INR',
-          'order_id': _razorpayOrderId,
+          'order_id': offer != null ? _offerOrderId : _razorpayOrderId,
           'email': (widget.leadPassenger['email'] ?? '').toString(),
           'contact': (widget.leadPassenger['mobileNumber'] ?? '').toString(),
           'description': 'Flight ${widget.route.from} → ${widget.route.to}',
@@ -920,7 +1058,8 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
       } else {
         if (mounted) setState(() {
           _processing = false;
-          _errorMessage = e.message;
+          _errorMessage =
+              offer != null ? _offerCardHint(e.message, offer) : e.message;
         });
       }
     }
@@ -1426,6 +1565,7 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
                           subtitle: 'Pay using your wallet balance',
                         ),
                       ]),
+                      PaymentBankOffersCard(amountInr: _chargeableInInr),
                       _sectionLabel(context, 'Pay Online'),
                       SizedBox(height: context.h(10)),
                       _googlePayTile(context),
@@ -1447,7 +1587,9 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
                       ),
                       CheckoutAccordion(
                         title: 'Credit / Debit Card',
-                        subtitle: 'Visa, Mastercard, RuPay, Amex & more',
+                        subtitle: _activeBankOffer != null
+                            ? 'Bank offer applied: ${_activeBankOffer!.displayText}'
+                            : 'Visa, Mastercard, RuPay, Amex & more',
                         leading: const CheckoutIcon('assets/NewIcons/credit.png'),
                         expanded: _open == 'card',
                         onTap: () => _toggle('card'),
@@ -1600,6 +1742,18 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
                   Text(
                     '${context.moneyHint(_chargeableInInr)} · charged in INR',
                     style: TextStyle(fontSize: context.fs(12), color: _muted),
+                  ),
+                if (_activeBankOffer != null)
+                  Padding(
+                    padding: EdgeInsets.only(top: context.h(4)),
+                    child: Text(
+                      'Bank offer applied. The discount is taken when you pay by card, so your card is charged slightly less than this total.',
+                      style: TextStyle(
+                        fontSize: context.fs(12),
+                        fontWeight: FontWeight.w600,
+                        color: _offer,
+                      ),
+                    ),
                   ),
               ],
             ),

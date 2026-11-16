@@ -169,6 +169,50 @@ class _OfferTile extends StatelessWidget {
               ),
             ),
           ],
+          SizedBox(height: context.h(10)),
+          ValueListenableBuilder<BankOffer?>(
+            valueListenable: BankOfferSelection.selected,
+            builder: (context, _, __) {
+              final applied = BankOfferSelection.current?.id == offer.id;
+              return SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: () {
+                    if (applied) {
+                      BankOfferSelection.clear();
+                    } else {
+                      BankOfferSelection.select(offer);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            'Offer applied. Pay by card'
+                            '${offer.bankName.isNotEmpty ? ' with a ${offer.bankName} card' : ''}'
+                            ' at checkout to get it.',
+                          ),
+                          duration: const Duration(seconds: 2),
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                    }
+                  },
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: applied
+                        ? const Color(0xFFDC2626)
+                        : const Color(0xFF3B4FC4),
+                    side: BorderSide(
+                      color: applied
+                          ? const Color(0xFFDC2626)
+                          : const Color(0xFF3B4FC4),
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(context.r(8)),
+                    ),
+                  ),
+                  child: Text(applied ? 'Remove offer' : 'Apply offer'),
+                ),
+              );
+            },
+          ),
         ],
       ),
     );
