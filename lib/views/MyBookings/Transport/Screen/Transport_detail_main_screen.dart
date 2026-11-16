@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 
 import '../../../../core/resources/app_colours.dart';
+import '../../../../core/utils/storage/shared_preference.dart';
+import '../../../../injection_container.dart';
 import '../../shared/booking_refund_service.dart';
 import '../../shared/cancel_booking_flow.dart';
 import '../../shared/trip_detail_widgets.dart';
@@ -373,7 +375,24 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
     final pb = booking.priceBreakdown;
     double n(String key) => double.tryParse('${pb?[key] ?? ''}') ?? 0;
     final price = booking.totalPrice.isNotEmpty ? booking.totalPrice : booking.rawTotalPrice;
-    final total = double.tryParse(price) ?? (pb != null ? n('total_paid') : 0);
+
+    final localCoupon = (n('coupon_discount') <= 0 && n('benefit_discount') <= 0)
+        ? sl<PreferencesManager>().getCouponInfo(booking.id)
+        : null;
+    double lc(String key) => (localCoupon?[key] as num?)?.toDouble() ?? 0;
+
+    final couponDiscount = n('coupon_discount') > 0 ? n('coupon_discount') : lc('coupon_discount');
+    final couponCode = (pb?['coupon_code'] ?? '').toString().isNotEmpty
+        ? pb!['coupon_code'].toString()
+        : (localCoupon?['coupon_code'] ?? '').toString();
+    final benefitDiscount = n('benefit_discount') > 0 ? n('benefit_discount') : lc('benefit_discount');
+    final localTotalPaid = lc('total_paid');
+
+    final total = (pb != null && n('total_paid') > 0)
+        ? n('total_paid')
+        : localTotalPaid > 0
+            ? localTotalPaid
+            : (double.tryParse(price) ?? 0);
 
     final rows = <(String, double)>[
       if (pb != null) ...[
@@ -383,8 +402,10 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
         if (n('convenience_fee') > 0) ('Convenience Fee', n('convenience_fee')),
         if (n('platform_fee') > 0) ('Platform Fee', n('platform_fee')),
         if (n('booking_mgmt_fee') > 0) ('Booking Fee', n('booking_mgmt_fee')),
-        if (n('coupon_discount') > 0)
-          ('Promo${(pb['coupon_code'] ?? '').toString().isNotEmpty ? ' (${pb['coupon_code']})' : ''}', -n('coupon_discount')),
+        if (couponDiscount > 0)
+          ('Promo${couponCode.isNotEmpty ? ' ($couponCode)' : ''}', -couponDiscount),
+        if (benefitDiscount > 0)
+          ('Benefit Credit', -benefitDiscount),
       ] else ...[
         ('Base Fare', total),
       ],

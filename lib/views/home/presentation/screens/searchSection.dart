@@ -4,6 +4,7 @@ import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import 'package:wander_nova/core/resources/app_colours.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 
+import '../../../../common_widgets/voice_listening_overlay.dart';
 import '../../../TrishaAI/presentation/screen/trisha_chat_screen.dart';
 
 class SlidingSearchSection extends StatefulWidget {
@@ -35,6 +36,7 @@ class _SlidingSearchSectionState extends State<SlidingSearchSection>
   final stt.SpeechToText _speech = stt.SpeechToText();
   bool _speechReady = false;
   bool _isListening = false;
+  String _recognizedText = '';
 
   @override
   void initState() {
@@ -141,11 +143,15 @@ class _SlidingSearchSectionState extends State<SlidingSearchSection>
     }
 
     _searchFocusNode.unfocus();
-    setState(() => _isListening = true);
+    setState(() {
+      _isListening = true;
+      _recognizedText = '';
+    });
     await _speech.listen(
       listenOptions: stt.SpeechListenOptions(partialResults: true),
       onResult: (result) {
         if (!mounted) return;
+        setState(() => _recognizedText = result.recognizedWords);
         _searchController.value = TextEditingValue(
           text: result.recognizedWords,
           selection: TextSelection.collapsed(offset: result.recognizedWords.length),
@@ -184,20 +190,20 @@ class _SlidingSearchSectionState extends State<SlidingSearchSection>
   Widget _buildSearchSection(BuildContext context) {
     final topInset = MediaQuery.of(context).padding.top;
 
-    return GestureDetector(
-      // onTap: widget.onHide,
-      onTap: () {
-        widget.onHide?.call();
-      },
-      behavior: HitTestBehavior.translucent,
-      child: Container(
-        width: double.infinity,
-        height: double.infinity,
-        color: Colors.black.withOpacity(0.5), // Semi-transparent overlay
-        child: Column(
-          children: [
-            // Search card - touches top, left and right edges
-            Container(
+    return Stack(
+      children: [
+        GestureDetector(
+          onTap: () {
+            widget.onHide?.call();
+          },
+          behavior: HitTestBehavior.translucent,
+          child: Container(
+            width: double.infinity,
+            height: double.infinity,
+            color: Colors.black.withOpacity(0.5),
+            child: Column(
+              children: [
+                Container(
               width: double.infinity,
               margin: EdgeInsets.zero,
               padding: EdgeInsets.fromLTRB(
@@ -381,6 +387,21 @@ class _SlidingSearchSectionState extends State<SlidingSearchSection>
           ],
         ),
       ),
+    ),
+    if (_isListening)
+      Positioned(
+        left: 0,
+        right: 0,
+        bottom: 0,
+        child: GestureDetector(
+          onTap: () {},
+          child: VoiceListeningOverlay(
+            recognizedText: _recognizedText,
+            onCancel: _toggleListening,
+          ),
+        ),
+      ),
+    ],
     );
   }
 

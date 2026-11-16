@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 
 import '../../../../UI_helper/responsive_layout.dart';
+import '../../../../common_widgets/voice_listening_overlay.dart';
 import 'trisha_style.dart';
 
 /// "Ask me anything…" bar with voice typing support.
@@ -24,6 +25,7 @@ class _TrishaInputBarState extends State<TrishaInputBar> {
   bool _hasText = false;
   bool _isListening = false;
   bool _speechReady = false;
+  String _recognizedText = '';
 
   @override
   void initState() {
@@ -84,11 +86,15 @@ class _TrishaInputBarState extends State<TrishaInputBar> {
       return;
     }
 
-    setState(() => _isListening = true);
+    setState(() {
+      _isListening = true;
+      _recognizedText = '';
+    });
     await _speech.listen(
       listenOptions: stt.SpeechListenOptions(partialResults: true),
       onResult: (result) {
         if (!mounted) return;
+        setState(() => _recognizedText = result.recognizedWords);
         _controller.value = TextEditingValue(
           text: result.recognizedWords,
           selection: TextSelection.collapsed(offset: result.recognizedWords.length),
@@ -99,6 +105,12 @@ class _TrishaInputBarState extends State<TrishaInputBar> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isListening) {
+      return VoiceListeningOverlay(
+        recognizedText: _recognizedText,
+        onCancel: _toggleListening,
+      );
+    }
     return Stack(
       clipBehavior: Clip.none,
       children: [

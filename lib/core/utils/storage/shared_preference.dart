@@ -311,6 +311,35 @@ class PreferencesManager {
 
   Future<bool> setCurrencyAutoDetect(bool value) => _prefs.setBool(_currencyAutoDetectKey, value);
 
+  // ============ Booking Coupon Info ============
+  static const String _couponInfoPrefix = 'booking_coupon_';
+
+  Future<void> saveCouponInfo({
+    required int bookingId,
+    required String couponCode,
+    required double couponDiscount,
+    double benefitDiscount = 0,
+    required double totalPaid,
+  }) async {
+    final data = jsonEncode({
+      'coupon_code': couponCode,
+      'coupon_discount': couponDiscount,
+      'benefit_discount': benefitDiscount,
+      'total_paid': totalPaid,
+    });
+    await _prefs.setString('$_couponInfoPrefix$bookingId', data);
+  }
+
+  Map<String, dynamic>? getCouponInfo(int bookingId) {
+    final json = _prefs.getString('$_couponInfoPrefix$bookingId');
+    if (json == null) return null;
+    try {
+      return jsonDecode(json) as Map<String, dynamic>;
+    } catch (_) {
+      return null;
+    }
+  }
+
   Map<String, double>? getCachedExchangeRates() {
     final jsonString = _prefs.getString(_exchangeRatesKey);
     if (jsonString == null) return null;

@@ -1159,7 +1159,14 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
         AkStartPayRequestEntity(
           sessionId: _sessionId,
           gateway: gateway,
-          feeBreakdown: {'flight_fare': _feeBaseInInr, ..._fees.toJson()},
+          feeBreakdown: {
+            'flight_fare': _feeBaseInInr,
+            ..._fees.toJson(),
+            if (_promoDiscountInInr > 0) 'coupon_discount': _promoDiscountInInr,
+            if (_promoDiscountInInr > 0 && widget.promoCode.isNotEmpty) 'coupon_code': widget.promoCode,
+            if (_benefitAppliedInInr > 0) 'benefit_discount': _benefitAppliedInInr,
+            'total_paid': _chargeableInInr,
+          },
         ),
       );
 
@@ -1275,6 +1282,20 @@ class _AkFlightPaymentScreenState extends State<AkFlightPaymentScreen> {
       }
 
       final pnr = result.data!.pnrs.isNotEmpty ? result.data!.pnrs.first : '';
+
+      // Persist coupon/benefit info locally so the fare-details screen can
+      // show it even when the backend doesn't return it in price_breakdown.
+      if (result.data!.bookingId != null &&
+          (_promoDiscountInInr > 0 || _benefitAppliedInInr > 0)) {
+        await sl<PreferencesManager>().saveCouponInfo(
+          bookingId: result.data!.bookingId!,
+          couponCode: widget.promoCode,
+          couponDiscount: _promoDiscountInInr,
+          benefitDiscount: _benefitAppliedInInr,
+          totalPaid: _chargeableInInr,
+        );
+      }
+
       await _notifyBookingOutcome(
         title: 'Booking confirmed',
         body: pnr.isEmpty

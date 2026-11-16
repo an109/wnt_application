@@ -106,7 +106,11 @@ class _HomeInfoCarouselState extends State<HomeInfoCarousel> {
             controller: _controller,
             itemCount: widget.slides.length,
             onPageChanged: (i) => setState(() => _page = i),
-            itemBuilder: (context, i) => _InfoBanner(slide: widget.slides[i]),
+            // itemBuilder: (context, i) => _InfoBanner(slide: widget.slides[i]),
+              itemBuilder: (context, i) => Padding(
+                padding: EdgeInsets.symmetric(horizontal: context.fx(6)),
+                child: _InfoBanner(slide: widget.slides[i]),
+              ),
             ),
           ),
         ),
@@ -147,7 +151,7 @@ class _PageDots extends StatelessWidget {
   }
 }
 
-// -- Original _InfoBanner (gradient + clouds + plane) commented out --
+// -- Original _InfoBanner (gradient + clouds + plane) comment ed out --
 // class _InfoBanner extends StatelessWidget { ... }
 
 /// Promotional banner slide from the Figma design: each slide is a
@@ -159,12 +163,13 @@ class _InfoBanner extends StatelessWidget {
 
   /// Static promotional banners matching the Figma "MAIN HOME" design.
   static const List<String> promoBanners = [
-    '$_assets/banner_first_flight.png',
-    '$_assets/banner_klm.png',
-    '$_assets/banner_lowest_price.png',
-    '$_assets/banner_indigo.png',
-    '$_assets/banner_holidays.png',
-    '$_assets/banner_visa.png',
+    // '$_assets/banner_first_flight.png',
+    // '$_assets/banner_klm.png',
+    // '$_assets/banner_lowest_price.png',
+    // '$_assets/banner_indigo.png',
+    // '$_assets/banner_holidays.png',
+    // '$_assets/banner_visa.png',
+    '$_assets/banner20.png',
   ];
 
   @override
@@ -306,36 +311,37 @@ class HomeOffersCarousel extends StatefulWidget {
 
 class _HomeOffersCarouselState extends State<HomeOffersCarousel> {
   static const _promoSlides = [
-    HomeInfoSlide(
-      title: 'New User Deal On First Flight',
-      body: 'Use code EMTFIRST for your first booking',
-      bannerAsset: '$_assets/banner_first_flight.png',
-    ),
-    HomeInfoSlide(
-      title: 'KLM Royal Dutch Airlines',
-      body: 'Exclusive discounts awaits!',
-      bannerAsset: '$_assets/banner_klm.png',
-    ),
-    HomeInfoSlide(
-      title: 'Lowest Price Guaranteed',
-      body: 'Book flights at the lowest price guaranteed',
-      bannerAsset: '$_assets/banner_lowest_price.png',
-    ),
-    HomeInfoSlide(
-      title: 'Fly with IndiGo',
-      body: 'Great fares, greater journeys',
-      bannerAsset: '$_assets/banner_indigo.png',
-    ),
-    HomeInfoSlide(
-      title: 'Explore Dream Holidays',
-      body: 'Amazing packages. Unforgettable experiences.',
-      bannerAsset: '$_assets/banner_holidays.png',
-    ),
-    HomeInfoSlide(
-      title: 'Get Your Visa Easier & Faster',
-      body: 'One step closer to your next destination',
-      bannerAsset: '$_assets/banner_visa.png',
-    ),
+    // HomeInfoSlide(
+    //   title: 'New User Deal On First Flight',
+    //   body: 'Use code EMTFIRST for your first booking',
+    //   bannerAsset: '$_assets/banner_first_flight.png',
+    // ),
+    // HomeInfoSlide(
+    //   title: 'KLM Royal Dutch Airlines',
+    //   body: 'Exclusive discounts awaits!',
+    //   bannerAsset: '$_assets/banner_klm.png',
+    // ),
+    // HomeInfoSlide(
+    //   title: 'Lowest Price Guaranteed',
+    //   body: 'Book flights at the lowest price guaranteed',
+    //   bannerAsset: '$_assets/banner_lowest_price.png',
+    // ),
+    // HomeInfoSlide(
+    //   title: 'Fly with IndiGo',
+    //   body: 'Great fares, greater journeys',
+    //   bannerAsset: '$_assets/banner_indigo.png',
+    // ),
+    // HomeInfoSlide(
+    //   title: 'Explore Dream Holidays',
+    //   body: 'Amazing packages. Unforgettable experiences.',
+    //   bannerAsset: '$_assets/banner_holidays.png',
+    // ),
+    // HomeInfoSlide(
+    //   title: 'Get Your Visa Easier & Faster',
+    //   body: 'One step closer to your next destination',
+    //   bannerAsset: '$_assets/banner_visa.png',
+    // ),
+
   ];
 
   @override
@@ -379,12 +385,34 @@ class _HomeOffersCarouselState extends State<HomeOffersCarousel> {
     ];
   }
 
+  static const _alwaysShowSlides = [
+    HomeInfoSlide(
+      title: 'Get Your Holiday Easier & Faster',
+      body: 'next destination',
+      bannerAsset: '$_assets/banner20.png',
+    ),
+    HomeInfoSlide(
+      title: 'Flat 12% Off on Flights',
+      body: 'Book now and save big on flights',
+      bannerAsset: '$_assets/banner21.png',
+    ),
+    HomeInfoSlide(
+      title: 'Flat 12% Off Holiday Packages',
+      body: 'Unbeatable deals on holiday packages',
+      bannerAsset: '$_assets/banner22.png',
+    ),
+  ];
+
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<ExclusiveDealsBloc, ExclusiveDealsState>(
       builder: (context, state) {
-        final slides = state is ExclusiveDealsLoaded ? _slides(state.deals) : const <HomeInfoSlide>[];
-        return HomeInfoCarousel(slides: slides.isEmpty ? _promoSlides : slides);
+        final apiSlides = state is ExclusiveDealsLoaded ? _slides(state.deals) : const <HomeInfoSlide>[];
+        final base = apiSlides.isEmpty ? _promoSlides : apiSlides;
+        return HomeInfoCarousel(slides: [ ..._alwaysShowSlides]);
+
+        /// dot slide for api offers
+        // return HomeInfoCarousel(slides: [...base, ..._alwaysShowSlides]);
       },
     );
   }

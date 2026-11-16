@@ -7,6 +7,8 @@ import 'package:wander_nova/common_widgets/airline_logo.dart';
 import 'package:wander_nova/core/resources/app_colours.dart';
 
 import '../../../../core/services/pdf_generator.dart';
+import '../../../../core/utils/storage/shared_preference.dart';
+import '../../../../injection_container.dart';
 import '../../../home/flight/flight_screen.dart';
 import '../../Screen/trip_card.dart';
 import '../../shared/cancel_booking_flow.dart';
@@ -695,7 +697,26 @@ class _FlightTripDetailsScreenState extends State<FlightTripDetailsScreen> {
     final cur = _b.currency.isEmpty ? 'INR' : _b.currency;
     final pb = _b.priceBreakdown;
     double n(String key) => double.tryParse('${pb?[key] ?? ''}') ?? 0;
-    final total = double.tryParse(_b.totalAmount) ?? (pb != null ? n('total_paid') : 0);
+
+    // Fall back to locally saved coupon info when the backend didn't persist it.
+    final localCoupon = (n('coupon_discount') <= 0 && n('benefit_discount') <= 0)
+        ? sl<PreferencesManager>().getCouponInfo(_b.id)
+        : null;
+    double lc(String key) => (localCoupon?[key] as num?)?.toDouble() ?? 0;
+
+    final couponDiscount = n('coupon_discount') > 0 ? n('coupon_discount') : lc('coupon_discount');
+    final couponCode = (pb?['coupon_code'] ?? '').toString().isNotEmpty
+        ? pb!['coupon_code'].toString()
+        : (localCoupon?['coupon_code'] ?? '').toString();
+    final benefitDiscount = n('benefit_discount') > 0 ? n('benefit_discount') : lc('benefit_discount');
+    final localTotalPaid = lc('total_paid');
+
+    final total = (pb != null && n('total_paid') > 0)
+        ? n('total_paid')
+        : localTotalPaid > 0
+            ? localTotalPaid
+            : (double.tryParse(_b.totalAmount) ?? 0);
+
     final rows = <(String, double)>[
       if (pb != null) ...[
         ('Flight Fare (${_info.paxLabel})', n('flight_fare')),
@@ -703,8 +724,10 @@ class _FlightTripDetailsScreenState extends State<FlightTripDetailsScreen> {
         if (n('convenience_fee') > 0) ('Convenience Fee', n('convenience_fee')),
         if (n('platform_fee') > 0) ('Platform Fee', n('platform_fee')),
         if (n('booking_mgmt_fee') > 0) ('Booking Fee', n('booking_mgmt_fee')),
-        if (n('coupon_discount') > 0)
-          ('Coupon${(pb['coupon_code'] ?? '').toString().isNotEmpty ? ' (${pb['coupon_code']})' : ''}', -n('coupon_discount')),
+        if (couponDiscount > 0)
+          ('Coupon${couponCode.isNotEmpty ? ' ($couponCode)' : ''}', -couponDiscount),
+        if (benefitDiscount > 0)
+          ('Benefit Credit', -benefitDiscount),
       ],
     ];
     final cancelled = _info.state == FlightTripState.cancelled;
@@ -892,7 +915,7 @@ class _FlightTripDetailsScreenState extends State<FlightTripDetailsScreen> {
 
   /// Only confirmed Akbar tickets that the airline marks refundable can be
   /// cancelled here; the server enforces the same rules.
-  bool get _canCancel => _info.isConfirmed && _b.isAkbarBooking && _b.isRefundable != false;
+  bool get _canCancel => _info.isConfirmed && _b.isAkbarBooking && _b.isRefundable == true;
 
   Future<void> _cancelBooking() async {
     final cancelled = await showCancelAndRefundSheet(
