@@ -20,6 +20,7 @@ import '../../../../injection_container.dart';
 import '../../../../newUIWidgets/fare_breakup_sheet.dart';
 import '../../../MainApi/domain/entities/general_setting_entity.dart';
 import 'package:wander_nova/core/services/promo_validation_service.dart';
+import 'package:wander_nova/newUIWidgets/payment_bank_offers_card.dart';
 import '../../../MainApi/presentation/bloc/general_setting_bloc.dart';
 import '../../../MainApi/presentation/bloc/general_settings_event.dart';
 import '../../../MainApi/presentation/bloc/general_settings_state.dart';
@@ -383,7 +384,18 @@ class _TPollBookingScreenState extends State<TPollBookingScreen> {
       _buildVehicleDetails(context),
       _buildTravellers(context),
       _buildFlightInfo(context),
-      _buildCoupons(context),
+      // Promo codes, then (only if the server has transfer offers live) the bank/card offers.
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _buildCoupons(context),
+          PaymentBankOffersCard(
+            amountInr: _totalIn('INR'),
+            type: 'transport',
+            topSpace: 16,
+          ),
+        ],
+      ),
       _buildAmenities(context),
     ];
 

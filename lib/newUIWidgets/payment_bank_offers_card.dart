@@ -18,7 +18,15 @@ class PaymentBankOffersCard extends StatefulWidget {
 
   /// The booking type the offers are for ('flight', 'hotel', ...).
   final String type;
-  const PaymentBankOffersCard({super.key, required this.amountInr, this.type = 'flight'});
+
+  /// Space above the card (it has none by default). Only drawn when the card itself is.
+  final double topSpace;
+  const PaymentBankOffersCard({
+    super.key,
+    required this.amountInr,
+    this.type = 'flight',
+    this.topSpace = 0,
+  });
 
   @override
   State<PaymentBankOffersCard> createState() => _PaymentBankOffersCardState();
@@ -102,7 +110,7 @@ class _PaymentBankOffersCardState extends State<PaymentBankOffersCard> {
 
     return Container(
       width: double.infinity,
-      margin: EdgeInsets.only(bottom: context.h(16)),
+      margin: EdgeInsets.only(top: context.h(widget.topSpace), bottom: context.h(16)),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(context.r(12)),

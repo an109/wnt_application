@@ -21,7 +21,9 @@ import '../../domain/entities/TReservation-entity.dart';
 import '../../domain/usecase/TReservation_usecase.dart';
 import 'booking_confirmation_screen.dart';
 import 'package:wander_nova/common_widgets/app_loader.dart';
+import 'package:wander_nova/core/services/bank_offer_service.dart';
 import 'package:wander_nova/core/services/fee_service.dart';
+import 'package:wander_nova/newUIWidgets/payment_bank_offers_card.dart';
 
 
 class PaymentScreen extends StatefulWidget {
@@ -146,6 +148,16 @@ class _PaymentScreenState extends State<PaymentScreen> {
   /// Payment initiation must use exactly this number.
   int? _razorpayOrderAmountPaise;
 
+  /// A bank/card offer makes Razorpay accept the order ONLY for a card that
+  /// qualifies, so it can never share the order the other methods use. When the
+  /// traveller pays by card with an offer applied, this separate order (created
+  /// with the offer attached) is used instead. Reused only while it is for the
+  /// same offer and the same amount.
+  String? _offerOrderId;
+  String? _offerKeyId;
+  int? _offerOrderPaise;
+  int? _offerOrderOfferId;
+
   // Set once /wallet/pay-booking/ has charged the wallet for this booking, so
   // it is never charged twice.
   String? _walletDebitRef;
@@ -172,6 +184,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
   @override
   void initState() {
     super.initState();
+    BankOfferSelection.selected.addListener(_onBankOfferChanged);
     FeeService.instance.ensureLoaded().then((_) {
       if (mounted) setState(() {});
     });
@@ -193,6 +206,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
   @override
   void dispose() {
     _holdTimer?.cancel();
+    BankOfferSelection.selected.removeListener(_onBankOfferChanged);
     super.dispose();
   }
 
@@ -446,6 +460,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                           subtitle: 'Pay using your wallet balance',
                         ),
                       ]),
+                      PaymentBankOffersCard(amountInr: _payableInInr, type: 'transport'),
                       _sectionLabel(context, 'Pay Online'),
                       SizedBox(height: context.h(10)),
                       _googlePayTile(context),
@@ -467,7 +482,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
                       ),
                       CheckoutAccordion(
                         title: 'Credit / Debit Card',
-                        subtitle: 'Visa, Mastercard, RuPay, Amex & more',
+                        subtitle: _activeBankOffer != null
+                            ? 'Bank offer applied: ${_activeBankOffer!.displayText}'
+                            : 'Visa, Mastercard, RuPay, Amex & more',
                         leading: const CheckoutIcon('assets/NewIcons/credit.png'),
                         expanded: _open == 'card',
                         onTap: () => _toggle('card'),
@@ -568,6 +585,27 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
   // ==================== TOTAL DUE ====================
   Widget _totalDue(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _totalDueRow(context),
+        if (_activeBankOffer != null)
+          Padding(
+            padding: EdgeInsets.only(top: context.h(4)),
+            child: Text(
+              'Bank offer applied. The discount is taken when you pay by card, so your card is charged slightly less than this total.',
+              style: TextStyle(
+                fontSize: context.fs(12),
+                fontWeight: FontWeight.w600,
+                color: _offer,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _totalDueRow(BuildContext context) {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () => _showFareTopSheet(context),
@@ -1757,6 +1795,116 @@ class _PaymentScreenState extends State<PaymentScreen> {
     }
   }
 
+  void _onBankOfferChanged() {
+    if (mounted) setState(() {});
+  }
+
+  /// The bank offer to attach to a CARD payment, or null. Only the offer the
+  /// traveller applied for a TRANSFER, and only while the amount still reaches its
+  /// minimum. The server re-checks all of it; this just avoids a pointless request.
+  BankOffer? get _activeBankOffer {
+    final o = BankOfferSelection.currentFor('transport');
+    if (o == null || o.isBelowMinimum(_payableInInr)) return null;
+    return o;
+  }
+
+  /// Creates (or reuses) the Razorpay order that carries [offer]. Same
+  /// reference_id as the normal order, so the payment is matched back to this
+  /// booking exactly as it is without an offer.
+  Future<bool> _ensureOfferOrder(BankOffer offer) async {
+    final wantedPaise = (_payableInInr * 100).round();
+    if (_offerOrderId != null &&
+        _offerKeyId != null &&
+        _offerOrderOfferId == offer.id &&
+        _offerOrderPaise == wantedPaise) {
+      return true;
+    }
+    _offerOrderId = null;
+    _offerKeyId = null;
+    _offerOrderPaise = null;
+    _offerOrderOfferId = null;
+
+    setState(() {
+      _isProcessing = true;
+      _errorMessage = null;
+      _statusMessage = 'Applying bank offer...';
+    });
+
+    try {
+      final amount = double.parse(_payableInInr.toStringAsFixed(2));
+      final dio = di.sl<DioClient>().instance;
+      final userId = di.sl<PreferencesManager>().getUserId();
+      final response = await dio.post(
+        Urls.razorpayCreateOrder,
+        data: {
+          'amount': amount,
+          'currency': 'INR',
+          'reference_id': _orderReferenceId,
+          'transaction_type': 'transport',
+          'bank_offer_id': offer.id,
+          if (userId != null) 'user_id': userId,
+        },
+        // Same site as the offers list, so the server finds the offer again.
+        options: Options(headers: {'X-Domain': Urls.siteDomain}),
+      );
+
+      final orderId = response.data['order_id'] as String?;
+      final keyId = response.data['key_id'] as String?;
+      final orderPaise = (response.data['amount'] as num?)?.toInt();
+      if (!mounted) return false;
+
+      if (orderId == null || keyId == null) {
+        setState(() {
+          _isProcessing = false;
+          _errorMessage = 'Could not apply the bank offer. Remove it to pay the regular amount, or try again.';
+        });
+        return false;
+      }
+
+      setState(() {
+        _isProcessing = false;
+        _offerOrderId = orderId;
+        _offerKeyId = keyId;
+        _offerOrderPaise = orderPaise;
+        _offerOrderOfferId = offer.id;
+      });
+      return true;
+    } on DioException catch (e) {
+      if (!mounted) return false;
+      final body = e.response?.data;
+      final code = body is Map ? body['error_code'] : null;
+      final msg = body is Map ? body['error'] : null;
+      // The offer ended, is below its minimum, or is not valid here: drop it so
+      // the traveller is not stuck, and say why.
+      if (code == 'offer_unavailable') BankOfferSelection.clear();
+      setState(() {
+        _isProcessing = false;
+        _errorMessage = (code == 'offer_unavailable' && msg is String)
+            ? msg
+            : 'Could not apply the bank offer. Remove it to pay the regular amount, or try again.';
+      });
+      print('Transport Razorpay offer order error: ${e.message}');
+      return false;
+    } catch (e) {
+      if (!mounted) return false;
+      setState(() {
+        _isProcessing = false;
+        _errorMessage = 'Could not start payment: $e';
+      });
+      return false;
+    }
+  }
+
+  /// Razorpay refuses a card that does not match the offer with a bare gateway
+  /// error; say what to do instead.
+  String _offerCardHint(String raw, BankOffer offer) {
+    final bank = offer.bankName.isNotEmpty ? offer.bankName : 'the matching bank';
+    if (RegExp('offer', caseSensitive: false).hasMatch(raw)) {
+      return 'This offer is not valid for the card you entered. It works only with $bank cards. Use a matching card, or remove or change the offer.';
+    }
+    return '$raw If you applied a bank offer, it works only with $bank cards. Use a matching card, or remove the offer.';
+  }
+
   void _toggle(String id) => setState(() => _open = _open == id ? null : id);
 
   Future<Map<String, dynamic>> _loadMethods() {
@@ -1771,8 +1919,15 @@ class _PaymentScreenState extends State<PaymentScreen> {
     FocusScope.of(context).unfocus();
 
     await FeeService.instance.ensureLoaded();
-    final ready = await _ensureRazorpayOrder();
-    if (!ready || !mounted) return;
+    // A card payment with a bank offer applied goes through its own order (the
+    // offer is attached to it); every other method keeps the normal one.
+    final offer = method['method'] == 'card' ? _activeBankOffer : null;
+    if (offer != null) {
+      if (!await _ensureOfferOrder(offer) || !mounted) return;
+    } else {
+      final ready = await _ensureRazorpayOrder();
+      if (!ready || !mounted) return;
+    }
 
     setState(() {
       _isProcessing = true;
@@ -1781,12 +1936,14 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
     try {
       final result = await _rzService.submitPayment(
-        keyId: _razorpayKeyId!,
+        keyId: offer != null ? _offerKeyId! : _razorpayKeyId!,
         data: {
           // The order's own amount, never a second conversion.
-          'amount': _razorpayOrderAmountPaise ?? (_payableInInr * 100).round(),
+          'amount': offer != null
+              ? (_offerOrderPaise ?? (_payableInInr * 100).round())
+              : (_razorpayOrderAmountPaise ?? (_payableInInr * 100).round()),
           'currency': 'INR',
-          'order_id': _razorpayOrderId,
+          'order_id': offer != null ? _offerOrderId : _razorpayOrderId,
           'email': widget.passengerEmail,
           'contact': widget.passengerPhone,
           'description': 'Transport: ${widget.vehicleName}',
@@ -1806,7 +1963,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
       } else {
         if (mounted) setState(() {
           _isProcessing = false;
-          _errorMessage = e.message;
+          _errorMessage =
+              offer != null ? _offerCardHint(e.message, offer) : e.message;
         });
       }
     }

@@ -9,6 +9,7 @@ import '../../../../UI_helper/responsive_layout.dart';
 import '../../../../core/resources/app_colours.dart';
 import '../../../../core/error/data_state.dart';
 import '../../../../injection_container.dart' as di;
+import '../../../../newUIWidgets/payment_bank_offers_card.dart';
 import '../../domain/entity/AKInsurance_entity.dart';
 import '../../domain/usecase/AKInsurance_usecase.dart';
 import '../bloc/AKInsurance_bloc.dart';
@@ -360,6 +361,9 @@ class _InsReviewScreenState extends State<InsReviewScreen> {
                 _travellersCard(context),
                 _healthCard(context),
                 _nomineeCard(context),
+                // Card/bank offers for insurance. Only CHOOSES the offer (the payment screen
+                // attaches it, for a card payment); renders nothing when none are live.
+                PaymentBankOffersCard(amountInr: _total, type: 'insurance', topSpace: 12),
               ],
             ),
           ),

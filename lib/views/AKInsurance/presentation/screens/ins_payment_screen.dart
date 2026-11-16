@@ -6,6 +6,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../UI_helper/responsive_layout.dart';
 import '../../../../core/constants/urls.dart';
+import '../../../../core/services/bank_offer_service.dart';
+import '../../../../newUIWidgets/payment_bank_offers_card.dart';
 import '../../../../core/network/dio_client.dart';
 import '../../../../core/utils/storage/shared_preference.dart';
 import '../../../../injection_container.dart' as di;
@@ -87,6 +89,16 @@ class _InsPaymentScreenState extends State<InsPaymentScreen> {
   /// authorising the locally computed figure fails the order by one paisa.
   int? _orderAmountPaise;
 
+  /// A bank/card offer makes Razorpay accept the order ONLY for a card that
+  /// qualifies, so it can never share the order the other methods use. When the
+  /// traveller pays by card with an offer applied, this separate order (created
+  /// with the offer attached, same reference) is used instead. Reused only while
+  /// it is for the same offer and the same amount.
+  String? _offerOrderId;
+  String? _offerKeyId;
+  int? _offerOrderPaise;
+  int? _offerOrderOfferId;
+
   bool _summaryOpen = false;
 
   /// Which method panel is expanded, or null when all are collapsed. One at
@@ -111,6 +123,7 @@ class _InsPaymentScreenState extends State<InsPaymentScreen> {
   @override
   void initState() {
     super.initState();
+    BankOfferSelection.selected.addListener(_onBankOfferChanged);
     // The Razorpay order is minted as soon as the screen opens rather than on
     // the first method tap: the enabled-methods lookup needs the key id, so
     // Net Banking / EMI / Wallets would otherwise open against an empty key
@@ -128,6 +141,7 @@ class _InsPaymentScreenState extends State<InsPaymentScreen> {
   @override
   void dispose() {
     _ticker?.cancel();
+    BankOfferSelection.selected.removeListener(_onBankOfferChanged);
     super.dispose();
   }
 
@@ -206,6 +220,113 @@ class _InsPaymentScreenState extends State<InsPaymentScreen> {
     }
   }
 
+  void _onBankOfferChanged() {
+    if (mounted) setState(() {});
+  }
+
+  /// The bank offer to attach to a CARD payment, or null. Only the offer the
+  /// traveller applied for INSURANCE, and only while the amount still reaches its
+  /// minimum. The server re-checks all of it; this just avoids a pointless request.
+  BankOffer? get _activeBankOffer {
+    final o = BankOfferSelection.currentFor('insurance');
+    if (o == null || o.isBelowMinimum(widget.amount)) return null;
+    return o;
+  }
+
+  /// Creates (or reuses) the Razorpay order that carries [offer]. Same
+  /// reference_id as the ordinary order, so StartPay's payment check finds the
+  /// paid transaction exactly as it does without an offer.
+  Future<bool> _ensureOfferOrder(BankOffer offer) async {
+    if (_offerOrderId != null &&
+        _offerKeyId != null &&
+        _offerOrderOfferId == offer.id &&
+        _offerOrderPaise != null) {
+      return true;
+    }
+    _offerOrderId = null;
+    _offerKeyId = null;
+    _offerOrderPaise = null;
+    _offerOrderOfferId = null;
+
+    setState(() {
+      _busy = true;
+      _error = null;
+      _status = 'Applying bank offer…';
+    });
+
+    try {
+      final dio = di.sl<DioClient>().instance;
+      final userId = di.sl<PreferencesManager>().getUserId();
+      final res = await dio.post(
+        Urls.razorpayCreateOrder,
+        data: {
+          'reference_id': _reference,
+          'amount': widget.amount,
+          'currency': 'INR',
+          'transaction_type': 'insurance',
+          'bank_offer_id': offer.id,
+          if (userId != null) 'user_id': userId,
+        },
+        // Same site as the offers list, so the server finds the offer again.
+        options: Options(headers: {'X-Domain': Urls.siteDomain}),
+      );
+
+      final orderId = res.data['order_id'] as String?;
+      final keyId = res.data['key_id'] as String?;
+      final orderAmount = (res.data['amount'] as num?)?.round();
+      if (!mounted) return false;
+
+      if (orderId == null || keyId == null) {
+        setState(() {
+          _busy = false;
+          _error = 'Could not apply the bank offer. Remove it to pay the regular amount, or try again.';
+        });
+        return false;
+      }
+
+      setState(() {
+        _busy = false;
+        _offerOrderId = orderId;
+        _offerKeyId = keyId;
+        _offerOrderPaise = orderAmount;
+        _offerOrderOfferId = offer.id;
+      });
+      return true;
+    } on DioException catch (e) {
+      if (!mounted) return false;
+      final body = e.response?.data;
+      final code = body is Map ? body['error_code'] : null;
+      final msg = body is Map ? body['error'] : null;
+      // The offer ended, is below its minimum, or is not valid here: drop it so
+      // the traveller is not stuck, and say why.
+      if (code == 'offer_unavailable') BankOfferSelection.clear();
+      setState(() {
+        _busy = false;
+        _error = (code == 'offer_unavailable' && msg is String)
+            ? msg
+            : 'Could not apply the bank offer. Remove it to pay the regular amount, or try again.';
+      });
+      return false;
+    } catch (e) {
+      if (!mounted) return false;
+      setState(() {
+        _busy = false;
+        _error = 'Could not start payment: $e';
+      });
+      return false;
+    }
+  }
+
+  /// Razorpay refuses a card that does not match the offer with a bare gateway
+  /// error; say what to do instead.
+  String _offerCardHint(String raw, BankOffer offer) {
+    final bank = offer.bankName.isNotEmpty ? offer.bankName : 'the matching bank';
+    if (RegExp('offer', caseSensitive: false).hasMatch(raw)) {
+      return 'This offer is not valid for the card you entered. It works only with $bank cards. Use a matching card, or remove or change the offer.';
+    }
+    return '$raw If you applied a bank offer, it works only with $bank cards. Use a matching card, or remove the offer.';
+  }
+
   /// The account's enabled methods, so the netbanking/EMI/wallet pickers only
   /// ever offer what this Razorpay account actually supports.
   Future<Map<String, dynamic>> _loadMethods() {
@@ -240,7 +361,14 @@ class _InsPaymentScreenState extends State<InsPaymentScreen> {
           'fresh quote.');
       return;
     }
-    if (!await _ensureOrder() || !mounted) return;
+    // A card payment with a bank offer applied goes through its own order (the
+    // offer is attached to it); every other method keeps the ordinary one.
+    final offer = method['method'] == 'card' ? _activeBankOffer : null;
+    if (offer != null) {
+      if (!await _ensureOfferOrder(offer) || !mounted) return;
+    } else {
+      if (!await _ensureOrder() || !mounted) return;
+    }
 
     setState(() {
       _busy = true;
@@ -250,11 +378,13 @@ class _InsPaymentScreenState extends State<InsPaymentScreen> {
 
     try {
       final result = await _checkout.submitPayment(
-        keyId: _keyId!,
+        keyId: offer != null ? _offerKeyId! : _keyId!,
         data: {
-          'amount': _orderAmountPaise ?? _amountInPaise,
+          'amount': offer != null
+              ? (_offerOrderPaise ?? _amountInPaise)
+              : (_orderAmountPaise ?? _amountInPaise),
           'currency': 'INR',
-          'order_id': _orderId,
+          'order_id': offer != null ? _offerOrderId : _orderId,
           'email': widget.details.proposer.email,
           'contact': widget.details.proposer.contactNumber,
           'description': '${widget.plan.planName} — Travel Insurance',
@@ -277,7 +407,7 @@ class _InsPaymentScreenState extends State<InsPaymentScreen> {
       }
       setState(() {
         _busy = false;
-        _error = e.message;
+        _error = offer != null ? _offerCardHint(e.message, offer) : e.message;
       });
     }
   }
@@ -430,6 +560,12 @@ class _InsPaymentScreenState extends State<InsPaymentScreen> {
                             ),
                           ],
                           SizedBox(height: context.h(32)),
+                          // Card/bank offers for insurance. Only RECORDS the choice (the card
+                          // payment attaches it); shows nothing when no insurance offer is live.
+                          Padding(
+                            padding: EdgeInsets.symmetric(horizontal: context.w(16)),
+                            child: PaymentBankOffersCard(amountInr: widget.amount, type: 'insurance'),
+                          ),
                           _sectionLabel(context, 'Suggested options'),
                           Padding(
                             padding: EdgeInsets.symmetric(
@@ -990,7 +1126,9 @@ class _InsPaymentScreenState extends State<InsPaymentScreen> {
     return [
       CheckoutAccordion(
         title: 'Credit & Debit Cards',
-        subtitle: 'Visa, Mastercard, Amex, Rupay and more',
+        subtitle: _activeBankOffer != null
+            ? 'Bank offer applied: ${_activeBankOffer!.displayText}'
+            : 'Visa, Mastercard, Amex, Rupay and more',
         leading: const CheckoutIcon('assets/NewIcons/credit.png'),
         expanded: _open == 'card',
         onTap: () => _toggle('card'),
