@@ -37,6 +37,8 @@ import '../../../AKInsurance/presentation/screens/ins_home_screen.dart';
 import '../../flight/flight_screen.dart';
 import '../../../offers/offers_screen.dart';
 import '../widgets/home_sections.dart';
+import '../widgets/animated_search_hints.dart';
+import '../widgets/shimmer_border.dart';
 import '../widgets/home_top_widgets.dart';
 
 /// Remembers the hero banner URL the General Settings API last returned and
@@ -561,37 +563,55 @@ class _HomeScreenState extends State<HomeScreen> {
         // Hide keyboard if open
         SystemChannels.textInput.invokeMethod('TextInput.hide');
       },
-      child: Container(
-        padding: EdgeInsets.symmetric(
-          horizontal: context.fx(16),
-          vertical: context.fx(12),
-        ),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border.all(color: const Color(0xFFCCCCCC)),
-          borderRadius: BorderRadius.circular(context.fx(24)),
-        ),
-        child: Row(
-          children: [
-            ClipOval(
-              child: Image.asset(
-                'assets/Newgif/search.gif',
-                width: context.fx(24),
-                height: context.fx(24),
-                fit: BoxFit.contain,
-              ),
-            ),
-            SizedBox(width: context.fx(8)),
-            Expanded(
-              child: Text(
-                'Search places',
-                style: TextStyle(
-                  color: const Color(0xFF757575),
-                  fontSize: context.ffs(10),
-                  fontWeight: FontWeight.w500,
+      child: ShimmerBorder(
+        borderRadius: context.fx(24),
+        borderWidth: 2.0,
+        baseBorderWidth: 1.0,
+        colors: const [
+          Color(0xFFD0D0D0),
+          // Color(0xFF80DAFF),
+          Color(0xFF00A1E4),
+          Color(0xFF7B61FF),
+          Color(0xFF00A1E4),
+          // Color(0xFF80DAFF),
+          Color(0xFFD0D0D0),
+        ],
+        child: Container(
+          padding: EdgeInsets.symmetric(
+            horizontal: context.fx(16),
+            vertical: context.fx(12),
+          ),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(context.fx(24)),
+          ),
+          child: Row(
+            children: [
+              ClipOval(
+                child: Image.asset(
+                  'assets/Newgif/search.gif',
+                  width: context.fx(24),
+                  height: context.fx(24),
+                  fit: BoxFit.contain,
                 ),
               ),
-            ),
+              SizedBox(width: context.fx(8)),
+              Expanded(
+                child: AnimatedSearchHints(
+                  hints: const [
+                    'Search flights to Goa',
+                    'Search hotels in Delhi',
+                    'Plan a trip to Manali',
+                    'Search holidays in Bali',
+                    'Find cabs in Mumbai',
+                  ],
+                  style: TextStyle(
+                    color: const Color(0xFF757575),
+                    fontSize: context.ffs(13),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
             GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTap: () {
@@ -601,13 +621,20 @@ class _HomeScreenState extends State<HomeScreen> {
                 });
                 SystemChannels.textInput.invokeMethod('TextInput.hide');
               },
-              child: SvgPicture.asset(
-                'assets/home/mic.svg',
-                width: context.fx(24),
-                height: context.fx(24),
+              // child: SvgPicture.asset(
+              //   'assets/NewIcons/aimic.png',
+              //   // 'assets/home/mic.svg',
+              //   width: context.fx(24),
+              //   height: context.fx(24),
+              // ),
+              child: Image.asset(
+                'assets/NewIcons/aimic.png',
+                width: context.w(17),
+                height: context.w(17),
               ),
             ),
           ],
+        ),
         ),
       ),
     );

@@ -226,68 +226,68 @@ class HomeAdBanner extends StatelessWidget {
       child: Stack(
         children: [
           Positioned.fill(
-            child: Image.asset('$_assets/ad_banner.png', fit: BoxFit.fill),
+            child: Image.asset('$_assets/ad_banner4.png', fit: BoxFit.fill),
           ),
-          Positioned(
-            left: context.fx(266.97),
-            top: context.fx(24.05),
-            width: context.fx(101.333),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Go Where You’re Loved.',
-                  style: TextStyle(
-                    fontSize: context.ffs(12),
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white,
-                  ),
-                ),
-                SizedBox(height: context.fx(8)),
-                GestureDetector(
-                  onTap: onExplore,
-                  child: Container(
-                    color: AppColors.OrangeColor,
-                    padding: EdgeInsets.symmetric(
-                      horizontal: context.fx(4),
-                      vertical: context.fx(2),
-                    ),
-                    child: Text(
-                      'EXPLORE',
-                      style: TextStyle(
-                        fontSize: context.ffs(12),
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Positioned(
-            left: context.fx(305.95),
-            top: context.fx(144.3),
-            height: context.fx(33.3),
-            child: Row(
-              children: [
-                Text(
-                  'Ad',
-                  style: TextStyle(
-                    fontSize: context.ffs(12),
-                    fontWeight: FontWeight.w600,
-                    color: const Color(0xFF757575),
-                  ),
-                ),
-                SizedBox(width: context.fx(4)),
-                SvgPicture.asset(
-                  '$_assets/info.svg',
-                  width: context.fx(18),
-                  height: context.fx(18),
-                ),
-              ],
-            ),
-          ),
+          // Positioned(
+          //   left: context.fx(266.97),
+          //   top: context.fx(24.05),
+          //   width: context.fx(101.333),
+          //   child: Column(
+          //     crossAxisAlignment: CrossAxisAlignment.start,
+          //     children: [
+          //       Text(
+          //         'Go Where You’re Loved.',
+          //         style: TextStyle(
+          //           fontSize: context.ffs(12),
+          //           fontWeight: FontWeight.w600,
+          //           color: Colors.white,
+          //         ),
+          //       ),
+          //       SizedBox(height: context.fx(8)),
+          //       GestureDetector(
+          //         onTap: onExplore,
+          //         child: Container(
+          //           color: AppColors.OrangeColor,
+          //           padding: EdgeInsets.symmetric(
+          //             horizontal: context.fx(4),
+          //             vertical: context.fx(2),
+          //           ),
+          //           child: Text(
+          //             'EXPLORE',
+          //             style: TextStyle(
+          //               fontSize: context.ffs(12),
+          //               fontWeight: FontWeight.w700,
+          //               color: Colors.white,
+          //             ),
+          //           ),
+          //         ),
+          //       ),
+          //     ],
+          //   ),
+          // ),
+          // Positioned(
+          //   left: context.fx(305.95),
+          //   top: context.fx(144.3),
+          //   height: context.fx(33.3),
+          //   child: Row(
+          //     children: [
+          //       Text(
+          //         'Ad',
+          //         style: TextStyle(
+          //           fontSize: context.ffs(12),
+          //           fontWeight: FontWeight.w600,
+          //           color: const Color(0xFF757575),
+          //         ),
+          //       ),
+          //       SizedBox(width: context.fx(4)),
+          //       SvgPicture.asset(
+          //         '$_assets/info.svg',
+          //         width: context.fx(18),
+          //         height: context.fx(18),
+          //       ),
+          //     ],
+          //   ),
+          // ),
         ],
       ),
     );
@@ -390,6 +390,21 @@ class _HomeOffersCarouselState extends State<HomeOffersCarousel> {
       title: 'Get Your Holiday Easier & Faster',
       body: 'next destination',
       bannerAsset: '$_assets/banner20.png',
+    ),
+    HomeInfoSlide(
+      title: 'Get Your Visa Easier & Faster',
+      body: 'Visa',
+      bannerAsset: '$_assets/banner23.png',
+    ),
+    HomeInfoSlide(
+      title: 'Get Your Visa Easier & Faster',
+      body: 'Visa',
+      bannerAsset: '$_assets/banner24.png',
+    ),
+    HomeInfoSlide(
+      title: 'Get Your Transfer Easier & Faster',
+      body: 'Transfer',
+      bannerAsset: '$_assets/banner25.png',
     ),
     HomeInfoSlide(
       title: 'Flat 12% Off on Flights',

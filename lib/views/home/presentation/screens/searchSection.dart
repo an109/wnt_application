@@ -289,7 +289,7 @@ class _SlidingSearchSectionState extends State<SlidingSearchSection>
                             child: Padding(
                               padding: EdgeInsets.all(context.w(6)),
                               child: Image.asset(
-                                'assets/NewIcons/micHD.png',
+                                'assets/NewIcons/aimic.png',
                                 width: context.w(14),
                                 height: context.w(14),
                                 color: _isListening

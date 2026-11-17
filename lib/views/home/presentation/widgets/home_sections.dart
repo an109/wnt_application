@@ -372,7 +372,7 @@ class _HomePopularDestinationsState extends State<HomePopularDestinations> {
             ],
           ),
         ),
-        SizedBox(height: context.fx(12)),
+        SizedBox(height: context.fx(16)),
         BlocBuilder<PopularDestinationBloc, PopularDestinationState>(
           builder: (context, state) {
             if (state is PopularDestinationLoading) {
@@ -495,8 +495,8 @@ class _DestinationCard extends StatelessWidget {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(context.fx(12)),
         child: SizedBox(
-          width: context.fx(144),
-          height: context.fx(192),
+          width: context.fx(154),
+          height: context.fx(198),
           child: Stack(
             fit: StackFit.expand,
             children: [
@@ -528,7 +528,7 @@ class _DestinationCard extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          fontSize: context.ffs(6),
+                          fontSize: context.ffs(10),
                           fontWeight: FontWeight.w700,
                           color: white,
                         ),
@@ -540,31 +540,31 @@ class _DestinationCard extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        fontSize: context.ffs(12),
+                        fontSize: context.ffs(14),
                         fontWeight: FontWeight.w700,
                         color: white,
                       ),
                     ),
-                    if (destination.description.isNotEmpty) ...[
-                      SizedBox(height: context.fx(2)),
-                      Text(
-                        destination.description,
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: context.ffs(6),
-                          fontWeight: FontWeight.w500,
-                          color: white,
-                        ),
-                      ),
-                    ],
+                    // if (destination.description.isNotEmpty) ...[
+                    //   SizedBox(height: context.fx(2)),
+                    //   Text(
+                    //     destination.description,
+                    //     maxLines: 3,
+                    //     overflow: TextOverflow.ellipsis,
+                    //     style: TextStyle(
+                    //       fontSize: context.ffs(9),
+                    //       fontWeight: FontWeight.w500,
+                    //       color: white,
+                    //     ),
+                    //   ),
+                    // ],
                     SizedBox(height: context.fx(8)),
                     Text.rich(
                       TextSpan(
                         children: [
                           TextSpan(
                             text: _price,
-                            style: TextStyle(fontSize: context.ffs(12)),
+                            style: TextStyle(fontSize: context.ffs(13)),
                           ),
                           TextSpan(
                             text: '/ Person',

@@ -16,6 +16,8 @@ import '../../../login/presentation/screen/login.dart';
 import '../../data/visa_draft_store.dart';
 import '../../data/visa_form_data.dart';
 import '../../data/visa_submit_service.dart';
+import '../../../../core/services/bank_offer_service.dart';
+import '../../../../newUIWidgets/payment_bank_offers_card.dart';
 import '../utils/visa_rules.dart';
 import '../utils/visa_theme.dart';
 import '../widgets/visa_checkout_sheets.dart';
@@ -318,6 +320,7 @@ class _VisaCheckoutScreenState extends State<VisaCheckoutScreen> {
       if (!mounted) return;
       setState(() => _busy = false);
       final count = widget.travellers.length;
+      final bankOffer = BankOfferSelection.currentFor('visa');
       final paid = await Navigator.of(context).push<bool>(
         MaterialPageRoute(
           builder: (_) => VisaPaymentScreen(
@@ -328,6 +331,7 @@ class _VisaCheckoutScreenState extends State<VisaCheckoutScreen> {
               if (widget.trip.arrivalDate != null)
                 'Travel ${DateFormat('d MMM yyyy').format(widget.trip.arrivalDate!)}',
               if (_type.processing.isNotEmpty) 'Processing ${_type.processing}',
+              if (bankOffer != null) 'Bank offer: ${bankOffer.displayText}',
             ].join(' | '),
             image: _d.cardImage,
             travellersSummary:
@@ -480,6 +484,12 @@ class _VisaCheckoutScreenState extends State<VisaCheckoutScreen> {
                     const SizedBox(height: 12),
                     _coupons(),
                     const SizedBox(height: 12),
+                    if (_inrRate != null)
+                      PaymentBankOffersCard(
+                        amountInr: _totalInr,
+                        type: 'visa',
+                        topSpace: 0,
+                      ),
                     _visaCard(),
                   ],
                 ),

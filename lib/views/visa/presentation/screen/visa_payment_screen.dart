@@ -10,6 +10,8 @@ import 'package:wander_nova/core/resources/app_colours.dart';
 import 'package:wander_nova/core/utils/storage/shared_preference.dart';
 import 'package:wander_nova/injection_container.dart';
 
+import '../../../../core/services/bank_offer_service.dart';
+import '../../../../newUIWidgets/payment_bank_offers_card.dart';
 import '../../../flight_payment/data/razorpay_custom_checkout_service.dart';
 import '../../../wallet/data/data_source/wallet_api_service.dart';
 import '../../../wallet/wallet/screen/checkout/card_form.dart';
@@ -89,9 +91,96 @@ class _VisaPaymentScreenState extends State<VisaPaymentScreen> {
 
   String get _bookingRef => 'visa_${widget.applicationId}';
 
+  // ==================== BANK OFFERS ====================
+
+  String? _offerOrderId;
+  String? _offerKeyId;
+  int? _offerOrderPaise;
+  int? _offerOrderOfferId;
+
+  BankOffer? get _activeBankOffer {
+    final o = BankOfferSelection.currentFor('visa');
+    if (o == null || o.isBelowMinimum(widget.amountInr)) return null;
+    return o;
+  }
+
+  void _onBankOfferChanged() {
+    if (mounted) setState(() {});
+  }
+
+  Future<bool> _ensureOfferOrder(BankOffer offer) async {
+    final wantedPaise = (widget.amountInr * 100).round();
+    if (_offerOrderId != null &&
+        _offerKeyId != null &&
+        _offerOrderOfferId == offer.id &&
+        _offerOrderPaise == wantedPaise) {
+      return true;
+    }
+    _offerOrderId = null;
+    _offerKeyId = null;
+    _offerOrderPaise = null;
+    _offerOrderOfferId = null;
+
+    setState(() {
+      _processing = true;
+      _errorMessage = null;
+      _statusMessage = 'Applying bank offer...';
+    });
+
+    try {
+      final amount = double.parse(widget.amountInr.toStringAsFixed(2));
+      final dio = sl<DioClient>().instance;
+      final userId = sl<PreferencesManager>().getUserId();
+      final response = await dio.post(
+        Urls.razorpayCreateOrder,
+        data: {
+          'amount': amount,
+          'currency': 'INR',
+          'reference_id': _bookingRef,
+          'transaction_type': 'visa',
+          'bank_offer_id': offer.id,
+          if (userId != null) 'user_id': userId,
+        },
+        options: Options(headers: {'X-Domain': Urls.siteDomain}),
+      );
+
+      final orderId = response.data['order_id'] as String?;
+      final keyId = response.data['key_id'] as String?;
+      final orderPaise = (response.data['amount'] as num?)?.toInt();
+      if (!mounted) return false;
+
+      if (orderId == null || keyId == null) {
+        setState(() {
+          _processing = false;
+          _errorMessage = 'Could not apply the bank offer. Try without it.';
+        });
+        return false;
+      }
+
+      _offerOrderId = orderId;
+      _offerKeyId = keyId;
+      _offerOrderPaise = orderPaise;
+      _offerOrderOfferId = offer.id;
+      setState(() => _processing = false);
+      return true;
+    } on DioException catch (e) {
+      if (!mounted) return false;
+      final code = (e.response?.data as Map?)?['code']?.toString();
+      if (code == 'offer_unavailable') BankOfferSelection.clear();
+      setState(() {
+        _processing = false;
+        _errorMessage = code == 'offer_unavailable'
+            ? 'This bank offer is no longer available.'
+            : 'Could not apply the bank offer. Try without it.';
+      });
+      return false;
+    }
+  }
+
   @override
   void initState() {
     super.initState();
+    BankOfferSelection.selected.addListener(_onBankOfferChanged);
     _holdTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (!mounted) return;
       final next = _timeLeft - const Duration(seconds: 1);
@@ -102,6 +191,7 @@ class _VisaPaymentScreenState extends State<VisaPaymentScreen> {
 
   @override
   void dispose() {
+    BankOfferSelection.selected.removeListener(_onBankOfferChanged);
     _holdTimer?.cancel();
     super.dispose();
   }
@@ -207,7 +297,25 @@ class _VisaPaymentScreenState extends State<VisaPaymentScreen> {
   Future<void> _payWithMethod(Map<String, dynamic> method) async {
     if (_expired || _processing) return;
     FocusScope.of(context).unfocus();
-    if (!await _ensureRazorpayOrder() || !mounted) return;
+
+    // When a bank offer is active and the method is card, use the offer order.
+    final offer = method['method'] == 'card' ? _activeBankOffer : null;
+    String? orderId;
+    String? keyId;
+    int? amountPaise;
+
+    if (offer != null) {
+      if (!await _ensureOfferOrder(offer) || !mounted) return;
+      orderId = _offerOrderId;
+      keyId = _offerKeyId;
+      amountPaise = _offerOrderPaise;
+    } else {
+      if (!await _ensureRazorpayOrder() || !mounted) return;
+      orderId = _razorpayOrderId;
+      keyId = _razorpayKeyId;
+      amountPaise = _razorpayOrderAmountPaise;
+    }
+
     setState(() {
       _processing = true;
       _statusMessage = 'Complete the payment to continue...';
@@ -215,13 +323,11 @@ class _VisaPaymentScreenState extends State<VisaPaymentScreen> {
     });
     try {
       final result = await _rzService.submitPayment(
-        keyId: _razorpayKeyId!,
+        keyId: keyId!,
         data: {
-          // The order's own amount, never a second conversion of the
-          // same rupees -- the two can differ by a paisa.
-          'amount': _razorpayOrderAmountPaise ?? (widget.amountInr * 100).round(),
+          'amount': amountPaise ?? (widget.amountInr * 100).round(),
           'currency': 'INR',
-          'order_id': _razorpayOrderId,
+          'order_id': orderId,
           'email': widget.email,
           'contact': widget.phone,
           'description': 'Visa: ${widget.title}',
@@ -340,7 +446,9 @@ class _VisaPaymentScreenState extends State<VisaPaymentScreen> {
                       _totalDue(context),
                       SizedBox(height: context.h(16)),
                       _summaryCard(context),
-                      SizedBox(height: context.h(24)),
+                      SizedBox(height: context.h(8)),
+                      PaymentBankOffersCard(amountInr: widget.amountInr, type: 'visa'),
+                      SizedBox(height: context.h(8)),
                       if (_processing)
                         Padding(
                           padding: EdgeInsets.symmetric(vertical: context.h(48)),
@@ -495,6 +603,18 @@ class _VisaPaymentScreenState extends State<VisaPaymentScreen> {
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         _totalDueRow(context),
+        if (_activeBankOffer != null)
+          Padding(
+            padding: EdgeInsets.only(top: context.h(4)),
+            child: Text(
+              'Bank offer applied. The discount is taken when you pay by card, so your card is charged slightly less than this total.',
+              style: TextStyle(
+                fontSize: context.fs(12),
+                fontWeight: FontWeight.w600,
+                color: _offer,
+              ),
+            ),
+          ),
         if (hint.isNotEmpty)
           Text('$hint · charged in INR', style: TextStyle(fontSize: context.fs(12), color: _muted)),
       ],
