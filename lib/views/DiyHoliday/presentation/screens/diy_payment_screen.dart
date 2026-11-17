@@ -231,25 +231,36 @@ class _DiyPaymentScreenState extends State<DiyPaymentScreen> {
     try {
       await dio.post(
         Urls.holidayBookings,
+        // Field names are the ones the server's holiday booking endpoint expects.
+        // reference_id is the order reference the server verified above, and
+        // checkout_id the Razorpay payment id: the server uses them to find the
+        // payment itself before it marks the booking paid.
         data: {
-          'package_share_id': widget.shareId,
-          if (widget.tripId != null) 'trip_id': widget.tripId,
-          'package_title': widget.packageTitle,
-          'destination': widget.destination,
-          'departure_date': _ymd(widget.query.departureDate),
-          'nights': widget.nights,
-          'adults': widget.query.adults,
-          'children': widget.query.children,
-          'rooms': widget.query.rooms,
-          'flight': widget.withFlight ? 'with' : 'without',
-          'add_on_ids': widget.addOnIds,
-          'amount': widget.amount,
-          'currency': widget.currency,
+          'reference_id': _reference,
+          'checkout_id': payment.paymentId,
           'payment_reference': _reference,
-          'razorpay_payment_id': payment.paymentId,
-          'contact_email': widget.contactEmail,
-          'contact_phone': widget.contactPhone,
-          'travellers': widget.travellers.map((t) => t.toJson()).toList(),
+          'package_slug': widget.shareId,
+          'package_name': widget.packageTitle,
+          'city': widget.destination,
+          'check_in': _ymd(widget.query.departureDate),
+          'nights': widget.nights,
+          'days': widget.nights + 1,
+          'guests': widget.query.adults + widget.query.children,
+          'grand_total': widget.amount.toStringAsFixed(2),
+          'currency': widget.currency,
+          'traveler_name': _leadName,
+          'email': widget.contactEmail,
+          'phone': widget.contactPhone,
+          'package_snapshot': {
+            'source': 'diy_app',
+            if (widget.tripId != null) 'trip_id': widget.tripId,
+            'rooms': widget.query.rooms,
+            'adults': widget.query.adults,
+            'children': widget.query.children,
+            'flight': widget.withFlight ? 'with' : 'without',
+            'add_on_ids': widget.addOnIds,
+            'travellers': widget.travellers.map((t) => t.toJson()).toList(),
+          },
         },
       );
     } catch (_) {
