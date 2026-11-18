@@ -100,28 +100,21 @@ class _AIFloatingButtonState extends State<AIFloatingButton>
             ),
           ],
         ),
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            // Colorful AI Frame
-            ClipOval(
-              child: Image.asset(
-                widget.frameImagePath!,
-                width: buttonSize * 1.3,
-                height: buttonSize * 1.3,
-                fit: BoxFit.cover,
-              ),
+        child: Container(
+          decoration: const BoxDecoration(
+            shape: BoxShape.circle,
+            color: Color(0xFFD6E6F9),
+          ),
+          child: ClipOval(
+            child: Image.asset(
+              'assets/trisha/trisha_orb.gif',
+              width: buttonSize,
+              height: buttonSize,
+              fit: BoxFit.cover,
+              gaplessPlayback: true,
+              filterQuality: FilterQuality.medium,
             ),
-            // AI GIF
-            ClipOval(
-              child: Image.asset(
-                widget.gifImagePath!,
-                width: buttonSize * 1.35,
-                height: buttonSize * 1.35,
-                fit: BoxFit.contain,
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );

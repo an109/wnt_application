@@ -12,11 +12,13 @@ import 'package:wander_nova/core/resources/app_colours.dart';
 class VoiceListeningOverlay extends StatefulWidget {
   final String recognizedText;
   final VoidCallback onCancel;
+  final bool embedded;
 
   const VoiceListeningOverlay({
     super.key,
     required this.recognizedText,
     required this.onCancel,
+    this.embedded = false,
   });
 
   @override
@@ -50,31 +52,37 @@ class _VoiceListeningOverlayState extends State<VoiceListeningOverlay>
 
   @override
   Widget build(BuildContext context) {
+    final isEmbedded = widget.embedded;
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.fromLTRB(
-        context.fx(24),
-        context.fx(32),
-        context.fx(24),
-        context.fx(24) + MediaQuery.of(context).padding.bottom,
-      ),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-      ),
+      padding: isEmbedded
+          ? EdgeInsets.symmetric(vertical: context.fx(16))
+          : EdgeInsets.fromLTRB(
+              context.fx(24),
+              context.fx(32),
+              context.fx(24),
+              context.fx(24) + MediaQuery.of(context).padding.bottom,
+            ),
+      decoration: isEmbedded
+          ? null
+          : const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+            ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Drag handle
-          Container(
-            width: context.fx(40),
-            height: context.fx(4),
-            decoration: BoxDecoration(
-              color: Colors.grey.shade300,
-              borderRadius: BorderRadius.circular(2),
+          if (!isEmbedded) ...[
+            Container(
+              width: context.fx(40),
+              height: context.fx(4),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2),
+              ),
             ),
-          ),
-          SizedBox(height: context.fx(28)),
+            SizedBox(height: context.fx(28)),
+          ],
 
           // Pulsing mic with ripples
           SizedBox(
@@ -85,7 +93,8 @@ class _VoiceListeningOverlayState extends State<VoiceListeningOverlay>
               builder: (_, __) => CustomPaint(
                 painter: _RipplePainter(
                   progress: _ripple.value,
-                  color: AppColors.AppBlue,
+                  // color: AppColors.AppBlue,
+                  color: const Color(0xFF00A1E4),
                 ),
                 child: Center(
                   child: Container(
@@ -97,13 +106,24 @@ class _VoiceListeningOverlayState extends State<VoiceListeningOverlay>
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                         colors: [
-                          AppColors.AppBlue,
+                          Color(0xFF00A1E4),
                           AppColors.AppBlue.withValues(alpha: 0.8),
                         ],
                       ),
+                      // gradient: const LinearGradient(
+                      //   begin: Alignment.topLeft,
+                      //   end: Alignment.bottomRight,
+                      //   colors: [
+                      //     Color(0xFF7B61FF),
+                      //     Color(0xFF00A1E4),
+                      //     Color(0xFF7B61FF),
+                      //     // Color(0xFF00A1E4),
+                      //   ],
+                      // ),
                       boxShadow: [
                         BoxShadow(
-                          color: AppColors.AppBlue.withValues(alpha: 0.3),
+                          // color: AppColors.AppBlue.withValues(alpha: 0.3),
+                          color: const Color(0xFF00A1E4).withValues(alpha: 0.3),
                           blurRadius: 16,
                           spreadRadius: 2,
                         ),
@@ -138,7 +158,13 @@ class _VoiceListeningOverlayState extends State<VoiceListeningOverlay>
                     width: context.fx(4),
                     height: height,
                     decoration: BoxDecoration(
-                      color: AppColors.AppBlue.withValues(alpha: 0.5 + 0.5 * math.sin(t * math.pi)),
+                      // color: AppColors.AppBlue.withValues(alpha: 0.5 + 0.5 * math.sin(t * math.pi)),
+                      color: Color.lerp(
+                        // const Color(0xFF00A1E4),
+                        const Color(0xFF7B61FF),
+                        const Color(0xFF00A1E4),
+                        0.5 + 0.5 * math.sin(t * math.pi),
+                      )!,
                       borderRadius: BorderRadius.circular(context.fx(2)),
                     ),
                   );

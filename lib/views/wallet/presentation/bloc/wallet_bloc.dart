@@ -26,7 +26,10 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
       print('WALLET BLOC: DataSuccess received');
       emit(WalletLoaded(wallet: result.data!));
     } else if (result is DataFailed<WalletEntity>) {
-      final errorMessage = result.error?.message ?? 'Failed to fetch wallet balance';
+      final raw = result.error;
+      final errorMessage = (raw?.error is String && (raw!.error as String).isNotEmpty)
+          ? raw.error as String
+          : 'Could not load wallet. Please try again.';
       print('WALLET BLOC: DataFailed - $errorMessage');
       emit(WalletError(message: errorMessage));
     }

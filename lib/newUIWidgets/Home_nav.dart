@@ -120,12 +120,19 @@ class CustomBottomNav extends StatelessWidget {
                     ),
                   ],
                 ),
-                child: ClipOval(
-                  child: Image.asset(
-                    TrishaStyle.orbAsset,
-                    fit: BoxFit.cover,
-                    // Until the orb is exported from Figma, keep the old animation.
-                    errorBuilder: (_, __, ___) => Image.asset('assets/Newgif/home_ai.gif', fit: BoxFit.cover),
+                child: Container(
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Color(0xFFD6E6F9),
+                  ),
+                  child: ClipOval(
+                    child: Image.asset(
+                      TrishaStyle.orbAsset,
+                      fit: BoxFit.cover,
+                      gaplessPlayback: true,
+                      filterQuality: FilterQuality.medium,
+                      errorBuilder: (_, __, ___) => Image.asset('assets/Newgif/home_ai.gif', fit: BoxFit.cover),
+                    ),
                   ),
                 ),
               ),

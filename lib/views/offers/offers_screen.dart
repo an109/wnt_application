@@ -9,6 +9,8 @@ import 'package:wander_nova/core/resources/app_colours.dart';
 
 import '../../newUIWidgets/Home_nav.dart';
 import '../MyBookings/Screen/MyBooking_Screen.dart';
+import '../TrishaAI/presentation/screen/trisha_chat_screen.dart';
+import '../wishlist/wishlist_screen.dart';
 import '../ExclusiveDeals/domain/entities/exclusive_deal_entity.dart';
 import '../ExclusiveDeals/presentation/bloc/exclusive_deals_bloc.dart';
 import '../ExclusiveDeals/presentation/bloc/exclusive_deals_event.dart';
@@ -140,13 +142,17 @@ class _OffersScreenState extends State<OffersScreen> {
   }
 
   void _onNavTap(int index) {
-    // Home lives underneath this screen; the other tabs aren't built yet
-    // (same as on the home screen).
-    if (index == 0) Navigator.of(context).maybePop();
-    if (index == 1) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const MyBookingScreen()),
-      );
+    switch (index) {
+      case 0:
+        Navigator.of(context).popUntil((route) => route.isFirst);
+      case 1:
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const MyBookingScreen()),
+        );
+      case 3:
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const WishlistScreen()),
+        );
     }
   }
 
@@ -161,7 +167,13 @@ class _OffersScreenState extends State<OffersScreen> {
           top: false,
           child: Padding(
             padding: EdgeInsets.only(bottom: context.h(12)),
-            child: CustomBottomNav(currentIndex: 2, onItemSelected: _onNavTap),
+            child: CustomBottomNav(
+              currentIndex: 2,
+              onItemSelected: _onNavTap,
+              onCenterTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const TrishaChatScreen()),
+              ),
+            ),
           ),
         ),
         body: BlocBuilder<ExclusiveDealsBloc, ExclusiveDealsState>(

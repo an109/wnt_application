@@ -133,11 +133,13 @@ class _PageDots extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         for (var i = 0; i < count; i++) ...[
-          if (i > 0) SizedBox(width: context.fx(4)),
+          if (i > 0) SizedBox(width: context.fx(5)),
           AnimatedContainer(
             duration: const Duration(milliseconds: 220),
-            width: context.fx(i == current ? 34 : 12),
-            height: context.fx(12),
+            // width: context.fx(i == current ? 34 : 12),
+            // height: context.fx(12),
+            width: context.fx(i == current ? 22 : 6),
+            height: context.fx(6),
             decoration: BoxDecoration(
               color: i == current
                   ? AppColors.AppBlue
@@ -391,11 +393,11 @@ class _HomeOffersCarouselState extends State<HomeOffersCarousel> {
       body: 'next destination',
       bannerAsset: '$_assets/banner20.png',
     ),
-    HomeInfoSlide(
-      title: 'Get Your Visa Easier & Faster',
-      body: 'Visa',
-      bannerAsset: '$_assets/banner23.png',
-    ),
+    // HomeInfoSlide(
+    //   title: 'Get Your Visa Easier & Faster',
+    //   body: 'Visa',
+    //   bannerAsset: '$_assets/banner23.png',
+    // ),
     HomeInfoSlide(
       title: 'Get Your Visa Easier & Faster',
       body: 'Visa',

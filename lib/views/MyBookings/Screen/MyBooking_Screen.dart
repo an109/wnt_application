@@ -14,6 +14,8 @@ import 'package:wander_nova/views/MyBookings/Transport/domain/entity/MyBooking_e
 import '../../../core/utils/storage/shared_preference.dart';
 import '../../../injection_container.dart';
 import '../../../newUIWidgets/Home_nav.dart';
+import '../../TrishaAI/presentation/screen/trisha_chat_screen.dart';
+import '../../wishlist/wishlist_screen.dart';
 import '../../UpcomingTrips/data/models/tripModel.dart';
 import '../../UpcomingTrips/presentation/bloc/upcomingTrip_bloc.dart';
 import '../../UpcomingTrips/presentation/bloc/upcomingTrip_event.dart';
@@ -290,9 +292,17 @@ class _MyBookingScreenState extends State<MyBookingScreen> {
   }
 
   void _onNavTap(int index) {
-    if (index == 0) Navigator.of(context).maybePop();
-    if (index == 2) {
-      Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const OffersScreen()));
+    switch (index) {
+      case 0:
+        Navigator.of(context).popUntil((route) => route.isFirst);
+      case 2:
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const OffersScreen()),
+        );
+      case 3:
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const WishlistScreen()),
+        );
     }
   }
 
@@ -353,7 +363,13 @@ class _MyBookingScreenState extends State<MyBookingScreen> {
                 top: false,
                 child: Padding(
                   padding: EdgeInsets.only(bottom: context.h(12)),
-                  child: CustomBottomNav(currentIndex: 1, onItemSelected: _onNavTap),
+                  child: CustomBottomNav(
+                    currentIndex: 1,
+                    onItemSelected: _onNavTap,
+                    onCenterTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const TrishaChatScreen()),
+                    ),
+                  ),
                 ),
               )
             : null,

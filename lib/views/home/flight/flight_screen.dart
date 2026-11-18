@@ -12,7 +12,7 @@ import '../../airport/presentation/screen/search_card.dart';
 import '../../airport/presentation/screen/recent_searches_section.dart';
 import '../../trending_route/presentation/screen/trending_routes.dart';
 import '../../../common_widgets/custom_drawer.dart';
-import '../presentation/screens/deals.dart';
+
 
 class FlightScreen extends StatelessWidget {
   const FlightScreen({super.key});
@@ -28,74 +28,40 @@ class FlightScreen extends StatelessWidget {
       extendBodyBehindAppBar: true,
       body: Stack(
         children: [
-          // Main content
-          Container(
-            color: Colors.white,
-            child: CustomScrollView(
-              physics: context.scrollPhysics,
-              slivers: [
-                // Full-bleed hero + search form: no padding/margin at all so the
-                // background image spans the whole screen width.
-                // const SliverToBoxAdapter(child: SearchCard()),
-                SliverToBoxAdapter(
-                  child: Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      const SearchCard(),
+          CustomScrollView(
+            physics: context.scrollPhysics,
+            slivers: [
+              SliverToBoxAdapter(
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    const SearchCard(),
+                  ],
+                ),
+              ),
+              SliverToBoxAdapter(child: SizedBox(height: context.fx(32))),
 
-                      // // Figma: Rectangle 35
-                      // // Fill: #FFFFFF
-                      // // Layer Blur: 16
-                      // Positioned(
-                      //   left: 0,
-                      //   right: 0,
-                      //   bottom: -context.h(25),
-                      //   child: ImageFiltered(
-                      //     imageFilter: ImageFilter.blur(
-                      //       sigmaX: 16,
-                      //       sigmaY: 16,
-                      //     ),
-                      //     child: Container(
-                      //       height: context.h(40),
-                      //       decoration: const BoxDecoration(
-                      //         color: Colors.white,
-                      //       ),
-                      //     ),
-                      //   ),
-                      // ),
-                    ],
+              const SliverToBoxAdapter(child: RecentSearchesSection()),
+
+              SliverToBoxAdapter(child: SizedBox(height: context.h(24))),
+
+              SliverToBoxAdapter(
+                child: BlocProvider<ExclusiveDealsBloc>(
+                  create: (context) => sl<ExclusiveDealsBloc>(),
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(horizontal: context.w(16)),
+                    child: const HomeOffersCarousel(categories: ['flight']),
                   ),
                 ),
-                SliverToBoxAdapter(child: SizedBox(height: context.fx(32))),
+              ),
+              SliverToBoxAdapter(child: SizedBox(height: context.h(24))),
 
-                // Recent Searches — reads back whatever SearchCard already
-                // saved to PreferencesManager; hides itself when there's none.
-                const SliverToBoxAdapter(child: RecentSearchesSection()),
-
-                SliverToBoxAdapter(child: SizedBox(height: context.h(24))),
-
-                SliverToBoxAdapter(
-                  child: BlocProvider<ExclusiveDealsBloc>(
-                    create: (context) => sl<ExclusiveDealsBloc>(),
-                    // child: const DealsSection(),
-                    child: Padding(
-                      padding: EdgeInsets.symmetric(horizontal: context.w(16)),
-                      child: const HomeOffersCarousel(categories: ['flight']),
-                    ),
-                  ),
-                ),
-                SliverToBoxAdapter(child: SizedBox(height: context.h(24))),
-
-                const SliverToBoxAdapter(child: PopularDestinations()),
-                SliverToBoxAdapter(child: SizedBox(height: context.h(15))),
-                const SliverToBoxAdapter(child: TrendingPackages()),
-              ],
-            ),
+              const SliverToBoxAdapter(child: PopularDestinations()),
+              SliverToBoxAdapter(child: SizedBox(height: context.h(15))),
+              const SliverToBoxAdapter(child: TrendingPackages()),
+            ],
           ),
 
-          // ==================================================
-          // FLOATING AI BUTTON - Fixed at bottom right
-          // ==================================================
           AIFloatingButton(
             onTap: () {
               Navigator.push(
@@ -103,7 +69,7 @@ class FlightScreen extends StatelessWidget {
                 MaterialPageRoute(builder: (_) => const TrishaChatScreen()),
               );
             },
-          )
+          ),
         ],
       ),
       ),

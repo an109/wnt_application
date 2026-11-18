@@ -89,14 +89,21 @@ class TrishaOrb extends StatelessWidget {
     final orb = SizedBox(
       width: size,
       height: size,
-      child: ClipOval(
-        child: Image.asset(
-          TrishaStyle.orbAsset,
-          width: size,
-          height: size,
-          fit: BoxFit.cover,
-          gaplessPlayback: true,
-          errorBuilder: (_, __, ___) => const _OrbFallback(),
+      child: Container(
+        decoration: const BoxDecoration(
+          shape: BoxShape.circle,
+          color: Color(0xFFD6E6F9),
+        ),
+        child: ClipOval(
+          child: Image.asset(
+            TrishaStyle.orbAsset,
+            width: size,
+            height: size,
+            fit: BoxFit.cover,
+            gaplessPlayback: true,
+            filterQuality: FilterQuality.medium,
+            errorBuilder: (_, __, ___) => const _OrbFallback(),
+          ),
         ),
       ),
     );

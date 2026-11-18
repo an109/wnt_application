@@ -115,32 +115,34 @@ class InsuranceScreen extends StatelessWidget {
                     ),
                   ],
                 ),
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    // ==================================================
-                    // COLORFUL AI FRAME
-                    // ==================================================
-                    ClipOval(
-                      child: Image.asset(
-                        'assets/Newgif/ai_frame.png',
-                        width: context.w(63),
-                        height: context.h(63),
-                        fit: BoxFit.cover,
+                child: Container(
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Color(0xFFD6E6F9),
+                  ),
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      ClipOval(
+                        child: Image.asset(
+                          'assets/Newgif/ai_frame.png',
+                          width: context.w(63),
+                          height: context.h(63),
+                          fit: BoxFit.cover,
+                        ),
                       ),
-                    ),
-                    // ==================================================
-                    // AI GIF
-                    // ==================================================
-                    ClipOval(
-                      child: Image.asset(
-                        'assets/Newgif/home_ai.gif',
-                        width: context.w(65),
-                        height: context.h(65),
-                        fit: BoxFit.contain,
+                      ClipOval(
+                        child: Image.asset(
+                          'assets/Newgif/home_ai.gif',
+                          width: context.w(65),
+                          height: context.h(65),
+                          fit: BoxFit.contain,
+                          gaplessPlayback: true,
+                          filterQuality: FilterQuality.medium,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),

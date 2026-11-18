@@ -65,16 +65,37 @@ class WalletRepositoryImpl implements WalletRepository {
     } on DioException catch (e) {
       print('WALLET API DioException: ${e.message}');
       print('WALLET API Error Response: ${e.response?.data}');
-      return DataFailed(e);
+      final serverError = _extractError(e);
+      return DataFailed(
+        DioException(
+          requestOptions: e.requestOptions,
+          error: serverError,
+          type: e.type,
+          response: e.response,
+        ),
+      );
     } catch (e) {
       print('WALLET API Unknown Error: $e');
       return DataFailed(
         DioException(
           requestOptions: RequestOptions(path: ''),
-          error: e.toString(),
+          error: 'Something went wrong. Please try again.',
           type: DioExceptionType.unknown,
         ),
       );
     }
+  }
+
+  String _extractError(DioException e) {
+    final data = e.response?.data;
+    if (data is Map) {
+      final msg = data['error'] ?? data['message'] ?? data['detail'];
+      if (msg is String && msg.isNotEmpty) return msg;
+    }
+    final status = e.response?.statusCode;
+    if (status == 401) return 'Please sign in to access your wallet.';
+    if (status == 403) return 'You do not have permission to access this.';
+    if (status != null && status >= 500) return 'Server error. Please try again later.';
+    return 'Could not load wallet. Please try again.';
   }
 }

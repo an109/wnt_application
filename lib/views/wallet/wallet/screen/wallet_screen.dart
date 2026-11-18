@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -61,8 +62,12 @@ class _WalletScreenState extends State<WalletScreen> {
   @override
   void initState() {
     super.initState();
-    _walletBloc = sl<WalletBloc>()..add(const FetchWalletBalance());
-    _transactionBloc = sl<TransactionBloc>()..add(const FetchTransactions());
+    _walletBloc = sl<WalletBloc>();
+    _transactionBloc = sl<TransactionBloc>();
+    if (sl<PreferencesManager>().isLoggedIn()) {
+      _walletBloc.add(const FetchWalletBalance());
+      _transactionBloc.add(const FetchTransactions());
+    }
   }
 
   @override
@@ -70,6 +75,18 @@ class _WalletScreenState extends State<WalletScreen> {
     _walletBloc.close();
     _transactionBloc.close();
     super.dispose();
+  }
+
+  String _friendlyError(DioException e) {
+    final data = e.response?.data;
+    if (data is Map) {
+      final msg = data['error'] ?? data['message'] ?? data['detail'];
+      if (msg is String && msg.isNotEmpty) return msg;
+    }
+    final status = e.response?.statusCode;
+    if (status == 401) return 'Please sign in to view transactions.';
+    if (status != null && status >= 500) return 'Server error. Please try again later.';
+    return 'Could not load transactions. Please try again.';
   }
 
   /// True while the sheet's controls are narrowing the list, so the Filter
@@ -220,7 +237,7 @@ class _WalletScreenState extends State<WalletScreen> {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text(
-                    'Failed to load transactions: ${state.error.message}',
+                    _friendlyError(state.error),
                   ),
                   backgroundColor: Colors.red,
                 ),

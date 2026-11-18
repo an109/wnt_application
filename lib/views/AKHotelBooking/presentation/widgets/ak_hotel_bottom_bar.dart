@@ -98,26 +98,21 @@ class AkHotelBottomBar extends StatelessWidget {
                     BoxShadow(color: Colors.black26, blurRadius: 10, offset: Offset(0, 4)),
                   ],
                 ),
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    ClipOval(
-                      child: Image.asset(
-                        'assets/Newgif/ai_frame.png',
-                        width: context.w(60),
-                        height: context.h(60),
-                        fit: BoxFit.cover,
-                      ),
+                child: Container(
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Color(0xFFD6E6F9),
+                  ),
+                  child: ClipOval(
+                    child: Image.asset(
+                      'assets/trisha/trisha_orb.gif',
+                      width: context.w(62),
+                      height: context.h(62),
+                      fit: BoxFit.cover,
+                      gaplessPlayback: true,
+                      filterQuality: FilterQuality.medium,
                     ),
-                    ClipOval(
-                      child: Image.asset(
-                        'assets/Newgif/home_ai.gif',
-                        width: context.w(62),
-                        height: context.h(62),
-                        fit: BoxFit.contain,
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
             ),

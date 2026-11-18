@@ -292,9 +292,9 @@ class _SlidingSearchSectionState extends State<SlidingSearchSection>
                                 'assets/NewIcons/aimic.png',
                                 width: context.w(14),
                                 height: context.w(14),
-                                color: _isListening
-                                    ? Colors.red
-                                    : AppColors.AppBlue,
+                                // color: _isListening
+                                //     ? Colors.red
+                                //     : AppColors.AppBlue,
                               ),
                             ),
                           ),
@@ -304,81 +304,14 @@ class _SlidingSearchSectionState extends State<SlidingSearchSection>
 
                     SizedBox(height: context.h(30)),
 
-                    // TRENDING PROMPTS section (same as before)
-                    Container(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: context.w(16),
-                        vertical: context.h(12),
-                      ),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(context.r(24)),
-                        color: Colors.white,
-                        border: Border.all(
-                          color: Colors.grey.shade200,
-                          width: 0.1,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.01),
-                            blurRadius: context.h(12),
-                            offset: Offset(0, -context.h(19)),
-                          )
-                        ],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'TRENDING PROMPTS',
-                            style: TextStyle(
-                              fontSize: context.fs(10),
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.grey,
-                              letterSpacing: 1.0,
-                            ),
-                          ),
-                          SizedBox(height: context.h(20)),
-
-                          // FLIGHTS
-                          _buildTrendingItem(
-                            icon: 'assets/NewIcons/prompt1.png',
-                            categoryIcon: Icons.flight,
-                            fallbackIcon: Icons.flight,
-                            category: 'FLIGHTS',
-                            categoryColor: AppColors.AppBlue,
-                            title: 'Cheapest flights to Goa',
-                            onTap: () => _goToTrisha('Cheapest flights to Goa'),
-                            // onTap: widget.onHide,
-                          ),
-                          SizedBox(height: context.h(20)),
-
-                          // TRIP PLANNING
-                          _buildTrendingItem(
-                            icon: 'assets/NewIcons/prompt2.png',
-                            categoryIcon: Icons.account_balance_sharp,
-                            fallbackIcon: Icons.travel_explore,
-                            category: 'TRIP PLANNING',
-                            categoryColor: AppColors.AppBlue,
-                            title: 'Plan an itinerary covering Goa in 5 days',
-                            onTap: () => _goToTrisha('Plan an itinerary covering Goa in 5 days'),
-                            // onTap: widget.onHide,
-                          ),
-                          SizedBox(height: context.h(20)),
-
-                          // HOTELS
-                          _buildTrendingItem(
-                            icon: 'assets/NewIcons/prompt3.png',
-                            categoryIcon: Icons.hotel_outlined,
-                            fallbackIcon: Icons.hotel,
-                            category: 'HOTELS',
-                            categoryColor: AppColors.AppBlue,
-                            title:
-                                'Recommend some iconic palace hotels to stay in Udaipur',
-                            // onTap: widget.onHide,
-                            onTap: () => _goToTrisha('Recommend some iconic palace hotels to stay in Udaipur'),
-                          ),
-                        ],
-                      ),
+                    // Show listening animation OR trending prompts
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 300),
+                      switchInCurve: Curves.easeOut,
+                      switchOutCurve: Curves.easeIn,
+                      child: _isListening
+                          ? _buildListeningSection(context)
+                          : _buildTrendingPromptsSection(context),
                     ),
                   ],
                 ),
@@ -388,20 +321,99 @@ class _SlidingSearchSectionState extends State<SlidingSearchSection>
         ),
       ),
     ),
-    if (_isListening)
-      Positioned(
-        left: 0,
-        right: 0,
-        bottom: 0,
-        child: GestureDetector(
-          onTap: () {},
-          child: VoiceListeningOverlay(
-            recognizedText: _recognizedText,
-            onCancel: _toggleListening,
+    ],
+    );
+  }
+
+  Widget _buildTrendingPromptsSection(BuildContext context) {
+    return Container(
+      key: const ValueKey('trending'),
+      padding: EdgeInsets.symmetric(
+        horizontal: context.w(16),
+        vertical: context.h(12),
+      ),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(context.r(24)),
+        color: Colors.white,
+        border: Border.all(
+          color: Colors.grey.shade200,
+          width: 0.1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.01),
+            blurRadius: context.h(12),
+            offset: Offset(0, -context.h(19)),
+          )
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'TRENDING PROMPTS',
+            style: TextStyle(
+              fontSize: context.fs(10),
+              fontWeight: FontWeight.w600,
+              color: AppColors.grey,
+              letterSpacing: 1.0,
+            ),
           ),
+          SizedBox(height: context.h(20)),
+          _buildTrendingItem(
+            icon: 'assets/NewIcons/prompt1.png',
+            categoryIcon: Icons.flight,
+            fallbackIcon: Icons.flight,
+            category: 'FLIGHTS',
+            categoryColor: AppColors.AppBlue,
+            title: 'Cheapest flights to Goa',
+            onTap: () => _goToTrisha('Cheapest flights to Goa'),
+          ),
+          SizedBox(height: context.h(20)),
+          _buildTrendingItem(
+            icon: 'assets/NewIcons/prompt2.png',
+            categoryIcon: Icons.account_balance_sharp,
+            fallbackIcon: Icons.travel_explore,
+            category: 'TRIP PLANNING',
+            categoryColor: AppColors.AppBlue,
+            title: 'Plan an itinerary covering Goa in 5 days',
+            onTap: () => _goToTrisha('Plan an itinerary covering Goa in 5 days'),
+          ),
+          SizedBox(height: context.h(20)),
+          _buildTrendingItem(
+            icon: 'assets/NewIcons/prompt3.png',
+            categoryIcon: Icons.hotel_outlined,
+            fallbackIcon: Icons.hotel,
+            category: 'HOTELS',
+            categoryColor: AppColors.AppBlue,
+            title: 'Recommend some iconic palace hotels to stay in Udaipur',
+            onTap: () => _goToTrisha('Recommend some iconic palace hotels to stay in Udaipur'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildListeningSection(BuildContext context) {
+    return Container(
+      key: const ValueKey('listening'),
+      padding: EdgeInsets.symmetric(
+        horizontal: context.w(16),
+        vertical: context.h(24),
+      ),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(context.r(24)),
+        color: Colors.white,
+        border: Border.all(
+          color: Colors.grey.shade200,
+          width: 0.1,
         ),
       ),
-    ],
+      child: VoiceListeningOverlay(
+        recognizedText: _recognizedText,
+        onCancel: _toggleListening,
+        embedded: true,
+      ),
     );
   }
 
