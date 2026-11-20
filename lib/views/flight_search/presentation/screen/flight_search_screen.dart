@@ -5043,12 +5043,7 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
           imageUrl: AirlineLogo.getLogoUrl(code),
           fit: BoxFit.contain,
           placeholder: (_, __) => initialsTile(),
-          errorWidget: (_, __, ___) => CachedNetworkImage(
-            imageUrl: AirlineLogo.fallbackLogoUrl(code),
-            fit: BoxFit.contain,
-            placeholder: (_, __) => initialsTile(),
-            errorWidget: (_, __, ___) => initialsTile(),
-          ),
+          errorWidget: (_, __, ___) => initialsTile(),
         ),
       );
     }
@@ -5069,12 +5064,7 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
         imageUrl: AirlineLogo.getLogoUrl(code),
         fit: BoxFit.contain,
         placeholder: (_, __) => initialsTile(),
-        errorWidget: (_, __, ___) => CachedNetworkImage(
-          imageUrl: AirlineLogo.fallbackLogoUrl(code),
-          fit: BoxFit.contain,
-          placeholder: (_, __) => initialsTile(),
-          errorWidget: (_, __, ___) => initialsTile(),
-        ),
+        errorWidget: (_, __, ___) => initialsTile(),
       ),
     );
   }
