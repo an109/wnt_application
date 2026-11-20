@@ -31,7 +31,7 @@ class CurrencyChip extends StatelessWidget {
             );
           },
           child: Container(
-            height: context.fx(36),
+            height: context.fx(33),
             padding: EdgeInsets.symmetric(horizontal: context.fx(6)),
             decoration: BoxDecoration(
               color: Colors.white,
@@ -45,12 +45,12 @@ class CurrencyChip extends StatelessWidget {
                   borderRadius: BorderRadius.circular(context.fx(2)),
                   child: CachedNetworkImage(
                     imageUrl: flagUrl,
-                    width: context.fx(22),
-                    height: context.fx(16),
+                    width: context.fx(20),
+                    height: context.fx(14),
                     fit: BoxFit.cover,
                     placeholder: (_, __) => SizedBox(
-                      width: context.fx(22),
-                      height: context.fx(16),
+                      width: context.fx(20),
+                      height: context.fx(14),
                     ),
                     errorWidget: (_, __, ___) => Text(
                       CurrencyConverter.getFlag(currency),
@@ -63,7 +63,7 @@ class CurrencyChip extends StatelessWidget {
                   symbol,
                   style: TextStyle(
                     color: AppColors.AppBlue,
-                    fontSize: context.ffs(14),
+                    fontSize: context.ffs(12),
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -72,8 +72,8 @@ class CurrencyChip extends StatelessWidget {
                   quarterTurns: 1,
                   child: SvgPicture.asset(
                     'assets/home/chevron_down.svg',
-                    width: context.fx(6),
-                    height: context.fx(10),
+                    width: context.fx(4),
+                    height: context.fx(8),
                   ),
                 ),
               ],

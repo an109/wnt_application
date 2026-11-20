@@ -11,7 +11,6 @@ class Urls {
   static const String trishaBaseUrl = trishaProductionUrl;
   // Local copy for testing:
   // static const String trishaBaseUrl = 'http://127.0.0.1:8090';
-// 80DAFF (24)
   /// Thrisha AI on the production server (nginx → thrisha-ai service).
   static const String trishaProductionUrl = 'https://thewandernova.com/thrisha';
 

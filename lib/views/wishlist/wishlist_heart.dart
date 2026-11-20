@@ -26,11 +26,11 @@ class WishlistHeart extends StatelessWidget {
     final adding = !store.contains(item.id);
     store.toggle(item);
     ScaffoldMessenger.maybeOf(context)
-      ?..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(
-        content: Text(adding ? 'Added to wishlist' : 'Removed from wishlist'),
-        duration: const Duration(seconds: 1),
-      ));
+      ?..hideCurrentSnackBar();
+      // ..showSnackBar(SnackBar(
+      //   content: Text(adding ? 'Added to wishlist' : 'Removed from wishlist'),
+      //   duration: const Duration(seconds: 1),
+      // ));
   }
 
   @override
@@ -87,11 +87,11 @@ class WishlistHeartImage extends StatelessWidget {
           onTap: () {
             WishlistStore.instance.toggle(item);
             ScaffoldMessenger.maybeOf(context)
-              ?..hideCurrentSnackBar()
-              ..showSnackBar(SnackBar(
-                content: Text(saved ? 'Removed from wishlist' : 'Added to wishlist'),
-                duration: const Duration(seconds: 1),
-              ));
+              ?..hideCurrentSnackBar();
+              // ..showSnackBar(SnackBar(
+              //   content: Text(saved ? 'Removed from wishlist' : 'Added to wishlist'),
+              //   duration: const Duration(seconds: 1),
+              // ));
           },
           child: saved
               ? Icon(Icons.favorite, size: context.w(size), color: _heartRed)

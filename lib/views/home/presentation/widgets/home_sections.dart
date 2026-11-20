@@ -161,11 +161,11 @@ class HomeHeartBadge extends StatelessWidget {
           onTap: () {
             WishlistStore.instance.toggle(item);
             ScaffoldMessenger.maybeOf(context)
-              ?..hideCurrentSnackBar()
-              ..showSnackBar(SnackBar(
-                content: Text(saved ? 'Removed from wishlist' : 'Added to wishlist'),
-                duration: const Duration(seconds: 1),
-              ));
+              ?..hideCurrentSnackBar();
+              // ..showSnackBar(SnackBar(
+              //   content: Text(saved ? 'Removed from wishlist' : 'Added to wishlist'),
+              //   duration: const Duration(seconds: 1),
+              // ));
           },
           // Larger hit area than the 18px badge itself.
           child: Padding(

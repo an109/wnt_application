@@ -503,7 +503,7 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Column(
         children: [
           _buildTopBar(context),
-          SizedBox(height: context.fx(28)),
+          SizedBox(height: context.fx(12)),
           _buildSearchBar(context),
           SizedBox(height: context.fx(26)),
           // Offers from the backend, shown in the info-banner design.
@@ -530,8 +530,8 @@ class _HomeScreenState extends State<HomeScreen> {
           onTap: () => _scaffoldKey.currentState?.openDrawer(),
           child: SvgPicture.asset(
             'assets/home/menu.svg',
-            width: context.fx(24),
-            height: context.fx(24),
+            width: context.fx(22),
+            height: context.fx(22),
           ),
         ),
         const Spacer(),
@@ -546,8 +546,8 @@ class _HomeScreenState extends State<HomeScreen> {
           },
           child: SvgPicture.asset(
             'assets/home/notification.svg',
-            width: context.fx(24),
-            height: context.fx(24),
+            width: context.fx(22),
+            height: context.fx(22),
           ),
         ),
       ],

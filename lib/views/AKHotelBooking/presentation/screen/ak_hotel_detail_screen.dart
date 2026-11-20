@@ -443,11 +443,11 @@ class _AkHotelDetailScreenState extends State<AkHotelDetailScreen> {
                         onTap: () {
                           WishlistStore.instance.toggle(_wishlistItem);
                           ScaffoldMessenger.of(context)
-                            ..hideCurrentSnackBar()
-                            ..showSnackBar(SnackBar(
-                              content: Text(saved ? 'Removed from wishlist' : 'Added to wishlist'),
-                              duration: const Duration(seconds: 1),
-                            ));
+                            ..hideCurrentSnackBar();
+                            // ..showSnackBar(SnackBar(
+                            //   content: Text(saved ? 'Removed from wishlist' : 'Added to wishlist'),
+                            //   duration: const Duration(seconds: 1),
+                            // ));
                         },
                       );
                     },
