@@ -1,9 +1,10 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
-/// Airline logo fetched from the CloudFront CDN (same source as the web
-/// frontend), with pics.avs.io as fallback, and coloured initials tile as
-/// the last resort.
+/// Airline logo. The sharp 128px logo kept on our own site (the same files the
+/// website uses, thewandernova.com/airlines/<code>.png) is used when there is
+/// one; otherwise the 30px picture from the TBO CloudFront CDN, then
+/// pics.avs.io, and a coloured initials tile as the last resort.
 class AirlineLogo extends StatelessWidget {
   final String code;
   final String name;
@@ -20,6 +21,25 @@ class AirlineLogo extends StatelessWidget {
 
   static const _cloudFrontBase =
       'https://dhiz4uvf5rpaq.cloudfront.net/images/airline-logos';
+  static const _ownBase = 'https://thewandernova.com/airlines';
+
+  // Airlines whose sharp logo is on our site (public/airlines on the website).
+  static const _ownLogoCodes = {
+    '2T', '3K', '3U', '5J', '6E', '7C', '8M', '9I', '9W', 'A3',
+    'AA', 'AC', 'AF', 'AI', 'AK', 'AM', 'AS', 'AT', 'AV', 'AY',
+    'AZ', 'B6', 'BA', 'BG', 'BR', 'BS', 'BT', 'CA', 'CI', 'CM',
+    'CX', 'CZ', 'D7', 'DL', 'DN', 'DY', 'EI', 'EK', 'ET', 'EW',
+    'EY', 'F9', 'FD', 'FI', 'FJ', 'FR', 'FZ', 'G8', 'G9', 'GA',
+    'GF', 'HU', 'HV', 'HX', 'I5', 'IB', 'ID', 'IT', 'IX', 'J9',
+    'JL', 'JP', 'JQ', 'JT', 'JU', 'KA', 'KB', 'KE', 'KL', 'KM',
+    'KQ', 'KU', 'LA', 'LH', 'LJ', 'LO', 'LX', 'LY', 'ME', 'MF',
+    'MH', 'MS', 'MU', 'NH', 'NK', 'NX', 'NZ', 'OD', 'OG', 'OK',
+    'OS', 'OZ', 'PC', 'PG', 'PR', 'QF', 'QG', 'QH', 'QP', 'QR',
+    'RJ', 'RO', 'S5', 'SA', 'SC', 'SG', 'SK', 'SN', 'SQ', 'SU',
+    'SV', 'TG', 'TK', 'TO', 'TP', 'TR', 'TU', 'TW', 'U2', 'UA',
+    'UB', 'UK', 'UL', 'VA', 'VJ', 'VN', 'VS', 'VY', 'W6', 'WB',
+    'WN', 'WY', 'XY', 'ZH',
+  };
 
   // Fare-channel variants that map to a base IATA code, matching the web
   // frontend's airlineLogos overrides.
@@ -37,11 +57,15 @@ class AirlineLogo extends StatelessWidget {
   static String getLogoUrl(String airlineCode) {
     final code = _resolveCode(airlineCode);
     if (code.isEmpty) return '';
+    if (_ownLogoCodes.contains(code)) return '$_ownBase/$code.png';
     return '$_cloudFrontBase/$code.jpg?V2';
   }
 
-  static String _fallbackUrl(String airlineCode) {
+  static String fallbackLogoUrl(String airlineCode) {
     final code = _resolveCode(airlineCode);
+    // Our own logo failed to load: the smaller CloudFront one is next. For an
+    // airline we hold no logo for, CloudFront was already tried, so pics.avs.io.
+    if (_ownLogoCodes.contains(code)) return '$_cloudFrontBase/$code.jpg?V2';
     return 'https://pics.avs.io/120/120/$code.png';
   }
 
@@ -102,7 +126,7 @@ class AirlineLogo extends StatelessWidget {
                 fit: BoxFit.contain,
                 placeholder: (_, __) => initialsTile(),
                 errorWidget: (_, __, ___) => CachedNetworkImage(
-                  imageUrl: _fallbackUrl(logoCode),
+                  imageUrl: fallbackLogoUrl(logoCode),
                   fit: BoxFit.contain,
                   placeholder: (_, __) => initialsTile(),
                   errorWidget: (_, __, ___) => initialsTile(),

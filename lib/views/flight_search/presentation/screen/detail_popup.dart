@@ -4581,7 +4581,12 @@ class _FlightDetailsPopupState extends State<FlightDetailsPopup>
                 imageUrl: AirlineLogo.getLogoUrl(logoCode),
                 fit: BoxFit.contain,
                 placeholder: (_, __) => initialsTile(),
-                errorWidget: (_, __, ___) => initialsTile(),
+                errorWidget: (_, __, ___) => CachedNetworkImage(
+                  imageUrl: AirlineLogo.fallbackLogoUrl(logoCode),
+                  fit: BoxFit.contain,
+                  placeholder: (_, __) => initialsTile(),
+                  errorWidget: (_, __, ___) => initialsTile(),
+                ),
               ),
             ),
     );
