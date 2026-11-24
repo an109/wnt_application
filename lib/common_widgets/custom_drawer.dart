@@ -777,6 +777,7 @@ class _CustomDrawerState extends State<CustomDrawer>
               ? '$_currentCurrency (Auto)'
               : _currentCurrency,
           onTap: () => _showCurrencyPicker(context),
+          showDivider: false,
         ),
         // _buildMenuItem(
         //   context,

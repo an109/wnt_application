@@ -3,12 +3,14 @@ class AppleAuthRequestModel {
   final String? firstName;
   final String? lastName;
   final String? email;
+  final String? phone;
 
   AppleAuthRequestModel({
     required this.token,
     this.firstName,
     this.lastName,
     this.email,
+    this.phone,
   });
 
   Map<String, dynamic> toJson() {
@@ -33,6 +35,10 @@ class AppleAuthRequestModel {
         user['email'] = email;
       }
       data['user'] = user;
+    }
+
+    if (phone != null && phone!.isNotEmpty) {
+      data['phone'] = phone;
     }
 
     return data;

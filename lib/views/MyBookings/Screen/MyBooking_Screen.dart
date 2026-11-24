@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
@@ -50,7 +51,7 @@ import '../../home/presentation/widgets/home_sections.dart' show HomeCroppedImag
 // visas — filtered by service, searchable, and (outside Visa) sorted into
 // Upcoming / Past / Cancelled by travel date and cancellation state. Visa has
 // its own filters (All / In Progress / Approved / Rejected) because a visa is
-// tracked by its application status, not by a travel date.
+// tracked by its application status, not by a travel date.e4444444444444$44444
 
 const Color _kInk = Color(0xFF111527);
 const Color _kMuted = Color(0xFF6B7280);
@@ -61,7 +62,7 @@ enum _Service { all, flight, hotel, transfer, visa, insurance, holiday }
 
 enum _VisaTab { all, inProgress, approved, rejected }
 
-/// Where a visa application is, for the Visa filters.
+/// Where a visa application is, for the Visa  filters.
 enum _VisaGroup { inProgress, approved, rejected, other }
 
 class _Trip {
@@ -508,11 +509,7 @@ class _MyBookingScreenState extends State<MyBookingScreen> {
         body: 'Insurance policies you purchase will show up here.',
       );
     } else if (trips.isEmpty && _service == _Service.all) {
-      content = const _Message(
-        icon: Icons.luggage_outlined,
-        title: 'No bookings yet',
-        body: 'Bookings you make will show up here.',
-      );
+      content = const _HolidayByThemeEmpty();
     } else if (trips.isEmpty) {
       final tab = _tabs[_service] ?? _Tab.upcoming;
       content = switch (tab) {
@@ -758,6 +755,182 @@ class _SegmentBar<T> extends StatelessWidget {
                 ),
               ),
             ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HolidayTheme {
+  final String title;
+  final String image;
+  final Color overlay;
+  const _HolidayTheme(this.title, this.image, this.overlay);
+}
+
+const _holidayThemes = [
+  _HolidayTheme('Beach Getaway', 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=400', Color(0xFF0EA5E9)),
+  _HolidayTheme('Mountain Escape', 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=400', Color(0xFF059669)),
+  _HolidayTheme('City Break', 'https://images.unsplash.com/photo-1480714378408-67cf0d13bc1b?w=400', Color(0xFF7C3AED)),
+  _HolidayTheme('Heritage Tour', 'https://images.unsplash.com/photo-1524492412937-b28074a5d7da?w=400', Color(0xFFD97706)),
+  _HolidayTheme('Adventure Trip', 'https://images.unsplash.com/photo-1551632811-561732d1e306?w=400', Color(0xFFDC2626)),
+  _HolidayTheme('Romantic Escape', 'https://images.unsplash.com/photo-1540541338287-41700207dee6?w=400', Color(0xFFEC4899)),
+];
+
+class _HolidayByThemeEmpty extends StatelessWidget {
+  const _HolidayByThemeEmpty();
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: EdgeInsets.symmetric(horizontal: context.fx(16), vertical: context.fx(20)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: double.infinity,
+            padding: EdgeInsets.all(context.fx(20)),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF1E3A5F), Color(0xFF0F172A)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(context.fx(16)),
+            ),
+            child: Column(
+              children: [
+                Icon(Icons.luggage_outlined, size: context.fx(40), color: Colors.white.withOpacity(0.8)),
+                SizedBox(height: context.fx(12)),
+                Text(
+                  'Your adventures start here!',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: context.ffs(18),
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
+                ),
+                SizedBox(height: context.fx(6)),
+                Text(
+                  'No bookings yet — explore holidays by theme and book your dream trip today.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: context.ffs(13),
+                    height: 1.5,
+                    color: Colors.white.withOpacity(0.7),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(height: context.fx(24)),
+          Center(
+            child: Text(
+              'Pick Yours One ',
+              style: TextStyle(
+                fontSize: context.ffs(17),
+                fontWeight: FontWeight.w700,
+                color: _kInk,
+              ),
+            ),
+          ),
+          SizedBox(height: context.fx(6)),
+          Center(
+            child: Text(
+              'Pick a vibe, we\'ll plan the rest',
+              style: TextStyle(fontSize: context.ffs(13), color: _kMuted),
+            ),
+          ),
+          SizedBox(height: context.fx(14)),
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              mainAxisSpacing: context.fx(12),
+              crossAxisSpacing: context.fx(12),
+              childAspectRatio: 1.4,
+            ),
+            itemCount: _holidayThemes.length,
+            itemBuilder: (context, i) {
+              final theme = _holidayThemes[i];
+              return ClipRRect(
+                borderRadius: BorderRadius.circular(context.fx(12)),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    CachedNetworkImage(
+                      imageUrl: theme.image,
+                      fit: BoxFit.cover,
+                      placeholder: (_, __) => Container(color: theme.overlay.withOpacity(0.2)),
+                      errorWidget: (_, __, ___) => Container(
+                        color: theme.overlay.withOpacity(0.3),
+                        child: Icon(Icons.landscape, color: Colors.white54, size: context.fx(32)),
+                      ),
+                    ),
+                    DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.bottomCenter,
+                          end: Alignment.topCenter,
+                          colors: [theme.overlay.withOpacity(0.85), theme.overlay.withOpacity(0.1)],
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      left: context.fx(10),
+                      bottom: context.fx(10),
+                      right: context.fx(10),
+                      child: Text(
+                        theme.title,
+                        style: TextStyle(
+                          fontSize: context.ffs(13),
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+          SizedBox(height: context.fx(24)),
+          // Container(
+          //   width: double.infinity,
+          //   padding: EdgeInsets.all(context.fx(16)),
+          //   decoration: BoxDecoration(
+          //     color: const Color(0xFFFFF7ED),
+          //     borderRadius: BorderRadius.circular(context.fx(12)),
+          //     border: Border.all(color: const Color(0xFFFFDDB3)),
+          //   ),
+          //   child: Column(
+          //     children: [
+          //       Text(
+          //         '✈  Exclusive deals await you!',
+          //         style: TextStyle(
+          //           fontSize: context.ffs(15),
+          //           fontWeight: FontWeight.w700,
+          //           color: const Color(0xFFC2410C),
+          //         ),
+          //       ),
+          //       SizedBox(height: context.fx(6)),
+          //       Text(
+          //         'Book your first flight or hotel and get up to 20% off. '
+          //         'Your perfect holiday is just a tap away!',
+          //         textAlign: TextAlign.center,
+          //         style: TextStyle(
+          //           fontSize: context.ffs(12),
+          //           height: 1.5,
+          //           color: const Color(0xFF9A3412),
+          //         ),
+          //       ),
+          //     ],
+          //   ),
+          // ),
+          // SizedBox(height: context.fx(16)),
         ],
       ),
     );

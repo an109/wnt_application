@@ -278,6 +278,12 @@ class PreferencesManager {
     await _prefs?.setString('user_email', email);
   }
 
+  String? getUserPhone() => _prefs?.getString('user_phone');
+
+  Future<void> saveUserPhone(String phone) async {
+    await _prefs?.setString('user_phone', phone);
+  }
+
   Future<void> saveUserName(String name) async {
     await _prefs?.setString('user_name', name);
   }
@@ -291,6 +297,7 @@ class PreferencesManager {
     await _prefs.remove('refresh_token');
     await _prefs.remove('user_id');
     await _prefs.remove('user_email');
+    await _prefs.remove('user_phone');
     await _prefs.remove('user_name');
     await _prefs.remove(_isSocialLoginKey);
     await _prefs.remove(_userPasswordKey);

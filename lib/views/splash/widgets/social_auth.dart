@@ -9,6 +9,8 @@ import '../../../core/utils/storage/shared_preference.dart';
 import '../../auth/presentation/bloc/auth_bloc.dart';
 import '../../auth/presentation/bloc/auth_event.dart';
 import '../../auth/presentation/bloc/auth_state.dart';
+import '../../Send_otp/presentation/bloc/send_otp_bloc.dart';
+import '../../auth/presentation/screen/apple_verify_contact_screen.dart';
 import '../../auth/presentation/sdk/apple_sign_in_service.dart';
 import '../../auth/presentation/sdk/google_sign_in_service.dart';
 import '../../login/presentation/screen/loginsuccess.dart';
@@ -94,14 +96,17 @@ class _SocialAuthSectionState extends State<SocialAuthSection> {
       }
 
       if (mounted) {
-        context.read<AuthBloc>().add(
-              AppleLoginRequested(
-                token: result.identityToken,
-                firstName: result.firstName,
-                lastName: result.lastName,
-                email: result.email,
-              ),
-            );
+        Navigator.of(context).push<bool>(
+          MaterialPageRoute(
+            builder: (_) => MultiBlocProvider(
+              providers: [
+                BlocProvider.value(value: context.read<AuthBloc>()),
+                BlocProvider<SendOtpBloc>(create: (_) => di.sl<SendOtpBloc>()),
+              ],
+              child: AppleVerifyContactScreen(appleResult: result),
+            ),
+          ),
+        );
       }
     } catch (e) {
       debugPrint('SocialAuth: Apple Sign-In error: $e');

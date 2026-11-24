@@ -12,6 +12,7 @@ class AppleLoginUseCase {
     String? firstName,
     String? lastName,
     String? email,
+    String? phone,
   }) async {
     print('🔄 UseCase: Executing apple login');
     return await repository.appleLogin(
@@ -19,6 +20,7 @@ class AppleLoginUseCase {
       firstName: firstName,
       lastName: lastName,
       email: email,
+      phone: phone,
     );
   }
 }

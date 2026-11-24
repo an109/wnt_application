@@ -1050,10 +1050,9 @@ class _HomeTravelStoriesState extends State<HomeTravelStories> {
               if (state.stories.isEmpty) {
                 return const _RailMessage(message: 'No travel stories available');
               }
-              return _CardRail(
-                height: context.fx(244),
-                itemCount: state.stories.length,
-                itemBuilder: (context, i) => StoryCard(story: state.stories[i]),
+              return Padding(
+                padding: EdgeInsets.symmetric(horizontal: homeGutter(context)),
+                child: _StoryPairGrid(stories: state.stories),
               );
             }
             return const SizedBox.shrink();
@@ -1213,6 +1212,255 @@ class StoryCard extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Two cards per row with unequal heights — the first row has the left card
+/// taller, the next row has the right card taller, and so on.
+class _StoryPairGrid extends StatelessWidget {
+  final List<TravelStoryEntity> stories;
+
+  const _StoryPairGrid({required this.stories});
+
+  static const _heights = [220.0, 260.0, 220.0, 240.0, 260.0, 250.0, 180.0, 210.0];
+
+  @override
+  Widget build(BuildContext context) {
+    final gap = context.fx(12);
+
+    final leftCards = <Widget>[];
+    final rightCards = <Widget>[];
+
+    for (int i = 0; i < stories.length; i += 2) {
+      final leftH = context.fx(_heights[i % _heights.length]);
+      final rightH = context.fx(_heights[(i + 1) % _heights.length]);
+
+      if (leftCards.isNotEmpty) leftCards.add(SizedBox(height: gap));
+      leftCards.add(_PairStoryCard(
+        story: stories[i],
+        height: leftH,
+      ));
+
+      if (i + 1 < stories.length) {
+        if (rightCards.isNotEmpty) rightCards.add(SizedBox(height: gap));
+        rightCards.add(_PairStoryCard(
+          story: stories[i + 1],
+          height: rightH,
+        ));
+      }
+    }
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(child: Column(children: leftCards)),
+        SizedBox(width: gap),
+        Expanded(child: Column(children: rightCards)),
+      ],
+    );
+  }
+}
+
+class _PairStoryCard extends StatelessWidget {
+  final TravelStoryEntity story;
+  final double height;
+
+  const _PairStoryCard({required this.story, required this.height});
+
+  @override
+  Widget build(BuildContext context) {
+    final words = story.title.trim().split(RegExp(r'\s+'));
+    final lead = words.length > 1 ? '${words.sublist(0, words.length - 1).join(' ')} ' : '';
+    final accent = words.isEmpty ? '' : words.last;
+
+    return GestureDetector(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => TravelStoryDetailScreen(slug: story.slug),
+        ),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(context.fx(12)),
+        child: SizedBox(
+          width: double.infinity,
+          height: height,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              _CardImage(
+                url: story.featuredImageUrl ?? story.headerImageUrl,
+                fallbackIcon: Icons.image,
+              ),
+              // const DecoratedBox(
+              //   decoration: BoxDecoration(
+              //     gradient: LinearGradient(
+              //       begin: Alignment.bottomCenter,
+              //       end: Alignment.topCenter,
+              //       colors: [Color(0xE6000000), Color(0x66000000), Color(0x1A000000)],
+              //       stops: [0.0, 0.2, 1.0],
+              //     ),
+              //   ),
+              // ),
+              // Padding(
+              //   padding: EdgeInsets.all(context.fx(10)),
+              //   child: Column(
+              //     mainAxisAlignment: MainAxisAlignment.end,
+              //     crossAxisAlignment: CrossAxisAlignment.start,
+              //     children: [
+              //       Text.rich(
+              //         TextSpan(children: [
+              //           TextSpan(text: lead),
+              //           TextSpan(
+              //             text: accent,
+              //             style: const TextStyle(color: AppColors.OrangeColor),
+              //           ),
+              //         ]),
+              //         maxLines: 2,
+              //         overflow: TextOverflow.ellipsis,
+              //         style: TextStyle(
+              //           fontSize: context.ffs(11),
+              //           fontWeight: FontWeight.w700,
+              //           color: Colors.white,
+              //         ),
+              //       ),
+              //       if (story.excerpt != null && story.excerpt!.isNotEmpty) ...[
+              //         SizedBox(height: context.fx(3)),
+              //         Text(
+              //           story.excerpt!,
+              //           maxLines: 2,
+              //           overflow: TextOverflow.ellipsis,
+              //           style: TextStyle(
+              //             fontSize: context.ffs(8),
+              //             color: Colors.white70,
+              //           ),
+              //         ),
+              //       ],
+              //     ],
+              //   ),
+              // ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ZigzagStoryCard extends StatelessWidget {
+  final TravelStoryEntity story;
+  final bool alignRight;
+
+  const _ZigzagStoryCard({required this.story, this.alignRight = false});
+
+  @override
+  Widget build(BuildContext context) {
+    final words = story.title.trim().split(RegExp(r'\s+'));
+    final lead = words.length > 1 ? '${words.sublist(0, words.length - 1).join(' ')} ' : '';
+    final accent = words.isEmpty ? '' : words.last;
+    final category = story.category?.trim() ?? '';
+
+    final card = GestureDetector(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => TravelStoryDetailScreen(slug: story.slug),
+        ),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(context.fx(12)),
+        child: SizedBox(
+          width: double.infinity,
+          height: context.fx(320),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              _CardImage(
+                url: story.featuredImageUrl ?? story.headerImageUrl,
+                fallbackIcon: Icons.image,
+              ),
+              // const DecoratedBox(
+              //   decoration: BoxDecoration(
+              //     gradient: LinearGradient(
+              //       begin: Alignment.bottomCenter,
+              //       end: Alignment.topCenter,
+              //       colors: [Color(0xE6000000), Color(0x66000000), Color(0x1A000000)],
+              //       stops: [0.0, 0.4, 1.0],
+              //     ),
+              //   ),
+              // ),
+              Padding(
+                padding: EdgeInsets.all(context.fx(12)),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (category.isNotEmpty)
+                      Container(
+                        margin: EdgeInsets.only(bottom: context.fx(6)),
+                        padding: EdgeInsets.symmetric(
+                          horizontal: context.fx(8),
+                          vertical: context.fx(3),
+                        ),
+                        decoration: BoxDecoration(
+                          // color: Colors.white.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(context.fx(10)),
+                        ),
+                        child: Text(
+                          category.toUpperCase(),
+                          style: TextStyle(
+                            fontSize: context.ffs(7),
+                            letterSpacing: 1.5,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white.withOpacity(0.8),
+                          ),
+                        ),
+                      ),
+                    Text.rich(
+                      TextSpan(children: [
+                        TextSpan(text: lead),
+                        TextSpan(
+                          text: accent,
+                          style: const TextStyle(color: AppColors.OrangeColor),
+                        ),
+                      ]),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: context.ffs(14),
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
+                    ),
+                    if (story.excerpt != null && story.excerpt!.isNotEmpty) ...[
+                      SizedBox(height: context.fx(4)),
+                      Text(
+                        story.excerpt!,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: context.ffs(10),
+                          color: Colors.white.withOpacity(0.75),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    final inset = context.fx(60);
+    return Padding(
+      padding: EdgeInsets.only(
+        left: alignRight ? inset : 0,
+        right: alignRight ? 0 : inset,
+      ),
+      child: card,
     );
   }
 }

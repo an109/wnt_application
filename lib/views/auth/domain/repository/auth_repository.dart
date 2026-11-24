@@ -10,5 +10,6 @@ abstract class AuthRepository {
     String? firstName,
     String? lastName,
     String? email,
+    String? phone,
   });
 }

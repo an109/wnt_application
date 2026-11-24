@@ -1,7 +1,11 @@
+import 'dart:io';
+
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:wander_nova/UI_helper/currency_converter.dart';
 import 'package:wander_nova/UI_helper/responsive_layout.dart';
 import 'package:wander_nova/common_widgets/app_loader.dart';
@@ -25,7 +29,7 @@ class NotificationsScreen extends StatefulWidget {
   State<NotificationsScreen> createState() => _NotificationsScreenState();
 }
 
-class _NotificationsScreenState extends State<NotificationsScreen> {
+class _NotificationsScreenState extends State<NotificationsScreen> with WidgetsBindingObserver {
   late final NotificationService _service = widget.service ?? NotificationService();
 
   List<AppNotification>? _items;
@@ -36,10 +40,25 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _load();
-    _service.alertsEnabled().then((on) {
-      if (mounted) setState(() => _alertsOn = on);
-    }).catchError((_) {});
+    _checkNotificationPermission();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _checkNotificationPermission();
+    }
+  }
+
+  Future<void> _checkNotificationPermission() async {
+    try {
+      final settings = await FirebaseMessaging.instance.getNotificationSettings();
+      if (mounted) {
+        setState(() => _alertsOn = settings.authorizationStatus == AuthorizationStatus.authorized);
+      }
+    } catch (_) {}
   }
 
   Future<void> _load() async {
@@ -59,26 +78,53 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   }
 
   Future<void> _toggleAlerts(bool on) async {
+    if (on) {
+      await _openNotificationSettings();
+      return;
+    }
     final previous = _alertsOn;
     setState(() {
-      _alertsOn = on;
+      _alertsOn = false;
       _savingToggle = true;
     });
     try {
-      await _service.setAlertsEnabled(on);
+      await _service.setAlertsEnabled(false);
       if (!mounted) return;
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(on ? 'Notifications turned on' : 'Notifications turned off')));
+        ..showSnackBar(const SnackBar(content: Text('Notifications turned off')));
     } catch (_) {
       if (!mounted) return;
       setState(() => _alertsOn = previous);
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
-        ..showSnackBar(const SnackBar(content: Text('Couldn’t update notification settings')));
+        ..showSnackBar(const SnackBar(content: Text('Couldn\'t update notification settings')));
     } finally {
       if (mounted) setState(() => _savingToggle = false);
     }
+  }
+
+  Future<void> _openNotificationSettings() async {
+    if (Platform.isIOS) {
+      await launchUrl(Uri.parse('app-settings:'));
+    } else {
+      const channel = MethodChannel('com.wandernova.app/settings');
+      try {
+        await channel.invokeMethod('openNotificationSettings');
+      } catch (_) {
+        // Fallback: request permission directly via FCM
+        await FirebaseMessaging.instance.requestPermission(
+          alert: true, badge: true, sound: true,
+        );
+        _checkNotificationPermission();
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
   }
 
   @override
@@ -127,10 +173,13 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   }
 
   Widget _body() {
+    if (!_alertsOn) {
+      return _NotificationsOffScreen(onEnable: () => _toggleAlerts(true));
+    }
     if (_failed && _items == null) {
       return _Message(
         icon: Icons.wifi_off_rounded,
-        title: 'Couldn’t load notifications',
+        title: 'Couldn\'t load notifications',
         body: 'Check your connection and try again.',
         action: AccountPrimaryButton(
           label: 'Try again',
@@ -379,6 +428,77 @@ class _NotificationCard extends StatelessWidget {
   }
 }
 
+class _NotificationsOffScreen extends StatelessWidget {
+  final VoidCallback onEnable;
+  const _NotificationsOffScreen({required this.onEnable});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: context.fx(32)),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: context.fx(90),
+              height: context.fx(90),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF1F5F9),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.notifications_off_outlined,
+                size: context.fx(42),
+                color: const Color(0xFF94A3B8),
+              ),
+            ),
+            SizedBox(height: context.fx(20)),
+            Text(
+              'Notifications are off',
+              style: TextStyle(
+                fontSize: context.ffs(18),
+                fontWeight: FontWeight.w700,
+                color: const Color(0xFF0F172A),
+              ),
+            ),
+            SizedBox(height: context.fx(8)),
+            Text(
+              'Turn on notifications so you never miss a deal, booking update or travel alert.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: context.ffs(14),
+                height: 1.5,
+                color: const Color(0xFF64748B),
+              ),
+            ),
+            SizedBox(height: context.fx(24)),
+            FilledButton.icon(
+              onPressed: onEnable,
+              icon: const Icon(Icons.settings_outlined, size: 18),
+              label: const Text('Enable in Settings'),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.AppBlue,
+                padding: EdgeInsets.symmetric(
+                  horizontal: context.fx(28),
+                  vertical: context.fx(14),
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(context.fx(24)),
+                ),
+                textStyle: TextStyle(
+                  fontSize: context.ffs(14),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 /// "No new notifications" — globe, bell and clouds in a soft blue glow.
 class _EmptyState extends StatelessWidget {
   const _EmptyState();
@@ -451,7 +571,7 @@ class _EmptyState extends StatelessWidget {
         Padding(
           padding: EdgeInsets.symmetric(horizontal: context.fx(56)),
           child: Text(
-            'You’re all caught up! Check back later for travel updates, offers and booking alerts.',
+            'You\'re all caught up! Check back later for travel updates, offers and booking alerts.',
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: context.ffs(12), color: kAccountMuted, height: 1.4),
           ),

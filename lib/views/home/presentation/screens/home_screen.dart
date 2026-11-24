@@ -133,8 +133,6 @@ class _HomeScreenState extends State<HomeScreen> {
   // out of view, scrolling up (or being back near the top) brings it back.
   // ---------------------------------------------------------------------
   final ScrollController _scrollController = ScrollController();
-  bool _bottomNavVisible = true;
-  double _lastScrollOffset = 0;
   bool _showSlidingSearch = false;
   bool _startVoiceSearch = false;
 
@@ -163,21 +161,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _onScroll() {
     final offset = _scrollController.offset;
-    final delta = offset - _lastScrollOffset;
-    _lastScrollOffset = offset;
-
     _updateFloatingSearchBar(offset);
-
-    // Always reveal the nav bar once the user is back near the top.
-    if (offset <= 8 && !_bottomNavVisible) {
-      setState(() => _bottomNavVisible = true);
-      return;
-    }
-    if (delta > 6 && _bottomNavVisible) {
-      setState(() => _bottomNavVisible = false);
-    } else if (delta < -6 && !_bottomNavVisible) {
-      setState(() => _bottomNavVisible = true);
-    }
   }
 
   // Hysteresis so the floating search bar doesn't flicker in/out right at
@@ -260,53 +244,49 @@ class _HomeScreenState extends State<HomeScreen> {
           // is signed in now instead of stale data from before.
           if (!isOpened) _loadRecentSearches();
         },
-        bottomNavigationBar: AnimatedSlide(
-          duration: const Duration(milliseconds: 260),
-          curve: Curves.easeInOut,
-          offset: _bottomNavVisible ? Offset.zero : const Offset(0, 1.3),
-          child: SafeArea(
-            top: false,
-            child: Padding(
-              padding: EdgeInsets.only(bottom: context.h(12)),
-              child: CustomBottomNav(
-                currentIndex: selectedNavIndex,
-                onItemSelected: (index) {
-                  setState(() {
-                    selectedNavIndex = index;
-                  });
+        bottomNavigationBar: SafeArea(
+          top: false,
+          child: Padding(
+            padding: EdgeInsets.only(bottom: context.h(12)),
+            child: CustomBottomNav(
+              currentIndex: selectedNavIndex,
+              scrollController: _scrollController,
+              onItemSelected: (index) {
+                setState(() {
+                  selectedNavIndex = index;
+                });
 
-                  // Navigation logic
-                  if (index == 0) {
-                    // Home
-                  } else if (index == 1) {
-                    // Trip — the home tab stays selected underneath.
-                    setState(() => selectedNavIndex = 0);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const MyBookingScreen()),
-                    );
-                  } else if (index == 2) {
-                    // Offer — the home tab stays selected underneath.
-                    setState(() => selectedNavIndex = 0);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const OffersScreen()),
-                    );
-                  } else if (index == 3) {
-                    setState(() => selectedNavIndex = 0);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const WishlistScreen()),
-                    );
-                  }
-                },
-                onCenterTap: () {
+                // Navigation logic
+                if (index == 0) {
+                  // Home
+                } else if (index == 1) {
+                  // Trip — the home tab stays selected underneath.
+                  setState(() => selectedNavIndex = 0);
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (_) => const TrishaChatScreen()),
+                    MaterialPageRoute(builder: (_) => const MyBookingScreen()),
                   );
-                },
-              ),
+                } else if (index == 2) {
+                  // Offer — the home tab stays selected underneath.
+                  setState(() => selectedNavIndex = 0);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const OffersScreen()),
+                  );
+                } else if (index == 3) {
+                  setState(() => selectedNavIndex = 0);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const WishlistScreen()),
+                  );
+                }
+              },
+              onCenterTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const TrishaChatScreen()),
+                );
+              },
             ),
           ),
         ),

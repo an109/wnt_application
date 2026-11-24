@@ -21,16 +21,18 @@ class AppleLoginRequested extends AuthEvent {
   final String? firstName;
   final String? lastName;
   final String? email;
+  final String? phone;
 
   const AppleLoginRequested({
     required this.token,
     this.firstName,
     this.lastName,
     this.email,
+    this.phone,
   });
 
   @override
-  List<Object?> get props => [token, firstName, lastName, email];
+  List<Object?> get props => [token, firstName, lastName, email, phone];
 }
 
 class AuthCheckStatusRequested extends AuthEvent {

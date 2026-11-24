@@ -7,16 +7,21 @@ import 'package:wander_nova/views/TrishaAI/presentation/widgets/trisha_style.dar
 
 /// Home bottom bar from the "MAIN HOME" Figma frame: Home, Trip, the AI
 /// button, Offer and Wishlist (indices 0–3, AI excluded).
-class CustomBottomNav extends StatelessWidget {
+///
+/// Pass an optional [scrollController] to enable hide-on-scroll: the bar
+/// slides down when the user scrolls down and reappears on scroll up.
+class CustomBottomNav extends StatefulWidget {
   final int currentIndex;
   final Function(int) onItemSelected;
   final VoidCallback? onCenterTap;
+  final ScrollController? scrollController;
 
   const CustomBottomNav({
     super.key,
     required this.currentIndex,
     required this.onItemSelected,
     this.onCenterTap,
+    this.scrollController,
   });
 
   static const _items = [
@@ -27,22 +32,68 @@ class CustomBottomNav extends StatelessWidget {
   ];
 
   @override
+  State<CustomBottomNav> createState() => _CustomBottomNavState();
+}
+
+class _CustomBottomNavState extends State<CustomBottomNav> {
+  bool _visible = true;
+  double _lastOffset = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.scrollController?.addListener(_onScroll);
+  }
+
+  @override
+  void didUpdateWidget(covariant CustomBottomNav oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.scrollController != widget.scrollController) {
+      oldWidget.scrollController?.removeListener(_onScroll);
+      widget.scrollController?.addListener(_onScroll);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.scrollController?.removeListener(_onScroll);
+    super.dispose();
+  }
+
+  void _onScroll() {
+    final controller = widget.scrollController;
+    if (controller == null || !controller.hasClients) return;
+    final offset = controller.offset;
+    final delta = offset - _lastOffset;
+    _lastOffset = offset;
+
+    if (offset <= 8 && !_visible) {
+      setState(() => _visible = true);
+      return;
+    }
+    if (delta > 6 && _visible) {
+      setState(() => _visible = false);
+    } else if (delta < -6 && !_visible) {
+      setState(() => _visible = true);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final barHeight = context.fx(64);
     final aiSize = context.fx(52);
-    // The AI button is centred on the bar's top edge.
     final overhang = aiSize / 2;
 
     Widget item(int i) => Expanded(
       child: _NavItem(
-        icon: _items[i].$1,
-        label: _items[i].$2,
-        selected: currentIndex == i,
-        onTap: () => onItemSelected(i),
+        icon: CustomBottomNav._items[i].$1,
+        label: CustomBottomNav._items[i].$2,
+        selected: widget.currentIndex == i,
+        onTap: () => widget.onItemSelected(i),
       ),
     );
 
-    return SizedBox(
+    final bar = SizedBox(
       width: double.infinity,
       height: barHeight + overhang,
       child: Stack(
@@ -59,7 +110,6 @@ class CustomBottomNav extends StatelessWidget {
             child: DecoratedBox(
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(context.fx(44)),
-                // Soft lift rather than a dark smudge under the bar.
                 boxShadow: const [
                   BoxShadow(
                     color: Color(0x1F000000),
@@ -72,8 +122,6 @@ class CustomBottomNav extends StatelessWidget {
                 borderRadius: BorderRadius.circular(context.fx(44)),
                 child: BackdropFilter(
                   filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-                  // Frosted glass: mostly-white so the grey/blue icons stay
-                  // readable over dark photos, still blurring what's behind.
                   child: Container(
                     height: barHeight,
                     decoration: BoxDecoration(
@@ -87,7 +135,7 @@ class CustomBottomNav extends StatelessWidget {
                       children: [
                         item(0),
                         item(1),
-                        SizedBox(width: context.fx(64)), // AI button slot
+                        SizedBox(width: context.fx(64)),
                         item(2),
                         item(3),
                       ],
@@ -99,12 +147,12 @@ class CustomBottomNav extends StatelessWidget {
           ),
 
           // ============================================================
-          // CENTER AI BUTTON — the Trisha orb with its soft blue halo
+          // CENTER AI BUTTON
           // ============================================================
           Positioned(
             top: 0,
             child: GestureDetector(
-              onTap: onCenterTap,
+              onTap: widget.onCenterTap,
               child: Container(
                 width: aiSize,
                 height: aiSize,
@@ -141,6 +189,16 @@ class CustomBottomNav extends StatelessWidget {
         ],
       ),
     );
+
+    if (widget.scrollController != null) {
+      return AnimatedSlide(
+        duration: const Duration(milliseconds: 260),
+        curve: Curves.easeInOut,
+        offset: _visible ? Offset.zero : const Offset(0, 2.0),
+        child: bar,
+      );
+    }
+    return bar;
   }
 }
 

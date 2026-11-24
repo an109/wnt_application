@@ -74,6 +74,7 @@ class AuthRepositoryImpl implements AuthRepository {
     String? firstName,
     String? lastName,
     String? email,
+    String? phone,
   }) async {
     try {
       print('Repository: Starting apple login');
@@ -83,6 +84,7 @@ class AuthRepositoryImpl implements AuthRepository {
         firstName: firstName,
         lastName: lastName,
         email: email,
+        phone: phone,
       );
       final response = await authApiService.appleLogin(requestModel);
 
